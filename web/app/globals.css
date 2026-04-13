@@ -1,0 +1,83 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Base palette */
+  --bg:           #eeebe4;
+  --bg-card:      #f7f5f1;
+  --bg-white:     #faf9f6;
+  --cream:        #f7f4ef;
+  --cream2:       #ede9e1;
+  --cream3:       #e2ddd4;
+  --chalk:        #f0ede6;
+  --ink:          #1a1a16;
+  --ink2:         #3c3830;
+  --ink3:         #7d7a72;
+  --ink4:         #b0aca3;
+
+  /* Merchant green */
+  --m-green:       #2a3b2a;
+  --m-green-mid:   #3d5c3a;
+  --m-green-light: #e8ede6;
+  --m-border:      rgba(42,59,42,0.10);
+  --m-border-2:    rgba(42,59,42,0.18);
+  --m-radius:      14px;
+  --m-radius-sm:   8px;
+
+  /* Buyer brand */
+  --brand:         #b85c2a;
+  --brand2:        #d4784a;
+  --brand-bg:      rgba(184,92,42,0.07);
+
+  /* Status */
+  --green:         #1c6b43;
+  --green-bg:      #e8f5ee;
+  --red:           #c0392b;
+  --red-bg:        #fdf0ee;
+  --amber:         #a0620a;
+  --amber-bg:      #fdf5e6;
+
+  /* Borders */
+  --line:          rgba(26,24,20,0.09);
+  --line2:         rgba(26,24,20,0.16);
+
+  /* Fonts */
+  --serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --sans:  'DM Sans', 'Geist', system-ui, -apple-system, sans-serif;
+  --mono:  'JetBrains Mono', 'Fira Mono', monospace;
+  --ease:  cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html { height: 100%; }
+body {
+  font-family: var(--sans);
+  background: var(--cream);
+  color: var(--ink);
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+input, button, textarea, select { font-family: inherit; }
+input::placeholder { color: var(--ink3); }
+input:focus, button:focus, textarea:focus { outline: none; }
+a { color: inherit; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--cream3); border-radius: 4px; }
+
+@keyframes fadeUp  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+@keyframes spin    { to { transform:rotate(360deg); } }
+@keyframes pulse   { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+.fade-up { animation: fadeUp 0.24s var(--ease) both; }
+.fade-in { animation: fadeIn 0.18s ease both; }
+
+.spinner {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border: 1.5px solid var(--cream3);
+  border-top-color: var(--ink3);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+}

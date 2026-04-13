@@ -1,0 +1,20 @@
+# Shopify App Configuration (Production)
+# This file allows you to update the Shopify Partner Dashboard from the terminal.
+
+client_id = "4324b564c91fce32034ad0f1c8b4cba6"
+name = "Fluid Orbit"
+handle = "fluid-orbit"
+application_url = "https://fluirorbit.vercel.app"
+embedded = true
+
+[auth]
+redirect_urls = [
+  "https://fluirorbit.vercel.app/api/auth/callback/shopify",
+  "https://fluirorbit.vercel.app/api/shopify/callback"
+]
+
+[webhooks]
+api_version = "2024-01"
+
+[pos]
+embedded = false

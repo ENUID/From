@@ -1,0 +1,15 @@
+{
+  "name": "fluid-orbit",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:convex": "convex dev",
+    "dev:web": "cd web && next dev",
+    "deploy:convex": "convex deploy",
+    "embed:pending": "node scripts/embed-pending-local.cjs",
+    "worker:embed": "node scripts/embed-pending-local.cjs"
+  },
+  "dependencies": {
+    "convex": "^1.12.0"
+  }
+}

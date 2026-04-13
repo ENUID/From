@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+node_modules
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+web/.next/
+web/out/
+web/build/
+
+# Production
+/build
+
+# Vercel
+web/.vercel/
+
+# Convex
+convex/_generated/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+web/.env.local
+web/.env.development.local
+web/.env.test.local
+web/.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Miscellanea
+.DS_Store
+*.pem
+
+# Local history
+.history/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+partner-handoff-*/
+fo/
