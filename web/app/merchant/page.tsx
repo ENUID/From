@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
@@ -31,7 +33,6 @@ export default function MerchantLanding() {
     'Run a sync to index products and inspect catalog readiness inside the dashboard.',
   ]
 
-  return (
   return (
     <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh', background: 'var(--bg)', overflowX: 'hidden' }}>
       <div style={{ 
