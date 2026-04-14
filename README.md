@@ -4,11 +4,11 @@
 
 ## 🚀 Live Demo
 - **Buyer Workspace**: [https://fo.enuid.com](https://fo.enuid.com)
-- **Merchant Dashboard**: [https://merchant.enuid.com](https://merchant.enuid.com)
+- **Merchant Dashboard**: [https://store.enuid.com](https://store.enuid.com)
 
 ## ✨ Features
 - **Intent-Based Search**: Buyers can search for products using natural language (e.g., "Handmade leather boots under $200").
-- **Subdomain Routing**: Dedicated spaces for Buyers (`fo.`) and Merchants (`merchant.`).
+- **Subdomain Routing**: Dedicated spaces for Buyers (`fo.`) and Merchants (`store.`).
 - **Smart Catalog Sync**: Automated product synchronization from Shopify with vector embedding for semantic search.
 - **Premium UI**: Minimalist, human-centric design with smooth transitions and intent-focused layout.
 
@@ -20,6 +20,7 @@
 
 ## 📂 Documentation
 - [OpenAI Configuration](./OPENAI_SETUP.md)
+- [Partner Handoff Guide](./PARTNER_HANDOFF.md)
 
 ## ⚡ Quick Start
 
