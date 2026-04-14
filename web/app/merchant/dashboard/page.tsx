@@ -801,6 +801,12 @@ function ProductsPage({
   loadingProducts,
   onSync,
   syncStatus,
+}: {
+  store: Store | null
+  products: Product[]
+  loadingProducts: boolean
+  onSync: () => void
+  syncStatus: SyncStatus
 }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const [query, setQuery] = useState('')
