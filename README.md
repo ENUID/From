@@ -1,0 +1,52 @@
+# Fluid Orbit 🌌
+
+**Fluid Orbit** is a premium decentralized commerce platform that connects independent merchants with buyers through an AI-powered intent-based search experience.
+
+## 🚀 Live Demo
+- **Buyer Workspace**: [https://fo.enuid.com](https://fo.enuid.com)
+- **Merchant Dashboard**: [https://merchant.enuid.com](https://merchant.enuid.com)
+
+## ✨ Features
+- **Intent-Based Search**: Buyers can search for products using natural language (e.g., "Handmade leather boots under $200").
+- **Subdomain Routing**: Dedicated spaces for Buyers (`fo.`) and Merchants (`merchant.`).
+- **Smart Catalog Sync**: Automated product synchronization from Shopify with vector embedding for semantic search.
+- **Premium UI**: Minimalist, human-centric design with smooth transitions and intent-focused layout.
+
+## 🛠️ Architecture
+- **Framework**: Next.js 15
+- **Backend**: [Convex](https://www.convex.dev/) (Real-time database & Vector search)
+- **AI**: OpenAI (GPT-4o-mini & Text-Embedding-3-Small)
+- **OAuth**: Google & Shopify Integration
+
+## 📂 Documentation
+- [OpenAI Configuration](./OPENAI_SETUP.md)
+- [Ollama (Local AI) Setup](./OLLAMA_SETUP.md)
+- [Partner Handoff Guide](./PARTNER_HANDOFF.md)
+
+## ⚡ Quick Start
+
+### 1. Installation
+```powershell
+# Root dependencies
+npm install
+
+# Web dependencies
+cd web
+npm install
+```
+
+### 2. Environment Setup
+Copy `.env.example` to `.env.local` in both root and `web/` directories and fill in your credentials.
+
+### 3. Development
+```powershell
+# Start Convex
+npm run dev:convex
+
+# Start Next.js (in another terminal)
+cd web
+npm run dev
+```
+
+---
+Built by [ENUID](https://github.com/ENUID)

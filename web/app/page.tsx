@@ -45,6 +45,7 @@ export default function Home() {
   const [savedProducts, setSavedProducts] = useState<Product[]>([])
   const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -79,6 +80,7 @@ export default function Home() {
     setHistory([])
     setInput('')
     setActiveView('discover')
+    setTimeout(() => inputRef.current?.focus(), 0)
   }
 
   function rememberSearch(query: string, resultCount: number) {
@@ -141,6 +143,13 @@ export default function Home() {
   }
 
   function renderDiscoverView() {
+    const suggestions = [
+      'Eco-friendly denim',
+      'Handmade leather wallet',
+      'Minimalist ceramics',
+      'Linen shirts under $80',
+    ]
+
     return (
       <>
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px 40px', display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -150,26 +159,65 @@ export default function Home() {
                 flex: 1,
                 display: 'grid',
                 alignContent: 'center',
-                gap: 24,
-                maxWidth: 760,
+                gap: 40,
+                maxWidth: 800,
+                margin: '0 auto',
+                padding: '40px 0',
+                textAlign: 'center',
               }}
             >
-              <div>
-                <div style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 10 }}>
+              <div className="fade-in">
+                <div style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--m-green)', fontWeight: 600, marginBottom: 16 }}>
                   Buyer workspace
                 </div>
-                <h1 style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(42px, 5vw, 64px)', lineHeight: 1.02, fontWeight: 400, marginBottom: 12 }}>
+                <h1 style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(42px, 6vw, 76px)', lineHeight: 0.96, fontWeight: 300, color: 'var(--ink)', marginBottom: 20, letterSpacing: '-0.04em' }}>
                   Search by intent,
                   <br />
                   not by ads.
                 </h1>
-                <p style={{ maxWidth: 560, fontSize: 14, color: 'var(--ink3)', lineHeight: 1.8 }}>
-                  Fluid Orbit matches live catalog items from connected stores. Use the chat to describe the product,
-                  constraints, or context, then save the options you want to revisit.
+                <p style={{ maxWidth: 540, fontSize: 15.5, color: 'var(--ink3)', lineHeight: 1.8, fontWeight: 300, margin: '0 auto' }}>
+                  Fluid Orbit matches items from verified independent stores. Describe what you need—context, budget, or style—and discover unique finds.
                 </p>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+              <div className="fade-in" style={{ animationDelay: '0.1s' }}>
+                <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 14 }}>Try searching for</div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {suggestions.map(text => (
+                    <button
+                      key={text}
+                      type="button"
+                      onClick={() => sendMessage(text)}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--m-border)',
+                        borderRadius: 30,
+                        padding: '8px 18px',
+                        fontSize: 13,
+                        color: 'var(--ink2)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s cubic-bezier(0.23, 1, 0.32, 1)',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = 'var(--m-green-mid)'
+                        e.currentTarget.style.color = 'var(--m-green)'
+                        e.currentTarget.style.background = 'var(--m-green-light)'
+                        e.currentTarget.style.transform = 'translateY(-1px)'
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = 'var(--m-border)'
+                        e.currentTarget.style.color = 'var(--ink2)'
+                        e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.transform = 'translateY(0)'
+                      }}
+                    >
+                      {text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
                 {[
                   {
                     title: 'Describe the need',
@@ -177,24 +225,27 @@ export default function Home() {
                   },
                   {
                     title: 'Refine quickly',
-                    body: 'Keep the conversation going to narrow by budget, material, or use case.',
+                    body: 'Keep the conversation going to narrow by budget or use case.',
                   },
                   {
                     title: 'Save products',
-                    body: 'Bookmark promising finds and keep them in one place during the session.',
+                    body: 'Keep promising finds in one place during your session.',
                   },
-                ].map(card => (
+                ].map((card, i) => (
                   <div
                     key={card.title}
+                    className="fade-in"
                     style={{
                       background: 'var(--bg-card)',
                       border: '1px solid var(--m-border)',
-                      borderRadius: 16,
-                      padding: '18px 18px 16px',
+                      borderRadius: 18,
+                      padding: '24px 22px 22px',
+                      animationDelay: `${0.2 + i * 0.1}s`,
+                      textAlign: 'left',
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{card.title}</div>
-                    <div style={{ fontSize: 12.5, color: 'var(--ink3)', lineHeight: 1.7 }}>{card.body}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{card.title}</div>
+                    <div style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7 }}>{card.body}</div>
                   </div>
                 ))}
               </div>
@@ -227,7 +278,7 @@ export default function Home() {
                 {message.content}
               </div>
 
-              {message.products && message.products.length > 0 && (
+              {message.products && message.products.length > 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10, width: '100%' }}>
                   {message.products.map((product, offset) => (
                     <ProductCard
@@ -238,6 +289,32 @@ export default function Home() {
                       onToggleSave={toggleSaved}
                     />
                   ))}
+                </div>
+              ) : message.role === 'assistant' && index > 0 && !loading && (
+                <div
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--m-border)',
+                    borderRadius: 16,
+                    padding: '20px 24px',
+                    maxWidth: 480,
+                    fontSize: 13,
+                    color: 'var(--ink3)',
+                    lineHeight: 1.7,
+                  }}
+                >
+                  <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="7" cy="7" r="6" />
+                      <path d="M7 4v3l2 1" />
+                    </svg>
+                    Search Tips
+                  </div>
+                  <ul style={{ paddingLeft: 16, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <li>Try broader terms (e.g., "boots" instead of "size 10 vintage boots")</li>
+                    <li>Search by material or use case (e.g., "waterproof", "gift for runner")</li>
+                    <li>Check if the stores have been synced recently in the Merchant dashboard</li>
+                  </ul>
                 </div>
               )}
             </div>
@@ -275,6 +352,7 @@ export default function Home() {
         <footer style={{ padding: '14px 28px 20px', borderTop: '1px solid var(--m-border)', background: 'var(--bg)', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 20, padding: '10px 10px 10px 20px' }}>
             <input
+              ref={inputRef}
               value={input}
               onChange={event => setInput(event.target.value)}
               onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => event.key === 'Enter' && !event.shiftKey && sendMessage()}
@@ -509,21 +587,26 @@ export default function Home() {
             <div style={{ border: '1px solid var(--m-border)', background: 'var(--bg-card)', borderRadius: 30, padding: '6px 14px', fontSize: 12, color: 'var(--ink3)' }}>
               {savedProducts.length} saved
             </div>
-            <button
-              type="button"
-              onClick={resetConversation}
-              style={{
-                border: '1px solid var(--m-border)',
-                background: 'transparent',
-                borderRadius: 30,
-                padding: '6px 16px',
-                fontSize: 12,
-                color: 'var(--ink2)',
-                cursor: 'pointer',
-              }}
-            >
-              New search
-            </button>
+            {hasConversation && (
+              <button
+                type="button"
+                onClick={resetConversation}
+                style={{
+                  border: '1px solid var(--m-border)',
+                  background: 'transparent',
+                  borderRadius: 30,
+                  padding: '6px 16px',
+                  fontSize: 12,
+                  color: 'var(--ink2)',
+                  cursor: 'pointer',
+                  transition: 'background 0.12s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              >
+                New search
+              </button>
+            )}
           </div>
         </header>
 

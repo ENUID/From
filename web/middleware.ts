@@ -8,41 +8,46 @@ export function middleware(request: NextRequest) {
   // 1. Define your base domain (replace with your actual domain in production)
   // For Vercel, it often contains 'vercel.app' or your custom domain.
   const isMerchantSubdomain = hostname.startsWith('merchant.')
+  const isBuyerSubdomain = hostname.startsWith('fo.')
 
   // 2. Exclude internal paths, API routes, and static files from routing logic
   if (
     url.pathname.startsWith('/_next') ||
     url.pathname.startsWith('/api') ||
     url.pathname.startsWith('/static') ||
-    url.pathname.includes('.') // matches files like favicon.ico, images, etc.
+    url.pathname.includes('.')
   ) {
     return NextResponse.next()
   }
 
-  // 3. Subdomain Logic: merchant.fluidorbit.app
+  // 3. Merchant Subdomain Logic: merchant.enuid.com
   if (isMerchantSubdomain) {
-    // If they are on the root of merchant subdomain, show the merchant home
     if (url.pathname === '/' || url.pathname === '') {
       return NextResponse.rewrite(new URL('/merchant', request.url))
     }
-    // Other paths like /dashboard, /onboarding are already top-level,
-    // so they will work naturally under the subdomain.
     return NextResponse.next()
   }
 
-  // 4. Protection: If user tries to access merchant-related paths from the main domain
-  const merchantPaths = ['/merchant', '/dashboard', '/onboarding']
-  if (merchantPaths.some(path => url.pathname.startsWith(path))) {
-    // ONLY redirect to subdomain if we are on a custom domain (non-vercel, non-localhost)
-    const isCustomDomain = !hostname.includes('vercel.app') && !hostname.includes('localhost')
-    
-    if (isCustomDomain) {
+  // 4. Buyer Subdomain Logic: fo.enuid.com
+  if (isBuyerSubdomain) {
+    // If buyer tries to access merchant-specific paths, redirect to merchant subdomain
+    const merchantPaths = ['/merchant', '/dashboard', '/onboarding']
+    if (merchantPaths.some(path => url.pathname.startsWith(path))) {
       const newUrl = new URL(request.url)
-      newUrl.hostname = `merchant.${newUrl.hostname}`
+      newUrl.hostname = hostname.replace('fo.', 'merchant.')
       return NextResponse.redirect(newUrl)
     }
-
     return NextResponse.next()
+  }
+
+  // 5. Cross-Subdomain Protection for Custom Domain
+  const isCustomDomain = hostname.includes('enuid.com')
+  if (isCustomDomain && !isMerchantSubdomain && !isBuyerSubdomain) {
+    // If somehow on enuid.com apex (though it should host another site), 
+    // we don't interfere, but if it hits this project, redirect to buyer.
+    const newUrl = new URL(request.url)
+    newUrl.hostname = `fo.${hostname}`
+    return NextResponse.redirect(newUrl)
   }
 
   return NextResponse.next()
