@@ -1258,13 +1258,13 @@ function Topbar({
   setDropdownOpen: (value: boolean) => void
   onSwitchStore: (id: string) => void
   onAddStore: () => void
+  onSync: () => void
   reconnectUrl: string | null
   syncStatus: SyncStatus
   isMobile: boolean
 }) {
   const storefront = normalizeDomain(activeStore?.public_store_domain ?? activeStore?.shop_domain)
   const adminDomain = normalizeDomain(activeStore?.shop_domain)
-  const addProductUrl = adminDomain ? `https://${adminDomain}/admin/products/new` : null
 
   return (
     <header style={{ height: isMobile ? 'auto' : 58, minHeight: 58, borderBottom: '1px solid var(--m-border)', display: 'flex', alignItems: 'center', padding: isMobile ? '12px 16px' : '0 28px', gap: 12, background: 'var(--bg)', flexShrink: 0, flexWrap: 'wrap' }}>
@@ -1336,11 +1336,27 @@ function Topbar({
           </a>
         )}
 
-        {addProductUrl ? (
-          <a href={addProductUrl} target="_blank" rel="noreferrer" style={{ ...buttonPrimaryStyle, padding: isMobile ? '8px 14px' : buttonPrimaryStyle.padding }}>
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6.5 1v11M1 6.5h11" /></svg>
-            {isMobile ? 'Add' : 'Add product'}
-          </a>
+        {activeStore ? (
+          <button 
+            type="button" 
+            onClick={onSync} 
+            disabled={syncStatus === 'syncing'}
+            style={{ 
+              ...buttonPrimaryStyle, 
+              padding: isMobile ? '8px 14px' : buttonPrimaryStyle.padding,
+              opacity: syncStatus === 'syncing' ? 0.7 : 1,
+              cursor: syncStatus === 'syncing' ? 'default' : 'pointer'
+            }}
+          >
+            <svg 
+              width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              style={{ animation: syncStatus === 'syncing' ? 'spin 2s linear infinite' : 'none' }}
+            >
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-4.4 3.6-8 8-8 3.3 0 6.2 2 7.4 5M22 12c0 4.4-3.6 8-8 8-3.3 0-6.2-2-7.4-5" />
+            </svg>
+            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            {isMobile ? (syncStatus === 'syncing' ? '...' : 'Sync') : (syncStatus === 'syncing' ? 'Syncing...' : 'Sync catalog')}
+          </button>
         ) : (
           <button type="button" onClick={onAddStore} style={{ ...buttonPrimaryStyle, padding: isMobile ? '8px 14px' : buttonPrimaryStyle.padding }}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6.5 1v11M1 6.5h11" /></svg>
@@ -1650,6 +1666,7 @@ function DashboardInner() {
           setDropdownOpen={setDropdownOpen}
           onSwitchStore={switchStore}
           onAddStore={() => router.push('/onboarding')}
+          onSync={runSync}
           reconnectUrl={reconnectUrl}
           syncStatus={syncStatus}
           isMobile={isMobile}
