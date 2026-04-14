@@ -546,6 +546,7 @@ function ProductMiniList({
   products,
   currency,
   subtitle,
+  isMobile,
 }: {
   products: Product[]
   currency: string
