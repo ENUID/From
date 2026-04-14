@@ -1250,6 +1250,7 @@ function Topbar({
   onAddStore,
   reconnectUrl,
   syncStatus,
+  isMobile,
 }: {
   stores: Store[]
   activeStore: Store | null
