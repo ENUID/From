@@ -4,13 +4,13 @@
 client_id = "4324b564c91fce32034ad0f1c8b4cba6"
 name = "Fluid Orbit"
 handle = "fluid-orbit"
-application_url = "https://fluirorbit.vercel.app"
+application_url = "https://store.enuid.com"
 embedded = true
 
 [auth]
 redirect_urls = [
-  "https://fluirorbit.vercel.app/api/auth/callback/shopify",
-  "https://fluirorbit.vercel.app/api/shopify/callback"
+  "https://store.enuid.com/api/auth/callback/shopify",
+  "https://store.enuid.com/api/shopify/callback"
 ]
 
 [webhooks]

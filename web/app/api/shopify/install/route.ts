@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
     shop: fullDomain,
   })).toString('base64url')
 
+  console.log(`[Shopify Auth Debug] baseUrl: ${baseUrl}, redirectUri: ${redirectUri}, clientId: ${clientId}`);
+
   const installUrl =
     `https://${fullDomain}/admin/oauth/authorize` +
     `?client_id=${clientId}` +
