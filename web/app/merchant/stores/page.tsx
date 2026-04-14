@@ -15,6 +15,14 @@ function StorePickerInner() {
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/merchant/login')
@@ -61,16 +69,16 @@ function StorePickerInner() {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', flexDirection: 'column', padding: 24 }}>
+    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', flexDirection: 'column', padding: isMobile ? 16 : 24 }}>
       {toast && (
         <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: toast.ok ? '#0f2d1a' : '#2d0f0f', color: toast.ok ? '#6edba8' : '#ed8080', padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 24px rgba(0,0,0,0.18)', zIndex: 999, whiteSpace: 'nowrap' }}>
           {toast.msg}
         </div>
       )}
 
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 16, width: 460, overflow: 'hidden' }}>
-        <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid var(--m-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 20 }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 16, width: '100%', maxWidth: 460, overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+        <div style={{ padding: isMobile ? '18px 20px 14px' : '22px 24px 18px', borderBottom: '1px solid var(--m-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: isMobile ? 14 : 20 }}>
             {user?.image ? (
               <img src={user.image} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
@@ -83,7 +91,7 @@ function StorePickerInner() {
               <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 1 }}>{user?.email ?? 'No email available'}</div>
             </div>
           </div>
-          <h1 style={{ fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 400, letterSpacing: '-0.02em', marginBottom: 4 }}>Choose a store</h1>
+          <h1 style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 20 : 22, fontWeight: 400, letterSpacing: '-0.02em', marginBottom: 4 }}>Choose a store</h1>
           <p style={{ fontSize: 12.5, color: 'var(--ink3)' }}>Select which connected Shopify store you want to manage.</p>
         </div>
 
@@ -95,7 +103,7 @@ function StorePickerInner() {
               <div
                 key={store._id}
                 onClick={() => router.push(`/merchant/dashboard?storeId=${store._id}`)}
-                style={{ padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'background 0.1s', borderBottom: index < stores.length - 1 ? '1px solid var(--m-border)' : 'none', background: 'var(--bg-card)' }}
+                style={{ padding: isMobile ? '12px 20px' : '14px 24px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'background 0.1s', borderBottom: index < stores.length - 1 ? '1px solid var(--m-border)' : 'none', background: 'var(--bg-card)' }}
                 onMouseEnter={event => { event.currentTarget.style.background = 'var(--bg)' }}
                 onMouseLeave={event => { event.currentTarget.style.background = 'var(--bg-card)' }}
               >
@@ -122,11 +130,11 @@ function StorePickerInner() {
           )}
         </div>
 
-        <div style={{ padding: '13px 24px', borderTop: '1px solid var(--m-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button type="button" onClick={() => router.push('/onboarding')} style={{ fontSize: 12.5, color: 'var(--m-green-mid)', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--sans)', display: 'flex', alignItems: 'center', gap: 5 }}>
-            Connect new store
+        <div style={{ padding: isMobile ? '10px 20px' : '13px 24px', borderTop: '1px solid var(--m-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button type="button" onClick={() => router.push('/onboarding')} style={{ fontSize: 12, color: 'var(--m-green-mid)', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--sans)', display: 'flex', alignItems: 'center', gap: 5 }}>
+            Connect new
           </button>
-          <button type="button" onClick={() => signOut({ callbackUrl: '/merchant' })} style={{ fontSize: 12, color: 'var(--ink3)', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--sans)' }}>
+          <button type="button" onClick={() => signOut({ callbackUrl: '/merchant' })} style={{ fontSize: 11.5, color: 'var(--ink3)', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--sans)' }}>
             Sign out
           </button>
         </div>

@@ -437,9 +437,9 @@ export default function Home() {
 
   function renderHistoryView() {
     return (
-      <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontFamily: 'var(--serif)', fontSize: 34, lineHeight: 1.08, marginBottom: 6 }}>Search history</div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
+        <div style={{ marginBottom: isMobile ? 18 : 24 }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 28 : 34, lineHeight: 1.08, marginBottom: 6 }}>Search history</div>
           <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7 }}>
             Re-run recent searches and continue refining them in the chat.
           </p>
@@ -482,10 +482,10 @@ export default function Home() {
 
   function renderSavedView() {
     return (
-      <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 24 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: isMobile ? 18 : 24 }}>
           <div>
-            <div style={{ fontFamily: 'var(--serif)', fontSize: 34, lineHeight: 1.08, marginBottom: 6 }}>Saved products</div>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 28 : 34, lineHeight: 1.08, marginBottom: 6 }}>Saved products</div>
             <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7 }}>
               Keep promising products here while you compare stores and decide what to open next.
             </p>

@@ -330,11 +330,13 @@ function PageHeader({
   subtitle: string
   controls?: ReactNode
 }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: isMobile ? 18 : 28, flexWrap: 'wrap' }}>
       <div>
-        <div style={{ fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 400, lineHeight: 1.08 }}>{title}</div>
-        <div style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 4 }}>{subtitle}</div>
+        <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 26 : 34, fontWeight: 400, lineHeight: 1.08 }}>{title}</div>
+        <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 4 }}>{subtitle}</div>
       </div>
       {controls}
     </div>
@@ -352,11 +354,13 @@ function MetricSquareCard({
   note: string
   accent?: 'up' | 'down'
 }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: '22px 20px 20px', aspectRatio: '1 / 1', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 18 }}>
-      <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>{label}</div>
-      <div style={{ fontFamily: 'var(--serif)', fontSize: value.length > 7 ? 30 : 38, fontWeight: 400, lineHeight: 1, color: 'var(--ink)' }}>{value}</div>
-      <div style={{ fontSize: 11.5, color: accent === 'down' ? '#b05555' : '#5a9a5a', lineHeight: 1.5 }}>{note}</div>
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: isMobile ? '16px 16px 14px' : '22px 20px 20px', aspectRatio: '1 / 1', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 18 }}>
+      <div style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>{label}</div>
+      <div style={{ fontFamily: 'var(--serif)', fontSize: value.length > 7 ? (isMobile ? 24 : 30) : (isMobile ? 32 : 38), fontWeight: 400, lineHeight: 1, color: 'var(--ink)' }}>{value}</div>
+      <div style={{ fontSize: 11, color: accent === 'down' ? '#b05555' : '#5a9a5a', lineHeight: 1.5 }}>{note}</div>
     </div>
   )
 }
@@ -372,12 +376,14 @@ function CardFrame({
   action?: ReactNode
   children: ReactNode
 }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: '22px 22px 18px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: isMobile ? '16px 16px 14px' : '22px 22px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: isMobile ? 12 : 18, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>{title}</div>
-          {subtitle && <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 6 }}>{subtitle}</div>}
+          <div style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>{title}</div>
+          {subtitle && <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 6 }}>{subtitle}</div>}
         </div>
         {action}
       </div>
@@ -581,6 +587,8 @@ function ProductCatalogCard({ product, currency }: { product: Product; currency:
   const domain = normalizeDomain(product.store_url)
   const sublabel = [getProductType(product), product.vendor].filter(Boolean).join(' · ')
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+
   return (
     <a
       href={hasStoreLink(product) ? product.store_url : undefined}
@@ -589,19 +597,19 @@ function ProductCatalogCard({ product, currency }: { product: Product; currency:
       style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', overflow: 'hidden', cursor: hasStoreLink(product) ? 'pointer' : 'default', textDecoration: 'none', color: 'inherit', display: 'block' }}
     >
       <div style={{ width: '100%', aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center', background: tone === 'out' ? '#ece8e0' : tone === 'low' ? '#f0ede6' : '#e8ede6' }}>
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#2a3b2a" strokeWidth="1" opacity="0.35">
+        <svg width="24" height="24" viewBox="0 0 28 28" fill="none" stroke="#2a3b2a" strokeWidth="1" opacity="0.35">
           <path d="M4 7l5-3h10l5 3-4 4v12H8V11L4 7z" />
         </svg>
       </div>
-      <div style={{ padding: '12px 14px 14px' }}>
-        <div style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 2 }}>{sublabel || 'Catalog item'}</div>
-        <div style={{ fontSize: 13, fontWeight: 400, lineHeight: 1.3, marginBottom: 3 }}>{product.title}</div>
-        <div style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 400, marginBottom: 6 }}>{formatCurrency(Number(product.price || 0), currency)}</div>
+      <div style={{ padding: isMobile ? '8px 10px 10px' : '12px 14px 14px' }}>
+        <div style={{ fontSize: 8.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 2 }}>{sublabel || 'Catalog item'}</div>
+        <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 400, lineHeight: 1.3, marginBottom: 3 }}>{product.title}</div>
+        <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 16 : 18, fontWeight: 400, marginBottom: 6 }}>{formatCurrency(Number(product.price || 0), currency)}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{domain || 'No storefront link'}</span>
-          <span style={{ fontSize: 10.5, display: 'flex', alignItems: 'center', gap: 4, color: tone === 'out' ? '#b05555' : tone === 'low' ? '#8a6a2a' : '#5a9a5a' }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', display: 'inline-block', background: tone === 'out' ? '#b05555' : tone === 'low' ? '#8a6a2a' : '#5a9a5a' }} />
-            {tone === 'out' ? 'Out of stock' : tone === 'low' ? 'Low stock' : 'In stock'}
+          <span style={{ fontSize: 10, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{domain || 'No link'}</span>
+          <span style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, color: tone === 'out' ? '#b05555' : tone === 'low' ? '#8a6a2a' : '#5a9a5a', flexShrink: 0 }}>
+            <span style={{ width: 4, height: 4, borderRadius: '50%', display: 'inline-block', background: 'currentColor' }} />
+            {tone === 'out' ? 'Out' : tone === 'low' ? 'Low' : 'Live'}
           </span>
         </div>
       </div>
@@ -644,6 +652,7 @@ function DashboardPage({
   loadingProducts: boolean
   onViewProducts: () => void
 }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const currency = store?.currency ?? 'USD'
   const searchReady = products.filter(isSearchReady)
   const lowStock = getLowStockProducts(products)
@@ -652,7 +661,7 @@ function DashboardPage({
   const featuredProducts = [...products].sort((left, right) => Number(right.price || 0) - Number(left.price || 0)).slice(0, 4)
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
       <PageHeader
         title={<>Good morning, <em style={{ fontStyle: 'italic', color: 'var(--ink3)' }}>{store?.shop_name ?? 'Store'}</em></>}
         subtitle="Overview · Current sync"
@@ -701,18 +710,18 @@ function DashboardPage({
                   const tone = getStockTone(product)
                   return (
                     <tr key={product.id} style={{ borderBottom: '1px solid var(--m-border)' }}>
-                      <td style={{ padding: '13px 12px', color: 'var(--ink)' }}>{product.title}</td>
-                      <td style={{ padding: '13px 12px', color: 'var(--ink)' }}>{getProductType(product)}</td>
-                      <td style={{ padding: '13px 12px', color: 'var(--ink3)' }}>{hasStoreLink(product) ? 'Connected' : 'Missing'}</td>
-                      <td style={{ padding: '13px 12px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, padding: '3px 10px', borderRadius: 20, background: tone === 'out' ? '#f5eaea' : tone === 'low' ? '#f5f0e6' : '#eaf4ea', color: tone === 'out' ? '#8a3a3a' : tone === 'low' ? '#8a6a2a' : '#3d8a3d' }}>
-                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{product.title}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{getProductType(product)}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink3)' }}>{hasStoreLink(product) ? 'Live' : 'No'}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, padding: '2px 8px', borderRadius: 20, background: tone === 'out' ? '#f5eaea' : tone === 'low' ? '#f5f0e6' : '#eaf4ea', color: tone === 'out' ? '#8a3a3a' : tone === 'low' ? '#8a6a2a' : '#3d8a3d' }}>
+                          <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor' }} />
                           {tone === 'out' ? 'Out' : tone === 'low' ? 'Low' : 'Live'}
                         </span>
                       </td>
-                      <td style={{ padding: '13px 12px', color: 'var(--ink)' }}>{inventory}</td>
-                      <td style={{ padding: '13px 12px', color: 'var(--ink)' }}>{formatCurrency(Number(product.price || 0), currency)}</td>
-                      <td style={{ padding: '13px 12px', color: ready ? '#3d8a3d' : 'var(--ink3)', fontWeight: 500 }}>{ready ? 'Ready' : 'Needs work'}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{inventory}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{formatCurrency(Number(product.price || 0), currency)}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: ready ? '#3d8a3d' : 'var(--ink3)', fontWeight: 500 }}>{ready ? 'Ready' : 'N/A'}</td>
                     </tr>
                   )
                 })}
@@ -726,13 +735,14 @@ function DashboardPage({
 }
 
 function OrdersPage({ store, products }: { store: Store | null; products: Product[] }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const readyProducts = products.filter(isSearchReady)
   const missingLinks = getMissingStoreLinks(products)
   const outOfStock = getOutOfStockProducts(products)
   const currency = store?.currency ?? 'USD'
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
       <PageHeader title={<em style={{ fontStyle: 'italic' }}>Orders</em>} subtitle="Traffic handoff status" />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginBottom: 22 }}>
@@ -760,17 +770,17 @@ function OrdersPage({ store, products }: { store: Store | null; products: Produc
                   const ready = isSearchReady(product)
                   return (
                     <tr key={product.id} style={{ borderBottom: '1px solid var(--m-border)' }}>
-                      <td style={{ padding: '13px 12px' }}>{product.title}</td>
-                      <td style={{ padding: '13px 12px', color: 'var(--ink3)' }}>{product.vendor || 'Unknown'}</td>
-                      <td style={{ padding: '13px 12px' }}>{getVariantInventory(product)}</td>
-                      <td style={{ padding: '13px 12px', color: hasStoreLink(product) ? '#3d8a3d' : '#8a3a3a' }}>{hasStoreLink(product) ? 'Connected' : 'Missing'}</td>
-                      <td style={{ padding: '13px 12px', color: ready ? '#3d8a3d' : 'var(--ink3)' }}>{ready ? 'Ready' : 'Needs work'}</td>
-                      <td style={{ padding: '13px 12px' }}>{formatCurrency(Number(product.price || 0), currency)}</td>
-                      <td style={{ padding: '13px 12px' }}>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{product.title}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink3)' }}>{product.vendor || 'Unknown'}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{getVariantInventory(product)}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: hasStoreLink(product) ? '#3d8a3d' : '#8a3a3a' }}>{hasStoreLink(product) ? 'Yes' : 'No'}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: ready ? '#3d8a3d' : 'var(--ink3)' }}>{ready ? 'Ready' : 'N/A'}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{formatCurrency(Number(product.price || 0), currency)}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>
                         {hasStoreLink(product) ? (
-                          <a href={product.store_url} target="_blank" rel="noreferrer" style={{ ...buttonOutlineStyle, padding: '5px 12px', fontSize: 11.5 }}>Open</a>
+                          <a href={product.store_url} target="_blank" rel="noreferrer" style={{ ...buttonOutlineStyle, padding: '5px 12px', fontSize: 11 }}>Open</a>
                         ) : (
-                          <span style={{ fontSize: 11.5, color: 'var(--ink3)' }}>Fix in settings</span>
+                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Fix</span>
                         )}
                       </td>
                     </tr>
@@ -791,13 +801,8 @@ function ProductsPage({
   loadingProducts,
   onSync,
   syncStatus,
-}: {
-  store: Store | null
-  products: Product[]
-  loadingProducts: boolean
-  onSync: () => void
-  syncStatus: SyncStatus
 }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all')
   const categories = ['all', ...getTopCategories(products).map(item => item.name)]
@@ -817,7 +822,7 @@ function ProductsPage({
   })
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
       <PageHeader
         title={<em style={{ fontStyle: 'italic' }}>Products</em>}
         subtitle={`${products.length} synced`}

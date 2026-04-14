@@ -6,6 +6,14 @@ import Link from 'next/link'
 
 function AuthForm() {
   const [loading, setLoading] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   function handleGoogle() {
     setLoading(true)
@@ -28,12 +36,22 @@ function AuthForm() {
   ]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
-      <div style={{ width: '44%', background: 'var(--m-green)', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '44px 52px', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh', background: 'var(--bg)', overflowX: 'hidden' }}>
+      <div style={{ 
+        width: isMobile ? '100%' : '44%', 
+        background: 'var(--m-green)', 
+        flexShrink: 0, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        padding: isMobile ? '32px 24px' : '44px 52px', 
+        position: 'relative', 
+        overflow: 'hidden',
+        textAlign: isMobile ? 'center' : 'left'
+      }}>
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 80% 60% at 20% 110%, rgba(200,213,181,0.07) 0%, transparent 60%)' }} />
 
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 80 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 10, marginBottom: isMobile ? 40 : 80 }}>
             <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="14" r="12" stroke="#c8d5b5" strokeWidth="1.5" />
               <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
@@ -42,47 +60,56 @@ function AuthForm() {
             <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--bg-white)' }}>Fluid Orbit</span>
           </div>
 
-          <h1 style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(38px,4vw,52px)', fontWeight: 300, color: 'var(--bg-white)', lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: 20 }}>
-            Sign in to manage
-            <br />
-            store connections,
-            <br />
-            syncs, and
-            <br />
-            catalog health.
+          <h1 style={{ 
+            fontFamily: 'var(--serif)', 
+            fontSize: isMobile ? '36px' : 'clamp(38px,4vw,52px)', 
+            fontWeight: 300, 
+            color: 'var(--bg-white)', 
+            lineHeight: 1.1, 
+            letterSpacing: '-0.02em', 
+            marginBottom: isMobile ? 16 : 20,
+            textAlign: isMobile ? 'center' : 'left'
+          }}>
+            {isMobile ? "Sign in to manage store connections." : (
+              <>Sign in to manage<br />store connections,<br />syncs, and<br />catalog health.</>
+            )}
           </h1>
 
-          <p style={{ fontSize: 13, color: 'rgba(200,213,181,0.5)', lineHeight: 1.85, maxWidth: 340, fontWeight: 300, marginBottom: 48 }}>
-            The merchant workspace is tied to your Google account, then each Shopify store is authorized separately from onboarding.
+          <p style={{ fontSize: 13, color: 'rgba(200,213,181,0.5)', lineHeight: 1.85, maxWidth: isMobile ? '100%' : 340, fontWeight: 300, marginBottom: isMobile ? 32 : 48, textAlign: isMobile ? 'center' : 'left' }}>
+            The merchant workspace is tied to your Google account, then each Shopify store is authorized separately.
           </p>
 
-          <div style={{ display: 'grid', gap: 16 }}>
-            {highlights.map(item => (
-              <div key={item.title} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#c8d5b5', marginTop: 6, flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: 12.5, color: 'rgba(200,213,181,0.8)', fontWeight: 500 }}>{item.title}</div>
-                  <div style={{ fontSize: 11.5, color: 'rgba(200,213,181,0.38)', marginTop: 2, lineHeight: 1.6 }}>{item.description}</div>
+          {!isMobile && (
+            <div style={{ display: 'grid', gap: 16 }}>
+              {highlights.map(item => (
+                <div key={item.title} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#c8d5b5', marginTop: 6, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(200,213,181,0.8)', fontWeight: 500 }}>{item.title}</div>
+                    <div style={{ fontSize: 11.5, color: 'rgba(200,213,181,0.38)', marginTop: 2, lineHeight: 1.6 }}>{item.description}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div style={{ position: 'relative', zIndex: 1, marginTop: 'auto' }}>
-          <Link href="/" style={{ fontSize: 11.5, color: 'rgba(200,213,181,0.32)', textDecoration: 'none' }}>
-            Back to buyer workspace
-          </Link>
-        </div>
+        {!isMobile && (
+          <div style={{ position: 'relative', zIndex: 1, marginTop: 'auto' }}>
+            <Link href="/" style={{ fontSize: 11.5, color: 'rgba(200,213,181,0.32)', textDecoration: 'none' }}>
+              Back to buyer workspace
+            </Link>
+          </div>
+        )}
       </div>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '40px 24px' : 40 }}>
         <div style={{ width: '100%', maxWidth: 390 }}>
-          <div style={{ marginBottom: 34 }}>
-            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 30, fontWeight: 400, letterSpacing: '-0.02em', marginBottom: 8 }}>
+          <div style={{ marginBottom: isMobile ? 24 : 34 }}>
+            <h2 style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 26 : 30, fontWeight: 400, letterSpacing: '-0.02em', marginBottom: 8, textAlign: isMobile ? 'center' : 'left' }}>
               Merchant sign-in
             </h2>
-            <p style={{ fontSize: 13.5, color: 'var(--ink3)', lineHeight: 1.65 }}>
+            <p style={{ fontSize: 13.5, color: 'var(--ink3)', lineHeight: 1.65, textAlign: isMobile ? 'center' : 'left' }}>
               Use the Google account that should own this merchant workspace.
             </p>
           </div>
