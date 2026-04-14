@@ -379,11 +379,11 @@ function CardFrame({
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
 
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: isMobile ? '16px 16px 14px' : '22px 22px 18px' }}>
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: isMobile ? '14px 14px 12px' : '22px 22px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: isMobile ? 12 : 18, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>{title}</div>
-          {subtitle && <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 6 }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: isMobile ? 10.5 : 11, color: 'var(--ink3)', marginTop: isMobile ? 3 : 6, lineHeight: 1.5 }}>{subtitle}</div>}
         </div>
         {action}
       </div>
@@ -550,28 +550,31 @@ function ProductMiniList({
   products: Product[]
   currency: string
   subtitle: string
+  isMobile: boolean
 }) {
   return (
     <CardFrame title="Top products" subtitle={subtitle}>
       {products.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.8 }}>No products available in the current sync.</div>
+        <div style={{ fontSize: isMobile ? 12 : 13, color: 'var(--ink3)', lineHeight: 1.8 }}>No products available in the current sync.</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 4 : 10 }}>
           {products.map((product, index) => {
             const inventory = getVariantInventory(product)
             const maxInventory = Math.max(1, ...products.map(item => getVariantInventory(item)))
             return (
-              <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 8 }}>
-                <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--ink3)', width: 18, textAlign: 'center' }}>{index + 1}</div>
+              <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12, padding: isMobile ? '6px 8px' : '10px 12px', borderRadius: 8 }}>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 14 : 18, color: 'var(--ink3)', width: 18, textAlign: 'center' }}>{index + 1}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.title}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 2 }}>{getProductType(product)} · {inventory} units</div>
+                  <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.title}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--ink3)', marginTop: 1 }}>{getProductType(product)} · {inventory} unit{inventory === 1 ? '' : 's'}</div>
                 </div>
-                <div style={{ textAlign: 'right', minWidth: 86 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{formatCurrency(Number(product.price || 0), currency)}</div>
-                  <div style={{ width: 60, height: 3, background: 'var(--m-border)', borderRadius: 2, marginLeft: 'auto', marginTop: 5, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${percent(inventory, maxInventory)}%`, background: 'var(--m-green-mid)', borderRadius: 2 }} />
-                  </div>
+                <div style={{ textAlign: 'right', minWidth: isMobile ? 64 : 86 }}>
+                  <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 500 }}>{formatCurrency(Number(product.price || 0), currency)}</div>
+                  {!isMobile && (
+                    <div style={{ width: 60, height: 3, background: 'var(--m-border)', borderRadius: 2, marginLeft: 'auto', marginTop: 5, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${percent(inventory, maxInventory)}%`, background: 'var(--m-green-mid)', borderRadius: 2 }} />
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -661,7 +664,7 @@ function DashboardPage({
   const featuredProducts = [...products].sort((left, right) => Number(right.price || 0) - Number(left.price || 0)).slice(0, 4)
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px 20px' : '32px 36px' }}>
       <PageHeader
         title={<>Good morning, <em style={{ fontStyle: 'italic', color: 'var(--ink3)' }}>{store?.shop_name ?? 'Store'}</em></>}
         subtitle="Overview · Current sync"
@@ -683,11 +686,11 @@ function DashboardPage({
         <MetricSquareCard label="Avg start price" value={loadingProducts ? '...' : formatCurrency(getAverageStartingPrice(products), currency)} note={loadingProducts ? 'Loading catalog' : `${store?.currency ?? 'USD'} across synced products`} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 340px)', gap: 14, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) minmax(280px, 340px)', gap: 14, marginBottom: 20 }}>
         <CardFrame title="Catalog spread">
           <PixelChart datasets={chartDatasets} />
         </CardFrame>
-        <ProductMiniList products={featuredProducts} currency={currency} subtitle="By price" />
+        <ProductMiniList products={featuredProducts} currency={currency} subtitle="By price" isMobile={isMobile} />
       </div>
 
       <CardFrame title="Catalog handoff" subtitle="This workspace does not mirror real order rows yet. The table below shows the products most likely to receive traffic safely.">
@@ -699,7 +702,7 @@ function DashboardPage({
               <thead>
                 <tr>
                   {['Product', 'Category', 'Link', 'Status', 'Inventory', 'Price', 'Readiness'].map(label => (
-                    <th key={label} style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink3)', fontWeight: 400, padding: '0 12px 12px', textAlign: 'left', borderBottom: '1px solid var(--m-border)' }}>{label}</th>
+                    <th key={label} style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink3)', fontWeight: 400, padding: isMobile ? '0 10px 10px' : '0 12px 12px', textAlign: 'left', borderBottom: '1px solid var(--m-border)', whiteSpace: 'nowrap' }}>{label}</th>
                   ))}
                 </tr>
               </thead>
@@ -1255,19 +1258,22 @@ function Topbar({
   onAddStore: () => void
   reconnectUrl: string | null
   syncStatus: SyncStatus
+  isMobile: boolean
 }) {
   const storefront = normalizeDomain(activeStore?.public_store_domain ?? activeStore?.shop_domain)
   const adminDomain = normalizeDomain(activeStore?.shop_domain)
   const addProductUrl = adminDomain ? `https://${adminDomain}/admin/products/new` : null
 
   return (
-    <header style={{ height: 58, borderBottom: '1px solid var(--m-border)', display: 'flex', alignItems: 'center', padding: '0 28px', gap: 12, background: 'var(--bg)', flexShrink: 0 }}>
-      <div style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5a9a5a' }} />
-        Fluid Orbit — Merchant
-      </div>
+    <header style={{ height: isMobile ? 'auto' : 58, minHeight: 58, borderBottom: '1px solid var(--m-border)', display: 'flex', alignItems: 'center', padding: isMobile ? '12px 16px' : '0 28px', gap: 12, background: 'var(--bg)', flexShrink: 0, flexWrap: 'wrap' }}>
+      {!isMobile && (
+        <div style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5a9a5a' }} />
+          Fluid Orbit — Merchant
+        </div>
+      )}
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ marginLeft: isMobile ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
         {syncStatus === 'token_expired' && reconnectUrl && (
           <a href={reconnectUrl} style={{ fontSize: 12, color: 'var(--red)', background: 'var(--red-bg)', padding: '6px 12px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>
             Reconnect Shopify
@@ -1329,14 +1335,14 @@ function Topbar({
         )}
 
         {addProductUrl ? (
-          <a href={addProductUrl} target="_blank" rel="noreferrer" style={buttonPrimaryStyle}>
+          <a href={addProductUrl} target="_blank" rel="noreferrer" style={{ ...buttonPrimaryStyle, padding: isMobile ? '8px 14px' : buttonPrimaryStyle.padding }}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6.5 1v11M1 6.5h11" /></svg>
-            Add product
+            {isMobile ? 'Add' : 'Add product'}
           </a>
         ) : (
-          <button type="button" onClick={onAddStore} style={buttonPrimaryStyle}>
+          <button type="button" onClick={onAddStore} style={{ ...buttonPrimaryStyle, padding: isMobile ? '8px 14px' : buttonPrimaryStyle.padding }}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6.5 1v11M1 6.5h11" /></svg>
-            Connect store
+            {isMobile ? 'Connect' : 'Connect store'}
           </button>
         )}
       </div>
@@ -1375,7 +1381,16 @@ function DashboardInner() {
   const [activePage, setActivePage] = useState<NavPage>('dashboard')
   const [reconnectUrl, setReconnectUrl] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const toastTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const user: UserShape = {
     name: session?.user?.name ?? 'Merchant',
@@ -1455,6 +1470,11 @@ function DashboardInner() {
     setReconnectUrl(null)
   }
 
+  function handleNav(page: NavPage) {
+    setActivePage(page)
+    setDrawerOpen(false)
+  }
+
   async function runSync() {
     if (!activeStore || syncStatus === 'syncing') return
     setSyncStatus('syncing')
@@ -1502,14 +1522,123 @@ function DashboardInner() {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       {toast && (
-        <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 24px rgba(0,0,0,0.18)', zIndex: 200, background: toast.ok ? '#0f2d1a' : '#2d0f0f', color: toast.ok ? '#6edba8' : '#ed8080' }}>
+        <div style={{ position: 'fixed', top: isMobile ? 70 : 16, left: '50%', transform: 'translateX(-50%)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 24px rgba(0,0,0,0.18)', zIndex: 300, background: toast.ok ? '#0f2d1a' : '#2d0f0f', color: toast.ok ? '#6edba8' : '#ed8080' }}>
           {toast.msg}
         </div>
       )}
 
-      <Sidebar active={activePage} onNav={setActivePage} />
+      {isMobile ? (
+        <header style={{ height: 62, background: 'var(--bg)', borderBottom: '1px solid var(--m-border)', display: 'flex', alignItems: 'center', padding: '0 16px', flexShrink: 0, zIndex: 110 }}>
+          <button onClick={() => setDrawerOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--ink)', padding: 8, marginLeft: -8, cursor: 'pointer' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
+          </button>
+          <div style={{ marginLeft: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
+              <circle cx="14" cy="14" r="12" stroke="var(--m-green)" strokeWidth="1.5" />
+              <circle cx="14" cy="14" r="5" fill="var(--m-green)" />
+              <ellipse cx="14" cy="14" rx="12" ry="5" stroke="var(--m-green)" strokeWidth="1" strokeDasharray="2 2" fill="none" />
+            </svg>
+            <span style={{ fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 500 }}>Merchant</span>
+          </div>
+        </header>
+      ) : (
+        <Sidebar active={activePage} onNav={handleNav} />
+      )}
+
+      {/* Drawer Overlay */}
+      {isMobile && drawerOpen && (
+        <div 
+          onClick={() => setDrawerOpen(false)} 
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(2px)', zIndex: 120, transition: 'opacity 0.25s' }} 
+        />
+      )}
+
+      {/* Drawer Menu */}
+      {isMobile && (
+        <aside style={{ 
+          position: 'fixed', 
+          top: 0, 
+          bottom: 0, 
+          left: 0, 
+          width: 280, 
+          background: 'var(--bg)', 
+          zIndex: 130, 
+          boxShadow: '4px 0 30px rgba(0,0,0,0.1)',
+          transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '24px 20px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
+            <svg viewBox="0 0 28 28" fill="none" width="26" height="26">
+              <circle cx="14" cy="14" r="12" stroke="var(--m-green)" strokeWidth="1.5" />
+              <circle cx="14" cy="14" r="5" fill="var(--m-green)" />
+              <ellipse cx="14" cy="14" rx="12" ry="5" stroke="var(--m-green)" strokeWidth="1" strokeDasharray="2 2" fill="none" />
+            </svg>
+            <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--ink)' }}>Fluid Orbit</span>
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            {NAV_ITEMS.slice(0, 4).map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleNav(item.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: 'none',
+                  background: activePage === item.id ? 'var(--m-green-pale)' : 'transparent',
+                  color: activePage === item.id ? 'var(--m-green-mid)' : 'var(--ink)',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontWeight: activePage === item.id ? 500 : 400
+                }}
+              >
+                <span style={{ width: 18, height: 18, color: 'currentColor' }}>{item.icon}</span>
+                <span style={{ fontSize: 14 }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid var(--m-border)', display: 'grid', gap: 6 }}>
+            {NAV_ITEMS.slice(4).map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleNav(item.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: 'none',
+                  background: activePage === item.id ? 'var(--m-green-pale)' : 'transparent',
+                  color: activePage === item.id ? 'var(--m-green-mid)' : 'var(--ink)',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontWeight: activePage === item.id ? 500 : 400
+                }}
+              >
+                <span style={{ width: 18, height: 18, color: 'currentColor' }}>{item.icon}</span>
+                <span style={{ fontSize: 14 }}>{item.label}</span>
+              </button>
+            ))}
+            <button
+              onClick={() => signOut({ callbackUrl: '/merchant' })}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, border: 'none', background: 'transparent', color: 'var(--ink3)', textAlign: 'left', cursor: 'pointer' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+              <span style={{ fontSize: 14 }}>Sign out</span>
+            </button>
+          </div>
+        </aside>
+      )}
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Topbar
@@ -1521,6 +1650,7 @@ function DashboardInner() {
           onAddStore={() => router.push('/onboarding')}
           reconnectUrl={reconnectUrl}
           syncStatus={syncStatus}
+          isMobile={isMobile}
         />
 
         {loadingStores ? (
