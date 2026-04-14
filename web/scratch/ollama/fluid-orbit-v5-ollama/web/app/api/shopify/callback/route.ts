@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ConvexHttpClient } from 'convex/browser'
+import { api } from '@convex/_generated/api'
 import { encryptShopifySecret } from '@/lib/shopifyCrypto'
-import { api } from '@/lib/convexApi'
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
@@ -10,7 +10,6 @@ function getConvex() {
 }
 
 export async function GET(req: NextRequest) {
-  const convex = getConvex()
   const { searchParams } = req.nextUrl
   const code = searchParams.get('code')
   const stateRaw = searchParams.get('state')
@@ -38,11 +37,6 @@ export async function GET(req: NextRequest) {
     const parsed = JSON.parse(Buffer.from(stateRaw, 'base64url').toString())
     userId = parsed.userId
     expectedShop = parsed.shop
-
-    if (!userId || userId === 'undefined') {
-      console.error('[Shopify Callback] Missing or invalid userId in state:', parsed)
-      return NextResponse.redirect(new URL('/merchant/stores?error=invalid_user_session', req.url))
-    }
   } catch {
     return NextResponse.redirect(new URL('/merchant/stores?error=invalid_state', req.url))
   }
@@ -97,7 +91,8 @@ export async function GET(req: NextRequest) {
   } catch {}
 
   try {
-    const merchantId = await convex.mutation(api.merchants.saveStore, {
+    const convex = getConvex()
+    await convex.mutation(api.merchants.saveStore, {
       owner_user_id: userId,
       shop_domain: shop,
       public_store_domain: publicStoreDomain,
@@ -109,20 +104,13 @@ export async function GET(req: NextRequest) {
       currency,
       is_active: true,
     })
-
-    // Automatic Sync Trigger
-    try {
-      const { performShopifySync } = await import('@/lib/shopifySync')
-      await performShopifySync(merchantId, userId)
-    } catch (syncErr) {
-      console.error('Automatic sync failed:', syncErr)
-      // We don't block the redirect if sync fails, user can try manually from dashboard
-    }
-
-    return NextResponse.redirect(new URL(`/merchant/stores?connected=1&storeId=${merchantId}`, req.url))
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err)
-    console.error('Callback error:', errorMessage)
-    return NextResponse.redirect(new URL(`/merchant/stores?error=callback_failed&message=${encodeURIComponent(errorMessage)}`, req.url))
+    console.error('Failed to save store:', errorMessage)
+    return NextResponse.redirect(
+      new URL(`/merchant/stores?error=save_failed&msg=${encodeURIComponent(errorMessage)}`, req.url)
+    )
   }
+
+  return NextResponse.redirect(new URL('/merchant/stores?connected=1', req.url))
 }

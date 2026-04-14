@@ -187,6 +187,7 @@ export const upsert = mutation({
 export const updateStoreProfile = mutation({
   args: {
     merchant_id: v.string(),
+    owner_user_id: v.optional(v.string()),
     shop_name: v.optional(v.string()),
     public_store_domain: v.optional(v.string()),
     currency: v.optional(v.string()),
@@ -194,10 +195,13 @@ export const updateStoreProfile = mutation({
   handler: async (ctx, args) => {
     const id = args.merchant_id as Id<"merchants">
     const patch: {
+      owner_user_id?: string
       shop_name?: string
       public_store_domain?: string
       currency?: string
     } = {}
+
+    if (typeof args.owner_user_id === "string") patch.owner_user_id = args.owner_user_id
 
     if (typeof args.shop_name === "string") patch.shop_name = args.shop_name
     if (typeof args.public_store_domain === "string") {
@@ -206,6 +210,19 @@ export const updateStoreProfile = mutation({
     if (typeof args.currency === "string") patch.currency = args.currency
 
     await ctx.db.patch(id, patch)
+  },
+})
+
+export const recordSyncResult = mutation({
+  args: {
+    merchant_id: v.id("merchants"),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, { merchant_id, error }) => {
+    await ctx.db.patch(merchant_id, {
+      last_sync_at: Date.now(),
+      last_sync_error: error || undefined,
+    })
   },
 })
 

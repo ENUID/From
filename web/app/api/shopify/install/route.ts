@@ -7,7 +7,8 @@ const SCOPES = 'read_products,read_inventory,read_product_listings'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user) {
+  if (!session?.user?.id) {
+    console.warn('[Shopify Install] User ID missing from session, redirecting to login');
     return NextResponse.redirect(new URL('/merchant/login', req.url))
   }
 

@@ -1,3 +1,3 @@
-import { anyApi } from 'convex/server'
+import { api as generatedApi } from '@convex/_generated/api'
 
-export const api = anyApi
+export const api = generatedApi

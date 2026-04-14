@@ -13,6 +13,8 @@ export default defineSchema({
     refresh_token_expires_at: v.optional(v.number()),
     currency: v.optional(v.string()),
     is_active: v.boolean(),
+    last_sync_at: v.optional(v.number()),
+    last_sync_error: v.optional(v.string()),
   })
     .index("by_owner", ["owner_user_id"])
     .index("by_domain", ["shop_domain"]),
