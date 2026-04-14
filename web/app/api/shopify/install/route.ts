@@ -22,11 +22,24 @@ export async function GET(req: NextRequest) {
     : `${shopDomain}.myshopify.com`
 
   const clientId = process.env.SHOPIFY_CLIENT_ID!
-  const nextAuthUrl = process.env.NEXTAUTH_URL
-  if (!nextAuthUrl) {
-    return NextResponse.json({ error: 'NEXTAUTH_URL environment variable is missing' }, { status: 500 })
+  
+  // Determine the base URL for the callback. 
+  // Priority: 1. SHOPIFY_APP_URL, 2. Current host (if it's the store subdomain), 3. NEXTAUTH_URL
+  const host = req.headers.get('host') || ''
+  let baseUrl = process.env.NEXTAUTH_URL
+  
+  if (process.env.SHOPIFY_APP_URL) {
+    baseUrl = process.env.SHOPIFY_APP_URL
+  } else if (host.startsWith('store.')) {
+    const protocol = host.includes('localhost') ? 'http' : 'https'
+    baseUrl = `${protocol}://${host}`
   }
-  const redirectUri = `${nextAuthUrl}/api/shopify/callback`
+
+  if (!baseUrl) {
+    return NextResponse.json({ error: 'NEXTAUTH_URL or SHOPIFY_APP_URL environment variable is missing' }, { status: 500 })
+  }
+  
+  const redirectUri = `${baseUrl.replace(/\/$/, '')}/api/shopify/callback`
 
   const nonce = crypto.randomBytes(16).toString('hex')
   const state = Buffer.from(JSON.stringify({
