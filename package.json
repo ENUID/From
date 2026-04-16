@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "vercel-build": "next build",
     "dev:convex": "convex dev",
     "dev:web": "cd web && next dev",
     "deploy:convex": "convex deploy",
@@ -10,6 +11,7 @@
     "worker:embed": "node scripts/embed-pending-local.cjs"
   },
   "dependencies": {
-    "convex": "^1.12.0"
+    "convex": "^1.12.0",
+    "next": "^15.5.14"
   }
 }
