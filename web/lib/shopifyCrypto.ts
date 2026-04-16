@@ -35,20 +35,43 @@ export function decryptShopifySecret(value?: string | null) {
   if (!value) return undefined
   if (!isEncryptedShopifySecret(value)) return value
 
-  const [, ivRaw, tagRaw, encryptedRaw] = value.split(':')
-  if (!ivRaw || !tagRaw || !encryptedRaw) {
+  const [, partA, partB, partC] = value.split(':')
+  if (!partA || !partB || !partC) {
     throw new Error('Invalid encrypted Shopify token format')
   }
 
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    getEncryptionKey(),
-    Buffer.from(ivRaw, 'base64url')
-  )
-  decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'))
+  const decodeFlexible = (raw: string) => {
+    try {
+      return Buffer.from(raw, 'base64url')
+    } catch {
+      return Buffer.from(raw, 'base64')
+    }
+  }
 
-  return Buffer.concat([
-    decipher.update(Buffer.from(encryptedRaw, 'base64url')),
-    decipher.final(),
-  ]).toString('utf8')
+  const tryDecrypt = (ivRaw: string, tagRaw: string, encryptedRaw: string) => {
+    const decipher = crypto.createDecipheriv(
+      'aes-256-gcm',
+      getEncryptionKey(),
+      decodeFlexible(ivRaw)
+    )
+    decipher.setAuthTag(decodeFlexible(tagRaw))
+
+    return Buffer.concat([
+      decipher.update(decodeFlexible(encryptedRaw)),
+      decipher.final(),
+    ]).toString('utf8')
+  }
+
+  try {
+    // Current format: enc:v1:iv:tag:ciphertext
+    return tryDecrypt(partA, partB, partC)
+  } catch (err: any) {
+    try {
+      // Legacy format fallback: enc:v1:iv:ciphertext:tag
+      return tryDecrypt(partA, partC, partB)
+    } catch {
+      const secretName = process.env.SHOPIFY_TOKEN_ENCRYPTION_KEY ? 'SHOPIFY_TOKEN_ENCRYPTION_KEY' : 'NEXTAUTH_SECRET'
+      throw new Error(`Decryption failed (Secret: ${secretName}). The token may have been encrypted with a different secret. Original error: ${err?.message}`)
+    }
+  }
 }

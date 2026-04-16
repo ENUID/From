@@ -41,6 +41,61 @@ type ShopifyProduct = {
   variants?: ShopifyVariant[]
 }
 
+class TokenError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TokenError'
+  }
+}
+
+function isTokenExpired(merchant: MerchantSyncRecord) {
+  if (!merchant.token_expires_at) return false
+  return Date.now() > merchant.token_expires_at - 5 * 60 * 1000
+}
+
+function isRefreshTokenExpired(merchant: MerchantSyncRecord) {
+  if (!merchant.refresh_token_expires_at) return false
+  return Date.now() > merchant.refresh_token_expires_at - 5 * 60 * 1000
+}
+
+async function refreshShopifyToken(merchant: MerchantSyncRecord) {
+  const refreshToken = decryptShopifySecret(merchant.refresh_token)
+  if (!refreshToken) throw new TokenError('Shopify refresh token is missing. Please reconnect your store.')
+  if (isRefreshTokenExpired(merchant)) throw new TokenError('Shopify refresh token has expired. Please reconnect your store.')
+
+  const res = await fetch(`https://${merchant.shop_domain}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: process.env.SHOPIFY_CLIENT_ID,
+      client_secret: process.env.SHOPIFY_CLIENT_SECRET,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  })
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    throw new TokenError(`Shopify token refresh failed: ${res.status} ${errText}`)
+  }
+
+  const data = await res.json() as {
+    access_token: string
+    expires_in?: number
+    refresh_token?: string
+    refresh_token_expires_in?: number
+  }
+
+  return {
+    access_token: data.access_token,
+    token_expires_at: data.expires_in ? Date.now() + Number(data.expires_in) * 1000 : undefined,
+    refresh_token: data.refresh_token,
+    refresh_token_expires_at: data.refresh_token_expires_in
+      ? Date.now() + Number(data.refresh_token_expires_in) * 1000
+      : undefined,
+  }
+}
+
 async function fetchShopifyProducts(shop: string, accessToken: string) {
   const products: ShopifyProduct[] = []
   let url: string | null =
@@ -48,7 +103,13 @@ async function fetchShopifyProducts(shop: string, accessToken: string) {
 
   while (url) {
     const res: Response = await fetch(url, { headers: { 'X-Shopify-Access-Token': accessToken } })
-    if (!res.ok) break
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      if (res.status === 401 || res.status === 403) {
+        throw new TokenError('Invalid API key or access token')
+      }
+      throw new Error(`Shopify products failed: ${res.status} ${errText}`)
+    }
     const data = await res.json()
     products.push(...(data.products ?? []))
     const link = res.headers.get('Link') ?? ''
@@ -84,8 +145,31 @@ export async function performShopifySync(merchantId: string, userId: string) {
       throw new Error(`Ownership mismatch. Please contact support.`)
     }
 
+    if (isTokenExpired(merchant)) {
+      console.log(`[Sync] Token expired for ${merchant.shop_domain}, refreshing...`)
+      const refreshed = await refreshShopifyToken(merchant)
+      
+      const encryptedAccess = encryptShopifySecret(refreshed.access_token)
+      if (!encryptedAccess) throw new Error('Failed to encrypt new access token during refresh.')
+
+      await convex.mutation(api.merchants.updateToken, {
+        merchant_id: merchant._id,
+        access_token: encryptedAccess,
+        token_expires_at: refreshed.token_expires_at,
+        refresh_token: encryptShopifySecret(refreshed.refresh_token),
+        refresh_token_expires_at: refreshed.refresh_token_expires_at,
+      })
+
+      merchant.access_token = encryptedAccess
+      merchant.token_expires_at = refreshed.token_expires_at
+      merchant.refresh_token = encryptShopifySecret(refreshed.refresh_token)
+      merchant.refresh_token_expires_at = refreshed.refresh_token_expires_at
+    }
+
     const accessToken = decryptShopifySecret(merchant.access_token)
-    if (!accessToken) throw new Error('Access token decryption failed')
+    if (!accessToken) {
+      throw new Error(`Access token decryption failed for ${merchant.shop_domain}. Format check: ${merchant.access_token?.substring(0, 10)}...`)
+    }
 
     const resShop: Response = await fetch(`https://${merchant.shop_domain}/admin/api/${API_VERSION}/shop.json`, {
       headers: { 'X-Shopify-Access-Token': accessToken },
@@ -93,9 +177,9 @@ export async function performShopifySync(merchantId: string, userId: string) {
     if (!resShop.ok) {
       const errText = await resShop.text().catch(() => '');
       if (resShop.status === 401 || resShop.status === 403) {
-        throw new Error('Invalid API key or access token');
+        throw new TokenError('Invalid API key or access token')
       }
-      throw new Error(`Shopify API failed: ${resShop.status} ${errText}`);
+      throw new Error(`Shopify API failed: ${resShop.status} ${errText}`)
     }
     const shopData = await resShop.json().catch(() => ({}))
 

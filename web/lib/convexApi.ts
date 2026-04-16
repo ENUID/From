@@ -14,6 +14,7 @@ export const api = {
     deactivateMissingProducts: fn('merchants:deactivateMissingProducts'),
     recordSyncResult: fn('merchants:recordSyncResult'),
     saveStore: fn('merchants:saveStore'),
+    updateToken: fn('merchants:updateToken'),
   },
   embedHelpers: {
     queueProductsForEmbedding: fn('embedHelpers:queueProductsForEmbedding'),

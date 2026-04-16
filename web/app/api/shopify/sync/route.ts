@@ -28,14 +28,18 @@ export async function POST(req: NextRequest) {
     
     // Token-related errors → tell user to reconnect
     if (
-      msg === 'Access token decryption failed' ||
-      msg === 'Invalid encrypted Shopify token format' ||
+      msg.includes('decryption failed') ||
+      msg.includes('Decryption failed') ||
+      msg.includes('Invalid encrypted Shopify token format') ||
+      msg.includes('Unsupported state or unable to authenticate data') ||
       msg.includes('Invalid API key or access token') ||
+      msg.includes('refresh token') ||
+      msg.includes('token refresh failed') ||
       msg.includes('token') && msg.includes('expired')
     ) {
       return NextResponse.json({
         error: 'token_expired',
-        message: 'The Shopify access token is missing, corrupted, or has expired.',
+        message: `Shopify authentication failed: ${msg}. Try reconnecting your store.`,
         reconnect_url: '/merchant/onboarding'
       }, { status: 401 })
     }
