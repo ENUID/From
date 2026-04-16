@@ -1507,10 +1507,10 @@ function DashboardInner() {
       })
       const data = await res.json()
 
-      if (data.error === 'token_expired') {
+      if (data.error === 'token_expired' || data.error === 'store_not_found') {
         setSyncStatus('token_expired')
-        setReconnectUrl(data.reconnect_url ?? null)
-        showToast('Shopify token expired. Reconnect the store to continue.', false)
+        setReconnectUrl(data.reconnect_url ?? '/merchant/onboarding')
+        showToast(data.message || 'Please reconnect your Shopify store.', false)
         return
       }
 

@@ -91,10 +91,13 @@ export async function performShopifySync(merchantId: string, userId: string) {
       headers: { 'X-Shopify-Access-Token': accessToken },
     })
     if (!resShop.ok) {
-      const text = await resShop.text();
-      throw new Error(`Shopify API failed: ${resShop.status} ${text}`);
+      const errText = await resShop.text().catch(() => '');
+      if (resShop.status === 401 || resShop.status === 403) {
+        throw new Error('Invalid API key or access token');
+      }
+      throw new Error(`Shopify API failed: ${resShop.status} ${errText}`);
     }
-    const shopData = await JSON.parse(await resShop.text().catch(() => '{}'))
+    const shopData = await resShop.json().catch(() => ({}))
 
     await convex.mutation(api.merchants.updateStoreProfile, {
       merchant_id: merchant._id,
