@@ -78,6 +78,21 @@ export const getStoreForOwner = query({
   },
 })
 
+export const getStoreForSync = query({
+  args: {
+    owner_user_id: v.string(),
+    merchant_id: v.id("merchants"),
+  },
+  handler: async (ctx, { owner_user_id, merchant_id }) => {
+    const merchant = await ctx.db.get(merchant_id)
+    if (!merchant) return null
+    if (merchant.owner_user_id !== owner_user_id && merchant.owner_user_id !== "undefined" && merchant.owner_user_id) {
+      return null
+    }
+    return merchant
+  },
+})
+
 export const saveStore = mutation({
   args: {
     owner_user_id: v.string(),

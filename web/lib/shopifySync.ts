@@ -62,10 +62,12 @@ export async function performShopifySync(merchantId: string, userId: string) {
   const convex = getConvex()
   
   try {
-    const merchants = await convex.query(api.merchants.list) as any[]
-    let merchant = merchants.find(m => m._id === merchantId)
+    const merchant = await convex.query(api.merchants.getStoreForSync, {
+      merchant_id: merchantId as any,
+      owner_user_id: userId,
+    }) as any
 
-    if (!merchant) throw new Error(`Merchant record ${merchantId} not found.`)
+    if (!merchant) throw new Error(`Merchant record ${merchantId} not found or permission denied.`)
 
     // AUTO-REPAIR: Claim orphaned store
     if (merchant.owner_user_id === 'undefined' || !merchant.owner_user_id) {
