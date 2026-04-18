@@ -37,7 +37,8 @@ export function decryptShopifySecret(value?: string | null) {
   if (!value) return undefined
   if (!isEncryptedShopifySecret(value)) return value
 
-  const [, partA, partB, partC] = value.split(':')
+  const raw = value.slice(`${TOKEN_PREFIX}:`.length)
+  const [partA, partB, partC] = raw.split(':')
   if (!partA || !partB || !partC) {
     throw new Error('Invalid encrypted Shopify token format')
   }
