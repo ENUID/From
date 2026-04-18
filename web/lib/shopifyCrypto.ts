@@ -3,9 +3,11 @@ import crypto from 'crypto'
 const TOKEN_PREFIX = 'enc:v1'
 
 function getEncryptionKey() {
-  const secret = process.env.SHOPIFY_TOKEN_ENCRYPTION_KEY ?? process.env.NEXTAUTH_SECRET
+  const secret = process.env.SHOPIFY_TOKEN_ENCRYPTION_KEY
   if (!secret) {
-    throw new Error('Set SHOPIFY_TOKEN_ENCRYPTION_KEY or NEXTAUTH_SECRET to encrypt Shopify tokens')
+    throw new Error(
+      'Set SHOPIFY_TOKEN_ENCRYPTION_KEY to encrypt Shopify tokens'
+    )
   }
   return crypto.createHash('sha256').update(secret).digest()
 }
@@ -70,8 +72,9 @@ export function decryptShopifySecret(value?: string | null) {
       // Legacy format fallback: enc:v1:iv:ciphertext:tag
       return tryDecrypt(partA, partC, partB)
     } catch {
-      const secretName = process.env.SHOPIFY_TOKEN_ENCRYPTION_KEY ? 'SHOPIFY_TOKEN_ENCRYPTION_KEY' : 'NEXTAUTH_SECRET'
-      throw new Error(`Decryption failed (Secret: ${secretName}). The token may have been encrypted with a different secret. Original error: ${err?.message}`)
+      throw new Error(
+        `Decryption failed (Secret: SHOPIFY_TOKEN_ENCRYPTION_KEY). The token may have been encrypted with a different secret. Original error: ${err?.message}`
+      )
     }
   }
 }
