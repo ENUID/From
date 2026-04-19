@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}))
   const merchantId = typeof body.merchantId === 'string' ? body.merchantId : null
-  
+
   if (!merchantId) {
     return NextResponse.json({ error: 'Missing merchantId' }, { status: 400 })
   }
@@ -41,13 +41,13 @@ export async function POST(req: NextRequest) {
     const result = await performShopifySync(merchantId, session.user.id)
     return NextResponse.json({
       ...result,
-      message: 'Sync successful'
+      message: 'Sync successful',
     })
   } catch (err: any) {
     const msg = err?.message ?? String(err)
     console.error('Manual sync error:', msg)
-    
-    // Token-related errors → tell user to reconnect
+
+    // Token-related errors -> tell user to reconnect.
     if (
       msg.includes('decryption failed') ||
       msg.includes('Decryption failed') ||
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       msg.includes('Invalid API key or access token') ||
       msg.includes('refresh token') ||
       msg.includes('token refresh failed') ||
-      msg.includes('token') && msg.includes('expired')
+      (msg.includes('token') && msg.includes('expired'))
     ) {
       return NextResponse.json({
         error: 'token_expired',
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       }, { status: 401 })
     }
 
-    // Store not in DB → tell user to connect first
+    // Store not in DB -> tell user to connect first.
     if (msg.includes('Merchant record') && msg.includes('not found')) {
       return NextResponse.json({
         error: 'store_not_found',
@@ -74,9 +74,9 @@ export async function POST(req: NextRequest) {
       }, { status: 404 })
     }
 
-    return NextResponse.json({ 
-      error: 'Sync failed', 
-      message: msg 
+    return NextResponse.json({
+      error: 'Sync failed',
+      message: msg,
     }, { status: 500 })
   }
 }

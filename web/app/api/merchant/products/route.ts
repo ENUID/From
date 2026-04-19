@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const merchantId = req.nextUrl.searchParams.get('merchantId')
   if (!merchantId) {
-    return NextResponse.json({ count: 0 })
+    return NextResponse.json({ error: 'Missing merchantId' }, { status: 400 })
   }
 
   try {
@@ -38,7 +38,8 @@ export async function GET(req: NextRequest) {
 
     const products = await convex.query(api.merchants.listProducts, { merchant_id: merchantId })
     return NextResponse.json({ count: products?.length ?? 0, products: products ?? [] })
-  } catch {
-    return NextResponse.json({ count: 0, products: [] })
+  } catch (err) {
+    console.error('Failed to load merchant products:', err)
+    return NextResponse.json({ error: 'Failed to load products' }, { status: 500 })
   }
 }

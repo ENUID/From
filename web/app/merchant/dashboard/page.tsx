@@ -1442,9 +1442,9 @@ function DashboardInner() {
         const requestedStore = requestedId ? list.find(store => store._id === requestedId) : null
         return requestedStore?._id ?? list[0]?._id ?? null
       })
-    } catch {
-      setStores([])
-      setActiveStoreId(null)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unable to load stores.'
+      showToast(message, false)
     } finally {
       setLoadingStores(false)
     }
@@ -1455,8 +1455,9 @@ function DashboardInner() {
     try {
       const data = await loadProducts(user.id, storeId, force)
       setProducts(data.products as Product[] ?? [])
-    } catch {
-      setProducts([])
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unable to load products.'
+      showToast(message, false)
     } finally {
       setLoadingProducts(false)
     }

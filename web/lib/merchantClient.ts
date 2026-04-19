@@ -63,6 +63,18 @@ function scopedKey(base: string, scope: string) {
   return `${base}:${scope}`
 }
 
+async function readJsonOrThrow(res: Response) {
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(
+      typeof data.error === 'string' && data.error.trim()
+        ? data.error
+        : `Request failed with status ${res.status}`
+    )
+  }
+  return data
+}
+
 export async function loadStores(scope: string, force = false): Promise<MerchantStore[]> {
   const key = scopedKey(STORES_KEY, scope)
   if (!force) {
@@ -70,7 +82,7 @@ export async function loadStores(scope: string, force = false): Promise<Merchant
     if (cached) return cached
   }
   const res = await fetch('/api/merchant/stores')
-  const data = await res.json()
+  const data = await readJsonOrThrow(res)
   const stores = data.stores ?? []
   writeCache(key, stores)
   return stores
@@ -83,7 +95,7 @@ export async function loadProducts(scope: string, merchantId: string, force = fa
     if (cached) return cached
   }
   const res = await fetch(`/api/merchant/products?merchantId=${merchantId}`)
-  const data = await res.json()
+  const data = await readJsonOrThrow(res)
   const payload = { count: data.count ?? 0, products: data.products ?? [] }
   writeCache(key, payload)
   return payload

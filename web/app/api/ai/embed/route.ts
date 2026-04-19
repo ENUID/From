@@ -11,6 +11,35 @@ function getConvex() {
   return new ConvexHttpClient(url)
 }
 
+async function getOwnedMerchantIds(convex: ConvexHttpClient, ownerUserId: string) {
+  const stores = await convex.query(api.merchants.listByUser, {
+    owner_user_id: ownerUserId,
+  }) as Array<{ _id: string }>
+
+  return stores.map((store) => store._id)
+}
+
+async function requireOwnedMerchant(
+  convex: ConvexHttpClient,
+  ownerUserId: string,
+  merchantId: string | null
+) {
+  if (!merchantId) {
+    return { error: NextResponse.json({ error: 'Missing merchant_id' }, { status: 400 }) }
+  }
+
+  const store = await convex.query(api.merchants.getStoreForOwner, {
+    owner_user_id: ownerUserId,
+    merchant_id: merchantId as any,
+  })
+
+  if (!store) {
+    return { error: NextResponse.json({ error: 'Store not found' }, { status: 404 }) }
+  }
+
+  return { merchantId }
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -35,16 +64,21 @@ export async function POST(req: NextRequest) {
   }
 
   const convex = getConvex()
+  const ownership = await requireOwnedMerchant(convex, session.user.id, merchantId)
+  if ('error' in ownership) {
+    return ownership.error
+  }
+
   if (force) {
     await convex.mutation(api.embedHelpers.queueProductsForEmbedding, {
-      merchantId,
+      merchantId: ownership.merchantId,
       force: true,
     }).catch(() => null)
   }
 
   try {
     const pending = await convex.mutation(api.embedHelpers.claimPendingProducts, {
-      merchantId,
+      merchantId: ownership.merchantId,
       limit,
     })
 
@@ -87,15 +121,39 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const convex = getConvex()
-  const [status, health] = await Promise.all([
-    convex.query(api.embedHelpers.getEmbedStatus, {}).catch(() => null),
-    aiHealth(),
-  ])
+  const health = await aiHealth()
+  const merchantId = req.nextUrl.searchParams.get('merchant_id')
+  const merchantIds = merchantId
+    ? [merchantId]
+    : await getOwnedMerchantIds(convex, session.user.id)
+
+  if (!merchantIds.length) {
+    return NextResponse.json({
+      embed_status: { total: 0, embedded: 0, pending: 0, processing: 0, failed: 0 },
+      ai: {
+        configured: health.ok,
+        provider: health.provider,
+        models: health.models,
+        embed_model: EMBED_MODEL,
+        chat_model: process.env.OPENAI_CHAT_MODEL ?? 'gpt-4o-mini',
+        embed_dimensions: EMBED_DIMENSIONS,
+      },
+    })
+  }
+
+  if (merchantId) {
+    const ownership = await requireOwnedMerchant(convex, session.user.id, merchantId)
+    if ('error' in ownership) {
+      return ownership.error
+    }
+  }
+
+  const status = await convex.query(api.embedHelpers.getEmbedStatus, { merchantIds }).catch(() => null)
 
   return NextResponse.json({
     embed_status: status,

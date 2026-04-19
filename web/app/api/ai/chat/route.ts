@@ -2,10 +2,60 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ConvexHttpClient } from 'convex/browser'
 import { aiChat, aiEmbed } from '@/lib/openai'
 
+const CHAT_WINDOW_MS = 60_000
+const CHAT_MAX_REQUESTS = 20
+const MESSAGE_MAX_CHARS = 500
+const HISTORY_MAX_TURNS = 6
+
+type RateEntry = {
+  count: number
+  resetAt: number
+}
+
+const rateBuckets = new Map<string, RateEntry>()
+
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
   if (!url) throw new Error('NEXT_PUBLIC_CONVEX_URL is not set')
   return new ConvexHttpClient(url)
+}
+
+function getClientKey(req: NextRequest) {
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) {
+    return forwarded.split(',')[0]?.trim() || 'unknown'
+  }
+  return req.headers.get('x-real-ip') ?? 'unknown'
+}
+
+function isRateLimited(req: NextRequest) {
+  const now = Date.now()
+  const key = getClientKey(req)
+  const current = rateBuckets.get(key)
+
+  if (!current || current.resetAt <= now) {
+    rateBuckets.set(key, { count: 1, resetAt: now + CHAT_WINDOW_MS })
+    return false
+  }
+
+  if (current.count >= CHAT_MAX_REQUESTS) {
+    return true
+  }
+
+  current.count += 1
+  rateBuckets.set(key, current)
+  return false
+}
+
+function sanitizeHistory(history: ChatHistoryMessage[]) {
+  return history
+    .filter((item) => item?.role === 'user' || item?.role === 'assistant')
+    .slice(-HISTORY_MAX_TURNS)
+    .map((item) => ({
+      role: item.role,
+      content: String(item.content ?? '').trim().slice(0, MESSAGE_MAX_CHARS),
+    }))
+    .filter((item) => item.content)
 }
 
 const INTENT_SYSTEM = `You are an intent parser for a shopping assistant. Return ONLY valid JSON, no markdown.
@@ -74,16 +124,23 @@ async function formatResponse(products: SearchProduct[], query: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const { message, history = [] } = await req.json() as {
+  if (isRateLimited(req)) {
+    return NextResponse.json({ error: 'Too many requests. Please wait a moment and try again.' }, { status: 429 })
+  }
+
+  const body = await req.json().catch(() => ({}))
+  const { message, history = [] } = body as {
     message?: string
     history?: ChatHistoryMessage[]
   }
 
-  if (!message?.trim()) {
+  const trimmedMessage = message?.trim().slice(0, MESSAGE_MAX_CHARS) ?? ''
+  if (!trimmedMessage) {
     return NextResponse.json({ error: 'Missing message' }, { status: 400 })
   }
 
-  const intent = await parseIntent(message, history)
+  const sanitizedHistory = sanitizeHistory(history)
+  const intent = await parseIntent(trimmedMessage, sanitizedHistory)
 
   if (intent.type === 'clarify') {
     return NextResponse.json({
@@ -106,7 +163,7 @@ export async function POST(req: NextRequest) {
       budgetMax: intent.budgetMax,
       limit: 4,
     }).catch(() => [])
-    const text = await formatResponse(products, message)
+    const text = await formatResponse(products, trimmedMessage)
     return NextResponse.json({ text, products, intent: intent.type, fallback: true })
   }
 
@@ -130,6 +187,6 @@ export async function POST(req: NextRequest) {
     }).catch(() => [])
   }
 
-  const text = await formatResponse(products, message)
+  const text = await formatResponse(products, trimmedMessage)
   return NextResponse.json({ text, products, intent: intent.type })
 }

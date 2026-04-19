@@ -22,6 +22,24 @@ async function listCandidateProducts(ctx: any, merchantId: string | null): Promi
   return await ctx.db.query("products").collect();
 }
 
+async function listCandidateProductsByMerchantIds(
+  ctx: any,
+  merchantIds: string[] | null
+): Promise<ProductDoc[]> {
+  if (!merchantIds?.length) {
+    return await ctx.db.query("products").collect();
+  }
+
+  if (merchantIds.length === 1) {
+    return await listCandidateProducts(ctx, merchantIds[0]);
+  }
+
+  const groups = await Promise.all(
+    merchantIds.map((merchantId) => listCandidateProducts(ctx, merchantId))
+  );
+  return groups.flat();
+}
+
 async function listProductsByEmbeddingStatus(
   ctx: any,
   merchantId: string | null,
@@ -181,13 +199,23 @@ export const backfillEmbeddingMetadata = mutation({
 });
 
 export const getEmbedStatus = query({
-  args: {},
-  handler: async (ctx) => {
-    const all = await ctx.db.query("products").collect();
-    const total = all.length;
-    const processing = (await listProductsByEmbeddingStatus(ctx, null, "processing")).length;
-    const failed = (await listProductsByEmbeddingStatus(ctx, null, "failed")).length;
-    const embedded = all.filter((product) => product.embedding_status === "embedded" || (product.embedding?.length && !product.embedding_status)).length;
+  args: {
+    merchantIds: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, { merchantIds }) => {
+    const scopedMerchantIds = merchantIds?.length ? merchantIds : null;
+    const scopedProducts = await listCandidateProductsByMerchantIds(ctx, scopedMerchantIds);
+
+    const processing = scopedMerchantIds
+      ? scopedProducts.filter((product) => product.embedding_status === "processing").length
+      : (await listProductsByEmbeddingStatus(ctx, null, "processing")).length;
+    const failed = scopedMerchantIds
+      ? scopedProducts.filter((product) => product.embedding_status === "failed").length
+      : (await listProductsByEmbeddingStatus(ctx, null, "failed")).length;
+    const embedded = scopedProducts.filter((product) =>
+      product.embedding_status === "embedded" || (product.embedding?.length && !product.embedding_status)
+    ).length;
+    const total = scopedProducts.length;
     const pending = total - embedded;
     return { total, embedded, pending, processing, failed };
   },

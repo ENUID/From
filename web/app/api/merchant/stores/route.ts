@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ stores: stores ?? [] })
   } catch (err) {
     console.error('Convex query failed:', err)
-    return NextResponse.json({ stores: [] })
+    return NextResponse.json({ error: 'Failed to load stores' }, { status: 500 })
   }
 }
 

@@ -56,9 +56,19 @@ function StorePickerInner() {
     if (status !== 'authenticated') return
 
     fetch('/api/merchant/stores')
-      .then(response => response.json())
-      .then(data => setStores(data.stores ?? []))
-      .catch(() => setStores([]))
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(data.error ?? 'Failed to load stores')
+        }
+        setStores(data.stores ?? [])
+      })
+      .catch((error: unknown) => {
+        setStores([])
+        const message = error instanceof Error ? error.message : 'Failed to load stores'
+        setToast({ msg: message, ok: false })
+        setTimeout(() => setToast(null), 5000)
+      })
       .finally(() => setLoading(false))
   }, [status])
 
