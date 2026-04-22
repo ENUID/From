@@ -1,10 +1,10 @@
 # Fluid Orbit 🌌
 
-**Fluid Orbit** is a premium decentralized commerce platform that connects independent merchants with buyers through an AI-powered intent-based search experience.
+**Fluid Orbit** is a AI Shopping OS, **YOU** describes what you want, and AI Agents finds the best, trusted, quality products from independent Brand/Stores, no ads/sponsors, no marketplace manipulation. you can search, compare, buy, and receive products, with tryons, comparison, agentic checkout, tracking and delivery and more all handled in a single chat.
 
 ## 🚀 Live Demo
-- **Buyer Workspace**: [https://fo.enuid.com](https://fo.enuid.com)
-- **Merchant Dashboard**: [https://store.enuid.com](https://store.enuid.com)
+- **Fluid Orbit**: [https://fo.enuid.com](https://fo.enuid.com)
+- **Brand/Store Dashboard**: [https://store.enuid.com](https://store.enuid.com)
 
 ## ✨ Features
 - **Intent-Based Search**: Buyers can search for products using natural language (e.g., "Handmade leather boots under $200").
