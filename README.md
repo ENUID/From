@@ -5,7 +5,7 @@
 ## 🚀 Live Demo
 - **Fluid Orbit**: [https://fo.enuid.com](https://fo.enuid.com)
 - **Brand/Store Integration
-- **: [https://store.enuid.com](https://store.enuid.com)
+  : [https://store.enuid.com](https://store.enuid.com)
 
 ## ✨ Features
 - **Intent-Based Search**: Buyers can search for products using natural language (e.g., "Handmade leather boots under $200").
