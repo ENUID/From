@@ -1,5 +1,7 @@
 'use client'
 
+import { formatMoney } from '@/lib/currency'
+
 export interface Product {
   id: string
   title: string
@@ -7,6 +9,8 @@ export interface Product {
   handle: string
   store_url: string
   price: number
+  currency?: string
+  base_currency?: string
   tags: string[]
   in_stock: boolean
   merchant_id?: string
@@ -104,7 +108,7 @@ export default function ProductCard({
         {product.title}
       </div>
       <div style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--serif)', marginTop: 2 }}>
-        ${Number(product.price).toFixed(2)}
+        {formatMoney(Number(product.price), product.currency, product.base_currency)}
       </div>
 
       {meta && <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 1 }}>{meta}</div>}

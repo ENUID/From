@@ -3,6 +3,7 @@ export type MerchantStore = {
   shop_name: string
   shop_domain: string
   public_store_domain?: string
+  base_currency?: string
   currency?: string
   is_active: boolean
 }
@@ -14,6 +15,8 @@ export type MerchantProduct = {
   handle: string
   store_url: string
   price: number
+  currency?: string
+  base_currency?: string
   tags: string[]
   in_stock: boolean
   description?: string

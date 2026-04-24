@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import type { Product } from '@/components/ProductCard'
 import { loadProducts, loadStores, type MerchantStore } from '@/lib/merchantClient'
+import { formatMoney, isSupportedCurrency } from '@/lib/currency'
 
 type Store = MerchantStore
 type SyncStatus = 'idle' | 'syncing' | 'done' | 'error' | 'token_expired'
@@ -122,12 +123,16 @@ const NAV_ITEMS: Array<{ id: NavPage; label: string; icon: ReactNode }> = [
   },
 ]
 
-function formatCurrency(value: number, currency = 'USD') {
-  try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
-  } catch {
-    return `$${value.toFixed(2)}`
-  }
+function formatCurrency(value: number, currency = 'USD', baseCurrency?: string) {
+  return formatMoney(value, currency, baseCurrency)
+}
+
+function getDisplayCurrency(store: Store | null) {
+  return store?.currency ?? store?.base_currency ?? 'USD'
+}
+
+function getBaseCurrency(store: Store | null) {
+  return store?.base_currency ?? store?.currency ?? 'USD'
 }
 
 function normalizeDomain(value?: string) {
@@ -545,11 +550,13 @@ function PixelChart({
 function ProductMiniList({
   products,
   currency,
+  baseCurrency,
   subtitle,
   isMobile,
 }: {
   products: Product[]
   currency: string
+  baseCurrency: string
   subtitle: string
   isMobile: boolean
 }) {
@@ -570,7 +577,7 @@ function ProductMiniList({
                   <div style={{ fontSize: 10.5, color: 'var(--ink3)', marginTop: 1 }}>{getProductType(product)} · {inventory} unit{inventory === 1 ? '' : 's'}</div>
                 </div>
                 <div style={{ textAlign: 'right', minWidth: isMobile ? 64 : 86 }}>
-                  <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 500 }}>{formatCurrency(Number(product.price || 0), currency)}</div>
+                  <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 500 }}>{formatCurrency(Number(product.price || 0), currency, product.base_currency ?? baseCurrency)}</div>
                   {!isMobile && (
                     <div style={{ width: 60, height: 3, background: 'var(--m-border)', borderRadius: 2, marginLeft: 'auto', marginTop: 5, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${percent(inventory, maxInventory)}%`, background: 'var(--m-green-mid)', borderRadius: 2 }} />
@@ -586,7 +593,7 @@ function ProductMiniList({
   )
 }
 
-function ProductCatalogCard({ product, currency }: { product: Product; currency: string }) {
+function ProductCatalogCard({ product, currency, baseCurrency }: { product: Product; currency: string; baseCurrency: string }) {
   const tone = getStockTone(product)
   const domain = normalizeDomain(product.store_url)
   const sublabel = [getProductType(product), product.vendor].filter(Boolean).join(' · ')
@@ -608,7 +615,7 @@ function ProductCatalogCard({ product, currency }: { product: Product; currency:
       <div style={{ padding: isMobile ? '8px 10px 10px' : '12px 14px 14px' }}>
         <div style={{ fontSize: 8.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 2 }}>{sublabel || 'Catalog item'}</div>
         <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 400, lineHeight: 1.3, marginBottom: 3 }}>{product.title}</div>
-        <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 16 : 18, fontWeight: 400, marginBottom: 6 }}>{formatCurrency(Number(product.price || 0), currency)}</div>
+        <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 16 : 18, fontWeight: 400, marginBottom: 6 }}>{formatCurrency(Number(product.price || 0), currency, product.base_currency ?? baseCurrency)}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ fontSize: 10, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{domain || 'No link'}</span>
           <span style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, color: tone === 'out' ? '#b05555' : tone === 'low' ? '#8a6a2a' : '#5a9a5a', flexShrink: 0 }}>
@@ -624,9 +631,11 @@ function ProductCatalogCard({ product, currency }: { product: Product; currency:
 function CatalogGrid({
   products,
   currency,
+  baseCurrency,
 }: {
   products: Product[]
   currency: string
+  baseCurrency: string
 }) {
   if (products.length === 0) {
     return (
@@ -639,7 +648,7 @@ function CatalogGrid({
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
       {products.map(product => (
-        <ProductCatalogCard key={product.id} product={product} currency={currency} />
+        <ProductCatalogCard key={product.id} product={product} currency={currency} baseCurrency={baseCurrency} />
       ))}
     </div>
   )
@@ -657,7 +666,8 @@ function DashboardPage({
   onViewProducts: () => void
 }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-  const currency = store?.currency ?? 'USD'
+  const currency = getDisplayCurrency(store)
+  const baseCurrency = getBaseCurrency(store)
   const searchReady = products.filter(isSearchReady)
   const lowStock = getLowStockProducts(products)
   const attention = getProductsNeedingAttention(products)
@@ -684,14 +694,14 @@ function DashboardPage({
         <MetricSquareCard label="Live products" value={loadingProducts ? '...' : String(products.length)} note={loadingProducts ? 'Loading catalog' : `${products.filter(product => product.in_stock).length} currently purchasable`} />
         <MetricSquareCard label="Search ready" value={loadingProducts ? '...' : formatPercent(searchReady.length, products.length)} note={loadingProducts ? 'Loading catalog' : `${searchReady.length} products have description, tags, and link`} />
         <MetricSquareCard label="Low stock" value={loadingProducts ? '...' : String(lowStock.length)} note={loadingProducts ? 'Loading catalog' : `${attention.length} products still need cleanup`} accent={lowStock.length ? 'down' : 'up'} />
-        <MetricSquareCard label="Avg start price" value={loadingProducts ? '...' : formatCurrency(getAverageStartingPrice(products), currency)} note={loadingProducts ? 'Loading catalog' : `${store?.currency ?? 'USD'} across synced products`} />
+        <MetricSquareCard label="Avg start price" value={loadingProducts ? '...' : formatCurrency(getAverageStartingPrice(products), currency, baseCurrency)} note={loadingProducts ? 'Loading catalog' : `${currency} display / ${baseCurrency} Shopify base`} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) minmax(280px, 340px)', gap: 14, marginBottom: 20 }}>
         <CardFrame title="Catalog spread">
           <PixelChart datasets={chartDatasets} />
         </CardFrame>
-        <ProductMiniList products={featuredProducts} currency={currency} subtitle="By price" isMobile={isMobile} />
+        <ProductMiniList products={featuredProducts} currency={currency} baseCurrency={baseCurrency} subtitle="By price" isMobile={isMobile} />
       </div>
 
       <CardFrame title="Catalog handoff" subtitle="This workspace does not mirror real order rows yet. The table below shows the products most likely to receive traffic safely.">
@@ -724,7 +734,7 @@ function DashboardPage({
                         </span>
                       </td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{inventory}</td>
-                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{formatCurrency(Number(product.price || 0), currency)}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{formatCurrency(Number(product.price || 0), currency, product.base_currency ?? baseCurrency)}</td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: ready ? '#3d8a3d' : 'var(--ink3)', fontWeight: 500 }}>{ready ? 'Ready' : 'N/A'}</td>
                     </tr>
                   )
@@ -743,7 +753,8 @@ function OrdersPage({ store, products }: { store: Store | null; products: Produc
   const readyProducts = products.filter(isSearchReady)
   const missingLinks = getMissingStoreLinks(products)
   const outOfStock = getOutOfStockProducts(products)
-  const currency = store?.currency ?? 'USD'
+  const currency = getDisplayCurrency(store)
+  const baseCurrency = getBaseCurrency(store)
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
@@ -779,7 +790,7 @@ function OrdersPage({ store, products }: { store: Store | null; products: Produc
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{getVariantInventory(product)}</td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: hasStoreLink(product) ? '#3d8a3d' : '#8a3a3a' }}>{hasStoreLink(product) ? 'Yes' : 'No'}</td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: ready ? '#3d8a3d' : 'var(--ink3)' }}>{ready ? 'Ready' : 'N/A'}</td>
-                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{formatCurrency(Number(product.price || 0), currency)}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{formatCurrency(Number(product.price || 0), currency, product.base_currency ?? baseCurrency)}</td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>
                         {hasStoreLink(product) ? (
                           <a href={product.store_url} target="_blank" rel="noreferrer" style={{ ...buttonOutlineStyle, padding: '5px 12px', fontSize: 11 }}>Open</a>
@@ -816,7 +827,8 @@ function ProductsPage({
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all')
   const categories = ['all', ...getTopCategories(products).map(item => item.name)]
-  const currency = store?.currency ?? 'USD'
+  const currency = getDisplayCurrency(store)
+  const baseCurrency = getBaseCurrency(store)
 
   const filteredProducts = products.filter(product => {
     const matchesQuery = !query.trim() || [
@@ -869,7 +881,7 @@ function ProductsPage({
         </div>
       </div>
 
-      <CatalogGrid products={filteredProducts} currency={currency} />
+      <CatalogGrid products={filteredProducts} currency={currency} baseCurrency={baseCurrency} />
     </div>
   )
 }
@@ -955,7 +967,8 @@ function ProfilePage({
   products: Product[]
 }) {
   const [activeTab, setActiveTab] = useState('all')
-  const currency = store?.currency ?? 'USD'
+  const currency = getDisplayCurrency(store)
+  const baseCurrency = getBaseCurrency(store)
   const categories = ['all', ...getTopCategories(products).map(item => item.name)]
   const visibleProducts = products.filter(product => activeTab === 'all' || getProductType(product) === activeTab)
   const profileTags = getStoreProfileTags(products)
@@ -1003,7 +1016,7 @@ function ProfilePage({
             ['Products', String(products.length)],
             ['Ready', String(ready)],
             ['Low stock', String(lowStock)],
-            ['Avg price', formatCurrency(getAverageStartingPrice(products), currency)],
+            ['Avg price', formatCurrency(getAverageStartingPrice(products), currency, baseCurrency)],
           ].map(([label, value], index) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
               {index > 0 && <div style={{ width: 1, height: 30, background: 'var(--m-border)', margin: '0 20px' }} />}
@@ -1029,7 +1042,7 @@ function ProfilePage({
         ))}
       </div>
 
-      <CatalogGrid products={visibleProducts} currency={currency} />
+      <CatalogGrid products={visibleProducts} currency={currency} baseCurrency={baseCurrency} />
     </div>
   )
 }
@@ -1077,6 +1090,11 @@ function SettingsPage({
     if (!store || saving) return
     if (!shopName.trim()) {
       showToast('Store name is required.', false)
+      return
+    }
+
+    if (currency.trim() && !isSupportedCurrency(currency.trim())) {
+      showToast('Unsupported display currency. Use a common ISO code like USD, INR, EUR, or GBP.', false)
       return
     }
 
@@ -1149,8 +1167,11 @@ function SettingsPage({
               <input value={publicStoreDomain} onChange={event => setPublicStoreDomain(event.target.value)} placeholder="your-store-domain.com" style={fieldInputStyle} />
             </div>
             <div>
-              <label style={fieldLabelStyle}>Currency</label>
+              <label style={fieldLabelStyle}>Display currency</label>
               <input value={currency} onChange={event => setCurrency(event.target.value.toUpperCase())} placeholder="USD" style={fieldInputStyle} />
+              <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 8, lineHeight: 1.6 }}>
+                Shopify base currency: {store?.base_currency ?? store?.currency ?? 'USD'}. Prices are converted before display.
+              </div>
             </div>
           </div>
         </CardFrame>

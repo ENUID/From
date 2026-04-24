@@ -7,6 +7,7 @@ export default defineSchema({
     shop_name: v.string(),
     shop_domain: v.string(),
     public_store_domain: v.optional(v.string()),
+    base_currency: v.optional(v.string()),
     access_token: v.string(),
     token_expires_at: v.optional(v.number()),
     refresh_token: v.optional(v.string()),

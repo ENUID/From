@@ -19,6 +19,9 @@ type MerchantSyncRecord = {
   shop_domain: string
   owner_user_id: string
   shop_name: string
+   public_store_domain?: string
+   base_currency?: string
+   currency?: string
 }
 
 type ShopifyVariant = {
@@ -185,9 +188,14 @@ export async function performShopifySync(merchantId: string, userId: string) {
 
     await convex.mutation(api.merchants.updateStoreProfile, {
       merchant_id: merchant._id,
-      shop_name: shopData?.shop?.name ?? merchant.shop_name,
-      currency: shopData?.shop?.currency ?? 'USD',
-      public_store_domain: shopData?.shop?.primary_domain?.host ?? shopData?.shop?.domain ?? merchant.shop_domain,
+      shop_name: merchant.shop_name || shopData?.shop?.name || merchant.shop_name,
+      public_store_domain:
+        merchant.public_store_domain ??
+        shopData?.shop?.primary_domain?.host ??
+        shopData?.shop?.domain ??
+        merchant.shop_domain,
+      base_currency: shopData?.shop?.currency ?? merchant.base_currency ?? merchant.currency ?? 'USD',
+      currency: merchant.currency ?? shopData?.shop?.currency ?? merchant.base_currency ?? 'USD',
     })
 
     const shopifyProducts = await fetchShopifyProducts(merchant.shop_domain, accessToken)

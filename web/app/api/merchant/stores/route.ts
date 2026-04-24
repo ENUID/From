@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { ConvexHttpClient } from 'convex/browser'
 import { authOptions } from '@/lib/auth'
 import { api } from '@/lib/convexApi'
+import { isSupportedCurrency } from '@/lib/currency'
 
 type MerchantStoreRecord = {
   _id: string
@@ -52,6 +53,10 @@ export async function PATCH(req: NextRequest) {
 
   if (!shopName) {
     return NextResponse.json({ error: 'Store name is required' }, { status: 400 })
+  }
+
+  if (currency && !isSupportedCurrency(currency)) {
+    return NextResponse.json({ error: 'Unsupported display currency' }, { status: 400 })
   }
 
   try {

@@ -38,6 +38,7 @@ function serializeMerchantForClient(merchant: {
   shop_name: string;
   shop_domain: string;
   public_store_domain?: string;
+  base_currency?: string;
   currency?: string;
   is_active: boolean;
 }) {
@@ -46,6 +47,7 @@ function serializeMerchantForClient(merchant: {
     shop_name: merchant.shop_name,
     shop_domain: merchant.shop_domain,
     public_store_domain: merchant.public_store_domain,
+    base_currency: merchant.base_currency,
     currency: merchant.currency,
     is_active: merchant.is_active,
   };
@@ -103,6 +105,7 @@ export const saveStore = mutation({
     token_expires_at: v.optional(v.number()),
     refresh_token: v.optional(v.string()),
     refresh_token_expires_at: v.optional(v.number()),
+    base_currency: v.optional(v.string()),
     currency: v.optional(v.string()),
     is_active: v.boolean(),
   },
@@ -118,10 +121,14 @@ export const saveStore = mutation({
         token_expires_at: args.token_expires_at,
         refresh_token: args.refresh_token,
         refresh_token_expires_at: args.refresh_token_expires_at,
-        shop_name: args.shop_name,
-        public_store_domain: normalizeStoreDomain(args.public_store_domain) || undefined,
         owner_user_id: args.owner_user_id,
-        currency: args.currency,
+        shop_name: existing.shop_name || args.shop_name,
+        public_store_domain:
+          normalizeStoreDomain(existing.public_store_domain) ||
+          normalizeStoreDomain(args.public_store_domain) ||
+          undefined,
+        base_currency: args.base_currency ?? existing.base_currency ?? existing.currency ?? args.currency,
+        currency: existing.currency ?? args.currency,
         is_active: true,
       })
       return existing._id
@@ -129,6 +136,7 @@ export const saveStore = mutation({
 
     return await ctx.db.insert("merchants", {
       ...args,
+      base_currency: args.base_currency ?? args.currency,
       public_store_domain: normalizeStoreDomain(args.public_store_domain) || undefined,
     })
   },
@@ -205,6 +213,7 @@ export const updateStoreProfile = mutation({
     owner_user_id: v.optional(v.string()),
     shop_name: v.optional(v.string()),
     public_store_domain: v.optional(v.string()),
+    base_currency: v.optional(v.string()),
     currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -213,6 +222,7 @@ export const updateStoreProfile = mutation({
       owner_user_id?: string
       shop_name?: string
       public_store_domain?: string
+      base_currency?: string
       currency?: string
     } = {}
 
@@ -222,6 +232,7 @@ export const updateStoreProfile = mutation({
     if (typeof args.public_store_domain === "string") {
       patch.public_store_domain = normalizeStoreDomain(args.public_store_domain) || undefined
     }
+    if (typeof args.base_currency === "string") patch.base_currency = args.base_currency
     if (typeof args.currency === "string") patch.currency = args.currency
 
     await ctx.db.patch(id, patch)
@@ -470,6 +481,8 @@ export const listProducts = query({
         tags: product.tags ?? [],
         description: product.description ?? "",
         price: minPrice,
+        currency: merchant?.currency ?? merchant?.base_currency ?? "USD",
+        base_currency: merchant?.base_currency ?? merchant?.currency ?? "USD",
         in_stock: inStock,
         store_url: shopDomain ? `https://${shopDomain}/products/${product.handle}` : "#",
         variants: variants.map((variant) => ({

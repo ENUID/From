@@ -102,6 +102,7 @@ export async function GET(req: NextRequest) {
       shop_domain: shop,
       public_store_domain: publicStoreDomain,
       shop_name: shopName,
+      base_currency: currency,
       access_token: encryptShopifySecret(access_token) ?? '',
       token_expires_at: tokenExpiresAt,
       refresh_token: encryptShopifySecret(refresh_token),

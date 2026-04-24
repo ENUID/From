@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ConvexHttpClient } from 'convex/browser'
 import { aiChat, aiEmbed } from '@/lib/openai'
+import { formatMoney } from '@/lib/currency'
 
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
@@ -80,6 +81,8 @@ type SearchProduct = {
   title: string
   vendor: string
   price: number
+  currency?: string
+  base_currency?: string
 }
 
 async function parseIntent(message: string, history: ChatHistoryMessage[]) {
@@ -111,7 +114,7 @@ async function formatResponse(products: SearchProduct[], query: string) {
     const summary = products.slice(0, 3).map((product) => ({
       name: product.title,
       store: product.vendor,
-      price: `$${product.price}`,
+      price: formatMoney(product.price, product.currency, product.base_currency),
     }))
     return await aiChat(
       [{ role: 'user', content: `Shopper searched: "${query}"\nFound: ${JSON.stringify(summary)}\nWrite a helpful response.` }],

@@ -54,6 +54,8 @@ export const enrichResults = internalQuery({
         tags: product.tags,
         store_url: storeUrl,
         price: minPrice,
+        currency: merchant.currency ?? merchant.base_currency ?? "USD",
+        base_currency: merchant.base_currency ?? merchant.currency ?? "USD",
         in_stock: inStock,
         variants: variants.map((v) => ({
           shopify_variant_id: v.shopify_variant_id,
