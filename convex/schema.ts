@@ -22,6 +22,7 @@ export default defineSchema({
     refresh_token: v.optional(v.string()),
     refresh_token_expires_at: v.optional(v.number()),
     currency: v.optional(v.string()),
+    base_currency: v.optional(v.string()),
     is_active: v.boolean(),
     last_sync_at: v.optional(v.number()),
     last_sync_error: v.optional(v.string()),
