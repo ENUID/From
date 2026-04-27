@@ -4,15 +4,51 @@ import { ConvexHttpClient } from 'convex/browser'
 import { authOptions } from '@/lib/auth'
 import { api } from '@/lib/convexApi'
 import { isSupportedCurrency } from '@/lib/currency'
+import { decryptShopifySecret } from '@/lib/shopifyCrypto'
 
 type MerchantStoreRecord = {
   _id: string
+  shop_name?: string
+  shop_domain?: string
+  public_store_domain?: string
+  base_currency?: string
+  currency?: string
+  access_token?: string
 }
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
   if (!url) throw new Error('NEXT_PUBLIC_CONVEX_URL is not set')
   return new ConvexHttpClient(url)
+}
+
+async function fetchShopifyMetadata(store: MerchantStoreRecord | null) {
+  if (!store?.shop_domain || !store?.access_token) return null
+
+  const accessToken = decryptShopifySecret(store.access_token)
+  if (!accessToken) return null
+
+  const res = await fetch(`https://${store.shop_domain}/admin/api/2024-04/shop.json`, {
+    headers: { 'X-Shopify-Access-Token': accessToken },
+    cache: 'no-store',
+  })
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    throw new Error(`Shopify shop metadata failed: ${res.status} ${errText}`)
+  }
+
+  const data = await res.json().catch(() => ({}))
+  return {
+    baseCurrency: typeof data?.shop?.currency === 'string' ? data.shop.currency.trim().toUpperCase() : undefined,
+    publicStoreDomain:
+      typeof data?.shop?.primary_domain?.host === 'string'
+        ? data.shop.primary_domain.host.trim()
+        : typeof data?.shop?.domain === 'string'
+          ? data.shop.domain.trim()
+          : undefined,
+    shopName: typeof data?.shop?.name === 'string' ? data.shop.name.trim() : undefined,
+  }
 }
 
 export async function GET(_req: NextRequest) {
@@ -26,6 +62,54 @@ export async function GET(_req: NextRequest) {
     const stores = await convex.query(api.merchants.listByUser, {
       owner_user_id: session.user.id,
     }) as MerchantStoreRecord[]
+
+    const repairCandidates = await Promise.all(
+      (stores ?? []).map(async (store) => {
+        const rawStore = await convex.query(api.merchants.getStoreForOwner, {
+          owner_user_id: session.user.id,
+          merchant_id: store._id as any,
+        }) as MerchantStoreRecord | null
+
+        if (!rawStore) return null
+
+        try {
+          const metadata = await fetchShopifyMetadata(rawStore)
+          if (!metadata?.baseCurrency) return null
+
+          const shouldFillShopName = !rawStore.shop_name && !!metadata.shopName
+          const shouldFillPublicDomain =
+            !rawStore.public_store_domain && !!metadata.publicStoreDomain
+          const shouldPatch =
+            metadata.baseCurrency !== rawStore.base_currency
+            || shouldFillPublicDomain
+            || shouldFillShopName
+
+          if (!shouldPatch) return null
+
+          await convex.mutation(api.merchants.updateStoreProfile, {
+            merchant_id: rawStore._id,
+            shop_name: shouldFillShopName ? metadata.shopName : rawStore.shop_name,
+            public_store_domain: shouldFillPublicDomain
+              ? metadata.publicStoreDomain
+              : rawStore.public_store_domain,
+            base_currency: metadata.baseCurrency,
+          })
+
+          return rawStore._id
+        } catch (err) {
+          console.error(`Failed to repair store currency for ${rawStore._id}:`, err)
+          return null
+        }
+      })
+    )
+
+    if (repairCandidates.some(Boolean)) {
+      const refreshedStores = await convex.query(api.merchants.listByUser, {
+        owner_user_id: session.user.id,
+      }) as MerchantStoreRecord[]
+      return NextResponse.json({ stores: refreshedStores ?? [] })
+    }
+
     return NextResponse.json({ stores: stores ?? [] })
   } catch (err) {
     console.error('Convex query failed:', err)
@@ -64,16 +148,27 @@ export async function PATCH(req: NextRequest) {
     const store = await convex.query(api.merchants.getStoreForOwner, {
       owner_user_id: session.user.id,
       merchant_id: merchantId as any,
-    })
+    }) as MerchantStoreRecord | null
 
     if (!store) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
+    }
+
+    let resolvedBaseCurrency: string | undefined = store.base_currency
+    try {
+      const metadata = await fetchShopifyMetadata(store)
+      if (metadata?.baseCurrency) {
+        resolvedBaseCurrency = metadata.baseCurrency
+      }
+    } catch (err) {
+      console.error(`Failed to refresh Shopify base currency for ${merchantId}:`, err)
     }
 
     await convex.mutation(api.merchants.updateStoreProfile, {
       merchant_id: merchantId,
       shop_name: shopName,
       public_store_domain: publicStoreDomain,
+      base_currency: resolvedBaseCurrency,
       currency,
     })
 

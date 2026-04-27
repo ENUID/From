@@ -127,8 +127,9 @@ export const saveStore = mutation({
           normalizeStoreDomain(existing.public_store_domain) ||
           normalizeStoreDomain(args.public_store_domain) ||
           undefined,
-        base_currency: args.base_currency ?? existing.base_currency ?? existing.currency ?? args.currency,
-        currency: existing.currency ?? args.currency,
+        // Keep Shopify base currency separate from any merchant-selected display currency.
+        base_currency: args.base_currency ?? existing.base_currency ?? args.currency,
+        currency: existing.currency ?? args.currency ?? existing.base_currency ?? args.base_currency,
         is_active: true,
       })
       return existing._id
