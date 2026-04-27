@@ -93,12 +93,8 @@ export const authOptions: NextAuthOptions = {
   ],
 
   pages: {
-    signIn: '/signin',
-    error: '/signin',
-  },
-
-  session: {
-    strategy: 'jwt',
+    signIn: '/merchant/login',
+    error: '/merchant/login',
   },
 
   session: {
@@ -127,7 +123,7 @@ export const authOptions: NextAuthOptions = {
     async redirect({ url, baseUrl }) {
       if (url.startsWith(baseUrl)) return url
       if (url.startsWith('/')) return `${baseUrl}${url}`
-      return baseUrl
+      return `${baseUrl}/merchant/stores`
     },
   },
 
