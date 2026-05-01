@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import crypto from 'crypto'
 import { authOptions } from '@/lib/auth'
-
-const SCOPES = 'read_products,read_inventory,read_product_listings'
+import { SHOPIFY_REQUIRED_SCOPE_STRING } from '@/lib/shopifyScopes'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -57,7 +56,7 @@ export async function GET(req: NextRequest) {
   const installUrl =
     `https://${fullDomain}/admin/oauth/authorize` +
     `?client_id=${clientId}` +
-    `&scope=${SCOPES}` +
+    `&scope=${SHOPIFY_REQUIRED_SCOPE_STRING}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&state=${state}` +
     `&grant_options[]=offline`
