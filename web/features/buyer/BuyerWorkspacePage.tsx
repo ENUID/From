@@ -3,6 +3,7 @@
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import ProductCard, { Product } from '@/components/ProductCard'
+import type { BuyerContext } from '@/lib/buyerContext'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -37,7 +38,23 @@ function formatTime(timestamp: number) {
   }).format(new Date(timestamp))
 }
 
-export default function Home() {
+function normalizeProductForCurrency(product: Product, currency: string): Product {
+  return {
+    ...product,
+    base_currency: product.base_currency ?? product.currency ?? 'USD',
+    currency,
+  }
+}
+
+function normalizeProductsForCurrency(products: Product[], currency: string) {
+  return products.map(product => normalizeProductForCurrency(product, currency))
+}
+
+export default function Home({
+  initialBuyerContext,
+}: {
+  initialBuyerContext: BuyerContext
+}) {
   const { data: session, status } = useSession()
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [history, setHistory] = useState<ConversationTurn[]>([])
@@ -48,6 +65,7 @@ export default function Home() {
   const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [buyerContext] = useState(initialBuyerContext)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -66,13 +84,16 @@ export default function Home() {
     try {
       const savedRaw = window.localStorage.getItem(SAVED_KEY)
       const historyRaw = window.localStorage.getItem(HISTORY_KEY)
-      if (savedRaw) setSavedProducts(JSON.parse(savedRaw) as Product[])
+      if (savedRaw) {
+        const saved = JSON.parse(savedRaw) as Product[]
+        setSavedProducts(normalizeProductsForCurrency(saved, buyerContext.currency))
+      }
       if (historyRaw) setSearchHistory(JSON.parse(historyRaw) as SearchHistoryEntry[])
     } catch {
       window.localStorage.removeItem(SAVED_KEY)
       window.localStorage.removeItem(HISTORY_KEY)
     }
-  }, [])
+  }, [buyerContext.currency])
 
   useEffect(() => {
     window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedProducts))
@@ -107,11 +128,12 @@ export default function Home() {
 
   function toggleSaved(product: Product) {
     setSavedProducts(previous => {
+      const normalizedProduct = normalizeProductForCurrency(product, buyerContext.currency)
       const exists = previous.some(item => item.id === product.id)
       if (exists) {
         return previous.filter(item => item.id !== product.id)
       }
-      return [product, ...previous]
+      return [normalizedProduct, ...previous]
     })
   }
 
@@ -133,7 +155,9 @@ export default function Home() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Request failed')
 
-      const products = Array.isArray(data.products) ? (data.products as Product[]) : []
+      const products = Array.isArray(data.products)
+        ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
+        : []
       rememberSearch(messageText, products.length)
       setMessages(previous => [...previous, { role: 'assistant', content: data.text, products }])
       setHistory(previous => [
@@ -189,6 +213,9 @@ export default function Home() {
                 </h1>
                 <p style={{ maxWidth: 540, fontSize: isMobile ? 14 : 15.5, color: 'var(--ink3)', lineHeight: 1.7, fontWeight: 300, margin: '0 auto' }}>
                   Fluid Orbit matches items from verified independent stores. Describe what you need—context, budget, or style—and discover unique finds.
+                </p>
+                <p style={{ marginTop: 12, fontSize: isMobile ? 12.5 : 13, color: 'var(--m-green)', letterSpacing: '0.04em' }}>
+                  Prices shown in {buyerContext.currency} for shoppers in {buyerContext.country}.
                 </p>
               </div>
 
@@ -681,6 +708,22 @@ export default function Home() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div
+              style={{
+                display: isMobile ? 'none' : 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 12px',
+                borderRadius: 999,
+                border: '1px solid var(--m-border)',
+                background: 'var(--bg-card)',
+                fontSize: 11.5,
+                color: 'var(--ink3)',
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--m-green)' }} />
+              {buyerContext.country} · {buyerContext.currency}
+            </div>
             {status === 'authenticated' ? (
               <button
                 onClick={() => signOut()}

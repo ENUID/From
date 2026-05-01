@@ -1,5 +1,32 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import {
+  BUYER_COUNTRY_COOKIE,
+  BUYER_CURRENCY_COOKIE,
+  resolveBuyerContext,
+} from '@/lib/buyerContext'
+
+function withBuyerContext(request: NextRequest, response: NextResponse) {
+  const context = resolveBuyerContext({
+    countryHeader: request.headers.get('x-vercel-ip-country'),
+    acceptLanguage: request.headers.get('accept-language'),
+    cookieCountry: request.cookies.get(BUYER_COUNTRY_COOKIE)?.value,
+    cookieCurrency: request.cookies.get(BUYER_CURRENCY_COOKIE)?.value,
+  })
+
+  response.cookies.set(BUYER_COUNTRY_COOKIE, context.country, {
+    path: '/',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 30,
+  })
+  response.cookies.set(BUYER_CURRENCY_COOKIE, context.currency, {
+    path: '/',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 30,
+  })
+
+  return response
+}
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl
@@ -23,9 +50,9 @@ export function middleware(request: NextRequest) {
   // 3. Merchant Subdomain Logic: store.enuid.com
   if (isMerchantSubdomain) {
     if (url.pathname === '/' || url.pathname === '') {
-      return NextResponse.rewrite(new URL('/merchant', request.url))
+      return withBuyerContext(request, NextResponse.rewrite(new URL('/merchant', request.url)))
     }
-    return NextResponse.next()
+    return withBuyerContext(request, NextResponse.next())
   }
 
   // 4. Buyer Subdomain Logic: fo.enuid.com
@@ -35,9 +62,9 @@ export function middleware(request: NextRequest) {
     if (merchantPaths.some(path => url.pathname.startsWith(path))) {
       const newUrl = new URL(request.url)
       newUrl.hostname = hostname.replace('fo.', 'store.')
-      return NextResponse.redirect(newUrl)
+      return withBuyerContext(request, NextResponse.redirect(newUrl))
     }
-    return NextResponse.next()
+    return withBuyerContext(request, NextResponse.next())
   }
 
   // 5. Cross-Subdomain Protection for Custom Domain
@@ -47,10 +74,10 @@ export function middleware(request: NextRequest) {
     // we don't interfere, but if it hits this project, redirect to buyer.
     const newUrl = new URL(request.url)
     newUrl.hostname = `fo.${hostname}`
-    return NextResponse.redirect(newUrl)
+    return withBuyerContext(request, NextResponse.redirect(newUrl))
   }
 
-  return NextResponse.next()
+  return withBuyerContext(request, NextResponse.next())
 }
 
 // See "Matching Paths" below to learn more

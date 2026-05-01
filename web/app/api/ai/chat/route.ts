@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ConvexHttpClient } from 'convex/browser'
 import { aiChat, aiEmbed } from '@/lib/openai'
 import { formatMoney } from '@/lib/currency'
+import {
+  BUYER_COUNTRY_COOKIE,
+  BUYER_CURRENCY_COOKIE,
+  resolveBuyerContext,
+} from '@/lib/buyerContext'
 
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
@@ -85,6 +90,24 @@ type SearchProduct = {
   base_currency?: string
 }
 
+function getBuyerCurrency(req: NextRequest) {
+  const buyerContext = resolveBuyerContext({
+    countryHeader: req.headers.get('x-vercel-ip-country'),
+    acceptLanguage: req.headers.get('accept-language'),
+    cookieCountry: req.cookies.get(BUYER_COUNTRY_COOKIE)?.value,
+    cookieCurrency: req.cookies.get(BUYER_CURRENCY_COOKIE)?.value,
+  })
+  return buyerContext.currency
+}
+
+function normalizeProductsForBuyer(products: SearchProduct[], buyerCurrency: string) {
+  return products.map((product) => ({
+    ...product,
+    base_currency: product.base_currency ?? product.currency ?? 'USD',
+    currency: buyerCurrency,
+  }))
+}
+
 async function parseIntent(message: string, history: ChatHistoryMessage[]) {
   try {
     const raw = await aiChat(
@@ -131,6 +154,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many requests. Please wait a moment and try again.' }, { status: 429 })
   }
 
+  const buyerCurrency = getBuyerCurrency(req)
+
   const body = await req.json().catch(() => ({}))
   const { message, history = [] } = body as {
     message?: string
@@ -166,8 +191,9 @@ export async function POST(req: NextRequest) {
       budgetMax: intent.budgetMax,
       limit: 4,
     }).catch(() => [])
-    const text = await formatResponse(products, trimmedMessage)
-    return NextResponse.json({ text, products, intent: intent.type, fallback: true })
+    const normalizedProducts = normalizeProductsForBuyer(products, buyerCurrency)
+    const text = await formatResponse(normalizedProducts, trimmedMessage)
+    return NextResponse.json({ text, products: normalizedProducts, intent: intent.type, fallback: true, currency: buyerCurrency })
   }
 
   let products: SearchProduct[] = []
@@ -190,6 +216,7 @@ export async function POST(req: NextRequest) {
     }).catch(() => [])
   }
 
-  const text = await formatResponse(products, trimmedMessage)
-  return NextResponse.json({ text, products, intent: intent.type })
+  const normalizedProducts = normalizeProductsForBuyer(products, buyerCurrency)
+  const text = await formatResponse(normalizedProducts, trimmedMessage)
+  return NextResponse.json({ text, products: normalizedProducts, intent: intent.type, currency: buyerCurrency })
 }
