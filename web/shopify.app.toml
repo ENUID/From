@@ -6,7 +6,7 @@ application_url = "https://store.enuid.com"
 embedded = true
 
 [access_scopes]
-scopes = "read_products,read_inventory,read_locations,read_metafields,read_product_listings,read_orders,read_checkouts,write_checkouts,read_customers,read_fulfillments,read_shipping,read_analytics,read_discounts,read_price_rules,read_collections,write_orders,write_returns"
+scopes = "read_products,read_inventory,read_locations,read_metafields,read_product_listings,read_orders,read_all_orders,read_checkouts,write_checkouts,read_customers,read_fulfillments,read_shipping,read_analytics,read_discounts,read_price_rules,read_collections,write_orders,read_returns,write_returns"
 use_legacy_install_flow = true
 
 [auth]

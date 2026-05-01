@@ -6,6 +6,7 @@
     "read_metafields",
     "read_product_listings",
     "read_orders",
+    "read_all_orders",
     "read_checkouts",
     "write_checkouts",
     "read_customers",
@@ -16,6 +17,7 @@
     "read_price_rules",
     "read_collections",
     "write_orders",
+    "read_returns",
     "write_returns"
   ]
 }

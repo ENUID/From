@@ -34,17 +34,19 @@ These scopes are used to sync structured catalog data, product availability, loc
 - `read_checkouts`
 - `write_checkouts`
 - `read_orders`
+- `read_all_orders`
 - `write_orders`
 
-These scopes are used for assisted checkout creation, order outcome visibility, and merchant-side commerce orchestration tied to Fluid Orbit buyer sessions and handoff flows.
+These scopes are used for assisted checkout creation, historical order visibility, order outcome sync beyond the default recent-order window, and merchant-side commerce orchestration tied to Fluid Orbit buyer sessions and handoff flows.
 
 ### Customer and post-purchase
 - `read_customers`
 - `read_fulfillments`
 - `read_shipping`
+- `read_returns`
 - `write_returns`
 
-These scopes are used to support customer-linked order context, fulfillment and shipping visibility, and return handling inside the merchant workspace.
+These scopes are used to support customer-linked order context, fulfillment and shipping visibility, and return visibility plus handling inside the merchant workspace.
 
 ### Merchant optimization
 - `read_analytics`
@@ -65,12 +67,14 @@ We request only the scopes needed to support catalog sync, merchant operations, 
 | `read_product_listings` | Published storefront visibility | Storefront handoff and listing validation | Online listing availability |
 | `read_collections` | Collection-aware discovery | Catalog segmentation, merchandising | Manual and smart collections |
 | `read_orders` | Order visibility and sync | Merchant order dashboard | Order status and lifecycle |
+| `read_all_orders` | Historical order visibility beyond Shopify's default recent-order window | Merchant order dashboard, reporting | Full order history sync and analysis |
 | `write_orders` | Assisted commerce actions | Order workspace actions | Order operations initiated by app workflows |
 | `read_checkouts` | Checkout state awareness | Checkout orchestration | Checkout state and recovery |
 | `write_checkouts` | Create/update assisted checkout | Buyer handoff, merchant conversion flows | Checkout creation and line items |
 | `read_customers` | Customer-linked support context | Merchant support and order context | Customer/order association |
 | `read_fulfillments` | Fulfillment monitoring | Merchant order dashboard | Fulfillment status |
 | `read_shipping` | Shipping visibility | Post-purchase tracking views | Shipping lines and delivery data |
+| `read_returns` | Return visibility and status tracking | Merchant returns workspace | Existing return records and status |
 | `write_returns` | Return operations | Merchant returns workspace | Return initiation and updates |
 | `read_analytics` | Store performance reporting | Merchant analytics surfaces | Analytics and performance data |
 | `read_discounts` | Discount-aware recommendations | Merchant optimization, buyer guidance | Discount definitions |
@@ -87,7 +91,7 @@ We request only the scopes needed to support catalog sync, merchant operations, 
 - Add order sync storage and merchant order dashboard data model.
 - Add customer-to-order context for merchant workspace support surfaces.
 - Add checkout creation flow wired to `write_checkouts`.
-- Add returns action flow wired to `write_returns`.
+- Add returns read/write flow wired to `read_returns` and `write_returns`.
 - Add analytics ingestion and dashboard widgets.
 - Add discount and price-rule ingestion for recommendation and campaign logic.
 
