@@ -2,13 +2,15 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { signIn, useSession } from 'next-auth/react'
+import { getProviders, signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 function AuthForm() {
   const [loading, setLoading] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [error, setError] = useState('')
+  const [googleReady, setGoogleReady] = useState(false)
   const searchParams = useSearchParams()
   const router = useRouter()
   const { status } = useSession()
@@ -21,14 +23,47 @@ function AuthForm() {
   }, [])
 
   useEffect(() => {
+    getProviders()
+      .then(providers => setGoogleReady(Boolean(providers?.google)))
+      .catch(() => setGoogleReady(false))
+  }, [])
+
+  useEffect(() => {
     if (status !== 'authenticated') return
     const next = searchParams.get('next')
     const callbackUrl = next && next.startsWith('/') ? next : '/merchant/stores'
     router.replace(callbackUrl)
   }, [router, searchParams, status])
 
+  useEffect(() => {
+    const code = searchParams.get('error')
+    if (!code) {
+      setError('')
+      return
+    }
+
+    const messages: Record<string, string> = {
+      AccessDenied: 'Access was denied. Please choose the Google account that should own this merchant workspace.',
+      Callback: 'The Google callback did not complete. Please try again.',
+      Configuration: 'Google sign-in is not configured correctly right now.',
+      OAuthAccountNotLinked: 'This email is linked to another sign-in method. Use the correct Google account or the buyer sign-in page.',
+      OAuthCallback: 'Google sign-in did not complete. Please try again.',
+      OAuthCreateAccount: 'We could not create a session from Google sign-in.',
+      SessionRequired: 'Please sign in to continue.',
+      Default: 'Sign-in failed. Please try again.',
+    }
+
+    setError(messages[code] ?? messages.Default)
+  }, [searchParams])
+
   function handleGoogle() {
+    if (!googleReady) {
+      setError('Google sign-in is not available right now.')
+      return
+    }
+
     setLoading(true)
+    setError('')
     const next = searchParams.get('next')
     const callbackUrl = next && next.startsWith('/') ? next : '/merchant/stores'
     signIn('google', { callbackUrl })
@@ -128,10 +163,25 @@ function AuthForm() {
             </p>
           </div>
 
+          {error && (
+            <div style={{
+              background: '#fff0f0',
+              border: '1px solid #ffd4d4',
+              borderRadius: 10,
+              padding: '10px 14px',
+              marginBottom: 18,
+              fontSize: 13,
+              color: '#d32f2f',
+              lineHeight: 1.6,
+            }}>
+              {error}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleGoogle}
-            disabled={loading}
+            disabled={loading || !googleReady}
             style={{
               width: '100%',
               padding: '13px 16px',
@@ -140,7 +190,7 @@ function AuthForm() {
               borderRadius: 12,
               fontSize: 14,
               color: loading ? 'var(--ink3)' : 'var(--ink)',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: loading || !googleReady ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -150,7 +200,7 @@ function AuthForm() {
               transition: 'border-color 0.15s, background 0.15s',
             }}
             onMouseEnter={e => {
-              if (loading) return
+              if (loading || !googleReady) return
               e.currentTarget.style.background = 'var(--bg-white)'
               e.currentTarget.style.borderColor = 'var(--m-border-2)'
             }}
@@ -177,9 +227,18 @@ function AuthForm() {
             )}
           </button>
 
+          {!googleReady && (
+            <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--ink3)', textAlign: 'center', lineHeight: 1.6 }}>
+              Google sign-in is unavailable in this environment.
+            </div>
+          )}
+
           <div style={{ marginTop: 26, paddingTop: 18, borderTop: '1px solid var(--m-border)' }}>
             <p style={{ fontSize: 11.5, color: 'var(--ink3)', lineHeight: 1.7, textAlign: 'center' }}>
               After sign-in, you can choose an existing store or open onboarding to connect a new Shopify store.
+            </p>
+            <p style={{ fontSize: 11.5, color: 'var(--ink3)', lineHeight: 1.7, textAlign: 'center', marginTop: 8 }}>
+              Looking for buyer login? <Link href="/signin" style={{ color: 'var(--m-green-mid)', textDecoration: 'none' }}>Open the storefront sign-in page</Link>.
             </p>
           </div>
         </div>

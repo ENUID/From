@@ -40,6 +40,10 @@ function getCookieDomain() {
 
 const cookieDomain = getCookieDomain()
 
+function getSafeDefaultRedirect(baseUrl: string) {
+  return `${baseUrl}/`
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -93,8 +97,8 @@ export const authOptions: NextAuthOptions = {
   ],
 
   pages: {
-    signIn: '/merchant/login',
-    error: '/merchant/login',
+    signIn: '/signin',
+    error: '/signin',
   },
 
   session: {
@@ -110,20 +114,20 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
+        token.id = user.id ?? token.id ?? token.sub
       }
       return token
     },
     async session({ session, token }) {
-      if (session.user && token.id) {
-        session.user.id = token.id as string
+      if (session.user) {
+        session.user.id = (token.id ?? token.sub) as string
       }
       return session
     },
     async redirect({ url, baseUrl }) {
       if (url.startsWith(baseUrl)) return url
       if (url.startsWith('/')) return `${baseUrl}${url}`
-      return `${baseUrl}/merchant/stores`
+      return getSafeDefaultRedirect(baseUrl)
     },
   },
 

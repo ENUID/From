@@ -65,15 +65,28 @@ export default function Home({
   const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
   const [buyerContext] = useState(initialBuyerContext)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const accountMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
   }, [])
 
   useEffect(() => {
@@ -105,6 +118,9 @@ export default function Home({
 
   const savedIds = new Set(savedProducts.map(product => product.id))
   const hasConversation = messages.some(message => message.role === 'user')
+  const sessionName = session?.user?.name?.trim() || 'Account'
+  const sessionEmail = session?.user?.email?.trim() || ''
+  const sessionInitial = sessionName.charAt(0).toUpperCase()
 
   function resetConversation() {
     if (loading) return
@@ -212,7 +228,7 @@ export default function Home({
                   not by ads.
                 </h1>
                 <p style={{ maxWidth: 540, fontSize: isMobile ? 14 : 15.5, color: 'var(--ink3)', lineHeight: 1.7, fontWeight: 300, margin: '0 auto' }}>
-                  Fluid Orbit matches items from verified independent stores. Describe what you need—context, budget, or style—and discover unique finds.
+                  Fluid Orbit matches items from verified independent stores. Describe what you need, the context, budget, or style, and discover unique finds.
                 </p>
                 <p style={{ marginTop: 12, fontSize: isMobile ? 12.5 : 13, color: 'var(--m-green)', letterSpacing: '0.04em' }}>
                   Prices shown in {buyerContext.currency} for shoppers in {buyerContext.country}.
@@ -725,22 +741,137 @@ export default function Home({
               {buyerContext.country} · {buyerContext.currency}
             </div>
             {status === 'authenticated' ? (
-              <button
-                onClick={() => signOut()}
-                style={{
-                  background: 'transparent', border: 'none', color: 'var(--ink3)',
-                  fontSize: 13, cursor: 'pointer', fontWeight: 500
-                }}
-              >
-                Sign Out
-              </button>
+              <div ref={accountMenuRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAccountMenuOpen(open => !open)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: isMobile ? '6px 10px 6px 8px' : '7px 12px 7px 8px',
+                    borderRadius: 999,
+                    border: '1px solid var(--m-border)',
+                    background: 'var(--bg-card)',
+                    color: 'var(--ink)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      background: 'var(--m-green)',
+                      color: 'var(--bg-white)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {sessionInitial}
+                  </span>
+                  {!isMobile && (
+                    <span style={{ display: 'grid', textAlign: 'left', lineHeight: 1.2 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 500 }}>{sessionName}</span>
+                      <span style={{ fontSize: 10.5, color: 'var(--ink3)' }}>{sessionEmail}</span>
+                    </span>
+                  )}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M3 5l4 4 4-4" />
+                  </svg>
+                </button>
+
+                {isAccountMenuOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 10px)',
+                      right: 0,
+                      width: isMobile ? 220 : 250,
+                      borderRadius: 16,
+                      border: '1px solid var(--m-border)',
+                      background: 'var(--bg-white)',
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
+                      padding: 10,
+                      zIndex: 200,
+                    }}
+                  >
+                    <div style={{ padding: '10px 12px 12px', borderBottom: '1px solid var(--m-border)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{sessionName}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 3 }}>{sessionEmail}</div>
+                    </div>
+                    <div style={{ display: 'grid', gap: 6, paddingTop: 8 }}>
+                      <a
+                        href="/merchant"
+                        style={{
+                          textDecoration: 'none',
+                          color: 'var(--ink)',
+                          fontSize: 12.5,
+                          padding: '10px 12px',
+                          borderRadius: 10,
+                          background: 'transparent',
+                        }}
+                      >
+                        Open merchant workspace
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => signOut({ callbackUrl: '/' })}
+                        style={{
+                          textAlign: 'left',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#9d4a4a',
+                          fontSize: 12.5,
+                          padding: '10px 12px',
+                          borderRadius: 10,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
-              <a href="/signin" style={{
-                background: 'transparent', border: 'none', color: 'var(--ink3)', textDecoration: 'none',
-                fontSize: 13, cursor: 'pointer', fontWeight: 500
-              }}>
-                Sign In
-              </a>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {!isMobile && (
+                  <a
+                    href="/signup"
+                    style={{
+                      border: '1px solid var(--m-border)',
+                      background: 'var(--bg-card)',
+                      borderRadius: 30,
+                      padding: '8px 14px',
+                      color: 'var(--ink)',
+                      textDecoration: 'none',
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
+                  >
+                    Create account
+                  </a>
+                )}
+                <a
+                  href="/signin"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--ink3)',
+                    textDecoration: 'none',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                  }}
+                >
+                  Sign in
+                </a>
+              </div>
             )}
             {hasConversation && (
               <button
