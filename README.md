@@ -1,6 +1,6 @@
 # From 🌌
 
-**From** is an AI Shopping OS, **YOU** describes what you want, and AI Agents finds the best, trusted, quality products from independent Brand/Stores, no ads/sponsors, no marketplace manipulation. You can search, compare, buy, and receive products, with tryons, comparison, agentic checkout, tracking and delivery and more all handled in a single chat.
+**From** is an AI Shopping OS, **YOU** describes what you want, and AI Agents finds the best, trusted, quality products from Brand/Stores. You can search, compare, buy, and receive products, with tryons, comparison, agentic checkout, tracking and delivery and more all handled in a single chat.
 
 ## 🚀 Live Demo
 - **From**: [https://fo.enuid.com](https://fo.enuid.com)
