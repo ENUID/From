@@ -135,7 +135,7 @@ function StorePickerInner() {
               <div style={{ fontFamily: 'var(--serif)', fontSize: 32, marginBottom: 14, color: 'var(--m-green)' }}>No stores yet</div>
               <div style={{ fontSize: 14.5, fontWeight: 500, marginBottom: 6 }}>Nothing connected</div>
               <div style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.65, marginBottom: 22 }}>Connect a Shopify store to begin syncing products into the merchant workspace.</div>
-              <button type="button" onClick={() => router.push('/onboarding')} style={{ padding: '10px 22px', background: 'var(--m-green)', color: 'var(--bg-white)', border: 'none', borderRadius: 30, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              <button type="button" onClick={() => router.push('/merchant/onboarding')} style={{ padding: '10px 22px', background: 'var(--m-green)', color: 'var(--bg-white)', border: 'none', borderRadius: 30, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                 Connect Shopify store
               </button>
             </div>
@@ -143,7 +143,7 @@ function StorePickerInner() {
         </div>
 
         <div style={{ padding: isMobile ? '10px 20px' : '13px 24px', borderTop: '1px solid var(--m-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button type="button" onClick={() => router.push('/onboarding')} style={{ fontSize: 12, color: 'var(--m-green-mid)', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--sans)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <button type="button" onClick={() => router.push('/merchant/onboarding')} style={{ fontSize: 12, color: 'var(--m-green-mid)', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--sans)', display: 'flex', alignItems: 'center', gap: 5 }}>
             Connect new
           </button>
           <button

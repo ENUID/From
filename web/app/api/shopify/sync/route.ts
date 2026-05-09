@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing merchantId' }, { status: 400 })
   }
 
-  let reconnectUrl = '/onboarding'
+  let reconnectUrl = '/merchant/onboarding'
   try {
     const convex = getConvex()
     const merchant = await convex.query(api.merchants.getStoreForOwner, {

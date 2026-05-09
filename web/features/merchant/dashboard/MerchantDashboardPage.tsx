@@ -1527,7 +1527,7 @@ function DashboardInner() {
 
       if (data.error === 'token_expired' || data.error === 'store_not_found') {
         setSyncStatus('token_expired')
-        setReconnectUrl(data.reconnect_url ?? '/onboarding')
+        setReconnectUrl(data.reconnect_url ?? '/merchant/onboarding')
         showToast(data.message || 'Please reconnect your Shopify store.', false)
         return
       }
@@ -1679,7 +1679,7 @@ function DashboardInner() {
           dropdownOpen={dropdownOpen}
           setDropdownOpen={setDropdownOpen}
           onSwitchStore={switchStore}
-          onAddStore={() => router.push('/onboarding')}
+          onAddStore={() => router.push('/merchant/onboarding')}
           onSync={runSync}
           reconnectUrl={reconnectUrl}
           syncStatus={syncStatus}
@@ -1691,7 +1691,7 @@ function DashboardInner() {
             Loading stores...
           </div>
         ) : stores.length === 0 ? (
-          <EmptyStoreState onConnect={() => router.push('/onboarding')} />
+          <EmptyStoreState onConnect={() => router.push('/merchant/onboarding')} />
         ) : (
           <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
             {activePage === 'dashboard' && (
@@ -1724,7 +1724,7 @@ function DashboardInner() {
                 reconnectUrl={reconnectUrl}
                 onStoreSaved={handleStoreSaved}
                 showToast={showToast}
-                onConnectStore={() => router.push('/onboarding')}
+                onConnectStore={() => router.push('/merchant/onboarding')}
               />
             )}
           </div>
