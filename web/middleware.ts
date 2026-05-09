@@ -36,12 +36,6 @@ export function middleware(request: NextRequest) {
   // For Vercel, it often contains 'vercel.app' or your custom domain.
   const isMerchantSubdomain = hostname.startsWith('store.')
   const isBuyerSubdomain = hostname.startsWith('from.')
-  const isOldBuyerSubdomain = hostname.startsWith('fo.')
-
-  // Redirect old fo. subdomain to new from. subdomain
-  if (isOldBuyerSubdomain) {
-    return NextResponse.redirect(new URL(`https://from.enuid.com${url.pathname}${url.search}`, request.url))
-  }
 
   // 2. Exclude internal paths, API routes, and static files from routing logic
   if (
