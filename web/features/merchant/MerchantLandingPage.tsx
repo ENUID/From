@@ -15,7 +15,7 @@ export default function MerchantLanding() {
   const pillars = [
     {
       title: 'Connect Shopify once',
-      body: 'Authenticate with Shopify and keep your catalog available inside Fluid Orbit without copying products manually.',
+      body: 'Authenticate with Shopify and keep your catalog available inside From without copying products manually.',
     },
     {
       title: 'Sync the live catalog',
@@ -55,7 +55,7 @@ export default function MerchantLanding() {
               <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
               <ellipse cx="14" cy="14" rx="12" ry="5" stroke="#c8d5b5" strokeWidth="1" strokeDasharray="2 2" fill="none" />
             </svg>
-            <span style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--bg-white)', letterSpacing: '-0.01em' }}>Fluid Orbit</span>
+            <span style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--bg-white)', letterSpacing: '-0.01em' }}>From</span>
           </div>
         </div>
 
@@ -79,7 +79,7 @@ export default function MerchantLanding() {
             )}
           </h1>
           <p style={{ fontSize: 14, color: 'rgba(200,213,181,0.6)', lineHeight: 1.7, maxWidth: isMobile ? '100%' : 400, fontWeight: 300, marginBottom: isMobile ? 32 : 44 }}>
-            Fluid Orbit for merchants focuses on the basics that matter: store connection, catalog sync, and reliable buyer handoff.
+            From for merchants focuses on the basics that matter: store connection, catalog sync, and reliable buyer handoff.
           </p>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>

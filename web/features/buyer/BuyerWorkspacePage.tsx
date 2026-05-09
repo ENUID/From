@@ -20,8 +20,8 @@ type SearchHistoryEntry = {
   resultCount: number
 }
 
-const SAVED_KEY = 'fluid-orbit:saved-products'
-const HISTORY_KEY = 'fluid-orbit:search-history'
+const SAVED_KEY = 'from:saved-products'
+const HISTORY_KEY = 'from:search-history'
 
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
@@ -211,7 +211,7 @@ export default function Home({
                   not by ads.
                 </h1>
                 <p style={{ maxWidth: 540, fontSize: isMobile ? 14 : 15.5, color: 'var(--ink3)', lineHeight: 1.7, fontWeight: 300, margin: '0 auto' }}>
-                  Fluid Orbit matches items from verified independent stores. Describe what you need, the context, budget, or style, and discover unique finds.
+                  From matches items from verified independent stores. Describe what you need, the context, budget, or style, and discover unique finds.
                 </p>
                 <p style={{ marginTop: 12, fontSize: isMobile ? 12.5 : 13, color: 'var(--m-green)', letterSpacing: '0.04em' }}>
                   Prices shown in {buyerContext.currency} for shoppers in {buyerContext.country}.
@@ -599,7 +599,7 @@ export default function Home({
               <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
               <ellipse cx="14" cy="14" rx="12" ry="5" stroke="#c8d5b5" strokeWidth="1" strokeDasharray="2 2" fill="none" />
             </svg>
-            {isMobile && <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--bg-white)' }}>Fluid Orbit</span>}
+            {isMobile && <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--bg-white)' }}>From</span>}
           </div>
           {isMobile && (
             <button
@@ -702,7 +702,7 @@ export default function Home({
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, letterSpacing: '0.04em', color: 'var(--ink)', fontWeight: 600 }}>
               <span style={{ width: 8, height: 8, borderRadius: '2px', background: 'var(--m-green)', display: 'inline-block' }} />
-              Fluid Orbit
+              From
             </div>
           </div>
 

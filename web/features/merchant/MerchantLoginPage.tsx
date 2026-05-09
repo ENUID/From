@@ -106,7 +106,7 @@ function AuthForm() {
               <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
               <ellipse cx="14" cy="14" rx="12" ry="5" stroke="#c8d5b5" strokeWidth="1" strokeDasharray="2 2" fill="none" />
             </svg>
-            <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--bg-white)' }}>Fluid Orbit</span>
+            <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--bg-white)' }}>From</span>
           </div>
 
           <h1 style={{ 

@@ -1,7 +1,7 @@
 # Shopify App Scope Expansion Update
 
 ## Partner Dashboard / App Review Note
-Fluid Orbit is an AI shopping platform that connects independent brands and stores to intent-based product discovery, catalog sync, merchant workspace tools, and assisted commerce flows.
+From is an AI shopping platform that connects independent brands and stores to intent-based product discovery, catalog sync, merchant workspace tools, and assisted commerce flows.
 
 Today, the app already supports:
 - catalog sync from Shopify
@@ -37,7 +37,7 @@ These scopes are used to sync structured catalog data, product availability, loc
 - `read_all_orders`
 - `write_orders`
 
-These scopes are used for assisted checkout creation, historical order visibility, order outcome sync beyond the default recent-order window, and merchant-side commerce orchestration tied to Fluid Orbit buyer sessions and handoff flows.
+These scopes are used for assisted checkout creation, historical order visibility, order outcome sync beyond the default recent-order window, and merchant-side commerce orchestration tied to From buyer sessions and handoff flows.
 
 ### Customer and post-purchase
 - `read_customers`

@@ -3,7 +3,7 @@ import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
 
 export const metadata: Metadata = {
-  title: 'Fluid Orbit - Shop Independent',
+  title: 'From - Shop Independent',
   description: 'Search across independent stores through natural language. Describe what you need and discover unique finds from verified shops.',
 }
 

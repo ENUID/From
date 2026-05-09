@@ -1,4 +1,4 @@
-# OpenAI Setup - Fluid Orbit
+# OpenAI Setup - From
 
 ## 1. Required environment
 

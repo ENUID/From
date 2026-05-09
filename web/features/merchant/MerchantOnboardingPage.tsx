@@ -117,7 +117,7 @@ export default function Onboarding() {
                 <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
                 <ellipse cx="14" cy="14" rx="12" ry="5" stroke="#c8d5b5" strokeWidth="1" strokeDasharray="2 2" fill="none" />
               </svg>
-              <span style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--bg-white)' }}>Fluid Orbit</span>
+              <span style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--bg-white)' }}>From</span>
             </div>
 
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 28 : 24, lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.02em', fontWeight: 300 }}>

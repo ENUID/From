@@ -995,7 +995,7 @@ function ProfilePage({
           </div>
           <div style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.55, marginTop: 6, maxWidth: 420 }}>
             {store?.shop_name
-              ? `${store.shop_name} is synced into Fluid Orbit with a curated product catalog, storefront links, and merchant-ready inventory signals.`
+              ? `${store.shop_name} is synced into From with a curated product catalog, storefront links, and merchant-ready inventory signals.`
               : 'Connect a store to generate a merchant profile.'}
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--m-green-mid)', marginTop: 8 }}>
@@ -1293,7 +1293,7 @@ function Topbar({
       {!isMobile && (
         <div style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5a9a5a' }} />
-          Fluid Orbit — Merchant
+          From — Merchant
         </div>
       )}
 
@@ -1619,7 +1619,7 @@ function DashboardInner() {
               <circle cx="14" cy="14" r="5" fill="var(--m-green)" />
               <ellipse cx="14" cy="14" rx="12" ry="5" stroke="var(--m-green)" strokeWidth="1" strokeDasharray="2 2" fill="none" />
             </svg>
-            <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--ink)' }}>Fluid Orbit</span>
+            <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--ink)' }}>From</span>
           </div>
 
           <div style={{ display: 'grid', gap: 6 }}>

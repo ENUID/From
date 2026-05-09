@@ -72,7 +72,7 @@ Examples:
 "leather bag under $200" -> {"type":"search","attributes":{"keywords":"leather bag","budget_max":200}}
 "hello" -> {"type":"clarify","attributes":{"keywords":"","budget_max":null}}`
 
-const FORMAT_SYSTEM = `You are a shopping assistant for Fluid Orbit, a marketplace for independent stores.
+const FORMAT_SYSTEM = `You are a shopping assistant for From, a marketplace for independent stores.
 Write 2-3 natural sentences. Mention 1-2 product names. End with a brief question to narrow down.
 No bullet points. No markdown.`
 
