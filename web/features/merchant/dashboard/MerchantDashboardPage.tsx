@@ -1218,11 +1218,7 @@ function Sidebar({ active, onNav }: { active: NavPage; onNav: (page: NavPage) =>
   return (
     <aside style={{ width: 68, background: 'var(--bg)', borderRight: '1px solid var(--m-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 0', gap: 6, flexShrink: 0 }}>
       <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-        <svg viewBox="0 0 28 28" fill="none" width="28" height="28">
-          <circle cx="14" cy="14" r="12" stroke="var(--m-green)" strokeWidth="1.5" />
-          <circle cx="14" cy="14" r="5" fill="var(--m-green)" />
-          <ellipse cx="14" cy="14" rx="12" ry="5" stroke="var(--m-green)" strokeWidth="1" strokeDasharray="2 2" fill="none" />
-        </svg>
+        <img src="/logo.png" alt="From Logo" style={{ width: 28, height: 28, objectFit: 'contain' }} />
       </div>
 
       {mainItems.map(item => {
@@ -1576,11 +1572,7 @@ function DashboardInner() {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
           </button>
           <div style={{ marginLeft: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-              <circle cx="14" cy="14" r="12" stroke="var(--m-green)" strokeWidth="1.5" />
-              <circle cx="14" cy="14" r="5" fill="var(--m-green)" />
-              <ellipse cx="14" cy="14" rx="12" ry="5" stroke="var(--m-green)" strokeWidth="1" strokeDasharray="2 2" fill="none" />
-            </svg>
+            <img src="/logo.png" alt="From Logo" style={{ width: 22, height: 22, objectFit: 'contain' }} />
             <span style={{ fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 500 }}>Merchant</span>
           </div>
         </header>
@@ -1614,11 +1606,7 @@ function DashboardInner() {
           padding: '24px 20px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
-            <svg viewBox="0 0 28 28" fill="none" width="26" height="26">
-              <circle cx="14" cy="14" r="12" stroke="var(--m-green)" strokeWidth="1.5" />
-              <circle cx="14" cy="14" r="5" fill="var(--m-green)" />
-              <ellipse cx="14" cy="14" rx="12" ry="5" stroke="var(--m-green)" strokeWidth="1" strokeDasharray="2 2" fill="none" />
-            </svg>
+            <img src="/logo.png" alt="From Logo" style={{ width: 26, height: 26, objectFit: 'contain' }} />
             <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--ink)' }}>From</span>
           </div>
 

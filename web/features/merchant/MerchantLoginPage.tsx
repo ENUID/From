@@ -101,11 +101,7 @@ function AuthForm() {
 
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 10, marginBottom: isMobile ? 40 : 80 }}>
-            <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
-              <circle cx="14" cy="14" r="12" stroke="#c8d5b5" strokeWidth="1.5" />
-              <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
-              <ellipse cx="14" cy="14" rx="12" ry="5" stroke="#c8d5b5" strokeWidth="1" strokeDasharray="2 2" fill="none" />
-            </svg>
+            <img src="/logo.png" alt="From Logo" style={{ width: 22, height: 22, objectFit: 'contain' }} />
             <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--bg-white)' }}>From</span>
           </div>
 

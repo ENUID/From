@@ -594,11 +594,7 @@ export default function Home({
       >
         <div style={{ marginBottom: 24, padding: isMobile ? '0 24px' : '0', display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <circle cx="14" cy="14" r="12" stroke="#c8d5b5" strokeWidth="1.5" />
-              <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
-              <ellipse cx="14" cy="14" rx="12" ry="5" stroke="#c8d5b5" strokeWidth="1" strokeDasharray="2 2" fill="none" />
-            </svg>
+            <img src="/logo.png" alt="From Logo" style={{ width: 28, height: 28, objectFit: 'contain' }} />
             {isMobile && <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--bg-white)' }}>From</span>}
           </div>
           {isMobile && (

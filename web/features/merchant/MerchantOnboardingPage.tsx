@@ -112,11 +112,7 @@ export default function Onboarding() {
 
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isMobile ? 20 : 32 }}>
-              <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
-                <circle cx="14" cy="14" r="12" stroke="#c8d5b5" strokeWidth="1.5" />
-                <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
-                <ellipse cx="14" cy="14" rx="12" ry="5" stroke="#c8d5b5" strokeWidth="1" strokeDasharray="2 2" fill="none" />
-              </svg>
+              <img src="/logo.png" alt="From Logo" style={{ width: 18, height: 18, objectFit: 'contain' }} />
               <span style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--bg-white)' }}>From</span>
             </div>
 

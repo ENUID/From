@@ -50,11 +50,7 @@ export default function MerchantLanding() {
 
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'space-between', marginBottom: isMobile ? 32 : 72 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-              <circle cx="14" cy="14" r="12" stroke="#c8d5b5" strokeWidth="1.5" />
-              <circle cx="14" cy="14" r="5" fill="#c8d5b5" />
-              <ellipse cx="14" cy="14" rx="12" ry="5" stroke="#c8d5b5" strokeWidth="1" strokeDasharray="2 2" fill="none" />
-            </svg>
+            <img src="/logo.png" alt="From Logo" style={{ width: 24, height: 24, objectFit: 'contain' }} />
             <span style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--bg-white)', letterSpacing: '-0.01em' }}>From</span>
           </div>
         </div>
