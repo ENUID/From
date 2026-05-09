@@ -35,7 +35,7 @@ export function middleware(request: NextRequest) {
   // 1. Define your base domain (replace with your actual domain in production)
   // For Vercel, it often contains 'vercel.app' or your custom domain.
   const isMerchantSubdomain = hostname.startsWith('store.')
-  const isBuyerSubdomain = hostname.startsWith('fo.')
+  const isBuyerSubdomain = hostname.startsWith('from.')
 
   // 2. Exclude internal paths, API routes, and static files from routing logic
   if (
@@ -63,7 +63,7 @@ export function middleware(request: NextRequest) {
     return withBuyerContext(request, NextResponse.next())
   }
 
-  // 4. Buyer Subdomain Logic: fo.enuid.com
+  // 4. Buyer Subdomain Logic: from.enuid.com
   if (isBuyerSubdomain) {
     // If buyer tries to access merchant-specific paths, redirect to merchant subdomain
     const merchantPaths = ['/merchant', '/dashboard', '/onboarding', '/stores', '/products', '/login']
