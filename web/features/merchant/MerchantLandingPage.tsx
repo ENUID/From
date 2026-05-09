@@ -14,12 +14,12 @@ export default function MerchantLanding() {
   }, [])
   const pillars = [
     {
-      title: 'Connect Shopify once',
-      body: 'Authenticate with Shopify and keep your catalog available inside From without copying products manually.',
+      title: 'Sync your catalog',
+      body: 'Authenticate with Shopify and keep your product catalog available inside From without manual data entry.',
     },
     {
-      title: 'Sync the live catalog',
-      body: 'Products, variants, inventory, storefront links, and currency are pulled from the active store connection.',
+      title: 'Real-time visibility',
+      body: 'Products, variants, inventory, storefront links, and currency are pulled directly from your active Shopify store.',
     },
     {
       title: 'Review catalog readiness',
@@ -29,7 +29,7 @@ export default function MerchantLanding() {
 
   const workflow = [
     'Sign in with the Google account that owns the merchant workspace.',
-    'Connect one or more Shopify stores from onboarding.',
+    'Authorize your Shopify stores to enable data synchronization.',
     'Run a sync to index products and inspect catalog readiness inside the dashboard.',
   ]
 

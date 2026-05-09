@@ -231,7 +231,7 @@ function AuthForm() {
 
           <div style={{ marginTop: 26, paddingTop: 18, borderTop: '1px solid var(--m-border)' }}>
             <p style={{ fontSize: 11.5, color: 'var(--ink3)', lineHeight: 1.7, textAlign: 'center' }}>
-              After sign-in, you can choose an existing store or open onboarding to connect a new Shopify store.
+              After sign-in, you can choose an existing store or manage your Shopify connections from the workspace.
             </p>
             <p style={{ fontSize: 11.5, color: 'var(--ink3)', lineHeight: 1.7, textAlign: 'center', marginTop: 8 }}>
               Looking for buyer login? <Link href="/signin" style={{ color: 'var(--m-green-mid)', textDecoration: 'none' }}>Open the storefront sign-in page</Link>.
