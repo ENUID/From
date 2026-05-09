@@ -83,7 +83,7 @@ export default function MerchantLanding() {
               background: '#fff', 
               color: 'var(--m-green)', 
               borderRadius: 30, 
-              padding: '16px 32px', 
+              padding: '16px 44px', 
               fontSize: 14, 
               fontWeight: 600, 
               textDecoration: 'none',
@@ -92,19 +92,6 @@ export default function MerchantLanding() {
               boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
             }}>
               Open workspace
-            </Link>
-            <Link href="/onboarding" style={{ 
-              color: 'var(--bg-white)', 
-              border: '1px solid rgba(255,255,255,0.25)', 
-              borderRadius: 30, 
-              padding: '16px 32px', 
-              fontSize: 14, 
-              textDecoration: 'none',
-              textAlign: 'center',
-              flex: isMobile ? 1 : 'none',
-              backdropFilter: 'blur(4px)'
-            }}>
-              Connect store
             </Link>
           </div>
         </div>
