@@ -43,6 +43,7 @@ type ShopifyProduct = {
   status?: string
   variants?: ShopifyVariant[]
   images?: Array<{ src: string }>
+  image?: { src: string }
 }
 
 class TokenError extends Error {
@@ -103,7 +104,7 @@ async function refreshShopifyToken(merchant: MerchantSyncRecord) {
 async function fetchShopifyProducts(shop: string, accessToken: string) {
   const products: ShopifyProduct[] = []
   let url: string | null =
-    `https://${shop}/admin/api/${API_VERSION}/products.json?limit=250&fields=id,title,body_html,vendor,handle,product_type,tags,status,variants,images`
+    `https://${shop}/admin/api/${API_VERSION}/products.json?limit=250&fields=id,title,body_html,vendor,handle,product_type,tags,status,variants,images,image`
 
   while (url) {
     const res: Response = await fetch(url, { headers: { 'X-Shopify-Access-Token': accessToken } })
@@ -218,7 +219,7 @@ export async function performShopifySync(merchantId: string, userId: string) {
           product_type: product.product_type ?? '',
           tags: typeof product.tags === 'string' ? product.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
           status: 'active',
-          image_url: product.images?.[0]?.src ?? '',
+          image_url: product.image?.src ?? product.images?.[0]?.src ?? '',
         })
 
         for (const variant of product.variants ?? []) {
