@@ -123,12 +123,12 @@ const NAV_ITEMS: Array<{ id: NavPage; label: string; icon: ReactNode }> = [
   },
 ]
 
-function formatCurrency(value: number, currency = 'USD', baseCurrency?: string) {
-  return formatMoney(value, currency, baseCurrency)
+function formatCurrency(value: number, currency = 'USD') {
+  return formatMoney(value, currency, currency)
 }
 
 function getDisplayCurrency(store: Store | null) {
-  return store?.currency ?? store?.base_currency ?? 'USD'
+  return store?.base_currency ?? store?.currency ?? 'USD'
 }
 
 function getBaseCurrency(store: Store | null) {
@@ -623,7 +623,7 @@ function ProductCatalogCard({ product, currency, baseCurrency }: { product: Prod
       <div style={{ padding: isMobile ? '8px 10px 10px' : '12px 14px 14px' }}>
         <div style={{ fontSize: 8.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 2 }}>{sublabel || 'Catalog item'}</div>
         <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 400, lineHeight: 1.3, marginBottom: 3 }}>{product.title}</div>
-        <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 16 : 18, fontWeight: 400, marginBottom: 6 }}>{formatCurrency(Number(product.price || 0), currency, product.base_currency ?? baseCurrency)}</div>
+        <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 16 : 18, fontWeight: 400, marginBottom: 6 }}>{formatCurrency(Number(product.price || 0), baseCurrency)}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ fontSize: 10, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{domain || 'No link'}</span>
           <span style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, color: tone === 'out' ? '#b05555' : tone === 'low' ? '#8a6a2a' : '#5a9a5a', flexShrink: 0 }}>
@@ -702,7 +702,7 @@ function DashboardPage({
         <MetricSquareCard label="Live products" value={loadingProducts ? '...' : String(products.length)} note={loadingProducts ? 'Loading catalog' : `${products.filter(product => product.in_stock).length} currently purchasable`} />
         <MetricSquareCard label="Search ready" value={loadingProducts ? '...' : formatPercent(searchReady.length, products.length)} note={loadingProducts ? 'Loading catalog' : `${searchReady.length} products have description, tags, and link`} />
         <MetricSquareCard label="Low stock" value={loadingProducts ? '...' : String(lowStock.length)} note={loadingProducts ? 'Loading catalog' : `${attention.length} products still need cleanup`} accent={lowStock.length ? 'down' : 'up'} />
-        <MetricSquareCard label="Avg start price" value={loadingProducts ? '...' : formatCurrency(getAverageStartingPrice(products), currency, baseCurrency)} note={loadingProducts ? 'Loading catalog' : `${currency} display / ${baseCurrency} Shopify base`} />
+        <MetricSquareCard label="Avg start price" value={loadingProducts ? '...' : formatCurrency(getAverageStartingPrice(products), baseCurrency)} note={loadingProducts ? 'Loading catalog' : `${baseCurrency} Shopify base`} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) minmax(280px, 340px)', gap: 14, marginBottom: 20 }}>
@@ -742,7 +742,7 @@ function DashboardPage({
                         </span>
                       </td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{inventory}</td>
-                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{formatCurrency(Number(product.price || 0), currency, product.base_currency ?? baseCurrency)}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: 'var(--ink)' }}>{formatCurrency(Number(product.price || 0), baseCurrency)}</td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: ready ? '#3d8a3d' : 'var(--ink3)', fontWeight: 500 }}>{ready ? 'Ready' : 'N/A'}</td>
                     </tr>
                   )
@@ -798,7 +798,7 @@ function OrdersPage({ store, products }: { store: Store | null; products: Produc
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{getVariantInventory(product)}</td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: hasStoreLink(product) ? '#3d8a3d' : '#8a3a3a' }}>{hasStoreLink(product) ? 'Yes' : 'No'}</td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px', color: ready ? '#3d8a3d' : 'var(--ink3)' }}>{ready ? 'Ready' : 'N/A'}</td>
-                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{formatCurrency(Number(product.price || 0), currency, product.base_currency ?? baseCurrency)}</td>
+                      <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>{formatCurrency(Number(product.price || 0), baseCurrency)}</td>
                       <td style={{ padding: isMobile ? '10px 8px' : '13px 12px' }}>
                         {hasStoreLink(product) ? (
                           <a href={product.store_url} target="_blank" rel="noreferrer" style={{ ...buttonOutlineStyle, padding: '5px 12px', fontSize: 11 }}>Open</a>
@@ -1024,7 +1024,7 @@ function ProfilePage({
             ['Products', String(products.length)],
             ['Ready', String(ready)],
             ['Low stock', String(lowStock)],
-            ['Avg price', formatCurrency(getAverageStartingPrice(products), currency, baseCurrency)],
+            ['Avg price', formatCurrency(getAverageStartingPrice(products), baseCurrency)],
           ].map(([label, value], index) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
               {index > 0 && <div style={{ width: 1, height: 30, background: 'var(--m-border)', margin: '0 20px' }} />}
@@ -1078,20 +1078,17 @@ function SettingsPage({
 }) {
   const [shopName, setShopName] = useState(store?.shop_name ?? '')
   const [publicStoreDomain, setPublicStoreDomain] = useState(store?.public_store_domain ?? '')
-  const [currency, setCurrency] = useState(store?.currency ?? '')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setShopName(store?.shop_name ?? '')
     setPublicStoreDomain(store?.public_store_domain ?? '')
-    setCurrency(store?.currency ?? '')
-  }, [store?._id, store?.shop_name, store?.public_store_domain, store?.currency])
+  }, [store?._id, store?.shop_name, store?.public_store_domain])
 
   const dirty = Boolean(
     store
     && (shopName !== (store.shop_name ?? '')
-      || publicStoreDomain !== (store.public_store_domain ?? '')
-      || currency !== (store.currency ?? ''))
+      || publicStoreDomain !== (store.public_store_domain ?? ''))
   )
 
   async function handleSave() {
@@ -1115,7 +1112,6 @@ function SettingsPage({
           merchantId: store._id,
           shop_name: shopName.trim(),
           public_store_domain: publicStoreDomain.trim(),
-          currency: currency.trim(),
         }),
       })
       const data = await res.json()
@@ -1141,7 +1137,6 @@ function SettingsPage({
               onClick={() => {
                 setShopName(store?.shop_name ?? '')
                 setPublicStoreDomain(store?.public_store_domain ?? '')
-                setCurrency(store?.currency ?? '')
               }}
               style={buttonOutlineStyle}
             >
@@ -1175,11 +1170,8 @@ function SettingsPage({
               <input value={publicStoreDomain} onChange={event => setPublicStoreDomain(event.target.value)} placeholder="your-store-domain.com" style={fieldInputStyle} />
             </div>
             <div>
-              <label style={fieldLabelStyle}>Display currency</label>
-              <input value={currency} onChange={event => setCurrency(event.target.value.toUpperCase())} placeholder="USD" style={fieldInputStyle} />
-              <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 8, lineHeight: 1.6 }}>
-                Shopify base currency: {store?.base_currency ?? store?.currency ?? 'USD'}. Prices are converted before display.
-              </div>
+              <label style={fieldLabelStyle}>Currency</label>
+              <div style={{ ...fieldInputStyle, color: 'var(--ink3)' }}>{store?.base_currency ?? store?.currency ?? 'USD'} (Managed by Shopify)</div>
             </div>
           </div>
         </CardFrame>
