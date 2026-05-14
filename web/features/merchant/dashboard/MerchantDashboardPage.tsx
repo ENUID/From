@@ -645,6 +645,8 @@ function CatalogGrid({
   currency: string
   baseCurrency: string
 }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+
   if (products.length === 0) {
     return (
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: '28px 24px', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.8 }}>
@@ -654,7 +656,7 @@ function CatalogGrid({
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 14 }}>
       {products.map(product => (
         <ProductCatalogCard key={product.id} product={product} currency={currency} baseCurrency={baseCurrency} />
       ))}
@@ -877,7 +879,7 @@ function ProductsPage({
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, marginBottom: 18, alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', gap: 12, marginBottom: 18, alignItems: 'center' }}>
         <input
           value={query}
           onChange={event => setQuery(event.target.value)}
@@ -905,9 +907,10 @@ function AnalyticsPage({ products }: { products: Product[] }) {
   const lowStock = getLowStockProducts(products).length
   const missingLinks = getMissingStoreLinks(products).length
   const avgInventory = products.length ? Math.round(products.reduce((total, product) => total + getVariantInventory(product), 0) / products.length) : 0
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 16px 28px' : '32px 36px' }}>
       <PageHeader title={<>Store <em style={{ fontStyle: 'italic', color: 'var(--ink3)' }}>Analytics</em></>} subtitle="Current catalog health" />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginBottom: 22 }}>
@@ -928,7 +931,7 @@ function AnalyticsPage({ products }: { products: Product[] }) {
         <PixelChart datasets={chartDatasets} initialTab="categories" />
       </CardFrame>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 340px)', gap: 14, marginTop: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) minmax(280px, 340px)', gap: 14, marginTop: 22 }}>
         <CardFrame title="Category share" subtitle="Largest groups in the current catalog">
           {topCategories.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--ink3)' }}>No category data available.</div>
@@ -974,6 +977,7 @@ function ProfilePage({
   store: Store | null
   products: Product[]
 }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const [activeTab, setActiveTab] = useState('all')
   const currency = getDisplayCurrency(store)
   const baseCurrency = getBaseCurrency(store)
@@ -985,8 +989,8 @@ function ProfilePage({
   const lowStock = getLowStockProducts(products).length
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: '28px 28px 24px', display: 'flex', alignItems: 'flex-start', gap: 24, marginBottom: 20, flexWrap: 'wrap' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 16px 28px' : '32px 36px' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 'var(--m-radius)', padding: isMobile ? '20px 16px 18px' : '28px 28px 24px', display: 'flex', alignItems: 'flex-start', gap: isMobile ? 18 : 24, marginBottom: 20, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--m-green)', color: 'var(--bg-white)', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {initials(store?.shop_name)}
@@ -996,9 +1000,9 @@ function ProfilePage({
           </div>
         </div>
 
-        <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ flex: 1, minWidth: isMobile ? 0 : 220 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
-            <div style={{ fontFamily: 'var(--serif)', fontSize: 26, fontWeight: 400, lineHeight: 1 }}>{store?.shop_name ?? 'Store profile'}</div>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 22 : 26, fontWeight: 400, lineHeight: 1 }}>{store?.shop_name ?? 'Store profile'}</div>
             <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20, background: '#eaf4ea', color: '#3d8a3d', fontWeight: 500 }}>Live on Orbit</span>
           </div>
           <div style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.55, marginTop: 6, maxWidth: 420 }}>
@@ -1006,9 +1010,9 @@ function ProfilePage({
               ? `${store.shop_name} is synced into From with a curated product catalog, storefront links, and merchant-ready inventory signals.`
               : 'Connect a store to generate a merchant profile.'}
           </div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--m-green-mid)', marginTop: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', fontSize: 12, color: 'var(--m-green-mid)', marginTop: 8, minWidth: 0, wordBreak: 'break-word' }}>
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4.5 2H2a1 1 0 00-1 1v6a1 1 0 001 1h6a1 1 0 001-1V6.5M7 1h3m0 0v3m0-3L4.5 6.5" /></svg>
-            {storefront || 'No public storefront domain'}
+            <span style={{ minWidth: 0 }}>{storefront || 'No public storefront domain'}</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
             {profileTags.length ? profileTags.map(tag => (
@@ -1019,17 +1023,17 @@ function ProfilePage({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0, background: 'var(--bg)', borderRadius: 8, padding: '16px 20px', border: '1px solid var(--m-border)', alignSelf: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: isMobile ? 'grid' : 'flex', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : undefined, alignItems: 'stretch', gap: isMobile ? 12 : 0, flexShrink: 0, width: isMobile ? '100%' : 'auto', background: 'var(--bg)', borderRadius: 8, padding: isMobile ? '14px' : '16px 20px', border: '1px solid var(--m-border)', alignSelf: 'center' }}>
           {[
             ['Products', String(products.length)],
             ['Ready', String(ready)],
             ['Low stock', String(lowStock)],
             ['Avg price', formatCurrency(getAverageStartingPrice(products), baseCurrency)],
           ].map(([label, value], index) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
-              {index > 0 && <div style={{ width: 1, height: 30, background: 'var(--m-border)', margin: '0 20px' }} />}
+            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
+              {!isMobile && index > 0 && <div style={{ width: 1, height: 30, background: 'var(--m-border)', margin: '0 20px' }} />}
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 400, lineHeight: 1 }}>{value}</div>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 20 : 24, fontWeight: 400, lineHeight: 1, wordBreak: 'break-word' }}>{value}</div>
                 <div style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 4 }}>{label}</div>
               </div>
             </div>
@@ -1079,6 +1083,7 @@ function SettingsPage({
   const [shopName, setShopName] = useState(store?.shop_name ?? '')
   const [publicStoreDomain, setPublicStoreDomain] = useState(store?.public_store_domain ?? '')
   const [saving, setSaving] = useState(false)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
 
   useEffect(() => {
     setShopName(store?.shop_name ?? '')
@@ -1122,7 +1127,7 @@ function SettingsPage({
   }
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 16px 28px' : '32px 36px' }}>
       <PageHeader
         title={<em style={{ fontStyle: 'italic' }}>Settings</em>}
         subtitle="Store identity and workspace controls"
@@ -1150,7 +1155,7 @@ function SettingsPage({
         }
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 340px)', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) minmax(280px, 340px)', gap: 16 }}>
         <CardFrame title="Store details" subtitle="Editable fields for the current merchant record.">
           <div style={{ display: 'grid', gap: 16 }}>
             <div>
@@ -1181,9 +1186,9 @@ function SettingsPage({
                 ['Search-ready', String(products.filter(isSearchReady).length)],
                 ['Sync status', syncStatus === 'idle' ? 'Idle' : syncStatus === 'done' ? 'Up to date' : syncStatus === 'token_expired' ? 'Reconnect required' : syncStatus === 'error' ? 'Needs retry' : 'Syncing'],
               ].map(([label, value]) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, paddingBottom: 12, borderBottom: '1px solid var(--m-border)' }}>
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap', paddingBottom: 12, borderBottom: '1px solid var(--m-border)' }}>
                   <span style={{ fontSize: 12.5, color: 'var(--ink3)' }}>{label}</span>
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{value}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 500, textAlign: 'right', marginLeft: 'auto' }}>{value}</span>
                 </div>
               ))}
             </div>
@@ -1289,28 +1294,28 @@ function Topbar({
         </div>
       )}
 
-      <div style={{ marginLeft: isMobile ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
+      <div style={{ marginLeft: isMobile ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', width: isMobile ? '100%' : 'auto', minWidth: 0 }}>
         {syncStatus === 'token_expired' && reconnectUrl && (
           <a href={reconnectUrl} style={{ fontSize: 12, color: 'var(--red)', background: 'var(--red-bg)', padding: '6px 12px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>
             Reconnect Shopify
           </a>
         )}
 
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : '0 1 auto', minWidth: 0 }}>
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            style={{ ...buttonOutlineStyle, padding: '7px 12px', background: 'var(--bg-card)' }}
+            style={{ ...buttonOutlineStyle, padding: '7px 12px', background: 'var(--bg-card)', width: isMobile ? '100%' : 'auto', justifyContent: 'space-between', minWidth: 0 }}
           >
             <span style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--m-green)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: 'var(--bg-white)', flexShrink: 0 }}>
               {initials(activeStore?.shop_name)}
             </span>
-            <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeStore?.shop_name ?? 'Select store'}</span>
+            <span style={{ maxWidth: isMobile ? 'none' : 150, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{activeStore?.shop_name ?? 'Select store'}</span>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4l3 3 3-3" /></svg>
           </button>
 
           {dropdownOpen && (
-            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: 'white', border: '1px solid var(--m-border)', borderRadius: 12, minWidth: 260, boxShadow: '0 8px 28px rgba(26,24,20,0.1)', overflow: 'hidden', zIndex: 100 }}>
+            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: isMobile ? 'auto' : 0, left: isMobile ? 0 : 'auto', background: 'white', border: '1px solid var(--m-border)', borderRadius: 12, minWidth: isMobile ? '100%' : 260, width: isMobile ? '100%' : 'auto', boxShadow: '0 8px 28px rgba(26,24,20,0.1)', overflow: 'hidden', zIndex: 100 }}>
               <div style={{ padding: '8px 14px', fontSize: 10, color: 'var(--ink3)', letterSpacing: '0.12em', textTransform: 'uppercase', borderBottom: '1px solid var(--m-border)' }}>Stores</div>
               {stores.length === 0 ? (
                 <div style={{ padding: 14, fontSize: 12.5, color: 'var(--ink3)', textAlign: 'center' }}>No stores connected</div>
@@ -1345,7 +1350,7 @@ function Topbar({
         </div>
 
         {storefront && (
-          <a href={`https://${storefront}`} target="_blank" rel="noreferrer" style={buttonOutlineStyle}>
+          <a href={`https://${storefront}`} target="_blank" rel="noreferrer" style={{ ...buttonOutlineStyle, flex: isMobile ? '1 1 0' : undefined, minWidth: 0 }}>
             View storefront
           </a>
         )}
@@ -1357,6 +1362,7 @@ function Topbar({
             disabled={syncStatus === 'syncing'}
             style={{ 
               ...buttonPrimaryStyle, 
+              flex: isMobile ? '1 1 0' : undefined,
               padding: isMobile ? '8px 14px' : buttonPrimaryStyle.padding,
               opacity: syncStatus === 'syncing' ? 0.7 : 1,
               cursor: syncStatus === 'syncing' ? 'default' : 'pointer'
@@ -1372,7 +1378,7 @@ function Topbar({
             {isMobile ? (syncStatus === 'syncing' ? '...' : 'Sync') : (syncStatus === 'syncing' ? 'Syncing...' : 'Sync catalog')}
           </button>
         ) : (
-          <button type="button" onClick={onAddStore} style={{ ...buttonPrimaryStyle, padding: isMobile ? '8px 14px' : buttonPrimaryStyle.padding }}>
+          <button type="button" onClick={onAddStore} style={{ ...buttonPrimaryStyle, flex: isMobile ? '1 1 0' : undefined, padding: isMobile ? '8px 14px' : buttonPrimaryStyle.padding }}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6.5 1v11M1 6.5h11" /></svg>
             {isMobile ? 'Connect' : 'Connect store'}
           </button>
@@ -1548,14 +1554,14 @@ function DashboardInner() {
 
   if (status === 'loading' || status === 'unauthenticated') {
     return (
-      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', color: 'var(--ink3)', fontSize: 13 }}>
+      <div style={{ display: 'flex', height: '100dvh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', color: 'var(--ink3)', fontSize: 13 }}>
         Loading...
       </div>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100dvh', maxWidth: '100%', background: 'var(--bg)', overflow: 'hidden' }}>
       {toast && (
         <div style={{ position: 'fixed', top: isMobile ? 70 : 16, left: '50%', transform: 'translateX(-50%)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 24px rgba(0,0,0,0.18)', zIndex: 300, background: toast.ok ? '#0f2d1a' : '#2d0f0f', color: toast.ok ? '#6edba8' : '#ed8080' }}>
           {toast.msg}
@@ -1668,7 +1674,7 @@ function DashboardInner() {
         </aside>
       )}
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         <Topbar
           stores={stores}
           activeStore={activeStore}
@@ -1689,7 +1695,7 @@ function DashboardInner() {
         ) : stores.length === 0 ? (
           <EmptyStoreState onConnect={() => router.push('/merchant/onboarding')} />
         ) : (
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0 }}>
             {activePage === 'dashboard' && (
               <DashboardPage
                 store={activeStore}

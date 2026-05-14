@@ -259,7 +259,7 @@ export default function Home({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 16 }}>
                 {[
                   {
                     title: 'Describe the need',
@@ -321,7 +321,7 @@ export default function Home({
               </div>
 
               {message.products && message.products.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10, width: '100%' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 10, width: '100%' }}>
                   {message.products.map((product, offset) => (
                     <ProductCard
                       key={product.id || `${index}-${offset}`}
@@ -393,21 +393,21 @@ export default function Home({
         </div>
 
         <footer style={{ 
-          padding: isMobile ? '8px 12px 24px' : '14px 28px 20px', 
+          padding: isMobile ? '8px 10px 18px' : '14px 28px 20px', 
           borderTop: '1px solid var(--m-border)', 
           background: isMobile ? 'rgba(255,255,255,0.85)' : 'var(--bg)', 
           backdropFilter: isMobile ? 'blur(12px)' : 'none',
           flexShrink: 0,
-          paddingBottom: isMobile ? 'max(24px, env(safe-area-inset-bottom))' : '20px'
+          paddingBottom: isMobile ? 'max(16px, env(safe-area-inset-bottom))' : '20px'
         }}>
           <div style={{ 
             display: 'flex', 
-            gap: 12, 
+            gap: isMobile ? 8 : 12, 
             alignItems: 'center', 
             background: 'var(--bg-card)', 
             border: '1px solid var(--m-border)', 
             borderRadius: 24, 
-            padding: isMobile ? '8px 8px 8px 18px' : '10px 10px 10px 20px',
+            padding: isMobile ? '8px 8px 8px 14px' : '10px 10px 10px 20px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
             maxWidth: 900,
             margin: '0 auto',
@@ -419,7 +419,7 @@ export default function Home({
               onChange={event => setInput(event.target.value)}
               onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => event.key === 'Enter' && !event.shiftKey && sendMessage()}
               placeholder={isMobile ? "Search products..." : "Search by product, material, budget, or intended use"}
-              style={{ flex: 1, border: 'none', background: 'none', fontSize: isMobile ? 16 : 14, color: 'var(--ink)', outline: 'none' }}
+              style={{ flex: 1, minWidth: 0, border: 'none', background: 'none', fontSize: isMobile ? 16 : 14, color: 'var(--ink)', outline: 'none' }}
             />
             <button
               type="button"
@@ -458,11 +458,6 @@ export default function Home({
               )}
             </button>
           </div>
-          {!isMobile && (
-            <p style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.1em', color: 'var(--ink3)', textAlign: 'center', textTransform: 'uppercase', opacity: 0.6 }}>
-              Enter to send
-            </p>
-          )}
         </footer>
       </>
     )
@@ -498,9 +493,9 @@ export default function Home({
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 6 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>{entry.query}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>{formatTime(entry.createdAt)}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 6, alignItems: 'flex-start' }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)', minWidth: 0 }}>{entry.query}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap', flexShrink: 0 }}>{formatTime(entry.createdAt)}</div>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
                   {entry.resultCount} result{entry.resultCount === 1 ? '' : 's'} returned
@@ -547,7 +542,7 @@ export default function Home({
             No saved products yet. Use the save action on any search result to keep it here.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 12 }}>
             {savedProducts.map(product => (
               <ProductCard
                 key={product.id}
@@ -564,7 +559,7 @@ export default function Home({
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100dvh', maxWidth: '100%', background: 'var(--bg)', overflow: 'hidden' }}>
       {/* Mobile Drawer Overlay */}
       {isMobile && isSidebarOpen && (
         <div
