@@ -83,10 +83,24 @@ export default function ProductCard({
             padding: '2px 8px',
             borderRadius: 20,
             fontWeight: 500,
+            zIndex: 2,
           }}
         >
           Best match
         </div>
+      )}
+
+      {product.image_url && (
+        <div
+          style={{
+            width: '100%',
+            height: 140,
+            borderRadius: 8,
+            marginBottom: 8,
+            background: `url(${product.image_url}) center/cover no-repeat`,
+            border: '1px solid var(--m-border)',
+          }}
+        />
       )}
 
       <div
