@@ -1,13 +1,7 @@
 import { z } from 'zod';
 
 export const SearchToolSchema = z.object({
-  keywords: z.array(
-    z.object({
-      term: z.string().describe("A keyword from the user's intent"),
-      synonyms: z.array(z.string()).max(3).describe("2-3 synonyms for this keyword").optional()
-    })
-  ).describe("List of all keywords (product nouns, materials, colors) extracted from the query, translated to English."),
-  searchQuery: z.string().describe("The full natural language search query describing the product"),
+  searchQuery: z.string().describe("The full natural language search query describing the product. e.g. 'eco-friendly denim jeans' or 'linen shirts'"),
   budgetMax: z.number().nullable().optional().describe("Maximum budget if specified")
 });
 
@@ -17,32 +11,20 @@ export const SEARCH_TOOL_DEF = {
   type: "function",
   function: {
     name: "search_ucp",
-    description: "Search for products across independent Shopify stores using Universal Commerce Protocol.",
+    description: "Search for products across hundreds of millions of Shopify stores using the Universal Commerce Protocol.",
     parameters: {
       type: "object",
       properties: {
-        keywords: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              term: { type: "string" },
-              synonyms: { type: "array", items: { type: "string" } }
-            },
-            required: ["term"]
-          },
-          description: "List of keywords and their synonyms to search for. Must be in English."
-        },
         searchQuery: {
           type: "string",
-          description: "A natural search query incorporating all keywords for context."
+          description: "A natural search query describing the product in English. E.g., 'blue linen shirts', 'ceramic coffee mugs'."
         },
         budgetMax: {
           type: ["number", "null"],
           description: "The maximum budget the user is willing to spend, if specified."
         }
       },
-      required: ["keywords", "searchQuery"]
+      required: ["searchQuery"]
     }
   }
 };

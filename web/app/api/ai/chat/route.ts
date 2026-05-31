@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, ChatMessage } from '@/lib/groq'
 import { SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
-import { RegistryService } from '@/lib/services/RegistryService'
-import { CatalogService, UcpProduct } from '@/lib/services/CatalogService'
-import { RelevanceService } from '@/lib/services/RelevanceService'
+import { GlobalCatalogService, UcpProduct } from '@/lib/services/GlobalCatalogService'
 
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
@@ -84,27 +82,10 @@ export async function POST(req: NextRequest) {
           const rawArgs = JSON.parse(toolCall.function.arguments)
           const args = SearchToolSchema.parse(rawArgs)
           
-          console.log('AI categorized search intent:', args);
+          console.log('AI search intent:', args);
 
-          // Build keyword clauses
-          const keywordClauses = args.keywords.map(kw => {
-            const terms = [kw.term, ...(kw.synonyms || [])];
-            return terms.length > 1 ? `(${terms.join(' OR ')})` : terms[0];
-          });
-
-          // Combine all
-          const stableQuery = keywordClauses.join(' ').trim();
-          
-          console.log('Sending Boolean Query to UCP:', stableQuery);
-
-          // Orchestrate Micro-services using internal Registry
-          const domains = RegistryService.findRelevantStores(args)
-          
-          const nestedProducts = await Promise.all(
-            domains.map(store => CatalogService.searchStore(store, stableQuery))
-          )
-          
-          products = RelevanceService.filterAndRank(nestedProducts.flat(), args)
+          // Single call to Shopify Global Catalog
+          products = await GlobalCatalogService.search(args.searchQuery, args.budgetMax);
           
           // Provide results back to AI for final synthesis
           // Sanitize the product list to prevent token bloat and rate limits
