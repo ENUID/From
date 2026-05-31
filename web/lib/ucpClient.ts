@@ -56,16 +56,16 @@ async function searchGoogleStores(query: string): Promise<string[]> {
       }
     }
     
-    // Always include a few known good stores as fallback just in case Google only returns non-UCP stores
-    return Array.from(new Set([...domains, ...UCP_STORES])).slice(0, 8)
+    // Return only the dynamic domains found by Google
+    return domains.slice(0, 8)
   } catch (err) {
     console.error('Serper API error:', err)
-    return UCP_STORES
+    return []
   }
 }
 
 async function fetchStoreUCP(domain: string, query: string): Promise<UcpProduct[]> {
-  const endpoint = `https://${domain}/api/mcp`
+  const endpoint = `https://${domain.replace('www.', '')}/api/mcp`
   const payload = {
     jsonrpc: "2.0",
     id: "1",
@@ -93,6 +93,8 @@ async function fetchStoreUCP(domain: string, query: string): Promise<UcpProduct[
     if (!res.ok) return []
 
     const data = await res.json()
+    if (data.error) return []
+    
     const textContent = data.result?.content?.[0]?.text
     if (!textContent) return []
 
@@ -111,7 +113,7 @@ async function fetchStoreUCP(domain: string, query: string): Promise<UcpProduct[
         vendor: domain.replace('www.', ''),
         price: priceAmount / 100,
         currency,
-        store_url: `https://${domain}/products/${p.handle || p.id.split('/').pop()}`,
+        store_url: p.url || `https://${domain.replace('www.', '')}/products/${p.handle || p.id.split('/').pop()}`,
         image_url: p.media?.[0]?.url || '',
         in_stock: inStock,
         tags: p.tags || []
