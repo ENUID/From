@@ -14,9 +14,25 @@ export type UcpProduct = {
   description?: string;
   options?: { name: string; values: string[] }[];
 }
+const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
 
 export class GlobalCatalogService {
   static async search(query: string, budgetMax?: number | null, excludeIds: string[] = []): Promise<UcpProduct[]> {
+    const cacheKey = query.toLowerCase().trim();
+    const cached = searchCache.get(cacheKey);
+    
+    // Use cache if available and less than 15 minutes old
+    if (cached && Date.now() - cached.timestamp < 15 * 60 * 1000) {
+      let finalProducts = cached.products;
+      if (excludeIds.length > 0) {
+        finalProducts = finalProducts.filter(p => !excludeIds.includes(p.id));
+      }
+      if (budgetMax && budgetMax > 0) {
+        finalProducts = finalProducts.filter(p => p.price <= budgetMax);
+      }
+      return finalProducts.slice(0, 5);
+    }
+
     const endpoint = 'https://catalog.shopify.com/api/ucp/mcp';
     
     // Shopify Global Catalog UCP Filters
@@ -126,6 +142,8 @@ export class GlobalCatalogService {
           console.warn('Error parsing individual Shopify product:', err);
         }
       }
+
+      searchCache.set(cacheKey, { timestamp: Date.now(), products });
 
       let finalProducts = products;
       if (excludeIds.length > 0) {
