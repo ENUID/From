@@ -40,18 +40,27 @@ function sanitizeHistory(history: any[]): ChatMessage[] {
   return history
     .filter((item) => item?.role === 'user' || item?.role === 'assistant')
     .slice(-HISTORY_MAX_TURNS)
-    .map((item) => ({
-      role: item.role,
-      content: String(item.content ?? '').trim().slice(0, MESSAGE_MAX_CHARS),
-    }))
+    .map((item) => {
+      let content = String(item.content ?? '').trim().slice(0, MESSAGE_MAX_CHARS);
+      if (item.role === 'assistant' && item.products && item.products.length > 0) {
+        const productSummary = item.products.map((p: any) => 
+          `- ${p.title} by ${p.vendor} (${p.price} ${p.currency}): ${p.description?.slice(0, 100) || ''} [Tags: ${p.tags?.join(', ')}]`
+        ).join('\n');
+        content += `\n\n[System Note: You displayed the following products to the user:\n${productSummary}]`;
+      }
+      return {
+        role: item.role,
+        content,
+      };
+    })
     .filter((item) => item.content)
 }
 
 const SYSTEM_PROMPT = `You are a high-end AI shopping assistant named "From". Your mission is to help users discover unique items from independent Shopify stores via the Universal Commerce Protocol.
 
 CORE GUIDELINES:
-- Assess Intent: For each user message, determine if they want to find products (e.g., "find shoes", "sorry, I meant blue", "cheaper ones") or if they want advice/conversation (e.g., "which is better?", "hi").
-- Tool Usage: If they are looking for or refining products, you MUST use the 'search_ucp' tool with an optimized English query. If they only want advice or casual chat, DO NOT use the tool; answer directly.
+- Assess Intent: For each user message, determine if they want to find new products (e.g., "find shoes", "sorry, I meant blue") or if they want advice/conversation (e.g., "compare the first and second", "which is better?", "hi").
+- Tool Usage: If they are looking for or refining products, you MUST use the 'search_ucp' tool. If they only want advice, comparison, or casual chat, DO NOT use the tool; answer directly based on context.
 - Presentation: Never manually list products, bullet points, or URLs. The UI will automatically display product cards below your message. Just provide a short, elegant, conversational summary of your actions or advice.
 - Honesty: Never hallucinate or invent products. If the tool returns no results, politely apologize.
 - Mirror Language: Always reply in the exact same language the user wrote in.`

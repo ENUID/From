@@ -11,7 +11,7 @@ export const SEARCH_TOOL_DEF = {
   type: "function",
   function: {
     name: "search_ucp",
-    description: "Search for products across hundreds of millions of Shopify stores using the Universal Commerce Protocol.",
+    description: "Search for NEW products across hundreds of millions of Shopify stores. DO NOT use this tool if the user is asking you to compare products already in the chat, find reviews, or answer general questions. ONLY use this when the user explicitly wants to discover new items.",
     parameters: {
       type: "object",
       properties: {
