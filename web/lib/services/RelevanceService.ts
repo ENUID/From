@@ -70,8 +70,15 @@ export class RelevanceService {
 
     // 6. Select Top
     // Ideally only return products that passed the Core Product check (_score >= 10).
-    // If none passed, fallback to returning nothing, because returning "Soap" when asking for "Bowl" is unacceptable.
     let topProducts = scoredProducts.filter(p => p._score >= 10).slice(0, 4);
+    
+    // Fallback: If no products have the exact core product (e.g. searching for "bowl" but the store calls it "dish"),
+    // but the product matches multiple strong attributes (score >= 4), we allow it.
+    // This prevents the system from returning nothing when a valid synonym exists, 
+    // while still aggressively blocking garbage like "Soap" (score 0-2).
+    if (topProducts.length === 0) {
+      topProducts = scoredProducts.filter(p => p._score >= 4).slice(0, 4);
+    }
     
     // Affiliates tracking
     return topProducts.map(product => {
