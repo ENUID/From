@@ -93,7 +93,15 @@ export class GlobalCatalogService {
             // Ignore URL parsing errors
           }
 
-          const desc = p.description?.plain || p.metadata?.tech_specs || p.variants?.[0]?.description?.plain || undefined;
+          const textOptions = [
+            p.description?.plain,
+            p.variants?.[0]?.description?.plain,
+            p.metadata?.tech_specs
+          ].filter((text): text is string => typeof text === 'string' && text.trim().length > 0);
+          
+          const desc = textOptions.length > 0 
+            ? textOptions.reduce((longest, current) => current.length > longest.length ? current : longest, '') 
+            : undefined;
           const parsedOptions = Array.isArray(p.options) 
             ? p.options.map((opt: any) => ({
                 name: opt.name,
