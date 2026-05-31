@@ -86,11 +86,12 @@ export async function POST(req: NextRequest) {
           console.log('AI categorized search intent:', args);
 
           // Force a deterministic query string built only from attributes and core product
-          // This prevents Llama 3's variable phrasing from breaking the Discovery cache
-          const stableQuery = [...(args.attributes || []), args.coreProduct]
-            .join(' ')
-            .toLowerCase()
-            .trim();
+          // Now enhanced with Shopify Boolean OR Logic for Synonym Expansion
+          const nouns = [args.coreProduct, ...(args.synonyms || [])];
+          const nounClause = nouns.length > 1 ? `(${nouns.join(' OR ')})` : nouns[0];
+          const stableQuery = [...(args.attributes || []), nounClause].join(' ').trim();
+          
+          console.log('Sending Boolean Query to UCP:', stableQuery);
 
           // Orchestrate Micro-services using internal Registry
           const domains = RegistryService.findRelevantStores(args)

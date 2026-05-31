@@ -32,7 +32,9 @@ export class RelevanceService {
     });
 
     // 3. Strict Core Product Filter (e.g. must contain "bowl")
-    const coreVariants = getWordVariants(criteria.coreProduct);
+    // Include synonyms in the core noun checking
+    const allNouns = [criteria.coreProduct, ...(criteria.synonyms || [])];
+    const coreVariants = allNouns.flatMap(n => getWordVariants(n));
     
     // 4. Bag-Of-Words Scoring logic for extreme stability
     // We break the search query and attributes into individual words so that slight variations
