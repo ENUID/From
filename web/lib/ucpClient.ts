@@ -137,6 +137,7 @@ export async function searchUCP(params: SearchParams): Promise<UcpProduct[]> {
     targetDomains.map(store => fetchStoreUCP(store, params.query))
   )
   
+  // Flatten products
   let allProducts = resultsArray.flat()
 
   // Apply budget filter
@@ -144,7 +145,7 @@ export async function searchUCP(params: SearchParams): Promise<UcpProduct[]> {
     allProducts = allProducts.filter(p => p.price <= params.budgetMax!)
   }
 
-  // Deduplicate by title to avoid identical variants
+  // Deduplicate by title
   const seen = new Set()
   allProducts = allProducts.filter(p => {
     if (seen.has(p.title)) return false
@@ -152,11 +153,45 @@ export async function searchUCP(params: SearchParams): Promise<UcpProduct[]> {
     return true
   })
 
+  // Basic Relevance Scoring
+  // Because store internal search can return completely unrelated fallback items,
+  // we score them based on query keyword matches in title/vendor.
+  const queryWords = params.query.toLowerCase().split(/[\s,]+/).filter(w => w.length > 2)
+  
+  const scoredProducts = allProducts.map(p => {
+    let score = 0
+    const searchSpace = `${p.title} ${p.vendor} ${(p.tags || []).join(' ')}`.toLowerCase()
+    
+    queryWords.forEach(word => {
+      if (searchSpace.includes(word)) {
+        score += 1
+      }
+    })
+    
+    // Exact phrase match bonus
+    if (searchSpace.includes(params.query.toLowerCase())) {
+      score += 5
+    }
+
+    return { ...p, _score: score }
+  })
+
+  // Sort by score descending. If scores are equal, Math.random() gives some diversity.
+  scoredProducts.sort((a, b) => {
+    if (b._score !== a._score) return b._score - a._score
+    return Math.random() - 0.5
+  })
+
   // Pick top 4 products
-  allProducts = allProducts.slice(0, 4)
+  // Also, if the score is 0 and we have query words, it means it's totally unrelated (like Soap for a Ceramics query).
+  // We should try to only keep things with > 0 score if possible, but fallback to top 4 if all are 0.
+  let topProducts = scoredProducts.filter(p => p._score > 0).slice(0, 4)
+  if (topProducts.length === 0) {
+    topProducts = scoredProducts.slice(0, 4)
+  }
 
   // Add affiliate tracking IDs to the URLs
-  return allProducts.map(product => {
+  return topProducts.map(product => {
     try {
       const urlObj = new URL(product.store_url)
       urlObj.searchParams.set('ref', 'from_ai_affiliate')
