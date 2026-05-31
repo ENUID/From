@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ConvexHttpClient } from 'convex/browser'
-import { aiChat, aiEmbed } from '@/lib/openai'
+import { grokChatWithTools, ChatMessage } from '@/lib/grok'
+import { searchUCP } from '@/lib/ucpClient'
 import { formatMoney } from '@/lib/currency'
 import {
   BUYER_COUNTRY_COOKIE,
   BUYER_CURRENCY_COOKIE,
   resolveBuyerContext,
 } from '@/lib/buyerContext'
-import { getExchangeRates, ExchangeRates } from '@/lib/exchangeRates'
-import { api } from '@/lib/convexApi'
+import { getExchangeRates } from '@/lib/exchangeRates'
 
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
@@ -21,12 +20,6 @@ type RateEntry = {
 }
 
 const rateBuckets = new Map<string, RateEntry>()
-
-function getConvex() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL
-  if (!url) throw new Error('NEXT_PUBLIC_CONVEX_URL is not set')
-  return new ConvexHttpClient(url)
-}
 
 function getClientKey(req: NextRequest) {
   const forwarded = req.headers.get('x-forwarded-for')
@@ -55,7 +48,7 @@ function isRateLimited(req: NextRequest) {
   return false
 }
 
-function sanitizeHistory(history: ChatHistoryMessage[]) {
+function sanitizeHistory(history: any[]): ChatMessage[] {
   return history
     .filter((item) => item?.role === 'user' || item?.role === 'assistant')
     .slice(-HISTORY_MAX_TURNS)
@@ -66,88 +59,30 @@ function sanitizeHistory(history: ChatHistoryMessage[]) {
     .filter((item) => item.content)
 }
 
-const INTENT_SYSTEM = `You are an intent parser for a shopping assistant. Return ONLY valid JSON, no markdown.
+const SYSTEM_PROMPT = `You are an AI shopping assistant named From. 
+You help users find products across various independent stores. 
+If the user is looking for a product, you MUST use the search_ucp tool to find it. 
+When presenting products, include the store name, price, and provide the affiliate URL.`
 
-Schema: {"type":"search"|"buy"|"compare"|"clarify","attributes":{"keywords":"string","budget_max":null|number}}
-
-Examples:
-"leather bag under $200" -> {"type":"search","attributes":{"keywords":"leather bag","budget_max":200}}
-"hello" -> {"type":"clarify","attributes":{"keywords":"","budget_max":null}}`
-
-const FORMAT_SYSTEM = `You are a shopping assistant for From, a marketplace for independent stores.
-Write 2-3 natural sentences. Mention 1-2 product names. End with a brief question to narrow down.
-No bullet points. No markdown.`
-
-type ChatHistoryMessage = {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-type SearchProduct = {
-  id: string
-  title: string
-  vendor: string
-  price: number
-  currency?: string
-  base_currency?: string
-}
-
-function getBuyerCurrency(req: NextRequest) {
-  const buyerContext = resolveBuyerContext({
-    countryHeader: req.headers.get('x-vercel-ip-country'),
-    acceptLanguage: req.headers.get('accept-language'),
-    cookieCountry: req.cookies.get(BUYER_COUNTRY_COOKIE)?.value,
-    cookieCurrency: req.cookies.get(BUYER_CURRENCY_COOKIE)?.value,
-  })
-  return buyerContext.currency
-}
-
-function normalizeProductsForBuyer(products: SearchProduct[], buyerCurrency: string) {
-  return products.map((product) => ({
-    ...product,
-    base_currency: product.base_currency ?? product.currency ?? 'USD',
-    currency: buyerCurrency,
-  }))
-}
-
-async function parseIntent(message: string, history: ChatHistoryMessage[]) {
-  try {
-    const raw = await aiChat(
-      [...history.slice(-4), { role: 'user', content: message }],
-      INTENT_SYSTEM,
-      { max_tokens: 120, temperature: 0.1 }
-    )
-    const match = raw.match(/\{[\s\S]*\}/)
-    if (!match) throw new Error('no JSON')
-    const parsed = JSON.parse(match[0])
-    return {
-      type: (parsed.type as string) ?? 'search',
-      keywords: (parsed.attributes?.keywords as string) || message,
-      budgetMax: (parsed.attributes?.budget_max as number | null) ?? null,
+const SEARCH_TOOL = {
+  type: "function",
+  function: {
+    name: "search_ucp",
+    description: "Search for products across Shopify stores using the Universal Commerce Protocol (UCP).",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query (e.g., 'handmade leather boots', 'blue denim jacket')"
+        },
+        budgetMax: {
+          type: "number",
+          description: "The maximum budget the user is willing to spend, if specified."
+        }
+      },
+      required: ["query"]
     }
-  } catch {
-    return { type: 'search', keywords: message, budgetMax: null }
-  }
-}
-
-async function formatResponse(products: SearchProduct[], query: string, rates: ExchangeRates) {
-  if (!products.length) {
-    return "I couldn't find matching products right now. Try describing what you're looking for differently: material, use case, or style?"
-  }
-
-  try {
-    const summary = products.slice(0, 3).map((product) => ({
-      name: product.title,
-      store: product.vendor,
-      price: formatMoney(product.price, product.currency, product.base_currency, rates),
-    }))
-    return await aiChat(
-      [{ role: 'user', content: `Shopper searched: "${query}"\nFound: ${JSON.stringify(summary)}\nWrite a helpful response.` }],
-      FORMAT_SYSTEM,
-      { max_tokens: 120, temperature: 0.5 }
-    )
-  } catch {
-    return `Found ${products.length} options from independent stores. Which style or price range interests you most?`
   }
 }
 
@@ -161,32 +96,43 @@ export async function POST(req: NextRequest) {
     if (!message) throw new Error('No message provided')
 
     const cleanHistory = sanitizeHistory(history || [])
-    const intent = await parseIntent(message, cleanHistory)
-    const buyerCurrency = getBuyerCurrency(req)
-    const rates = await getExchangeRates()
+    const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
-    const convex = getConvex()
-    let products: SearchProduct[] = []
+    // Call Grok with Tools
+    const aiResponse = await grokChatWithTools(messages, SYSTEM_PROMPT, [SEARCH_TOOL])
+    
+let products: any[] = []
+    let finalContent = aiResponse.content
 
-    if (intent.type === 'search') {
-      const embedding = await aiEmbed(intent.keywords)
-      const results = await convex.query(api.products.searchByEmbedding, {
-        embedding,
-        limit: 8,
-      })
-      products = normalizeProductsForBuyer(results as any, buyerCurrency)
+    // Handle Tool Call
+    if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
+      const toolCall = aiResponse.tool_calls[0]
+      if (toolCall.function.name === 'search_ucp') {
+        const args = JSON.parse(toolCall.function.arguments)
+        
+        // Execute UCP Search
+        products = await searchUCP({ query: args.query, budgetMax: args.budgetMax })
+        
+        // Add the tool call result to conversation and call AI again
+        const followUpMessages = [
+          ...messages,
+          aiResponse,
+          {
+            role: "tool",
+            tool_call_id: toolCall.id,
+            name: toolCall.function.name,
+            content: JSON.stringify(products)
+          }
+        ]
 
-      if (intent.budgetMax !== null) {
-        products = products.filter((p) => p.price <= (intent.budgetMax ?? Infinity))
+        const finalAiResponse = await grokChatWithTools(followUpMessages, SYSTEM_PROMPT)
+        finalContent = finalAiResponse.content
       }
     }
 
-    const text = await formatResponse(products, intent.keywords, rates)
-
     return NextResponse.json({
-      text,
+      text: finalContent || "I'm sorry, I couldn't process that request right now.",
       products,
-      intent,
     })
   } catch (error: any) {
     console.error('Chat API Error:', error)
