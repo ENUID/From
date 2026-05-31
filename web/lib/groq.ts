@@ -1,5 +1,5 @@
 export const GROQ_BASE = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1'
-export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
+export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? process.env.GROK_API_KEY ?? ''
 export const CHAT_MODEL = process.env.GROQ_CHAT_MODEL ?? 'llama3-8b-8192'
 
 export type ChatMessage = {
