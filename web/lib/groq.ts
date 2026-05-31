@@ -8,6 +8,9 @@ export type ChatMessage = {
   name?: string
   tool_calls?: any[]
   tool_call_id?: string
+  products?: any[]
+}
+
 // Re-add getHeaders function
 function getHeaders() {
   if (!GROQ_API_KEY || GROQ_API_KEY.includes('YOUR_XAI_KEY_HERE')) {
