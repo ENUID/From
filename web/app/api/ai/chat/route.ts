@@ -50,7 +50,7 @@ function sanitizeHistory(history: any[]): ChatMessage[] {
 
     if (item.role === 'assistant' && item.products && item.products.length > 0) {
       const productSummary = item.products.map((p: any) => 
-        `- ${p.title} by ${p.vendor} (${p.price} ${p.currency})`
+        `- ${p.title} by ${p.vendor} (${p.price} ${p.base_currency || p.currency})`
       ).join('\n');
       clean.push({
         role: 'system',
