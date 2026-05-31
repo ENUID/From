@@ -17,6 +17,7 @@ export default function ProductModal({
   ctaLabel = 'View in store'
 }: Props) {
   const [isMounted, setIsMounted] = useState(false)
+  const [isDescExpanded, setIsDescExpanded] = useState(false)
   
   useEffect(() => {
     setIsMounted(true)
@@ -144,8 +145,46 @@ export default function ProductModal({
           {product.description && (
             <div style={{ marginBottom: 32 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink2)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</div>
-              <div style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.6 }}>
+              <div style={{ 
+                fontSize: 14, 
+                color: 'var(--ink2)', 
+                lineHeight: 1.6,
+                position: 'relative',
+                maxHeight: (!isDescExpanded && product.description.length > 300) ? '140px' : 'none',
+                overflow: 'hidden'
+              }}>
                 {product.description}
+                {!isDescExpanded && product.description.length > 300 && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: '80px',
+                    background: 'linear-gradient(transparent, var(--bg-card) 85%)',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'center',
+                    paddingBottom: '2px'
+                  }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setIsDescExpanded(true); }}
+                      style={{
+                        background: 'var(--bg)',
+                        border: '1px solid var(--m-border)',
+                        borderRadius: '16px',
+                        padding: '6px 14px',
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: 'var(--ink)',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+                      }}
+                    >
+                      Read more
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
