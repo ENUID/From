@@ -336,33 +336,7 @@ export default function Home({
                     />
                   ))}
                 </div>
-              ) : message.role === 'assistant' && index > 0 && !loading && (
-                <div
-                  style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--m-border)',
-                    borderRadius: 16,
-                    padding: '20px 24px',
-                    maxWidth: 480,
-                    fontSize: 13,
-                    color: 'var(--ink3)',
-                    lineHeight: 1.7,
-                  }}
-                >
-                  <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <circle cx="7" cy="7" r="6" />
-                      <path d="M7 4v3l2 1" />
-                    </svg>
-                    Search Tips
-                  </div>
-                  <ul style={{ paddingLeft: 16, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <li>Try broader terms (e.g., "boots" instead of "size 10 vintage boots")</li>
-                    <li>Search by material or use case (e.g., "waterproof", "gift for runner")</li>
-                    <li>Check if the stores have been synced recently in the Merchant dashboard</li>
-                  </ul>
-                </div>
-              )}
+              ) : null}
             </div>
           ))}
 
