@@ -34,31 +34,33 @@ export class RelevanceService {
     // 3. Strict Core Product Filter (e.g. must contain "bowl")
     const coreVariants = getWordVariants(criteria.coreProduct);
     
-    // 4. Scoring logic
+    // 4. Bag-Of-Words Scoring logic for extreme stability
+    // We break the search query and attributes into individual words so that slight variations
+    // in AI generation (e.g. "minimalist white ceramic" vs "white minimalist") don't break the score.
+    const allQueryText = `${criteria.searchQuery} ${(criteria.attributes || []).join(' ')}`.toLowerCase();
+    const queryWords = Array.from(new Set(allQueryText.split(/[\s,]+/).filter(w => w.length > 2)));
+
     const scoredProducts = allProducts.map(p => {
       let score = 0;
       const searchSpace = `${p.title} ${p.vendor} ${(p.tags || []).join(' ')}`.toLowerCase();
       
       // Strict check: Does the title or tags contain the core product noun?
-      // If not, score remains 0 which usually filters it out entirely.
       const hasCoreProduct = coreVariants.some(variant => searchSpace.includes(variant));
       
       if (hasCoreProduct) {
         score += 10; // Huge base score for actually being the right object type
       }
 
-      // Add points for attributes matching
-      criteria.attributes.forEach(attr => {
-        if (searchSpace.includes(attr.toLowerCase())) {
+      // Stable Bag-Of-Words matching: +2 points for every relevant word matched
+      queryWords.forEach(word => {
+        // Match exact word or pluralized/singularized roughly
+        if (searchSpace.includes(word)) {
+          score += 2;
+        } else if (word.endsWith('s') && searchSpace.includes(word.slice(0, -1))) {
           score += 2;
         }
       });
       
-      // Add points for exact natural string matching
-      if (searchSpace.includes(criteria.searchQuery.toLowerCase())) {
-        score += 5;
-      }
-
       return { ...p, _score: score };
     });
 

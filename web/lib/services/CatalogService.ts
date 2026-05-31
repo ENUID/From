@@ -65,7 +65,7 @@ export class CatalogService {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased from 4000ms to prevent flaky failures on slow stores
 
       const res = await fetch(endpoint, {
         method: 'POST',

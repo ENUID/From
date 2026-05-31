@@ -37,7 +37,7 @@ export async function grokChat(
   const payload: any = {
     model: CHAT_MODEL,
     messages: allMessages,
-    temperature: opts?.temperature ?? 0.3,
+    temperature: opts?.temperature ?? 0.1,
     max_tokens: opts?.max_tokens ?? 500,
   }
 
