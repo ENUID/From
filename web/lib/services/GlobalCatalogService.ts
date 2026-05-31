@@ -11,6 +11,8 @@ export type UcpProduct = {
   image_url: string;
   in_stock: boolean;
   tags: string[];
+  description?: string;
+  options?: { name: string; values: string[] }[];
 }
 
 export class GlobalCatalogService {
@@ -91,6 +93,14 @@ export class GlobalCatalogService {
             // Ignore URL parsing errors
           }
 
+          const desc = p.description?.plain || p.metadata?.tech_specs || p.variants?.[0]?.description?.plain || undefined;
+          const parsedOptions = Array.isArray(p.options) 
+            ? p.options.map((opt: any) => ({
+                name: opt.name,
+                values: Array.isArray(opt.values) ? opt.values.map((v: any) => v.label || v) : []
+              })).filter((o: any) => o.values.length > 0)
+            : undefined;
+
           products.push({
             id: p.id,
             title: p.title || 'Untitled Product',
@@ -100,7 +110,9 @@ export class GlobalCatalogService {
             store_url,
             image_url: p.media?.[0]?.url || variant.media?.[0]?.url || '',
             in_stock: variant.availability?.available ?? true,
-            tags: p.metadata?.top_features ? [p.metadata.top_features.split('\\n')[0].substring(0, 50)] : [] // Use first feature as a tag if available
+            tags: p.metadata?.top_features ? [p.metadata.top_features.split('\\n')[0].substring(0, 50)] : [], // Use first feature as a tag if available
+            description: desc,
+            options: parsedOptions && parsedOptions.length > 0 ? parsedOptions : undefined
           });
         } catch (err) {
           console.warn('Error parsing individual Shopify product:', err);

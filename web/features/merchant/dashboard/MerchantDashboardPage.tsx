@@ -144,7 +144,7 @@ function getProductType(product: Product) {
 }
 
 function getVariantInventory(product: Product) {
-  return product.variants.reduce((total, variant) => total + Math.max(variant.inventory_quantity, 0), 0)
+  return (product.variants || []).reduce((total, variant) => total + Math.max(variant.inventory_quantity, 0), 0)
 }
 
 function hasDescription(product: Product) {
