@@ -37,23 +37,28 @@ function isRateLimited(req: NextRequest) {
 }
 
 function sanitizeHistory(history: any[]): ChatMessage[] {
-  return history
+  const clean: ChatMessage[] = [];
+  const recent = history
     .filter((item) => item?.role === 'user' || item?.role === 'assistant')
-    .slice(-HISTORY_MAX_TURNS)
-    .map((item) => {
-      let content = String(item.content ?? '').trim().slice(0, MESSAGE_MAX_CHARS);
-      if (item.role === 'assistant' && item.products && item.products.length > 0) {
-        const productSummary = item.products.map((p: any) => 
-          `- ${p.title} by ${p.vendor} (${p.price} ${p.currency}): ${p.description?.slice(0, 100) || ''} [Tags: ${p.tags?.join(', ')}]`
-        ).join('\n');
-        content += `\n\n<system_context>\nThe UI rendered these products below your message:\n${productSummary}\n</system_context>`;
-      }
-      return {
-        role: item.role,
-        content,
-      };
-    })
-    .filter((item) => item.content)
+    .slice(-HISTORY_MAX_TURNS);
+
+  for (const item of recent) {
+    const content = String(item.content ?? '').trim().slice(0, MESSAGE_MAX_CHARS);
+    if (!content) continue;
+    
+    clean.push({ role: item.role, content });
+
+    if (item.role === 'assistant' && item.products && item.products.length > 0) {
+      const productSummary = item.products.map((p: any) => 
+        `- ${p.title} by ${p.vendor} (${p.price} ${p.currency})`
+      ).join('\n');
+      clean.push({
+        role: 'system',
+        content: `The UI rendered these products below the assistant's message:\n${productSummary}`
+      });
+    }
+  }
+  return clean;
 }
 
 const SYSTEM_PROMPT = `You are a high-end AI shopping assistant named "From". Your mission is to help users discover unique items from independent Shopify stores via the Universal Commerce Protocol.
@@ -62,7 +67,7 @@ CORE GUIDELINES:
 - Assess Intent: For each user message, determine if they want to find new products (e.g., "find shoes", "sorry, I meant blue") or if they want advice/conversation (e.g., "compare the first and second", "which is better?", "hi").
 - Tool Usage: If they are looking for or refining products, you MUST use the 'search_ucp' tool. If they only want advice, comparison, or casual chat, DO NOT use the tool; answer directly based on context.
 - Pagination: If the user asks for "more" products, you MUST use the 'search_ucp' tool with the EXACT SAME query as your previous search. Do not add words like "more" or "other". The system handles pagination automatically.
-- Presentation: Never manually list products, bullet points, or URLs. The UI will automatically display product cards below your message. Just provide a short, elegant, conversational summary of your actions or advice. DO NOT output <system_context> blocks in your response.
+- Presentation: Never manually list products, bullet points, or URLs. The UI will automatically display product cards below your message. Just provide a short, elegant, conversational summary of your actions or advice.
 - Honesty: Never hallucinate or invent products. If the tool returns no results, politely apologize.
 - Mirror Language: Always reply in the exact same language the user wrote in.`
 
