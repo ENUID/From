@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
@@ -35,6 +34,7 @@ interface Props {
   saved?: boolean
   onToggleSave?: (product: Product) => void
   ctaLabel?: string
+  onClick?: () => void
 }
 
 export default function ProductCard({
@@ -44,15 +44,15 @@ export default function ProductCard({
   saved = false,
   onToggleSave,
   ctaLabel = 'View in store',
+  onClick,
 }: Props) {
-  const [isExpanded, setIsExpanded] = useState(false)
   const tags = (product.tags || []).slice(0, 3).join(' / ')
   const hasUrl = product.store_url && product.store_url !== '#'
   const meta = [product.product_type, tags].filter(Boolean).join(' / ')
 
   return (
     <div
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={onClick}
       style={{
         background: 'var(--bg-card)',
         border: `1px solid ${isBest ? 'rgba(42,59,42,0.3)' : 'var(--m-border)'}`,
@@ -150,34 +150,6 @@ export default function ProductCard({
           {product.in_stock ? 'In stock' : 'Contact store'}
         </span>
       </div>
-
-      {isExpanded && (
-        <div style={{ marginTop: 10, borderTop: '1px solid var(--m-border)', paddingTop: 10 }}>
-          {product.description && (
-            <div style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.4, marginBottom: 12 }}>
-              {product.description.length > 200 ? `${product.description.substring(0, 200)}...` : product.description}
-            </div>
-          )}
-          
-          {product.options && product.options.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {product.options.map((opt, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginTop: 2 }}>{opt.name}:</span>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {opt.values.slice(0, 5).map((val, vIdx) => (
-                      <span key={vIdx} style={{ fontSize: 11, background: 'var(--m-bg-hover)', padding: '2px 6px', borderRadius: 4, color: 'var(--ink)' }}>
-                        {val}
-                      </span>
-                    ))}
-                    {opt.values.length > 5 && <span style={{ fontSize: 11, color: 'var(--ink3)' }}>+{opt.values.length - 5} more</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }} onClick={e => e.stopPropagation()}>
         <a

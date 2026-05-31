@@ -2,6 +2,7 @@
 
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 import ProductCard, { Product } from '@/components/ProductCard'
+import ProductModal from '@/components/ProductModal'
 import type { BuyerContext } from '@/lib/buyerContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
@@ -63,6 +64,7 @@ export default function Home({
   const [loading, setLoading] = useState(false)
   const [activeView, setActiveView] = useState<View>('discover')
   const [savedProducts, setSavedProducts] = useState<Product[]>([])
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -330,6 +332,7 @@ export default function Home({
                       isBest={offset === 0}
                       saved={savedIds.has(product.id)}
                       onToggleSave={toggleSaved}
+                      onClick={() => setSelectedProduct(product)}
                     />
                   ))}
                 </div>
@@ -550,6 +553,7 @@ export default function Home({
                 rates={rates}
                 saved
                 onToggleSave={toggleSaved}
+                onClick={() => setSelectedProduct(product)}
               />
             ))}
           </div>
@@ -714,6 +718,14 @@ export default function Home({
         {activeView === 'discover' && renderDiscoverView()}
         {activeView === 'history' && renderHistoryView()}
         {activeView === 'saved' && renderSavedView()}
+
+        {selectedProduct && (
+          <ProductModal
+            product={selectedProduct}
+            rates={rates}
+            onClose={() => setSelectedProduct(null)}
+          />
+        )}
       </main>
     </div>
   )
