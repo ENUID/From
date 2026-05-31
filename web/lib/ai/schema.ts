@@ -8,7 +8,7 @@ export const SearchToolSchema = z.object({
     })
   ).describe("List of all keywords (product nouns, materials, colors) extracted from the query, translated to English."),
   searchQuery: z.string().describe("The full natural language search query describing the product"),
-  budgetMax: z.number().optional().describe("Maximum budget if specified")
+  budgetMax: z.number().nullable().optional().describe("Maximum budget if specified")
 });
 
 export type SearchToolArgs = z.infer<typeof SearchToolSchema>;
@@ -38,7 +38,7 @@ export const SEARCH_TOOL_DEF = {
           description: "A natural search query incorporating all keywords for context."
         },
         budgetMax: {
-          type: "number",
+          type: ["number", "null"],
           description: "The maximum budget the user is willing to spend, if specified."
         }
       },
