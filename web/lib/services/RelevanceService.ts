@@ -42,8 +42,8 @@ export class RelevanceService {
       let score = 0;
       const searchSpace = `${p.title} ${p.vendor} ${(p.tags || []).join(' ')}`.toLowerCase();
       
-      const attributeBlocks = criteria.attributes || [];
-      attributeBlocks.forEach(attr => {
+      const normalizedAttributes = (criteria.attributes || []).map(attr => typeof attr === 'string' ? { primary: attr, synonyms: [] } : attr);
+      normalizedAttributes.forEach(attr => {
         const terms = [attr.primary, ...(attr.synonyms || [])].map(t => t.toLowerCase().trim());
         // If the product text contains ANY of the terms in this attribute block, give it +2
         const isMatch = terms.some(term => {

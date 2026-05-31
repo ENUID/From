@@ -7,7 +7,8 @@ export class RegistryService {
    * This guarantees 100% UCP compliance and eliminates Google Search latency.
    */
   static findRelevantStores(criteria: SearchToolArgs): string[] {
-    const attributeStrings = (criteria.attributes || []).flatMap(a => [a.primary, ...(a.synonyms || [])]);
+    const normalizedAttributes = (criteria.attributes || []).map(attr => typeof attr === 'string' ? { primary: attr, synonyms: [] } : attr);
+    const attributeStrings = normalizedAttributes.flatMap(a => [a.primary, ...(a.synonyms || [])]);
     const allQueryText = `${criteria.searchQuery} ${attributeStrings.join(' ')}`.toLowerCase();
     const queryWords = Array.from(new Set(allQueryText.split(/[\s,]+/).filter(w => w.length > 2)));
     const coreProduct = criteria.coreProduct.toLowerCase();

@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
           console.log('AI categorized search intent:', args);
 
           // For attributes
-          const attributeClauses = (args.attributes || []).map(attr => {
+          const normalizedAttributes = (args.attributes || []).map(attr => typeof attr === 'string' ? { primary: attr, synonyms: [] } : attr);
+          const attributeClauses = normalizedAttributes.map(attr => {
             const terms = [attr.primary, ...(attr.synonyms || [])];
             return terms.length > 1 ? `(${terms.join(' OR ')})` : terms[0];
           });
