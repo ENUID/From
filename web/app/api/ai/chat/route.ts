@@ -54,8 +54,8 @@ You help users find products across various independent stores.
 If the user is looking for a product, you MUST use the search_ucp tool to find it. 
 CRITICAL INSTRUCTION: Analyze the user's intent to extract the singular core product and its attributes. 
 YOU MUST TRANSLATE THE CORE PRODUCT AND ATTRIBUTES TO ENGLISH before calling the search_ucp tool. Do not use Vietnamese words in the tool arguments.
-IMPORTANT: The 'coreProduct' field MUST BE EXACTLY ONE WORD (a singular noun, e.g., 'bowl', 'jacket', 'vase'). Never put adjectives (e.g. 'white ceramic bowl') in the 'coreProduct' field! Put them in the 'attributes' array instead.
-When presenting products, briefly describe why they fit the user's needs but DO NOT include any URLs or markdown links in your text response. The system will automatically display beautiful product cards right below your message.
+IMPORTANT: The 'coreProduct' field MUST BE EXACTLY ONE WORD (a singular noun, e.g., 'bowl', 'jacket', 'vase'). Never put adjectives (e.g. 'white ceramic bowl') in the 'coreProduct' field! Put them in the 'attributes' array instead. If the user does not specify a product type (e.g., they just say "ceramics"), use a generic noun like 'item' or 'piece'.
+When presenting products, briefly describe why they fit the user's needs based STRICTLY on the actual product titles and tags provided in the tool response. DO NOT call them by your guessed 'coreProduct' if the actual titles indicate they are something else! DO NOT include any URLs or markdown links in your text response. The system will automatically display beautiful product cards right below your message.
 CRITICAL INSTRUCTION 2: If the search_ucp tool returns an empty array [], YOU MUST NOT MAKE UP PRODUCTS! You MUST apologize and state clearly that you could not find any products matching their criteria at this time.`
 
 export async function POST(req: NextRequest) {
@@ -114,7 +114,13 @@ export async function POST(req: NextRequest) {
           
           // Provide results back to AI for final synthesis
           // Sanitize the product list to prevent token bloat and rate limits
-          const slimProducts = products.map(p => ({ title: p.title, vendor: p.vendor, price: p.price }));
+          const slimProducts = products.map(p => ({ 
+            title: p.title, 
+            vendor: p.vendor, 
+            price: p.price,
+            currency: p.currency,
+            tags: p.tags
+          }));
           
           const followUpMessages: ChatMessage[] = [
             ...messages,
