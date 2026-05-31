@@ -3,7 +3,12 @@ import { z } from 'zod';
 export const SearchToolSchema = z.object({
   coreProduct: z.string().describe("The singular core noun of what the user is looking for (e.g. 'bowl', 'jacket', 'vase'). Must be a single word if possible."),
   synonyms: z.array(z.string()).max(3).describe("2 to 3 absolute direct synonyms for the core product (e.g. if core is 'bowl', synonyms could be 'dish', 'basin'). Do NOT use broad categories.").optional(),
-  attributes: z.array(z.string()).describe("List of attributes like color, material, style (e.g. ['white', 'ceramic', 'minimalist'])"),
+  attributes: z.array(
+    z.object({
+      primary: z.string().describe("The primary attribute word (e.g. 'white', 'ceramic')"),
+      synonyms: z.array(z.string()).max(3).describe("2-3 direct synonyms (e.g. ['ivory', 'cream'] or ['porcelain', 'stoneware'])").optional()
+    })
+  ).describe("List of attributes (color, material, style) along with their synonyms."),
   searchQuery: z.string().describe("The full natural language search query describing the product"),
   budgetMax: z.number().optional().describe("Maximum budget if specified")
 });

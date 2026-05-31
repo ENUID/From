@@ -85,11 +85,18 @@ export async function POST(req: NextRequest) {
           
           console.log('AI categorized search intent:', args);
 
-          // Force a deterministic query string built only from attributes and core product
-          // Now enhanced with Shopify Boolean OR Logic for Synonym Expansion
+          // For attributes
+          const attributeClauses = (args.attributes || []).map(attr => {
+            const terms = [attr.primary, ...(attr.synonyms || [])];
+            return terms.length > 1 ? `(${terms.join(' OR ')})` : terms[0];
+          });
+
+          // For core noun
           const nouns = [args.coreProduct, ...(args.synonyms || [])];
           const nounClause = nouns.length > 1 ? `(${nouns.join(' OR ')})` : nouns[0];
-          const stableQuery = [...(args.attributes || []), nounClause].join(' ').trim();
+
+          // Combine all
+          const stableQuery = [...attributeClauses, nounClause].join(' ').trim();
           
           console.log('Sending Boolean Query to UCP:', stableQuery);
 
