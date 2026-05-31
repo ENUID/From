@@ -122,7 +122,18 @@ export async function POST(req: NextRequest) {
         toolCallId = 'call_' + Math.random().toString(36).slice(2, 10)
         // Clean the raw tags out of the content
         finalContent = aiResponse.content.replace(match[0], '').trim()
-        aiResponse.content = finalContent
+        aiResponse.content = finalContent || null // Set to null if empty, common in tool calls
+        
+        // Crucial: We must inject the standard tool_calls format back into aiResponse
+        // so that the followUpMessages array is syntactically valid for the next API call.
+        aiResponse.tool_calls = [{
+          id: toolCallId,
+          type: "function",
+          function: {
+            name: toolCallName,
+            arguments: toolCallArgs
+          }
+        }]
       }
     }
 
