@@ -323,7 +323,7 @@ export default function Home({
               </div>
 
               {message.products && message.products.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 10, width: '100%' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))', gap: 10, width: '100%' }}>
                   {message.products.map((product, offset) => (
                     <ProductCard
                       key={product.id || `${index}-${offset}`}
