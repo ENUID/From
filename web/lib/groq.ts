@@ -8,6 +8,7 @@ export type ChatMessage = {
   name?: string
   tool_calls?: any[]
   tool_call_id?: string
+  products?: any[]
 }
 
 function getHeaders() {

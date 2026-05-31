@@ -16,7 +16,7 @@ export type UcpProduct = {
 }
 
 export class GlobalCatalogService {
-  static async search(query: string, budgetMax?: number | null): Promise<UcpProduct[]> {
+  static async search(query: string, budgetMax?: number | null, excludeIds: string[] = []): Promise<UcpProduct[]> {
     const endpoint = 'https://catalog.shopify.com/api/ucp/mcp';
     
     // Shopify Global Catalog UCP Filters
@@ -128,6 +128,9 @@ export class GlobalCatalogService {
       }
 
       let finalProducts = products;
+      if (excludeIds.length > 0) {
+        finalProducts = finalProducts.filter(p => !excludeIds.includes(p.id));
+      }
       if (budgetMax && budgetMax > 0) {
         finalProducts = finalProducts.filter(p => p.price <= budgetMax);
       }

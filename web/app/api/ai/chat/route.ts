@@ -85,8 +85,18 @@ export async function POST(req: NextRequest) {
           
           console.log('AI search intent:', args);
 
+          // Extract previously seen product IDs from history
+          const excludeIds: string[] = [];
+          for (const msg of history || []) {
+            if (msg.role === 'assistant' && msg.products) {
+              for (const p of msg.products) {
+                if (p.id) excludeIds.push(p.id);
+              }
+            }
+          }
+
           // Single call to Shopify Global Catalog
-          products = await GlobalCatalogService.search(args.searchQuery, args.budgetMax);
+          products = await GlobalCatalogService.search(args.searchQuery, args.budgetMax, excludeIds);
           
           // Provide results back to AI for final synthesis
           // Sanitize the product list to prevent token bloat and rate limits

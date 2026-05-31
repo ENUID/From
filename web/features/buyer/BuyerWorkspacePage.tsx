@@ -168,7 +168,7 @@ export default function Home({
       setHistory(previous => [
         ...previous,
         { role: 'user', content: messageText },
-        { role: 'assistant', content: data.text },
+        { role: 'assistant', content: data.text, products },
       ])
     } catch {
       setMessages(previous => [
