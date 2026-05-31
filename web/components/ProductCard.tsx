@@ -46,9 +46,8 @@ export default function ProductCard({
   ctaLabel = 'View in store',
   onClick,
 }: Props) {
-  const tags = (product.tags || []).slice(0, 3).join(' / ')
   const hasUrl = product.store_url && product.store_url !== '#'
-  const meta = [product.product_type, tags].filter(Boolean).join(' / ')
+  const shortDesc = product.description ? (product.description.length > 65 ? `${product.description.substring(0, 65).trim()}...` : product.description) : ''
 
   return (
     <div
@@ -134,7 +133,7 @@ export default function ProductCard({
         {formatMoney(Number(product.price), product.currency, product.base_currency, rates)}
       </div>
 
-      {meta && <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 1 }}>{meta}</div>}
+      {shortDesc && <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4, lineHeight: 1.4 }}>{shortDesc}</div>}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
         <div
