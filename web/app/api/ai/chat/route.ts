@@ -49,9 +49,12 @@ function sanitizeHistory(history: any[]): ChatMessage[] {
     clean.push({ role: item.role, content });
 
     if (item.role === 'assistant' && item.products && item.products.length > 0) {
-      const productSummary = item.products.map((p: any) => 
-        `- ${p.title} by ${p.vendor} (${p.price} ${p.base_currency || p.currency})`
-      ).join('\n');
+      const productSummary = item.products.map((p: any) => {
+        const desc = p.description ? `: ${p.description.slice(0, 150)}...` : '';
+        const tags = p.tags && p.tags.length > 0 ? ` [Tags: ${p.tags.join(', ')}]` : '';
+        return `- ${p.title} by ${p.vendor} (${p.price} ${p.base_currency || p.currency})${desc}${tags}`;
+      }).join('\n');
+      
       clean.push({
         role: 'system',
         content: `The UI rendered these products below the assistant's message:\n${productSummary}`
