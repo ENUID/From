@@ -85,11 +85,18 @@ export async function POST(req: NextRequest) {
           
           console.log('AI categorized search intent:', args);
 
+          // Force a deterministic query string built only from attributes and core product
+          // This prevents Llama 3's variable phrasing from breaking the Discovery cache
+          const stableQuery = [...(args.attributes || []), args.coreProduct]
+            .join(' ')
+            .toLowerCase()
+            .trim();
+
           // Orchestrate Micro-services
-          const domains = await DiscoveryService.discoverDomains(args.searchQuery)
+          const domains = await DiscoveryService.discoverDomains(stableQuery)
           
           const nestedProducts = await Promise.all(
-            domains.map(store => CatalogService.searchStore(store, args.searchQuery))
+            domains.map(store => CatalogService.searchStore(store, stableQuery))
           )
           
           products = RelevanceService.filterAndRank(nestedProducts.flat(), args)
