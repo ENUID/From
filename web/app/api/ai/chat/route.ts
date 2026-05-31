@@ -101,14 +101,34 @@ export async function POST(req: NextRequest) {
     // Call Grok with Tools
     const aiResponse = await grokChatWithTools(messages, SYSTEM_PROMPT, [SEARCH_TOOL])
     
-let products: any[] = []
+    let products: any[] = []
     let finalContent = aiResponse.content
 
-    // Handle Tool Call
+    let toolCallName = ''
+    let toolCallArgs = ''
+    let toolCallId = ''
+
+    // Handle Tool Call (Standard JSON or Llama 3 fallback)
     if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
-      const toolCall = aiResponse.tool_calls[0]
-      if (toolCall.function.name === 'search_ucp') {
-        const args = JSON.parse(toolCall.function.arguments)
+      toolCallName = aiResponse.tool_calls[0].function.name
+      toolCallArgs = aiResponse.tool_calls[0].function.arguments
+      toolCallId = aiResponse.tool_calls[0].id
+    } else if (aiResponse.content && aiResponse.content.includes('<function=')) {
+      // Fallback parser for Llama 3 internal syntax leaks
+      const match = aiResponse.content.match(/<function=(\w+)>(.*?)<\/function>/)
+      if (match) {
+        toolCallName = match[1]
+        toolCallArgs = match[2]
+        toolCallId = 'call_' + Math.random().toString(36).slice(2, 10)
+        // Clean the raw tags out of the content
+        finalContent = aiResponse.content.replace(match[0], '').trim()
+        aiResponse.content = finalContent
+      }
+    }
+
+    if (toolCallName === 'search_ucp') {
+      try {
+        const args = JSON.parse(toolCallArgs)
         
         // Execute UCP Search
         products = await searchUCP({ query: args.query, budgetMax: args.budgetMax })
@@ -119,14 +139,16 @@ let products: any[] = []
           aiResponse,
           {
             role: "tool",
-            tool_call_id: toolCall.id,
-            name: toolCall.function.name,
+            tool_call_id: toolCallId,
+            name: toolCallName,
             content: JSON.stringify(products)
           }
         ]
 
         const finalAiResponse = await grokChatWithTools(followUpMessages, SYSTEM_PROMPT)
         finalContent = finalAiResponse.content
+      } catch (err) {
+        console.error('Failed to parse or execute tool call:', err)
       }
     }
 
