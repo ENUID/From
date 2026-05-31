@@ -8,12 +8,10 @@ export type ChatMessage = {
   name?: string
   tool_calls?: any[]
   tool_call_id?: string
-  products?: any[]
-}
-
+// Re-add getHeaders function
 function getHeaders() {
-  if (!GROQ_API_KEY) {
-    throw new Error('GROQ_API_KEY is not set')
+  if (!GROQ_API_KEY || GROQ_API_KEY.includes('YOUR_XAI_KEY_HERE')) {
+    throw new Error('GROQ_API_KEY is not set. Please update .env.local with your real Groq API key.')
   }
 
   return {

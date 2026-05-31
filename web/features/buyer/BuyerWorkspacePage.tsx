@@ -3,8 +3,12 @@
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 import ProductCard, { Product } from '@/components/ProductCard'
 import ProductModal from '@/components/ProductModal'
+import DiscoverView from '@/features/buyer/components/DiscoverView'
 import type { BuyerContext } from '@/lib/buyerContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
+import { useSession } from 'next-auth/react'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../convex/_generated/api'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -58,6 +62,13 @@ export default function Home({
   initialBuyerContext: BuyerContext
   initialRates: ExchangeRates
 }) {
+  const { data: session } = useSession()
+  const userEmail = session?.user?.email ?? undefined
+
+  const convexSavedProducts = useQuery(api.buyer.getSavedProducts, userEmail ? { userEmail } : "skip")
+  const convexSearchHistory = useQuery(api.buyer.getSearchHistory, userEmail ? { userEmail } : "skip")
+  const toggleConvexSaved = useMutation(api.buyer.toggleSavedProduct)
+  const saveConvexHistory = useMutation(api.buyer.saveSearchHistory)
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [history, setHistory] = useState<ConversationTurn[]>([])
   const [input, setInput] = useState('')
@@ -101,12 +112,28 @@ export default function Home({
   }, [buyerContext.currency])
 
   useEffect(() => {
-    window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedProducts))
-  }, [savedProducts])
+    if (convexSavedProducts) {
+      setSavedProducts(normalizeProductsForCurrency(convexSavedProducts, buyerContext.currency))
+    }
+  }, [convexSavedProducts, buyerContext.currency])
 
   useEffect(() => {
-    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory))
-  }, [searchHistory])
+    if (convexSearchHistory) {
+      setSearchHistory(convexSearchHistory)
+    }
+  }, [convexSearchHistory])
+
+  useEffect(() => {
+    if (!userEmail) {
+      window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedProducts))
+    }
+  }, [savedProducts, userEmail])
+
+  useEffect(() => {
+    if (!userEmail) {
+      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory))
+    }
+  }, [searchHistory, userEmail])
 
   const savedIds = new Set(savedProducts.map(product => product.id))
   const hasConversation = messages.some(message => message.role === 'user')
@@ -122,6 +149,9 @@ export default function Home({
   }
 
   function rememberSearch(query: string, resultCount: number) {
+    if (userEmail) {
+      saveConvexHistory({ userEmail, query, resultCount })
+    }
     const entry: SearchHistoryEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       query,
@@ -132,6 +162,9 @@ export default function Home({
   }
 
   function toggleSaved(product: Product) {
+    if (userEmail) {
+      toggleConvexSaved({ userEmail, product })
+    }
     setSavedProducts(previous => {
       const normalizedProduct = normalizeProductForCurrency(product, buyerContext.currency)
       const exists = previous.some(item => item.id === product.id)
@@ -155,7 +188,7 @@ export default function Home({
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageText, history }),
+        body: JSON.stringify({ message: messageText, history, savedProducts }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Request failed')
@@ -184,116 +217,11 @@ export default function Home({
   }
 
   function renderDiscoverView() {
-    const suggestions = [
-      'Eco-friendly denim',
-      'Handmade leather wallet',
-      'Minimalist ceramics',
-      'Linen shirts under $80',
-    ]
-
     return (
       <>
-        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px 20px' : '32px 40px', display: 'flex', flexDirection: 'column', gap: isMobile ? 16 : 24 }}>
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-4 md:gap-6">
           {!hasConversation && (
-            <div
-              style={{
-                flex: 1,
-                display: 'grid',
-                alignContent: 'center',
-                gap: isMobile ? 24 : 40,
-                maxWidth: 800,
-                margin: '0 auto',
-                padding: isMobile ? '20px 0' : '40px 0',
-                textAlign: 'center',
-              }}
-            >
-              <div className="fade-in">
-                <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--m-green)', fontWeight: 600, marginBottom: isMobile ? 10 : 16 }}>
-                  Buyer workspace
-                </div>
-                <h1 style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? '42px' : 'clamp(42px, 6vw, 76px)', lineHeight: 0.96, fontWeight: 300, color: 'var(--ink)', marginBottom: isMobile ? 14 : 20, letterSpacing: '-0.04em' }}>
-                  Search by intent,
-                  <br />
-                  not by ads.
-                </h1>
-                <p style={{ maxWidth: 540, fontSize: isMobile ? 14 : 15.5, color: 'var(--ink3)', lineHeight: 1.7, fontWeight: 300, margin: '0 auto' }}>
-                  From matches items from verified independent stores. Describe what you need, the context, budget, or style, and discover unique finds.
-                </p>
-                <p style={{ marginTop: 12, fontSize: isMobile ? 12.5 : 13, color: 'var(--m-green)', letterSpacing: '0.04em' }}>
-                  Prices shown in {buyerContext.currency} for shoppers in {buyerContext.country}.
-                </p>
-              </div>
-
-              <div className="fade-in" style={{ animationDelay: '0.1s' }}>
-                <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 14 }}>Try searching for</div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', padding: isMobile ? '0 10px' : '0' }}>
-                  {suggestions.map(text => (
-                    <button
-                      key={text}
-                      type="button"
-                      onClick={() => sendMessage(text)}
-                      style={{
-                        background: 'transparent',
-                        border: '1px solid var(--m-border)',
-                        borderRadius: 30,
-                        padding: isMobile ? '10px 20px' : '8px 18px',
-                        fontSize: isMobile ? 14 : 13,
-                        color: 'var(--ink2)',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s cubic-bezier(0.23, 1, 0.32, 1)',
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.borderColor = 'var(--m-green-mid)'
-                        e.currentTarget.style.color = 'var(--m-green)'
-                        e.currentTarget.style.background = 'var(--m-green-light)'
-                        e.currentTarget.style.transform = 'translateY(-1px)'
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.borderColor = 'var(--m-border)'
-                        e.currentTarget.style.color = 'var(--ink2)'
-                        e.currentTarget.style.background = 'transparent'
-                        e.currentTarget.style.transform = 'translateY(0)'
-                      }}
-                    >
-                      {text}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 16 }}>
-                {[
-                  {
-                    title: 'Describe the need',
-                    body: 'Search using plain language instead of exact keywords.',
-                  },
-                  {
-                    title: 'Refine quickly',
-                    body: 'Keep the conversation going to narrow by budget or use case.',
-                  },
-                  {
-                    title: 'Save products',
-                    body: 'Keep promising finds in one place during your session.',
-                  },
-                ].map((card, i) => (
-                  <div
-                    key={card.title}
-                    className="fade-in"
-                    style={{
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--m-border)',
-                      borderRadius: 18,
-                      padding: '24px 22px 22px',
-                      animationDelay: `${0.2 + i * 0.1}s`,
-                      textAlign: 'left',
-                    }}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{card.title}</div>
-                    <div style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7 }}>{card.body}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DiscoverView buyerContext={buyerContext} sendMessage={sendMessage} />
           )}
 
           {hasConversation && messages.map((message, index) => (
@@ -369,65 +297,28 @@ export default function Home({
           <div ref={bottomRef} />
         </div>
 
-        <footer style={{ 
-          padding: isMobile ? '8px 10px 18px' : '14px 28px 20px', 
-          borderTop: '1px solid var(--m-border)', 
-          background: isMobile ? 'rgba(255,255,255,0.85)' : 'var(--bg)', 
-          backdropFilter: isMobile ? 'blur(12px)' : 'none',
-          flexShrink: 0,
-          paddingBottom: isMobile ? 'max(16px, env(safe-area-inset-bottom))' : '20px'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            gap: isMobile ? 8 : 12, 
-            alignItems: 'center', 
-            background: 'var(--bg-card)', 
-            border: '1px solid var(--m-border)', 
-            borderRadius: 24, 
-            padding: isMobile ? '8px 8px 8px 14px' : '10px 10px 10px 20px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-            maxWidth: 900,
-            margin: '0 auto',
-            width: '100%'
-          }}>
+        <footer className="flex-shrink-0 border-t border-[var(--m-border)] p-[8px_10px_18px] md:p-[14px_28px_20px] bg-[rgba(255,255,255,0.85)] md:bg-[var(--bg)] backdrop-blur-[12px] md:backdrop-blur-none pb-[max(16px,env(safe-area-inset-bottom))] md:pb-[20px]">
+          <div className="flex items-center gap-2 md:gap-3 bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[24px] p-[8px_8px_8px_14px] md:p-[10px_10px_10px_20px] shadow-[0_4px_12px_rgba(0,0,0,0.03)] w-full max-w-[900px] mx-auto">
             <input
               ref={inputRef}
               value={input}
               onChange={event => setInput(event.target.value)}
               onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => event.key === 'Enter' && !event.shiftKey && sendMessage()}
               placeholder={isMobile ? "Search products..." : "Search by product, material, budget, or intended use"}
-              style={{ flex: 1, minWidth: 0, border: 'none', background: 'none', fontSize: isMobile ? 16 : 14, color: 'var(--ink)', outline: 'none' }}
+              className="flex-1 min-w-0 border-none bg-transparent text-[16px] md:text-[14px] text-[var(--ink)] outline-none"
             />
             <button
               type="button"
               onClick={() => sendMessage()}
               disabled={loading || !input.trim()}
-              style={{
-                width: isMobile ? 48 : 42,
-                height: isMobile ? 48 : 42,
-                borderRadius: 18,
-                flexShrink: 0,
-                border: 'none',
-                background: loading || !input.trim() ? 'var(--m-border)' : 'var(--m-green)',
-                cursor: loading || !input.trim() ? 'default' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                boxShadow: loading || !input.trim() ? 'none' : '0 4px 10px rgba(90,154,90,0.3)',
-              }}
+              className={`flex-shrink-0 flex items-center justify-center w-[48px] h-[48px] md:w-[42px] md:h-[42px] rounded-[18px] border-none transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                loading || !input.trim()
+                  ? 'bg-[var(--m-border)] cursor-default shadow-none'
+                  : 'bg-[var(--m-green)] cursor-pointer shadow-[0_4px_10px_rgba(90,154,90,0.3)]'
+              }`}
             >
               {loading ? (
-                <div
-                  style={{
-                    width: 14,
-                    height: 14,
-                    border: '1.5px solid rgba(255,255,255,0.3)',
-                    borderTopColor: 'white',
-                    borderRadius: '50%',
-                    animation: 'spin 0.65s linear infinite',
-                  }}
-                />
+                <div className="w-[14px] h-[14px] rounded-full border-[1.5px] border-[rgba(255,255,255,0.3)] border-t-white animate-spin" />
               ) : (
                 <svg width="20" height="20" viewBox="0 0 14 14" fill="none">
                   <path d="M1 7h12M7 1l6 6-6 6" stroke={input.trim() ? 'white' : 'rgba(255,255,255,0.5)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />

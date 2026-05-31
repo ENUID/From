@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
+import ConvexClientProvider from '@/components/ConvexClientProvider'
 
 export const metadata: Metadata = {
   title: 'From - Shop Independent',
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <ConvexClientProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   )

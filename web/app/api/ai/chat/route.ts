@@ -80,14 +80,20 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { message, history } = await req.json()
+    const { message, history, savedProducts } = await req.json()
     if (!message) throw new Error('No message provided')
 
     const cleanHistory = sanitizeHistory(history || [])
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
+    let dynamicSystemPrompt = SYSTEM_PROMPT;
+    if (savedProducts && savedProducts.length > 0) {
+      const savedSummary = savedProducts.map((p: any) => `- ${p.title} (${p.price} ${p.currency})`).join('\n');
+      dynamicSystemPrompt += `\n\nUSER'S SAVED PRODUCTS:\nThe user has saved the following products in their cart/favorites:\n${savedSummary}\nKeep this in mind if they ask to compare or refer to things they've saved or liked.`;
+    }
+
     // 1. Initial AI Generation
-    const aiResponse = await generateRobustAIResponse(messages, SYSTEM_PROMPT, [SEARCH_TOOL_DEF])
+    const aiResponse = await generateRobustAIResponse(messages, dynamicSystemPrompt, [SEARCH_TOOL_DEF])
     
     let products: UcpProduct[] = []
     let finalContent = aiResponse.content
@@ -137,7 +143,7 @@ export async function POST(req: NextRequest) {
             }
           ]
 
-          const finalAiResponse = await generateRobustAIResponse(followUpMessages, SYSTEM_PROMPT, [])
+          const finalAiResponse = await generateRobustAIResponse(followUpMessages, dynamicSystemPrompt, [])
           finalContent = finalAiResponse.content
         } catch (error: any) {
           console.error('Error executing tool:', error)

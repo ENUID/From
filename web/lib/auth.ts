@@ -3,7 +3,7 @@ import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { ConvexHttpClient } from 'convex/browser'
 import bcrypt from 'bcryptjs'
-import { api } from './convexApi'
+import { api } from '../convex/_generated/api'
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
@@ -119,6 +119,21 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (user && user.email) {
+        try {
+          const convex = getConvex()
+          await convex.mutation(api.users.ensureUser, {
+            email: user.email,
+            name: user.name || undefined,
+            image: user.image || undefined,
+          })
+        } catch (err) {
+          console.error('Failed to sync user to Convex:', err)
+        }
+      }
+      return true
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id ?? token.id ?? token.sub
