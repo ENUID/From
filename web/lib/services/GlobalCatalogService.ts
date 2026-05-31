@@ -21,13 +21,7 @@ export class GlobalCatalogService {
     const filters: any = {
       available: true
     };
-    
-    // Convert budgetMax (dollars) to cents if provided
-    if (budgetMax && budgetMax > 0) {
-      filters.price_range = {
-        max: { amount: budgetMax * 100, currency: 'USD' }
-      };
-    }
+    // Local filtering will handle the budget instead of relying on the API's price_range filter
     
     const payload = {
       jsonrpc: "2.0",
@@ -113,7 +107,12 @@ export class GlobalCatalogService {
         }
       }
 
-      return products.slice(0, 5); // Return top 5 best matches
+      let finalProducts = products;
+      if (budgetMax && budgetMax > 0) {
+        finalProducts = finalProducts.filter(p => p.price <= budgetMax);
+      }
+
+      return finalProducts.slice(0, 5); // Return top 5 best matches
     } catch (err) {
       console.error('Shopify Global Catalog Fetch Error:', err);
       return [];
