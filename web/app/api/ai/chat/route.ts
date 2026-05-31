@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { grokChatWithTools, ChatMessage } from '@/lib/grok'
-import { searchUCP } from '@/lib/ucpClient'
-import { formatMoney } from '@/lib/currency'
-import {
-  BUYER_COUNTRY_COOKIE,
-  BUYER_CURRENCY_COOKIE,
-  resolveBuyerContext,
-} from '@/lib/buyerContext'
-import { getExchangeRates } from '@/lib/exchangeRates'
+import { generateRobustAIResponse, ChatMessage } from '@/lib/grok'
+import { SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
+import { DiscoveryService } from '@/lib/services/DiscoveryService'
+import { CatalogService, UcpProduct } from '@/lib/services/CatalogService'
+import { RelevanceService } from '@/lib/services/RelevanceService'
 
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
@@ -23,9 +19,7 @@ const rateBuckets = new Map<string, RateEntry>()
 
 function getClientKey(req: NextRequest) {
   const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) {
-    return forwarded.split(',')[0]?.trim() || 'unknown'
-  }
+  if (forwarded) return forwarded.split(',')[0]?.trim() || 'unknown'
   return req.headers.get('x-real-ip') ?? 'unknown'
 }
 
@@ -38,11 +32,7 @@ function isRateLimited(req: NextRequest) {
     rateBuckets.set(key, { count: 1, resetAt: now + CHAT_WINDOW_MS })
     return false
   }
-
-  if (current.count >= CHAT_MAX_REQUESTS) {
-    return true
-  }
-
+  if (current.count >= CHAT_MAX_REQUESTS) return true
   current.count += 1
   rateBuckets.set(key, current)
   return false
@@ -62,29 +52,8 @@ function sanitizeHistory(history: any[]): ChatMessage[] {
 const SYSTEM_PROMPT = `You are an AI shopping assistant named From. 
 You help users find products across various independent stores. 
 If the user is looking for a product, you MUST use the search_ucp tool to find it. 
-When presenting products, briefly describe why they fit the user's needs but DO NOT include any URLs or markdown links in your text response. The system will automatically display beautiful product cards with images and links right below your message.`
-
-const SEARCH_TOOL = {
-  type: "function",
-  function: {
-    name: "search_ucp",
-    description: "Search for products across Shopify stores using the Universal Commerce Protocol (UCP).",
-    parameters: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "The search query (e.g., 'handmade leather boots', 'blue denim jacket')"
-        },
-        budgetMax: {
-          type: "number",
-          description: "The maximum budget the user is willing to spend, if specified."
-        }
-      },
-      required: ["query"]
-    }
-  }
-}
+CRITICAL INSTRUCTION: Analyze the user's intent to extract the singular core product (e.g., 'bowl', 'jacket', 'vase') and its attributes before calling the search_ucp tool.
+When presenting products, briefly describe why they fit the user's needs but DO NOT include any URLs or markdown links in your text response. The system will automatically display beautiful product cards right below your message.`
 
 export async function POST(req: NextRequest) {
   if (isRateLimited(req)) {
@@ -98,68 +67,49 @@ export async function POST(req: NextRequest) {
     const cleanHistory = sanitizeHistory(history || [])
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
-    // Call Grok with Tools
-    const aiResponse = await grokChatWithTools(messages, SYSTEM_PROMPT, [SEARCH_TOOL])
+    // 1. Initial AI Generation
+    const aiResponse = await generateRobustAIResponse(messages, SYSTEM_PROMPT, [SEARCH_TOOL_DEF])
     
-    let products: any[] = []
+    let products: UcpProduct[] = []
     let finalContent = aiResponse.content
 
-    let toolCallName = ''
-    let toolCallArgs = ''
-    let toolCallId = ''
-
-    // Handle Tool Call (Standard JSON or Llama 3 fallback)
+    // 2. Handle Tool Execution
     if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
-      toolCallName = aiResponse.tool_calls[0].function.name
-      toolCallArgs = aiResponse.tool_calls[0].function.arguments
-      toolCallId = aiResponse.tool_calls[0].id
-    } else if (aiResponse.content && aiResponse.content.includes('<function=')) {
-      // Fallback parser for Llama 3 internal syntax leaks
-      const match = aiResponse.content.match(/<function=(\w+)>(.*?)<\/function>/)
-      if (match) {
-        toolCallName = match[1]
-        toolCallArgs = match[2]
-        toolCallId = 'call_' + Math.random().toString(36).slice(2, 10)
-        // Clean the raw tags out of the content
-        finalContent = aiResponse.content.replace(match[0], '').trim()
-        aiResponse.content = finalContent || null // Set to null if empty, common in tool calls
-        
-        // Crucial: We must inject the standard tool_calls format back into aiResponse
-        // so that the followUpMessages array is syntactically valid for the next API call.
-        aiResponse.tool_calls = [{
-          id: toolCallId,
-          type: "function",
-          function: {
-            name: toolCallName,
-            arguments: toolCallArgs
-          }
-        }]
-      }
-    }
+      const toolCall = aiResponse.tool_calls[0]
+      if (toolCall.function.name === 'search_ucp') {
+        try {
+          // Validate AI arguments
+          const rawArgs = JSON.parse(toolCall.function.arguments)
+          const args = SearchToolSchema.parse(rawArgs)
+          
+          console.log('AI categorized search intent:', args);
 
-    if (toolCallName === 'search_ucp') {
-      try {
-        const args = JSON.parse(toolCallArgs)
-        
-        // Execute UCP Search
-        products = await searchUCP({ query: args.query, budgetMax: args.budgetMax })
-        
-        // Add the tool call result to conversation and call AI again
-        const followUpMessages = [
-          ...messages,
-          aiResponse,
-          {
-            role: "tool",
-            tool_call_id: toolCallId,
-            name: toolCallName,
-            content: JSON.stringify(products)
-          }
-        ]
+          // Orchestrate Micro-services
+          const domains = await DiscoveryService.discoverDomains(args.searchQuery)
+          
+          const nestedProducts = await Promise.all(
+            domains.map(store => CatalogService.searchStore(store, args.searchQuery))
+          )
+          
+          products = RelevanceService.filterAndRank(nestedProducts.flat(), args)
+          
+          // Provide results back to AI for final synthesis
+          const followUpMessages = [
+            ...messages,
+            aiResponse,
+            {
+              role: "tool",
+              tool_call_id: toolCall.id,
+              name: toolCall.function.name,
+              content: JSON.stringify(products)
+            }
+          ]
 
-        const finalAiResponse = await grokChatWithTools(followUpMessages, SYSTEM_PROMPT)
-        finalContent = finalAiResponse.content
-      } catch (err) {
-        console.error('Failed to parse or execute tool call:', err)
+          const finalAiResponse = await generateRobustAIResponse(followUpMessages, SYSTEM_PROMPT, [])
+          finalContent = finalAiResponse.content
+        } catch (err) {
+          console.error('Failed to orchestrate tool call pipeline:', err)
+        }
       }
     }
 
