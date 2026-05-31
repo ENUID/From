@@ -227,31 +227,22 @@ export default function Home({
           {hasConversation && messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
-              className="fade-in"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: message.role === 'user' ? 'flex-end' : 'flex-start',
-                gap: 14,
-              }}
+              className={`fade-in flex flex-col gap-[14px] ${
+                message.role === 'user' ? 'items-end' : 'items-start'
+              }`}
             >
               <div
-                style={{
-                  maxWidth: isMobile ? '88%' : '64%',
-                  padding: isMobile ? '10px 14px' : '12px 18px',
-                  fontSize: isMobile ? 12.5 : 13.5,
-                  lineHeight: 1.72,
-                  borderRadius: message.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                  background: message.role === 'user' ? 'var(--m-green)' : 'var(--bg-card)',
-                  color: message.role === 'user' ? 'var(--bg-white)' : 'var(--ink)',
-                  border: message.role === 'assistant' ? '1px solid var(--m-border)' : 'none',
-                }}
+                className={`max-w-[88%] md:max-w-[64%] p-[10px_14px] md:p-[12px_18px] text-[12.5px] md:text-[13.5px] leading-[1.72] ${
+                  message.role === 'user'
+                    ? 'rounded-[18px_18px_4px_18px] bg-[var(--m-green)] text-[var(--bg-white)]'
+                    : 'rounded-[18px_18px_18px_4px] bg-[var(--bg-card)] text-[var(--ink)] border border-[var(--m-border)]'
+                }`}
               >
                 {message.content}
               </div>
 
               {message.products && message.products.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))', gap: 10, width: '100%' }}>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-[10px] w-full">
                   {message.products.map((product, offset) => (
                     <ProductCard
                       key={product.id || `${index}-${offset}`}
@@ -269,25 +260,12 @@ export default function Home({
           ))}
 
           {loading && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 5,
-                padding: '12px 18px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--m-border)',
-                borderRadius: '18px 18px 18px 4px',
-                width: 'fit-content',
-              }}
-            >
+            <div className="flex gap-[5px] p-[12px_18px] bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[18px_18px_18px_4px] w-fit">
               {[0, 0.18, 0.36].map(delay => (
                 <div
                   key={delay}
+                  className="w-[5px] h-[5px] rounded-full bg-[var(--ink3)]"
                   style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: '50%',
-                    background: 'var(--ink3)',
                     animation: `bounce 1.1s ${delay}s ease-in-out infinite`,
                   }}
                 />
