@@ -1,6 +1,6 @@
-export const GROK_BASE = process.env.GROK_BASE_URL ?? 'https://api.x.ai/v1'
-export const GROK_API_KEY = process.env.GROK_API_KEY ?? ''
-export const CHAT_MODEL = process.env.GROK_CHAT_MODEL ?? 'grok-2-latest'
+export const GROQ_BASE = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1'
+export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
+export const CHAT_MODEL = process.env.GROQ_CHAT_MODEL ?? 'llama3-70b-8192'
 
 export type ChatMessage = {
   role: string
@@ -11,20 +11,20 @@ export type ChatMessage = {
 }
 
 function getHeaders() {
-  if (!GROK_API_KEY) {
-    throw new Error('GROK_API_KEY is not set')
+  if (!GROQ_API_KEY) {
+    throw new Error('GROQ_API_KEY is not set')
   }
 
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${GROK_API_KEY}`,
+    Authorization: `Bearer ${GROQ_API_KEY}`,
   }
 }
 
 /**
  * Raw chat completion call to the AI Provider.
  */
-export async function grokChat(
+export async function groqChat(
   messages: ChatMessage[],
   system?: string,
   tools?: any[],
@@ -46,7 +46,7 @@ export async function grokChat(
     payload.tool_choice = 'auto'
   }
 
-  const res = await fetch(`${GROK_BASE}/chat/completions`, {
+  const res = await fetch(`${GROQ_BASE}/chat/completions`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(payload),
@@ -69,7 +69,7 @@ export async function generateRobustAIResponse(
   systemPrompt: string,
   tools: any[]
 ): Promise<ChatMessage> {
-  const aiResponse = await grokChat(messages, systemPrompt, tools)
+  const aiResponse = await groqChat(messages, systemPrompt, tools)
 
   // 1. If it properly outputted standard tool_calls, return it directly.
   if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {

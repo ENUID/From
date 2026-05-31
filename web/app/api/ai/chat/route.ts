@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateRobustAIResponse, ChatMessage } from '@/lib/grok'
+import { generateRobustAIResponse, ChatMessage } from '@/lib/groq'
 import { SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
 import { RegistryService } from '@/lib/services/RegistryService'
 import { CatalogService, UcpProduct } from '@/lib/services/CatalogService'
@@ -111,14 +111,17 @@ export async function POST(req: NextRequest) {
           products = RelevanceService.filterAndRank(nestedProducts.flat(), args)
           
           // Provide results back to AI for final synthesis
-          const followUpMessages = [
+          // Sanitize the product list to prevent token bloat and rate limits
+          const slimProducts = products.map(p => ({ title: p.title, vendor: p.vendor, price: p.price }));
+          
+          const followUpMessages: ChatMessage[] = [
             ...messages,
-            aiResponse,
-            {
-              role: "tool",
-              tool_call_id: toolCall.id,
-              name: toolCall.function.name,
-              content: JSON.stringify(products)
+            { role: 'assistant', content: '', tool_calls: [toolCall] },
+            { 
+              role: 'tool', 
+              tool_call_id: toolCall.id, 
+              name: 'search_ucp', 
+              content: JSON.stringify(slimProducts) 
             }
           ]
 
