@@ -57,7 +57,7 @@ async function searchGoogleStores(query: string): Promise<string[]> {
     }
     
     // Always include a few known good stores as fallback just in case Google only returns non-UCP stores
-    return [...new Set([...domains, ...UCP_STORES])].slice(0, 8)
+    return Array.from(new Set([...domains, ...UCP_STORES])).slice(0, 8)
   } catch (err) {
     console.error('Serper API error:', err)
     return UCP_STORES
