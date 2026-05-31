@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, ChatMessage } from '@/lib/grok'
 import { SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
-import { DiscoveryService } from '@/lib/services/DiscoveryService'
+import { RegistryService } from '@/lib/services/RegistryService'
 import { CatalogService, UcpProduct } from '@/lib/services/CatalogService'
 import { RelevanceService } from '@/lib/services/RelevanceService'
 
@@ -92,8 +92,8 @@ export async function POST(req: NextRequest) {
             .toLowerCase()
             .trim();
 
-          // Orchestrate Micro-services
-          const domains = await DiscoveryService.discoverDomains(stableQuery)
+          // Orchestrate Micro-services using internal Registry
+          const domains = RegistryService.findRelevantStores(args)
           
           const nestedProducts = await Promise.all(
             domains.map(store => CatalogService.searchStore(store, stableQuery))
