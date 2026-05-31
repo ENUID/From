@@ -59,6 +59,7 @@ export default function ProductCard({
         padding: '14px 16px',
         display: 'flex',
         flexDirection: 'column',
+        height: '100%',
         gap: 5,
         cursor: 'pointer',
         transition: 'box-shadow 0.15s, transform 0.12s',
@@ -150,7 +151,7 @@ export default function ProductCard({
         </span>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }} onClick={e => e.stopPropagation()}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 10 }} onClick={e => e.stopPropagation()}>
         <a
           href={hasUrl ? product.store_url : undefined}
           target="_blank"
