@@ -1,17 +1,12 @@
 import { z } from 'zod';
 
 export const SearchToolSchema = z.object({
-  coreProduct: z.string().describe("The singular core noun of what the user is looking for (e.g. 'bowl', 'jacket', 'vase'). Must be a single word if possible."),
-  synonyms: z.array(z.string()).max(3).describe("2 to 3 absolute direct synonyms for the core product (e.g. if core is 'bowl', synonyms could be 'dish', 'basin'). Do NOT use broad categories.").optional(),
-  attributes: z.array(
-    z.union([
-      z.object({
-        primary: z.string().describe("The primary attribute word (e.g. 'white', 'ceramic')"),
-        synonyms: z.array(z.string()).max(3).describe("2-3 direct synonyms (e.g. ['ivory', 'cream'] or ['porcelain', 'stoneware'])").optional()
-      }),
-      z.string() // Backward compatibility for chat history
-    ])
-  ).describe("List of attributes (color, material, style) along with their synonyms.").optional(),
+  keywords: z.array(
+    z.object({
+      term: z.string().describe("A keyword from the user's intent"),
+      synonyms: z.array(z.string()).max(3).describe("2-3 synonyms for this keyword").optional()
+    })
+  ).describe("List of all keywords (product nouns, materials, colors) extracted from the query, translated to English."),
   searchQuery: z.string().describe("The full natural language search query describing the product"),
   budgetMax: z.number().optional().describe("Maximum budget if specified")
 });
@@ -26,25 +21,28 @@ export const SEARCH_TOOL_DEF = {
     parameters: {
       type: "object",
       properties: {
-        coreProduct: {
-          type: "string",
-          description: "The absolute core noun/product being searched (e.g. 'bowl', 'jacket', 'shoes'). Must be singular."
-        },
-        attributes: {
+        keywords: {
           type: "array",
-          items: { type: "string" },
-          description: "List of attributes like color, material, or style (e.g. ['minimalist', 'white', 'ceramic'])."
+          items: {
+            type: "object",
+            properties: {
+              term: { type: "string" },
+              synonyms: { type: "array", items: { type: "string" } }
+            },
+            required: ["term"]
+          },
+          description: "List of keywords and their synonyms to search for. Must be in English."
         },
         searchQuery: {
           type: "string",
-          description: "A natural search query incorporating attributes and core product for the search engine (e.g. 'minimalist white ceramic bowl')."
+          description: "A natural search query incorporating all keywords for context."
         },
         budgetMax: {
           type: "number",
           description: "The maximum budget the user is willing to spend, if specified."
         }
       },
-      required: ["coreProduct", "attributes", "searchQuery"]
+      required: ["keywords", "searchQuery"]
     }
   }
 };

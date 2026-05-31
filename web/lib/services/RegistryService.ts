@@ -7,11 +7,9 @@ export class RegistryService {
    * This guarantees 100% UCP compliance and eliminates Google Search latency.
    */
   static findRelevantStores(criteria: SearchToolArgs): string[] {
-    const normalizedAttributes = (criteria.attributes || []).map(attr => typeof attr === 'string' ? { primary: attr, synonyms: [] } : attr);
-    const attributeStrings = normalizedAttributes.flatMap(a => [a.primary, ...(a.synonyms || [])]);
-    const allQueryText = `${criteria.searchQuery} ${attributeStrings.join(' ')}`.toLowerCase();
+    const allTerms = criteria.keywords.flatMap(kw => [kw.term, ...(kw.synonyms || [])].map(t => t.toLowerCase().trim()));
+    const allQueryText = `${criteria.searchQuery} ${allTerms.join(' ')}`.toLowerCase();
     const queryWords = Array.from(new Set(allQueryText.split(/[\s,]+/).filter(w => w.length > 2)));
-    const coreProduct = criteria.coreProduct.toLowerCase();
 
     // Score each store based on how well its categories and vibes match the query
     const scoredStores = UCP_REGISTRY.map(store => {
@@ -20,14 +18,6 @@ export class RegistryService {
       const storeKeywords = [...store.categories, ...store.vibe].map(k => k.toLowerCase());
       const storeText = storeKeywords.join(' ');
 
-      // Core product match is highly weighted
-      if (storeText.includes(coreProduct)) {
-        score += 10;
-      } else if (coreProduct.endsWith('s') && storeText.includes(coreProduct.slice(0, -1))) {
-        score += 10;
-      }
-
-      // Attribute/vibe matching
       queryWords.forEach(word => {
         if (storeText.includes(word)) {
           score += 2;
