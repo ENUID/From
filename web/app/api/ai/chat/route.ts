@@ -127,8 +127,10 @@ export async function POST(req: NextRequest) {
 
           const finalAiResponse = await generateRobustAIResponse(followUpMessages, SYSTEM_PROMPT, [])
           finalContent = finalAiResponse.content
-        } catch (err) {
-          console.error('Failed to orchestrate tool call pipeline:', err)
+        } catch (error: any) {
+          console.error('Error executing tool:', error)
+          products = []
+          finalContent = `[System Error Debug during Tool Synth]: ${error.message}`
         }
       }
     }
@@ -139,6 +141,9 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('Chat API Error:', error)
-    return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 })
+    return NextResponse.json({ 
+      text: `[System Error Debug]: ${error.message || 'Internal error'}`,
+      products: [] 
+    })
   }
 }
