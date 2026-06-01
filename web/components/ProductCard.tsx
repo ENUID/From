@@ -130,7 +130,7 @@ export default function ProductCard({
       >
         {product.title}
       </div>
-      <div style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--serif)', marginTop: 2 }}>
+      <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 600, marginTop: 2 }}>
         {formatMoney(Number(product.price), product.currency, product.base_currency, rates)}
       </div>
 
