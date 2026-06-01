@@ -311,39 +311,32 @@ export default function Home({
 
   function renderHistoryView() {
     return (
-      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
-        <div style={{ marginBottom: isMobile ? 18 : 24 }}>
-          <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 28 : 34, lineHeight: 1.08, marginBottom: 6 }}>Search history</div>
-          <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7 }}>
+      <div className="flex-1 overflow-y-auto p-[20px_24px] md:p-[32px_36px]">
+        <div className="mb-[18px] md:mb-[24px]">
+          <div className="font-[var(--serif)] text-[28px] md:text-[34px] leading-[1.08] mb-[6px]">Search history</div>
+          <p className="text-[13px] text-[var(--ink3)] leading-[1.7]">
             Re-run recent searches and continue refining them in the chat.
           </p>
         </div>
 
         {searchHistory.length === 0 ? (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 16, padding: '32px 28px', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.8 }}>
+          <div className="bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[16px] p-[32px_28px] text-[var(--ink3)] text-[13px] leading-[1.8]">
             No searches yet. Your recent queries will appear here after you run them.
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
+          <div className="grid gap-[12px]">
             {searchHistory.map(entry => (
               <button
                 key={entry.id}
                 type="button"
                 onClick={() => sendMessage(entry.query)}
-                style={{
-                  textAlign: 'left',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--m-border)',
-                  borderRadius: 16,
-                  padding: '18px 18px 16px',
-                  cursor: 'pointer',
-                }}
+                className="text-left bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[16px] p-[18px_18px_16px] cursor-pointer hover:bg-[rgba(0,0,0,0.02)] transition-colors"
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 6, alignItems: 'flex-start' }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)', minWidth: 0 }}>{entry.query}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap', flexShrink: 0 }}>{formatTime(entry.createdAt)}</div>
+                <div className="flex justify-between gap-[16px] mb-[6px] items-start">
+                  <div className="text-[14px] font-medium text-[var(--ink)] min-w-0">{entry.query}</div>
+                  <div className="text-[11px] text-[var(--ink3)] whitespace-nowrap shrink-0">{formatTime(entry.createdAt)}</div>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+                <div className="text-[12px] text-[var(--ink3)]">
                   {entry.resultCount} result{entry.resultCount === 1 ? '' : 's'} returned
                 </div>
               </button>
@@ -356,11 +349,11 @@ export default function Home({
 
   function renderSavedView() {
     return (
-      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 24px' : '32px 36px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: isMobile ? 18 : 24 }}>
+      <div className="flex-1 overflow-y-auto p-[20px_24px] md:p-[32px_36px]">
+        <div className="flex justify-between items-end gap-[16px] mb-[18px] md:mb-[24px]">
           <div>
-            <div style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? 28 : 34, lineHeight: 1.08, marginBottom: 6 }}>Saved products</div>
-            <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7 }}>
+            <div className="font-[var(--serif)] text-[28px] md:text-[34px] leading-[1.08] mb-[6px]">Saved products</div>
+            <p className="text-[13px] text-[var(--ink3)] leading-[1.7]">
               Keep promising products here while you compare stores and decide what to open next.
             </p>
           </div>
@@ -368,15 +361,7 @@ export default function Home({
             <button
               type="button"
               onClick={() => setSavedProducts([])}
-              style={{
-                border: '1px solid var(--m-border)',
-                background: 'transparent',
-                borderRadius: 30,
-                padding: '8px 16px',
-                fontSize: 12,
-                color: 'var(--ink)',
-                cursor: 'pointer',
-              }}
+              className="border border-[var(--m-border)] bg-transparent rounded-[30px] p-[8px_16px] text-[12px] text-[var(--ink)] cursor-pointer hover:bg-[rgba(0,0,0,0.02)] transition-colors"
             >
               Clear saved
             </button>
@@ -384,11 +369,11 @@ export default function Home({
         </div>
 
         {savedProducts.length === 0 ? (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--m-border)', borderRadius: 16, padding: '32px 28px', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.8 }}>
+          <div className="bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[16px] p-[32px_28px] text-[var(--ink3)] text-[13px] leading-[1.8]">
             No saved products yet. Use the save action on any search result to keep it here.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 12 }}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] gap-[12px]">
             {savedProducts.map(product => (
               <ProductCard
                 key={product.id}
@@ -406,50 +391,32 @@ export default function Home({
   }
 
   return (
-    <div style={{ display: 'flex', height: '100dvh', maxWidth: '100%', background: 'var(--bg)', overflow: 'hidden' }}>
+    <div className="flex h-[100dvh] max-w-full bg-[var(--bg)] overflow-hidden">
       {/* Mobile Drawer Overlay */}
       {isMobile && isSidebarOpen && (
         <div
           onClick={() => setIsSidebarOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.3)',
-            backdropFilter: 'blur(2px)',
-            zIndex: 100,
-          }}
+          className="fixed inset-0 bg-[rgba(0,0,0,0.3)] backdrop-blur-[2px] z-[100]"
         />
       )}
 
       <aside
-        style={{
-          width: isMobile ? 280 : 72,
-          background: 'var(--m-green)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: isMobile ? 'stretch' : 'center',
-          padding: '22px 0',
-          flexShrink: 0,
-          gap: 8,
-          position: isMobile ? 'fixed' : 'relative',
-          height: '100dvh',
-          left: isMobile && !isSidebarOpen ? -300 : 0,
-          top: 0,
-          transition: 'left 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-          zIndex: 1000,
-          boxShadow: isMobile && isSidebarOpen ? '20px 0 50px rgba(0,0,0,0.15)' : 'none',
-        }}
+        className={`bg-[var(--m-green)] flex flex-col shrink-0 gap-[8px] h-[100dvh] top-0 transition-[left] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] z-[1000] py-[22px] ${
+          isMobile
+            ? `fixed w-[280px] items-stretch ${isSidebarOpen ? 'left-0 shadow-[20px_0_50px_rgba(0,0,0,0.15)]' : 'left-[-300px]'}`
+            : 'relative w-[72px] items-center'
+        }`}
       >
-        <div style={{ marginBottom: 24, padding: isMobile ? '0 24px' : '0', display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/logo.png" alt="From Logo" style={{ width: 28, height: 28, objectFit: 'contain' }} />
-            {isMobile && <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--bg-white)' }}>From</span>}
+        <div className={`mb-[24px] flex items-center ${isMobile ? 'px-[24px] justify-between' : 'justify-center'}`}>
+          <div className="flex items-center gap-[10px]">
+            <img src="/logo.png" alt="From Logo" className="w-[28px] h-[28px] object-contain" />
+            {isMobile && <span className="font-[var(--serif)] text-[18px] text-[var(--bg-white)]">From</span>}
           </div>
           {isMobile && (
             <button
               type="button"
               onClick={() => setIsSidebarOpen(false)}
-              style={{ background: 'none', border: 'none', color: 'var(--bg-white)', cursor: 'pointer', padding: 4 }}
+              className="bg-transparent border-none text-[var(--bg-white)] cursor-pointer p-[4px]"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 6L6 18M6 6l12 12" />
@@ -472,61 +439,47 @@ export default function Home({
                 setActiveView(item.id as View)
                 setIsSidebarOpen(false)
               }}
-              style={{
-                width: isMobile ? 'auto' : 44,
-                height: 44,
-                borderRadius: 14,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: isMobile ? 'flex-start' : 'center',
-                gap: 12,
-                padding: isMobile ? '0 24px' : '0',
-                cursor: 'pointer',
-                color: isActive ? 'var(--m-green)' : 'var(--bg-white)',
-                border: 'none',
-                background: isActive ? 'var(--bg-white)' : 'transparent',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                opacity: isActive ? 1 : 0.7,
-                margin: isMobile ? '0 12px' : '0',
-              }}
-              onMouseEnter={e => !isActive && (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={e => !isActive && (e.currentTarget.style.opacity = '0.7')}
+              className={`h-[44px] rounded-[14px] flex items-center gap-[12px] cursor-pointer border-none transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:opacity-100 ${
+                isMobile ? 'w-auto justify-start px-[24px] mx-[12px]' : 'w-[44px] justify-center px-0 mx-0'
+              } ${
+                isActive ? 'text-[var(--m-green)] bg-[var(--bg-white)] opacity-100' : 'text-[var(--bg-white)] bg-transparent opacity-70'
+              }`}
             >
-              <span style={{ width: 20, height: 20, display: 'flex', flexShrink: 0 }}>{item.icon}</span>
-              {isMobile && <span style={{ fontSize: 15, fontWeight: 500 }}>{item.label}</span>}
+              <span className="w-[20px] h-[20px] flex shrink-0">{item.icon}</span>
+              {isMobile && <span className="text-[15px] font-medium">{item.label}</span>}
             </button>
           )
         })}
 
-        <div style={{ marginTop: 'auto', padding: isMobile ? '0 24px' : '0', display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'flex-start' : 'center', gap: 20 }}>
-          <div style={{ textAlign: isMobile ? 'left' : 'center' }}>
-            <div style={{ fontSize: 10, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 4 }}>Region</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--bg-white)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#6edba8' }} />
+        <div className={`mt-auto flex flex-col gap-[20px] ${isMobile ? 'px-[24px] items-start' : 'px-0 items-center'}`}>
+          <div className={isMobile ? 'text-left' : 'text-center'}>
+            <div className="text-[10px] tracking-[0.1em] text-[rgba(255,255,255,0.5)] uppercase mb-[4px]">Region</div>
+            <div className="text-[12px] font-semibold text-[var(--bg-white)] flex items-center gap-[6px]">
+              <span className="w-[6px] h-[6px] rounded-full bg-[#6edba8]" />
               {buyerContext.country}
             </div>
           </div>
         </div>
       </aside>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', minWidth: 0 }}>
+      <main className="flex-1 flex flex-col relative min-w-0">
         {isMobile && (
-          <header style={{ height: 56, display: 'flex', alignItems: 'center', padding: '0 16px', borderBottom: '1px solid var(--m-border)', background: 'var(--bg)', flexShrink: 0 }}>
+          <header className="h-[56px] flex items-center px-[16px] border-b border-[var(--m-border)] bg-[var(--bg)] shrink-0">
             <button
               type="button"
               onClick={() => setIsSidebarOpen(true)}
-              style={{ background: 'none', border: 'none', color: 'var(--ink)', padding: 8, marginLeft: -8, cursor: 'pointer' }}
+              className="bg-transparent border-none text-[var(--ink)] p-[8px] -ml-[8px] cursor-pointer"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 12h18M3 6h18M3 18h18" />
               </svg>
             </button>
-            <div style={{ marginLeft: 8, fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 500 }}>From</div>
+            <div className="ml-[8px] font-[var(--serif)] text-[17px] font-medium">From</div>
             {hasConversation && (
               <button
                 type="button"
                 onClick={resetConversation}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--m-green)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+                className="ml-auto bg-transparent border-none text-[var(--m-green)] text-[13px] font-medium cursor-pointer"
               >
                 New search
               </button>
@@ -535,23 +488,11 @@ export default function Home({
         )}
 
         {!isMobile && hasConversation && (
-          <header style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 64, display: 'flex', alignItems: 'center', padding: '0 32px', zIndex: 10, pointerEvents: 'none' }}>
+          <header className="absolute top-0 left-0 right-0 h-[64px] flex items-center px-[32px] z-[10] pointer-events-none">
             <button
               type="button"
               onClick={resetConversation}
-              style={{
-                pointerEvents: 'auto',
-                marginLeft: 'auto',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--m-border)',
-                borderRadius: 30,
-                padding: '8px 20px',
-                fontSize: 12,
-                fontWeight: 500,
-                color: 'var(--ink2)',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-              }}
+              className="pointer-events-auto ml-auto bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[30px] p-[8px_20px] text-[12px] font-medium text-[var(--ink2)] cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:bg-[rgba(0,0,0,0.02)] transition-colors"
             >
               New search
             </button>
