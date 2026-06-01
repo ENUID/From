@@ -1,5 +1,5 @@
 export const GROQ_BASE = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1'
-export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? process.env.GROK_API_KEY ?? ''
+export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
 export const CHAT_MODEL = process.env.GROQ_CHAT_MODEL ?? 'llama-3.1-8b-instant'
 
 export type ChatMessage = {
@@ -13,7 +13,7 @@ export type ChatMessage = {
 
 // Re-add getHeaders function
 function getHeaders() {
-  if (!GROQ_API_KEY || GROQ_API_KEY.includes('YOUR_XAI_KEY_HERE')) {
+  if (!GROQ_API_KEY || GROQ_API_KEY.includes('YOUR_GROQ_API_KEY_HERE')) {
     throw new Error('GROQ_API_KEY is not set. Please update .env.local with your real Groq API key.')
   }
 
