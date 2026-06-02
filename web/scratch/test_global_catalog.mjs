@@ -32,7 +32,7 @@ async function runTests() {
       }
       const products = json.result?.structuredContent?.products || [];
       console.log(`[${name}] Found ${products.length} products:`);
-      products.slice(0, 3).forEach((p, idx) => {
+      products.slice(0, 10).forEach((p, idx) => {
         const variant = p.variants?.[0] || {};
         const seller = variant.seller || {};
         console.log(`  ${idx+1}. ${p.title} by ${seller.name} (${seller.domain}) - Price: ${variant.price?.amount} ${variant.price?.currency}`);
@@ -46,28 +46,14 @@ async function runTests() {
   };
 
   // Test 1: country in filters
-  await test("Filter country: IN", {
-    query: "linen shirt",
-    filters: { available: true, country: "IN" }
+  await test("Query Ally Fashion", {
+    query: "Ally Fashion",
+    filters: { available: true }
   });
 
-  // Test 2: locale in context
-  await test("Context locale: hi-IN", {
-    query: "linen shirt",
-    filters: { available: true },
-    context: { locale: "hi-IN" }
-  });
-
-  // Test 3: country in context
-  await test("Context country: IN", {
-    query: "linen shirt",
-    filters: { available: true },
-    context: { country: "IN" }
-  });
-
-  // Test 4: query with location name
-  await test("Query with 'India'", {
-    query: "linen shirt India",
+  // Test 2: Query Casual Loose Multi Pocket Denim Pant
+  await test("Query Casual Loose Multi Pocket Denim Pant", {
+    query: "Casual Loose Multi Pocket Denim Pant",
     filters: { available: true }
   });
 }

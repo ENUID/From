@@ -64,7 +64,7 @@ export default function ProductCard({
   ctaLabel = 'Quick View',
   onClick,
 }: Props) {
-  const [imageError, setImageError] = useState(false)
+  const [imageState, setImageState] = useState<'proxy' | 'raw' | 'error'>('proxy')
   const hasUrl = product.store_url && product.store_url !== '#'
   const shortDesc = product.description ? (product.description.length > 55 ? `${product.description.substring(0, 55).trim()}...` : product.description) : ''
 
@@ -129,12 +129,19 @@ export default function ProductCard({
           background: '#F9F9FB',
         }}
       >
-        {product.image_url && !imageError ? (
+        {product.image_url && imageState !== 'error' ? (
           <img
-            src={normalizeImageUrl(product.image_url)}
+            src={imageState === 'proxy' ? normalizeImageUrl(product.image_url) : product.image_url}
             alt={product.title}
             loading="lazy"
-            onError={() => setImageError(true)}
+            onError={() => {
+              const proxied = normalizeImageUrl(product.image_url);
+              if (imageState === 'proxy' && proxied !== product.image_url) {
+                setImageState('raw');
+              } else {
+                setImageState('error');
+              }
+            }}
             style={{
               width: '100%',
               height: '100%',

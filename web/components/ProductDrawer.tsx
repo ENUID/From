@@ -20,7 +20,7 @@ export default function ProductDrawer({
 }: Props) {
   const [isMounted, setIsMounted] = useState(false)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
-  const [failedImages, setFailedImages] = useState<Record<number, boolean>>({})
+  const [imageStates, setImageStates] = useState<Record<number, 'proxy' | 'raw' | 'error'>>({})
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<'details' | 'sizeChart' | 'shipping'>('details')
   const [isMobile, setIsMobile] = useState(false)
@@ -58,6 +58,20 @@ export default function ProductDrawer({
   };
 
   const images = getUniqueImages();
+
+  const getImgSrcAndOnError = (index: number, originalUrl: string) => {
+    const proxied = normalizeImageUrl(originalUrl);
+    const state = imageStates[index] || 'proxy';
+    const src = state === 'proxy' ? proxied : originalUrl;
+    const onError = () => {
+      if (state === 'proxy' && proxied !== originalUrl) {
+        setImageStates(prev => ({ ...prev, [index]: 'raw' }));
+      } else {
+        setImageStates(prev => ({ ...prev, [index]: 'error' }));
+      }
+    };
+    return { src, state, onError };
+  };
 
   useEffect(() => {
     setIsMounted(true)
@@ -338,11 +352,11 @@ export default function ProductDrawer({
                   justifyContent: 'center'
                 }}
               >
-                {images.length > 0 && !failedImages[activeImageIndex] ? (
+                {images.length > 0 && imageStates[activeImageIndex] !== 'error' ? (
                   <img 
-                    src={images[activeImageIndex]} 
+                    src={getImgSrcAndOnError(activeImageIndex, images[activeImageIndex]).src} 
                     alt={product.title} 
-                    onError={() => setFailedImages(prev => ({ ...prev, [activeImageIndex]: true }))}
+                    onError={getImgSrcAndOnError(activeImageIndex, images[activeImageIndex]).onError}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                   />
                 ) : (
@@ -381,11 +395,11 @@ export default function ProductDrawer({
                         transition: 'border 0.2s',
                       }}
                     >
-                      {!failedImages[idx] ? (
+                      {imageStates[idx] !== 'error' ? (
                         <img 
-                          src={img} 
+                          src={getImgSrcAndOnError(idx, img).src} 
                           alt={`Thumbnail ${idx}`} 
-                          onError={() => setFailedImages(prev => ({ ...prev, [idx]: true }))}
+                          onError={getImgSrcAndOnError(idx, img).onError}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                         />
                       ) : (
