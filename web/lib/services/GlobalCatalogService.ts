@@ -238,10 +238,14 @@ export class GlobalCatalogService {
     const subQueries = query.split(/\s+OR\s+/i).map(s => s.trim()).filter(Boolean);
     
     if (subQueries.length > 1) {
-      const results = await Promise.all(subQueries.map(sq => fetchAllForQuery(sq)));
+      const results = await Promise.all(subQueries.map((sq, idx) => {
+        // Only run local country prioritization search on the first sub-query (user's main search term).
+        // For other translations, query the catalog directly to cut down on API calls and reduce latency.
+        return idx === 0 ? fetchAllForQuery(sq) : fetchFromCatalog(sq, true);
+      }));
       const mergedRaw: any[] = [];
-      results.forEach(products => {
-        products.forEach(p => {
+      results.forEach((products: any[]) => {
+        products.forEach((p: any) => {
           if (!mergedRaw.some(mr => mr.id === p.id)) {
             mergedRaw.push(p);
           }
