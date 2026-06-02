@@ -19,9 +19,20 @@ interface Message {
   products?: Product[]
   loadingMore?: boolean
   hasNoMore?: boolean
+  searchQuery?: string
+  budgetMax?: number | null
+  isClothing?: boolean
 }
 
-type ConversationTurn = Pick<Message, 'role' | 'content' | 'products'>
+type ConversationTurn = Pick<
+  Message,
+  | 'role'
+  | 'content'
+  | 'products'
+  | 'searchQuery'
+  | 'budgetMax'
+  | 'isClothing'
+>
 type View = 'discover' | 'history' | 'saved'
 
 type SearchHistoryEntry = {
@@ -308,11 +319,28 @@ export default function Home({
       }
 
       rememberSearch(messageText, products.length)
-      setMessages(previous => [...previous, { role: 'assistant', content: data.text, products }])
+      setMessages(previous => [
+        ...previous,
+        {
+          role: 'assistant',
+          content: data.text,
+          products,
+          searchQuery: data.searchQuery,
+          budgetMax: data.budgetMax,
+          isClothing: data.isClothing,
+        },
+      ])
       setHistory(previous => [
         ...previous,
         { role: 'user', content: messageText },
-        { role: 'assistant', content: data.text, products },
+        {
+          role: 'assistant',
+          content: data.text,
+          products,
+          searchQuery: data.searchQuery,
+          budgetMax: data.budgetMax,
+          isClothing: data.isClothing,
+        },
       ])
     } catch {
       setMessages(previous => [
@@ -344,7 +372,14 @@ export default function Home({
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'more', history: historyUpToMessage, savedProducts }),
+        body: JSON.stringify({
+          message: 'more',
+          searchQuery: msg.searchQuery,
+          budgetMax: msg.budgetMax,
+          isClothing: msg.isClothing,
+          history: historyUpToMessage,
+          savedProducts,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Request failed')

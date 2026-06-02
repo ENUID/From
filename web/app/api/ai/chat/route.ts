@@ -125,14 +125,46 @@ CORE GUIDELINES:
 - Mirror Language: Always reply in the exact same language the user wrote in.`
 
 export async function POST(req: NextRequest) {
-  if (isRateLimited(req)) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-  }
-
   try {
-    const { message, history, savedProducts } = await req.json()
+    const { message, history, savedProducts, searchQuery, budgetMax, isClothing } = await req.json()
     if (!message) throw new Error('No message provided')
     const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
+
+    // 1. Direct bypass to skip slow/expensive LLM calls when loading more products
+    if (message === 'more' && searchQuery) {
+      const excludeIds: string[] = [];
+      for (const msg of history || []) {
+        if (msg.role === 'assistant' && msg.products) {
+          for (const p of msg.products) {
+            if (p.id) excludeIds.push(p.id);
+          }
+        }
+      }
+
+      console.log(`[Bypass Chat LLM] search: "${searchQuery}" | excludes: ${excludeIds.length}`);
+
+      const products = await GlobalCatalogService.search(
+        searchQuery,
+        budgetMax,
+        excludeIds,
+        countryCode,
+        isClothing
+      );
+
+      return NextResponse.json({
+        text: "Here are some more options for you:",
+        products,
+        searchQuery,
+        budgetMax,
+        isClothing
+      });
+    }
+
+    // Normal path requires rate limit checking
+    if (isRateLimited(req)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const cleanHistory = sanitizeHistory(history || [], message)
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
@@ -142,13 +174,16 @@ export async function POST(req: NextRequest) {
       dynamicSystemPrompt += `\n\nUSER'S SAVED PRODUCTS:\nThe user has saved the following products in their cart/favorites:\n${savedSummary}\nKeep this in mind if they ask to compare or refer to things they've saved or liked.`;
     }
 
-    // 1. Initial AI Generation
+    // 2. Initial AI Generation
     const aiResponse = await generateRobustAIResponse(messages, dynamicSystemPrompt, [SEARCH_TOOL_DEF])
     
     let products: UcpProduct[] = []
     let finalContent = aiResponse.content
+    let activeSearchQuery: string | undefined = undefined
+    let activeBudgetMax: number | null | undefined = undefined
+    let activeIsClothing: boolean | undefined = undefined
 
-    // 2. Handle Tool Execution
+    // 3. Handle Tool Execution
     if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
       const toolCall = aiResponse.tool_calls[0]
       if (toolCall.function.name === 'search_ucp') {
@@ -156,6 +191,9 @@ export async function POST(req: NextRequest) {
           // Validate AI arguments
           const rawArgs = JSON.parse(toolCall.function.arguments)
           const args = SearchToolSchema.parse(rawArgs)
+          activeSearchQuery = args.searchQuery
+          activeBudgetMax = args.budgetMax
+          activeIsClothing = args.isClothing
           
           console.log('AI search intent:', args);
 
@@ -217,6 +255,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       text: finalContent || "I'm sorry, I couldn't process that request right now.",
       products,
+      searchQuery: activeSearchQuery,
+      budgetMax: activeBudgetMax,
+      isClothing: activeIsClothing
     })
   } catch (error: any) {
     console.error('Chat API Error:', error)
