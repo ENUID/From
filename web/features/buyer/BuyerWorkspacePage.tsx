@@ -93,12 +93,38 @@ export default function Home({
 
 
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTo({
-        top: containerRef.current.scrollHeight,
+    if (!containerRef.current) return
+
+    const container = containerRef.current
+
+    // If currently loading, scroll to bottom to show typing indicator
+    if (loading) {
+      container.scrollTo({
+        top: container.scrollHeight,
         behavior: 'smooth'
       })
+      return
     }
+
+    // When search is done, scroll to the top of the newly added assistant message
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage && lastMessage.role === 'assistant') {
+      const latestElement = container.querySelector('#latest-message') as HTMLElement
+      if (latestElement) {
+        const targetScrollTop = latestElement.offsetTop - container.offsetTop - 16
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
+        })
+        return
+      }
+    }
+
+    // Default fallback (e.g. initial render, new view, user message): scroll to bottom
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: 'smooth'
+    })
   }, [messages, loading, activeView])
 
   useEffect(() => {
@@ -232,6 +258,7 @@ export default function Home({
           {hasConversation && messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
+              id={index === messages.length - 1 ? 'latest-message' : undefined}
               className={`fade-in flex flex-col gap-[14px] ${
                 message.role === 'user' ? 'items-end' : 'items-start'
               }`}

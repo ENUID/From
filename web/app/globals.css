@@ -10,7 +10,7 @@
 :root {
   --serif: 'Cormorant Garamond', Georgia, serif;
   --mono:  'DM Mono', 'Courier New', monospace;
-  --body:  'Outfit', system-ui, sans-serif;
+  --body:  'Outfit', 'Inter', system-ui, sans-serif;
 }
 
 /* ---------- LIGHT THEME (default) ---------- */
@@ -222,6 +222,6 @@ body::after {
   --ink4:          #b0aca3;
   --line:          rgba(26,24,20,0.09);
   --line2:         rgba(26,24,20,0.16);
-  --sans:          'DM Sans', 'Geist', system-ui, -apple-system, sans-serif;
+  --sans:          'Inter', 'DM Sans', 'Geist', system-ui, -apple-system, sans-serif;
   --ease:          cubic-bezier(0.16, 1, 0.3, 1);
 }

@@ -166,7 +166,12 @@ export default function ProductCard({
         </h3>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 8 }}>
-          <div style={{ fontSize: 16, color: 'var(--ink)', fontWeight: 700 }}>
+          <div style={{ 
+            fontSize: 16, 
+            color: 'var(--ink)', 
+            fontWeight: 700,
+            fontFamily: '"Inter", var(--sans)'
+          }}>
             {formatMoney(Number(product.price), product.currency, product.base_currency, rates)}
           </div>
           

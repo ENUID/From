@@ -406,7 +406,12 @@ export default function ProductDrawer({
                 </h2>
 
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 16 }}>
-                  <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>
+                  <span style={{ 
+                    fontSize: 24, 
+                    fontWeight: 700, 
+                    color: 'var(--ink)',
+                    fontFamily: '"Inter", var(--sans)'
+                  }}>
                     {formatMoney(
                       Number(matchedVariant?.price ?? product.price), 
                       product.currency, 
