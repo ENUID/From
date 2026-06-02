@@ -45,6 +45,8 @@ const FAST_PAGE_LIMIT = 24;
 const CATALOG_PAGE_LIMIT = 30;
 const REFRESH_PAGE_LIMIT = 60;
 const FAST_SUBQUERY_LIMIT = 2;
+const INITIAL_RESULT_LIMIT = 20;
+const LOAD_MORE_RESULT_LIMIT = 10;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
 
 const COUNTRY_MAP: { [key: string]: string } = {
@@ -184,7 +186,7 @@ export class GlobalCatalogService {
     options: CatalogSearchOptions = {}
   ): Promise<UcpProduct[]> {
     const isFastFirstPage = Boolean(options.fastFirstPage && !options.refreshReserve);
-    const limit = isFastFirstPage ? (isClothing ? 20 : 16) : (isClothing ? 24 : 12);
+    const limit = options.refreshReserve ? LOAD_MORE_RESULT_LIMIT : INITIAL_RESULT_LIMIT;
     const catalogPageLimit = options.refreshReserve
       ? REFRESH_PAGE_LIMIT
       : isFastFirstPage

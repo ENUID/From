@@ -107,25 +107,6 @@ function inferLanguage(message: string) {
     : 'en'
 }
 
-function normalizeForIntent(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-}
-
-function isDirectSearchCandidate(message: string) {
-  const normalized = normalizeForIntent(message)
-  const hasSearchSignal = /\b(find|search|looking for|show me|shop|buy|need|want|under|below|less than|up to|max|maximum|budget|tim|kiem|mua|can|duoi|tam|khoang|khong qua|ao|vay|quan|giay|tui)\b/.test(normalized)
-  const hasCatalogTerm = [...CLOTHING_TERMS, ...FILTER_KEYWORDS].some(term =>
-    normalized.includes(normalizeForIntent(term))
-  )
-
-  return hasSearchSignal || hasCatalogTerm
-}
-
 function stripBudgetText(message: string) {
   return message
     .replace(/\b(under|below|less than|up to|max|maximum|budget|for)\s+[$€£¥₫]?\s*\d+(?:[.,]\d+)?\s*(?:k|m|tr|triệu|million)?\s*(?:usd|eur|gbp|jpy|vnd|đ|dong)?/gi, ' ')
@@ -368,23 +349,6 @@ export async function POST(req: NextRequest) {
     const cleanHistory = sanitizeHistory(history || [], message)
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
-    const directIntent = parseDirectSearchIntent(message, activeBuyerCurrency)
-    if (directIntent && isDirectSearchCandidate(message)) {
-      const result = await runCatalogSearch(directIntent, {
-        countryCode,
-        buyerCurrency: activeBuyerCurrency,
-        excludeIds: collectProductIds(history || []),
-        fastFirstPage: true,
-      })
-
-      console.log(`[Direct Catalog Fast Path] search: "${result.searchQuery}"`)
-
-      return NextResponse.json({
-        text: fallbackText(message, result.products),
-        ...result,
-      })
-    }
-
     let dynamicSystemPrompt = SYSTEM_PROMPT;
     if (savedProducts && savedProducts.length > 0) {
       const savedSummary = savedProducts.map((p: any) => `- ${p.title} (${p.price} ${p.currency})`).join('\n');
@@ -446,7 +410,8 @@ export async function POST(req: NextRequest) {
           products = result.products
           activeBudgetCurrency = result.budgetCurrency
           activeSort = result.sort
-          finalContent = fallbackText(message, products)
+          const aiText = aiResponse.content?.trim()
+          finalContent = aiText || fallbackText(message, products)
         } catch (error: any) {
           console.error('Error executing tool:', error)
           const fallbackIntent = parseDirectSearchIntent(message, activeBuyerCurrency)
