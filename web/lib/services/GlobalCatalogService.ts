@@ -37,11 +37,14 @@ type CatalogSearchFilters = {
 
 type CatalogSearchOptions = {
   refreshReserve?: boolean;
+  fastFirstPage?: boolean;
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const FAST_PAGE_LIMIT = 18;
 const CATALOG_PAGE_LIMIT = 30;
 const REFRESH_PAGE_LIMIT = 60;
+const FAST_SUBQUERY_LIMIT = 2;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
 
 const COUNTRY_MAP: { [key: string]: string } = {
@@ -180,8 +183,13 @@ export class GlobalCatalogService {
     budgetCurrency: string | null = 'USD',
     options: CatalogSearchOptions = {}
   ): Promise<UcpProduct[]> {
-    const limit = isClothing ? 24 : 12;
-    const catalogPageLimit = options.refreshReserve ? REFRESH_PAGE_LIMIT : CATALOG_PAGE_LIMIT;
+    const isFastFirstPage = Boolean(options.fastFirstPage && !options.refreshReserve);
+    const limit = isFastFirstPage ? (isClothing ? 12 : 8) : (isClothing ? 24 : 12);
+    const catalogPageLimit = options.refreshReserve
+      ? REFRESH_PAGE_LIMIT
+      : isFastFirstPage
+        ? FAST_PAGE_LIMIT
+        : CATALOG_PAGE_LIMIT;
     const normalizedQuery = normalizeCatalogQuery(query);
     if (!normalizedQuery) return [];
 
@@ -340,8 +348,9 @@ export class GlobalCatalogService {
     };
 
     const subQueries = splitCatalogQuery(normalizedQuery);
+    const activeSubQueries = isFastFirstPage ? subQueries.slice(0, FAST_SUBQUERY_LIMIT) : subQueries;
     const results = await Promise.all(
-      subQueries.map((subQuery, index) =>
+      activeSubQueries.map((subQuery, index) =>
         index === 0 ? fetchAllForQuery(subQuery) : fetchFromCatalog(subQuery)
       )
     );
@@ -358,9 +367,11 @@ export class GlobalCatalogService {
       }
     }
 
-    console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}`);
+    console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}, fast=${isFastFirstPage}`);
 
-    searchCache.set(cacheKey, { timestamp: Date.now(), products });
+    if (!isFastFirstPage || options.refreshReserve) {
+      searchCache.set(cacheKey, { timestamp: Date.now(), products });
+    }
 
     const filteredProducts = applyCatalogFilters(products, {
       budgetMax,
@@ -372,7 +383,7 @@ export class GlobalCatalogService {
       rates,
     });
 
-    console.log(`[GlobalCatalog] returning ${filteredProducts.length} of ${products.length} (limit=${limit})`);
+    console.log(`[GlobalCatalog] returning ${filteredProducts.length} of ${products.length} (limit=${limit}, fast=${isFastFirstPage})`);
     return filteredProducts;
   }
 }

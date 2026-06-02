@@ -107,6 +107,25 @@ function inferLanguage(message: string) {
     : 'en'
 }
 
+function normalizeForIntent(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+}
+
+function isDirectSearchCandidate(message: string) {
+  const normalized = normalizeForIntent(message)
+  const hasSearchSignal = /\b(find|search|looking for|show me|shop|buy|need|want|under|below|less than|up to|max|maximum|budget|tim|kiem|mua|can|duoi|tam|khoang|khong qua|ao|vay|quan|giay|tui)\b/.test(normalized)
+  const hasCatalogTerm = [...CLOTHING_TERMS, ...FILTER_KEYWORDS].some(term =>
+    normalized.includes(normalizeForIntent(term))
+  )
+
+  return hasSearchSignal || hasCatalogTerm
+}
+
 function stripBudgetText(message: string) {
   return message
     .replace(/\b(under|below|less than|up to|max|maximum|budget|for)\s+[$€£¥₫]?\s*\d+(?:[.,]\d+)?\s*(?:k|m|tr|triệu|million)?\s*(?:usd|eur|gbp|jpy|vnd|đ|dong)?/gi, ' ')
@@ -180,6 +199,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   buyerCurrency: string;
   excludeIds?: string[];
   refreshReserve?: boolean;
+  fastFirstPage?: boolean;
 }) {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
@@ -192,7 +212,10 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
     args.keywords || [],
     sort,
     budgetCurrency,
-    { refreshReserve: options.refreshReserve }
+    {
+      refreshReserve: options.refreshReserve,
+      fastFirstPage: options.fastFirstPage,
+    }
   )
 
   return {
@@ -345,6 +368,23 @@ export async function POST(req: NextRequest) {
     const cleanHistory = sanitizeHistory(history || [], message)
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
+    const directIntent = parseDirectSearchIntent(message, activeBuyerCurrency)
+    if (directIntent && isDirectSearchCandidate(message)) {
+      const result = await runCatalogSearch(directIntent, {
+        countryCode,
+        buyerCurrency: activeBuyerCurrency,
+        excludeIds: collectProductIds(history || []),
+        fastFirstPage: true,
+      })
+
+      console.log(`[Direct Catalog Fast Path] search: "${result.searchQuery}"`)
+
+      return NextResponse.json({
+        text: fallbackText(message, result.products),
+        ...result,
+      })
+    }
+
     let dynamicSystemPrompt = SYSTEM_PROMPT;
     if (savedProducts && savedProducts.length > 0) {
       const savedSummary = savedProducts.map((p: any) => `- ${p.title} (${p.price} ${p.currency})`).join('\n');
@@ -364,6 +404,7 @@ export async function POST(req: NextRequest) {
         countryCode,
         buyerCurrency: activeBuyerCurrency,
         excludeIds: collectProductIds(history || []),
+        fastFirstPage: true,
       })
 
       return NextResponse.json({
@@ -400,35 +441,12 @@ export async function POST(req: NextRequest) {
             countryCode,
             buyerCurrency: activeBuyerCurrency,
             excludeIds: collectProductIds(history || []),
+            fastFirstPage: true,
           })
           products = result.products
           activeBudgetCurrency = result.budgetCurrency
           activeSort = result.sort
-          
-          // Provide results back to AI for final synthesis
-          // Sanitize the product list to prevent token bloat and rate limits
-          // Only pass the top 6 products to the AI follow-up context to keep prompt short
-          const slimProducts = products.slice(0, 6).map(p => ({ 
-            title: p.title, 
-            vendor: p.vendor, 
-            price: p.price,
-            currency: p.currency,
-            tags: p.tags
-          }));
-          
-          const followUpMessages: ChatMessage[] = [
-            ...messages,
-            { role: 'assistant', content: '', tool_calls: [toolCall] },
-            { 
-              role: 'tool', 
-              tool_call_id: toolCall.id, 
-              name: 'search_ucp', 
-              content: JSON.stringify(slimProducts) 
-            }
-          ]
-
-          const finalAiResponse = await generateRobustAIResponse(followUpMessages, dynamicSystemPrompt, [])
-          finalContent = finalAiResponse.content
+          finalContent = fallbackText(message, products)
         } catch (error: any) {
           console.error('Error executing tool:', error)
           const fallbackIntent = parseDirectSearchIntent(message, activeBuyerCurrency)
@@ -437,6 +455,7 @@ export async function POST(req: NextRequest) {
               countryCode,
               buyerCurrency: activeBuyerCurrency,
               excludeIds: collectProductIds(history || []),
+              fastFirstPage: true,
             })
 
             return NextResponse.json({
