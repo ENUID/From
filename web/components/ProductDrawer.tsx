@@ -22,6 +22,7 @@ export default function ProductDrawer({
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<'details' | 'sizeChart' | 'shipping'>('details')
+  const [isMobile, setIsMobile] = useState(false)
 
   // Get all unique images across root image, root media, and variant media
   const getUniqueImages = () => {
@@ -67,8 +68,13 @@ export default function ProductDrawer({
       setSelectedOptions(initial)
     }
 
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    handleResize()
+    window.addEventListener('resize', handleResize)
+
     return () => {
       document.body.style.overflow = ''
+      window.removeEventListener('resize', handleResize)
     }
   }, [product])
 
@@ -182,11 +188,14 @@ export default function ProductDrawer({
         </button>
 
         {/* Inner Scrollable Wrapper */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-0 h-full">
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: isMobile ? 'auto' : 'hidden' }}>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-0 h-full" style={{ minHeight: 0 }}>
             
-            {/* Left Column: Visual Media (Columns: 5) */}
-            <div className="md:col-span-6 flex flex-col p-6 gap-4 border-r border-[var(--m-border)]">
+            {/* Left Column: Visual Media (Columns: 6) */}
+            <div 
+              className="md:col-span-6 flex flex-col p-6 gap-4 border-r border-[var(--m-border)]"
+              style={isMobile ? {} : { height: '100%', minHeight: 0, overflowY: 'auto' }}
+            >
               
               {/* Image display in 4:5 aspect ratio */}
               <div 
@@ -242,8 +251,12 @@ export default function ProductDrawer({
               )}
             </div>
 
-            {/* Right Column: Detailed Product Info (Columns: 7) */}
-            <div className="md:col-span-6 flex flex-col p-6 overflow-y-auto">
+            {/* Right Column: Detailed Product Info (Columns: 6) */}
+            <div 
+              className="md:col-span-6 flex flex-col p-6"
+              style={isMobile ? {} : { height: '100%', minHeight: 0 }}
+            >
+              {/* 1. Header (Static) */}
               <div>
                 <span 
                   style={{ 
@@ -289,154 +302,157 @@ export default function ProductDrawer({
                 </div>
               </div>
 
-              {/* Dynamic Interactive Selectors */}
-              {product.options && product.options.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
-                  {product.options.map((opt, idx) => (
-                    <div key={idx}>
-                      <div 
-                        style={{ 
-                          fontSize: 11, 
-                          fontWeight: 700, 
-                          color: 'var(--ink2)', 
-                          marginBottom: 8, 
-                          textTransform: 'uppercase', 
-                          letterSpacing: '0.05em' 
+              {/* 2. Middle Content (Scrollable) */}
+              <div style={isMobile ? { marginTop: 12 } : { flex: 1, overflowY: 'auto', paddingRight: '4px', marginBottom: '16px', marginTop: 12 }}>
+                {/* Dynamic Interactive Selectors */}
+                {product.options && product.options.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+                    {product.options.map((opt, idx) => (
+                      <div key={idx}>
+                        <div 
+                          style={{ 
+                            fontSize: 11, 
+                            fontWeight: 700, 
+                            color: 'var(--ink2)', 
+                            marginBottom: 8, 
+                            textTransform: 'uppercase', 
+                            letterSpacing: '0.05em' 
+                          }}
+                        >
+                          Select {opt.name}
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {opt.values.map((val, vIdx) => {
+                            const isSelected = selectedOptions[opt.name] === val;
+                            return (
+                              <button
+                                key={vIdx}
+                                onClick={() => setSelectedOptions(prev => ({ ...prev, [opt.name]: val }))}
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 500,
+                                  background: isSelected ? 'var(--m-green-light)' : 'var(--bg)',
+                                  border: `1px solid ${isSelected ? 'var(--m-green)' : 'var(--m-border)'}`,
+                                  color: isSelected ? 'var(--m-green)' : 'var(--ink)',
+                                  padding: '8px 16px',
+                                  borderRadius: 8,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                {val}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Accordion tabs */}
+                <div style={{ borderTop: '1px solid var(--m-border)', marginTop: 12, paddingTop: 16 }}>
+                  <div style={{ display: 'flex', borderBottom: '1px solid var(--m-border)', marginBottom: 12, gap: 16 }}>
+                    {[
+                      { id: 'details', label: 'Details' },
+                      { id: 'sizeChart', label: 'Size Chart' },
+                      { id: 'shipping', label: 'Delivery' }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as any)}
+                        style={{
+                          paddingBottom: 8,
+                          background: 'transparent',
+                          border: 'none',
+                          borderBottom: activeTab === tab.id ? '2px solid var(--m-green)' : '2px solid transparent',
+                          color: activeTab === tab.id ? 'var(--m-green)' : 'var(--ink3)',
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
                         }}
                       >
-                        Select {opt.name}
-                      </div>
-                      
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {opt.values.map((val, vIdx) => {
-                          const isSelected = selectedOptions[opt.name] === val;
-                          return (
-                            <button
-                              key={vIdx}
-                              onClick={() => setSelectedOptions(prev => ({ ...prev, [opt.name]: val }))}
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 500,
-                                background: isSelected ? 'var(--m-green-light)' : 'var(--bg)',
-                                border: `1px solid ${isSelected ? 'var(--m-green)' : 'var(--m-border)'}`,
-                                color: isSelected ? 'var(--m-green)' : 'var(--ink)',
-                                padding: '8px 16px',
-                                borderRadius: 8,
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                              {val}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
 
-              {/* Accordion tabs */}
-              <div style={{ borderTop: '1px solid var(--m-border)', marginTop: 12, paddingTop: 16 }}>
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--m-border)', marginBottom: 12, gap: 16 }}>
-                  {[
-                    { id: 'details', label: 'Details' },
-                    { id: 'sizeChart', label: 'Size Chart' },
-                    { id: 'shipping', label: 'Delivery' }
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
-                      style={{
-                        paddingBottom: 8,
-                        background: 'transparent',
-                        border: 'none',
-                        borderBottom: activeTab === tab.id ? '2px solid var(--m-green)' : '2px solid transparent',
-                        color: activeTab === tab.id ? 'var(--m-green)' : 'var(--ink3)',
-                        fontWeight: 600,
-                        fontSize: 13,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Tab Contents */}
-                <div style={{ minHeight: '150px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink2)' }}>
-                  {activeTab === 'details' && (
-                    <div>
-                      <p style={{ marginBottom: 12 }}>{product.description || "No description provided by merchant."}</p>
-                      <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--m-border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Material</span>
-                          <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{material}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Returns</span>
-                          <span style={{ fontWeight: 500, color: 'var(--ink)' }}>
-                            {isReturnable ? "30 days (via Loop)" : "Standard 30 days"}
-                          </span>
+                  {/* Tab Contents */}
+                  <div style={{ minHeight: '150px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink2)' }}>
+                    {activeTab === 'details' && (
+                      <div>
+                        <p style={{ marginBottom: 12 }}>{product.description || "No description provided by merchant."}</p>
+                        <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--m-border)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Material</span>
+                            <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{material}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Returns</span>
+                            <span style={{ fontWeight: 500, color: 'var(--ink)' }}>
+                              {isReturnable ? "30 days (via Loop)" : "Standard 30 days"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {activeTab === 'sizeChart' && (
-                    <div>
-                      <p style={{ marginBottom: 10, fontSize: 12, color: 'var(--ink3)' }}>
-                        Refer to our standard sizing guide below to find your perfect fit:
-                      </p>
-                      
-                      {/* Sizing Chart Table */}
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid var(--m-border)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink3)' }}>
-                            <th style={{ padding: '6px 0' }}>Size</th>
-                            <th>Chest (in)</th>
-                            <th>Waist (in)</th>
-                            <th>Sleeve (in)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[
-                            { sz: 'S', ch: '35 - 37', wa: '29 - 31', sl: '32.5' },
-                            { sz: 'M', ch: '38 - 40', wa: '32 - 34', sl: '33.5' },
-                            { sz: 'L', ch: '41 - 43', wa: '35 - 37', sl: '34.5' },
-                            { sz: 'XL', ch: '44 - 46', wa: '38 - 40', sl: '35.5' },
-                            { sz: 'XXL', ch: '47 - 49', wa: '41 - 43', sl: '36.5' }
-                          ].map((row, rIdx) => (
-                            <tr key={rIdx} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-                              <td style={{ padding: '6px 0', fontWeight: 600, color: 'var(--ink)' }}>{row.sz}</td>
-                              <td>{row.ch}</td>
-                              <td>{row.wa}</td>
-                              <td>{row.sl}</td>
+                    {activeTab === 'sizeChart' && (
+                      <div>
+                        <p style={{ marginBottom: 10, fontSize: 12, color: 'var(--ink3)' }}>
+                          Refer to our standard sizing guide below to find your perfect fit:
+                        </p>
+                        
+                        {/* Sizing Chart Table */}
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid var(--m-border)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink3)' }}>
+                              <th style={{ padding: '6px 0' }}>Size</th>
+                              <th>Chest (in)</th>
+                              <th>Waist (in)</th>
+                              <th>Sleeve (in)</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                          </thead>
+                          <tbody>
+                            {[
+                              { sz: 'S', ch: '35 - 37', wa: '29 - 31', sl: '32.5' },
+                              { sz: 'M', ch: '38 - 40', wa: '32 - 34', sl: '33.5' },
+                              { sz: 'L', ch: '41 - 43', wa: '35 - 37', sl: '34.5' },
+                              { sz: 'XL', ch: '44 - 46', wa: '38 - 40', sl: '35.5' },
+                              { sz: 'XXL', ch: '47 - 49', wa: '41 - 43', sl: '36.5' }
+                            ].map((row, rIdx) => (
+                              <tr key={rIdx} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+                                <td style={{ padding: '6px 0', fontWeight: 600, color: 'var(--ink)' }}>{row.sz}</td>
+                                <td>{row.ch}</td>
+                                <td>{row.wa}</td>
+                                <td>{row.sl}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
 
-                  {activeTab === 'shipping' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <div>
-                        <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>⚡ Fast Shipping</h4>
-                        <p>Orders are dispatched within 24-48 hours. Delivery takes 3-5 business days.</p>
+                    {activeTab === 'shipping' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div>
+                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>⚡ Fast Shipping</h4>
+                          <p>Orders are dispatched within 24-48 hours. Delivery takes 3-5 business days.</p>
+                        </div>
+                        <div>
+                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>📦 Returns Policy</h4>
+                          <p>Easy 30-day return policy. Unworn items in original packaging are fully refundable.</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>📦 Returns Policy</h4>
-                        <p>Easy 30-day return policy. Unworn items in original packaging are fully refundable.</p>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Checkout CTA block */}
-              <div style={{ marginTop: 'auto', paddingTop: 24 }}>
+              {/* 3. Checkout CTA block (Static at bottom) */}
+              <div style={{ paddingTop: 16 }}>
                 <a
                   href={checkoutUrl}
                   target="_blank"
