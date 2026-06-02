@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata: Metadata = {
   title: 'From - Shop Independent',
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ConvexClientProvider>
           <AuthProvider>{children}</AuthProvider>
         </ConvexClientProvider>
+        <Analytics />
       </body>
     </html>
   )
