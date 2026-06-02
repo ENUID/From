@@ -150,7 +150,7 @@ export default function Home({
                     ))}
                   </div>
                   
-                  {index === messages.length - 1 && !message.loadingMore && !message.hasNoMore && message.products.length >= 10 && (
+                  {index === messages.length - 1 && message.searchQuery && !message.loadingMore && !message.hasNoMore && message.products.length > 0 && (
                     <IntersectionSentinel onIntersect={() => handleLoadMore(index)} />
                   )}
 

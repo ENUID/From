@@ -257,7 +257,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
 
   async function loadMoreProducts(messageIndex: number) {
     const msg = messages[messageIndex]
-    if (!msg || loading) return
+    if (!msg || loading || msg.loadingMore || msg.hasNoMore || !msg.searchQuery) return
 
     setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: true } : m))
 
@@ -302,8 +302,9 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
         return m
       }))
 
+      const historyIndex = messageIndex - 1
       setHistory(prev => prev.map((h, idx) => {
-        if (idx === messageIndex) {
+        if (idx === historyIndex) {
           const existingIds = new Set((h.products || []).map(p => p.id))
           const uniqueNew = newProducts.filter(p => !existingIds.has(p.id))
           return {

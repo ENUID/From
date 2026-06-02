@@ -41,7 +41,7 @@ type CatalogSearchOptions = {
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
-const FAST_PAGE_LIMIT = 18;
+const FAST_PAGE_LIMIT = 24;
 const CATALOG_PAGE_LIMIT = 30;
 const REFRESH_PAGE_LIMIT = 60;
 const FAST_SUBQUERY_LIMIT = 2;
@@ -184,7 +184,7 @@ export class GlobalCatalogService {
     options: CatalogSearchOptions = {}
   ): Promise<UcpProduct[]> {
     const isFastFirstPage = Boolean(options.fastFirstPage && !options.refreshReserve);
-    const limit = isFastFirstPage ? (isClothing ? 12 : 8) : (isClothing ? 24 : 12);
+    const limit = isFastFirstPage ? (isClothing ? 20 : 16) : (isClothing ? 24 : 12);
     const catalogPageLimit = options.refreshReserve
       ? REFRESH_PAGE_LIMIT
       : isFastFirstPage
