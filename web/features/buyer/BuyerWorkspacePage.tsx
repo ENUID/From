@@ -636,18 +636,24 @@ export default function Home({
         <button
           type="button"
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-[rgba(0,0,0,0.35)] border-none outline-none cursor-pointer"
-          style={{ zIndex: 900, cursor: 'pointer' }}
+          className="fixed inset-0 border-none outline-none cursor-pointer"
+          style={{ zIndex: 900, cursor: 'pointer', backgroundColor: 'rgba(0, 0, 0, 0.35)' }}
         />
       )}
 
       <aside
         className={`bg-[var(--m-green)] flex flex-col shrink-0 gap-[8px] h-[100dvh] top-0 py-[22px] transition-transform duration-300 ease-in-out ${
           isMobile
-            ? `fixed w-[280px] items-stretch left-0 ${isSidebarOpen ? 'translate-x-0 shadow-[20px_0_50px_rgba(0,0,0,0.15)]' : 'translate-x-[-110%]'}`
+            ? 'fixed w-[280px] items-stretch left-0'
             : 'relative w-[72px] items-center'
         }`}
-        style={{ zIndex: 1000 }}
+        style={{
+          zIndex: 1000,
+          transform: isMobile
+            ? (isSidebarOpen ? 'translateX(0)' : 'translateX(-110%)')
+            : 'none',
+          boxShadow: isMobile && isSidebarOpen ? '20px 0 50px rgba(0,0,0,0.15)' : 'none'
+        }}
       >
         <div className={`mb-[24px] flex items-center ${isMobile ? 'px-[24px] justify-between' : 'justify-center'}`}>
           <div className="flex items-center gap-[10px]">
