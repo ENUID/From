@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
-import { Product, normalizeImageUrl } from './ProductCard'
+import { Product, ensureHttps, proxyImageUrl } from './ProductCard'
 
 interface Props {
   product: Product
@@ -20,7 +20,7 @@ export default function ProductDrawer({
 }: Props) {
   const [isMounted, setIsMounted] = useState(false)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
-  const [imageStates, setImageStates] = useState<Record<number, 'proxy' | 'raw' | 'error'>>({})
+  const [imageStates, setImageStates] = useState<Record<number, 'raw' | 'proxy' | 'error'>>({})
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<'details' | 'sizeChart' | 'shipping'>('details')
   const [isMobile, setIsMobile] = useState(false)
@@ -31,7 +31,7 @@ export default function ProductDrawer({
     const list: string[] = [];
     const addImg = (url?: string) => {
       if (!url || url.trim().length === 0) return;
-      const normalized = normalizeImageUrl(url);
+      const normalized = ensureHttps(url);
       if (!list.includes(normalized)) {
         list.push(normalized);
       }
@@ -60,12 +60,11 @@ export default function ProductDrawer({
   const images = getUniqueImages();
 
   const getImgSrcAndOnError = (index: number, originalUrl: string) => {
-    const proxied = normalizeImageUrl(originalUrl);
-    const state = imageStates[index] || 'proxy';
-    const src = state === 'proxy' ? proxied : originalUrl;
+    const state = imageStates[index] || 'raw';
+    const src = state === 'raw' ? ensureHttps(originalUrl) : proxyImageUrl(originalUrl);
     const onError = () => {
-      if (state === 'proxy' && proxied !== originalUrl) {
-        setImageStates(prev => ({ ...prev, [index]: 'raw' }));
+      if (state === 'raw') {
+        setImageStates(prev => ({ ...prev, [index]: 'proxy' }));
       } else {
         setImageStates(prev => ({ ...prev, [index]: 'error' }));
       }

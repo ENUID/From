@@ -4,19 +4,24 @@ import { useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
-export const normalizeImageUrl = (url?: string): string => {
+export const ensureHttps = (url?: string): string => {
   if (!url) return '';
   let trimmed = url.trim();
-  if (trimmed.startsWith('//')) {
-    trimmed = `https:${trimmed}`;
-  } else if (trimmed.startsWith('http://')) {
-    trimmed = `https://${trimmed.slice(7)}`;
-  }
-  if (trimmed.startsWith('/') || trimmed.startsWith('data:') || trimmed.includes('localhost') || trimmed.includes('127.0.0.1')) {
-    return trimmed;
-  }
-  return `https://wsrv.nl/?url=${encodeURIComponent(trimmed)}`;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed.startsWith('http://')) return `https://${trimmed.slice(7)}`;
+  return trimmed;
 };
+
+export const proxyImageUrl = (url?: string): string => {
+  const safe = ensureHttps(url);
+  if (!safe || safe.startsWith('/') || safe.startsWith('data:') || safe.includes('localhost') || safe.includes('127.0.0.1')) {
+    return safe;
+  }
+  return `https://wsrv.nl/?url=${encodeURIComponent(safe)}`;
+};
+
+/** @deprecated Use ensureHttps + proxyImageUrl instead */
+export const normalizeImageUrl = proxyImageUrl;
 
 export interface Product {
   id: string
@@ -64,7 +69,7 @@ export default function ProductCard({
   ctaLabel = 'Quick View',
   onClick,
 }: Props) {
-  const [imageState, setImageState] = useState<'proxy' | 'raw' | 'error'>('proxy')
+  const [imageState, setImageState] = useState<'raw' | 'proxy' | 'error'>('raw')
   const hasUrl = product.store_url && product.store_url !== '#'
   const shortDesc = product.description ? (product.description.length > 55 ? `${product.description.substring(0, 55).trim()}...` : product.description) : ''
 
@@ -131,13 +136,12 @@ export default function ProductCard({
       >
         {product.image_url && imageState !== 'error' ? (
           <img
-            src={imageState === 'proxy' ? normalizeImageUrl(product.image_url) : product.image_url}
+            src={imageState === 'raw' ? ensureHttps(product.image_url) : proxyImageUrl(product.image_url)}
             alt={product.title}
             loading="lazy"
             onError={() => {
-              const proxied = normalizeImageUrl(product.image_url);
-              if (imageState === 'proxy' && proxied !== product.image_url) {
-                setImageState('raw');
+              if (imageState === 'raw') {
+                setImageState('proxy');
               } else {
                 setImageState('error');
               }

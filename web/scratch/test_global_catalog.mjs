@@ -32,18 +32,27 @@ async function runTests() {
       }
       const products = json.result?.structuredContent?.products || [];
       console.log(`[${name}] Found ${products.length} products:`);
-      products.slice(0, 10).forEach((p, idx) => {
-        const variant = p.variants?.[0] || {};
-        const seller = variant.seller || {};
-        console.log(`  ${idx+1}. ${p.title} by ${seller.name} (${seller.domain}) - Price: ${variant.price?.amount} ${variant.price?.currency}`);
-        console.log(`     Image URL: ${p.media?.[0]?.url || variant.media?.[0]?.url || 'NONE'}`);
-        console.log(`     All Media:`, p.media ? p.media.map(m => m.url) : 'NONE');
-        console.log(`     Variant Media:`, variant.media ? variant.media.map(m => m.url) : 'NONE');
-      });
-    } catch (e) {
-      console.log(`[${name}] Exception:`, e.message);
-    }
-  };
+        if (products.length > 0) {
+          try {
+            const fs = await import('fs');
+            fs.writeFileSync('web/scratch/raw_ucp_product.json', JSON.stringify(products[0], null, 2));
+            console.log("Saved raw product to web/scratch/raw_ucp_product.json");
+          } catch(e) {
+            console.log("Failed to write file:", e.message);
+          }
+        }
+        products.slice(0, 10).forEach((p, idx) => {
+          const variant = p.variants?.[0] || {};
+          const seller = variant.seller || {};
+          console.log(`  ${idx+1}. ${p.title} by ${seller.name} (${seller.domain}) - Price: ${variant.price?.amount} ${variant.price?.currency}`);
+          console.log(`     Image URL: ${p.media?.[0]?.url || variant.media?.[0]?.url || 'NONE'}`);
+          console.log(`     All Media:`, p.media ? p.media.map(m => m.url) : 'NONE');
+          console.log(`     Variant Media:`, variant.media ? variant.media.map(m => m.url) : 'NONE');
+        });
+      } catch (e) {
+        console.log(`[${name}] Exception:`, e.message);
+      }
+    };
 
   // Test 1: country in filters
   await test("Query Ally Fashion", {
