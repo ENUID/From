@@ -20,7 +20,7 @@ export default function ProductDrawer({
 }: Props) {
   const [isMounted, setIsMounted] = useState(false)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
-  const [imageStates, setImageStates] = useState<Record<number, 'raw' | 'proxy' | 'error'>>({})
+  const [imageStates, setImageStates] = useState<Record<number, 'proxy' | 'raw' | 'error'>>({})
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<'details' | 'sizeChart' | 'shipping'>('details')
   const [isMobile, setIsMobile] = useState(false)
@@ -60,11 +60,11 @@ export default function ProductDrawer({
   const images = getUniqueImages();
 
   const getImgSrcAndOnError = (index: number, originalUrl: string) => {
-    const state = imageStates[index] || 'raw';
-    const src = state === 'raw' ? ensureHttps(originalUrl) : proxyImageUrl(originalUrl);
+    const state = imageStates[index] || 'proxy';
+    const src = state === 'proxy' ? proxyImageUrl(originalUrl) : ensureHttps(originalUrl);
     const onError = () => {
-      if (state === 'raw') {
-        setImageStates(prev => ({ ...prev, [index]: 'proxy' }));
+      if (state === 'proxy') {
+        setImageStates(prev => ({ ...prev, [index]: 'raw' }));
       } else {
         setImageStates(prev => ({ ...prev, [index]: 'error' }));
       }
