@@ -70,6 +70,7 @@ export default function Home({
   const toggleConvexSaved = useMutation(api.buyer.toggleSavedProduct)
   const saveConvexHistory = useMutation(api.buyer.saveSearchHistory)
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
+  const hasConversation = messages.some(message => message.role === 'user')
   const [history, setHistory] = useState<ConversationTurn[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -97,6 +98,12 @@ export default function Home({
 
     const container = containerRef.current
 
+    // Only apply chat auto-scrolling in discover view with active conversation
+    if (activeView !== 'discover' || !hasConversation) {
+      container.scrollTop = 0
+      return
+    }
+
     // If currently loading, scroll to bottom to show typing indicator
     if (loading) {
       container.scrollTo({
@@ -120,12 +127,12 @@ export default function Home({
       }
     }
 
-    // Default fallback (e.g. initial render, new view, user message): scroll to bottom
+    // Default fallback (e.g. user message sent): scroll to bottom
     container.scrollTo({
       top: container.scrollHeight,
       behavior: 'smooth'
     })
-  }, [messages, loading, activeView])
+  }, [messages, loading, activeView, hasConversation])
 
   useEffect(() => {
     try {
@@ -167,7 +174,6 @@ export default function Home({
   }, [searchHistory, userEmail])
 
   const savedIds = new Set(savedProducts.map(product => product.id))
-  const hasConversation = messages.some(message => message.role === 'user')
 
   function resetConversation() {
     if (loading) return
