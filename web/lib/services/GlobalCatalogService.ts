@@ -89,7 +89,7 @@ export class GlobalCatalogService {
             catalog: {
               query: q,
               filters,
-              pagination: { limit }
+              pagination: { limit: 50 }
             }
           }
         }
