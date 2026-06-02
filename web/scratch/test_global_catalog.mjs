@@ -36,6 +36,9 @@ async function runTests() {
         const variant = p.variants?.[0] || {};
         const seller = variant.seller || {};
         console.log(`  ${idx+1}. ${p.title} by ${seller.name} (${seller.domain}) - Price: ${variant.price?.amount} ${variant.price?.currency}`);
+        console.log(`     Image URL: ${p.media?.[0]?.url || variant.media?.[0]?.url || 'NONE'}`);
+        console.log(`     All Media:`, p.media ? p.media.map(m => m.url) : 'NONE');
+        console.log(`     Variant Media:`, variant.media ? variant.media.map(m => m.url) : 'NONE');
       });
     } catch (e) {
       console.log(`[${name}] Exception:`, e.message);

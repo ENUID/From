@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
@@ -49,6 +50,7 @@ export default function ProductCard({
   ctaLabel = 'Quick View',
   onClick,
 }: Props) {
+  const [imageError, setImageError] = useState(false)
   const hasUrl = product.store_url && product.store_url !== '#'
   const shortDesc = product.description ? (product.description.length > 55 ? `${product.description.substring(0, 55).trim()}...` : product.description) : ''
 
@@ -102,22 +104,23 @@ export default function ProductCard({
         </div>
       )}
 
-      {product.image_url && (
-        <div
-          style={{
-            width: '100%',
-            height: '240px',
-            borderRadius: 12,
-            overflow: 'hidden',
-            position: 'relative',
-            border: '1px solid rgba(0,0,0,0.03)',
-            background: '#F9F9FB',
-          }}
-        >
+      <div
+        style={{
+          width: '100%',
+          height: '240px',
+          borderRadius: 12,
+          overflow: 'hidden',
+          position: 'relative',
+          border: '1px solid rgba(0,0,0,0.03)',
+          background: '#F9F9FB',
+        }}
+      >
+        {product.image_url && !imageError ? (
           <img
             src={product.image_url}
             alt={product.title}
             loading="lazy"
+            onError={() => setImageError(true)}
             style={{
               width: '100%',
               height: '100%',
@@ -131,8 +134,22 @@ export default function ProductCard({
               e.currentTarget.style.transform = 'none'
             }}
           />
-        </div>
-      )}
+        ) : (
+          <div style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--bg)',
+            color: 'var(--ink3)'
+          }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.4">
+              <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        )}
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '4px 4px 0 4px' }}>
         <div

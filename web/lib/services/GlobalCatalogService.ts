@@ -113,6 +113,14 @@ export class GlobalCatalogService {
     // DRY Helper to parse raw product to UcpProduct
     const parseProduct = (p: any): UcpProduct | null => {
       try {
+        const normalizeImageUrl = (url?: string): string => {
+          if (!url) return '';
+          if (url.startsWith('//')) {
+            return `https:${url}`;
+          }
+          return url;
+        };
+
         const variant = p.variants?.[0] || {};
         const priceAmount = variant.price?.amount ?? p.price_range?.min?.amount ?? 0;
         const currency = variant.price?.currency ?? p.price_range?.min?.currency ?? 'USD';
@@ -156,11 +164,17 @@ export class GlobalCatalogService {
             price: isZeroDecimal ? (v.price?.amount ?? 0) : (v.price?.amount ?? 0) / 100,
             availability: v.availability?.available ?? true,
             options: v.options || [],
-            media: v.media || []
+            media: (v.media || []).map((m: any) => ({
+              ...m,
+              url: normalizeImageUrl(m.url)
+            }))
           };
         });
 
-        const parsedMedia = p.media || [];
+        const parsedMedia = (p.media || []).map((m: any) => ({
+          ...m,
+          url: normalizeImageUrl(m.url)
+        }));
         const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
 
         return {
@@ -170,7 +184,7 @@ export class GlobalCatalogService {
           price: isZeroDecimal ? priceAmount : priceAmount / 100,
           currency,
           store_url,
-          image_url: p.media?.[0]?.url || variant.media?.[0]?.url || '',
+          image_url: normalizeImageUrl(p.media?.[0]?.url || variant.media?.[0]?.url || ''),
           in_stock: variant.availability?.available ?? true,
           tags: p.tags || [],
           description: desc,
@@ -222,47 +236,6 @@ export class GlobalCatalogService {
       filteredProducts = filteredProducts.filter(p => p.price <= budgetMax);
     }
 
-    // FALLBACK DECK: If we got fewer than the target limit after strict shipping filtering
-    if (filteredProducts.length < limit && countryCode) {
-      let fallbackRaw: any[] = [];
-      if (COUNTRY_MAP[countryCode.toUpperCase()]) {
-        const countryName = COUNTRY_MAP[countryCode.toUpperCase()];
-        if (!query.toLowerCase().includes(countryName.toLowerCase())) {
-          const localFallback = await fetchFromCatalog(`${query} ${countryName}`, false);
-          const globalFallback = await fetchFromCatalog(query, false);
-          const mergedFallback = [...localFallback];
-          for (const gp of globalFallback) {
-            if (!mergedFallback.some(p => p.id === gp.id)) {
-              mergedFallback.push(gp);
-            }
-          }
-          fallbackRaw = mergedFallback;
-        } else {
-          fallbackRaw = await fetchFromCatalog(query, false);
-        }
-      } else {
-        fallbackRaw = await fetchFromCatalog(query, false);
-      }
-
-      // Parse and filter fallback results, avoiding duplicates from the primary list
-      const fallbackProducts: UcpProduct[] = [];
-      for (const p of fallbackRaw) {
-        if (products.some(existing => existing.id === p.id)) continue;
-        const parsed = parseProduct(p);
-        if (parsed) fallbackProducts.push(parsed);
-      }
-
-      let filteredFallback = fallbackProducts;
-      if (excludeIds.length > 0) {
-        filteredFallback = filteredFallback.filter(p => !excludeIds.includes(p.id));
-      }
-      if (budgetMax && budgetMax > 0) {
-        filteredFallback = filteredFallback.filter(p => p.price <= budgetMax);
-      }
-
-      // Append fallback products to fill up the slots
-      filteredProducts = [...filteredProducts, ...filteredFallback];
-    }
 
     searchCache.set(cacheKey, { timestamp: Date.now(), products: filteredProducts });
 
