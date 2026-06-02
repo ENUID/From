@@ -7,6 +7,7 @@ const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
 const MESSAGE_MAX_CHARS = 500
 const HISTORY_MAX_TURNS = 4
+const SORT_VALUES = new Set(['price_asc', 'price_desc', 'relevance'])
 
 type RateEntry = {
   count: number
@@ -34,6 +35,57 @@ function isRateLimited(req: NextRequest) {
   current.count += 1
   rateBuckets.set(key, current)
   return false
+}
+
+function normalizeSort(value: unknown) {
+  return typeof value === 'string' && SORT_VALUES.has(value)
+    ? value as 'price_asc' | 'price_desc' | 'relevance'
+    : 'price_asc'
+}
+
+function collectProductIds(history: any[] = [], extraIds: unknown = []) {
+  const ids = new Set<string>()
+
+  for (const message of history) {
+    if (!Array.isArray(message?.products)) continue
+    for (const product of message.products) {
+      if (typeof product?.id === 'string' && product.id) {
+        ids.add(product.id)
+      }
+    }
+  }
+
+  if (Array.isArray(extraIds)) {
+    for (const id of extraIds) {
+      if (typeof id === 'string' && id) {
+        ids.add(id)
+      }
+    }
+  }
+
+  return Array.from(ids)
+}
+
+function parseSearchToolArguments(argumentsText: string) {
+  try {
+    return SearchToolSchema.parse(JSON.parse(argumentsText))
+  } catch (parseError) {
+    const queryMatch = argumentsText.match(/"searchQuery"\s*:\s*"([^"]+)"/)
+    if (!queryMatch) throw parseError
+
+    const budgetMatch = argumentsText.match(/"budgetMax"\s*:\s*(\d+(?:\.\d+)?)/)
+    const budgetCurrencyMatch = argumentsText.match(/"budgetCurrency"\s*:\s*"([A-Za-z]{3})"/)
+    const clothingMatch = argumentsText.match(/"isClothing"\s*:\s*(true|false)/)
+    const sortMatch = argumentsText.match(/"sort"\s*:\s*"([^"]+)"/)
+
+    return SearchToolSchema.parse({
+      searchQuery: queryMatch[1],
+      budgetMax: budgetMatch ? Number(budgetMatch[1]) : undefined,
+      budgetCurrency: budgetCurrencyMatch ? budgetCurrencyMatch[1].toUpperCase() : undefined,
+      isClothing: clothingMatch ? clothingMatch[1] === 'true' : undefined,
+      sort: sortMatch ? sortMatch[1] : undefined,
+    })
+  }
 }
 
 function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] {
@@ -126,24 +178,15 @@ CORE GUIDELINES:
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history, savedProducts, searchQuery, budgetMax, isClothing, currentExcludeIds, keywords, sort } = await req.json()
+    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, keywords, sort } = await req.json()
     if (!message) throw new Error('No message provided')
     const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
+    const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
 
     // 1. Direct bypass to skip slow/expensive LLM calls when loading more products
     if (message === 'more' && searchQuery) {
-      const excludeIds: string[] = [];
-      for (const msg of history || []) {
-        if (msg.role === 'assistant' && msg.products) {
-          for (const p of msg.products) {
-            if (p.id) excludeIds.push(p.id);
-          }
-        }
-      }
-      
-      if (Array.isArray(currentExcludeIds)) {
-        excludeIds.push(...currentExcludeIds);
-      }
+      const excludeIds = collectProductIds(history || [], currentExcludeIds)
+      const activeSort = normalizeSort(sort)
 
       console.log(`[Bypass Chat LLM] search: "${searchQuery}" | excludes: ${excludeIds.length}`);
 
@@ -153,7 +196,9 @@ export async function POST(req: NextRequest) {
         excludeIds,
         countryCode,
         isClothing,
-        keywords || []
+        keywords || [],
+        activeSort,
+        typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency
       );
 
       return NextResponse.json({
@@ -161,9 +206,10 @@ export async function POST(req: NextRequest) {
         products,
         searchQuery,
         budgetMax,
+        budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
         isClothing,
         keywords,
-        sort
+        sort: activeSort
       });
     }
 
@@ -188,54 +234,27 @@ export async function POST(req: NextRequest) {
     let finalContent = aiResponse.content
     let activeSearchQuery: string | undefined = undefined
     let activeBudgetMax: number | null | undefined = undefined
+    let activeBudgetCurrency: string | undefined = undefined
     let activeIsClothing: boolean | undefined = undefined
     let activeKeywords: string[] | undefined = undefined
-    let activeSort: string | undefined = undefined
+    let activeSort: 'price_asc' | 'price_desc' | 'relevance' | undefined = undefined
 
     // 3. Handle Tool Execution
     if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
       const toolCall = aiResponse.tool_calls[0]
       if (toolCall.function.name === 'search_ucp') {
         try {
-          // Validate AI arguments with robust fallback
-          let rawArgs;
-          try {
-            rawArgs = JSON.parse(toolCall.function.arguments);
-          } catch (parseError) {
-            console.error('LLM JSON parse error, attempting regex fallback:', parseError);
-            const argsStr = toolCall.function.arguments;
-            // Simple regex to extract basic parameters as fallback
-            const queryMatch = argsStr.match(/"searchQuery"\s*:\s*"([^"]+)"/);
-            const clothingMatch = argsStr.match(/"isClothing"\s*:\s*(true|false)/);
-            const sortMatch = argsStr.match(/"sort"\s*:\s*"([^"]+)"/);
-            if (queryMatch) {
-              rawArgs = {
-                searchQuery: queryMatch[1],
-                isClothing: clothingMatch ? clothingMatch[1] === 'true' : undefined,
-                sort: sortMatch ? sortMatch[1] : undefined
-              };
-            } else {
-              throw new Error('Failed to parse search arguments via regex fallback');
-            }
-          }
-          const args = SearchToolSchema.parse(rawArgs)
+          const args = parseSearchToolArguments(toolCall.function.arguments)
           activeSearchQuery = args.searchQuery
           activeBudgetMax = args.budgetMax
+          activeBudgetCurrency = (args.budgetCurrency || activeBuyerCurrency).toUpperCase()
           activeIsClothing = args.isClothing
           activeKeywords = args.keywords
-          activeSort = args.sort
+          activeSort = normalizeSort(args.sort)
           
           console.log('AI search intent:', args);
 
-          // Extract previously seen product IDs from history
-          const excludeIds: string[] = [];
-          for (const msg of history || []) {
-            if (msg.role === 'assistant' && msg.products) {
-              for (const p of msg.products) {
-                if (p.id) excludeIds.push(p.id);
-              }
-            }
-          }
+          const excludeIds = collectProductIds(history || [])
 
           // Single call to Shopify Global Catalog
           products = await GlobalCatalogService.search(
@@ -244,7 +263,9 @@ export async function POST(req: NextRequest) {
             excludeIds, 
             countryCode,
             args.isClothing,
-            args.keywords || []
+            args.keywords || [],
+            activeSort,
+            activeBudgetCurrency
           );
           
           // Provide results back to AI for final synthesis
@@ -277,7 +298,7 @@ export async function POST(req: NextRequest) {
           if (error.message?.includes('429')) {
             finalContent = "Tôi xin lỗi, hệ thống AI hiện đang chịu tải cao và gặp giới hạn lượt yêu cầu (Rate Limit). Bạn vui lòng thử gửi lại tin nhắn sau vài giây nhé!"
           } else {
-            finalContent = `[System Error Debug during Tool Synth]: ${error.message}`
+            finalContent = "Search could not complete cleanly. Please try again in a moment."
           }
         }
       }
@@ -288,13 +309,14 @@ export async function POST(req: NextRequest) {
       products,
       searchQuery: activeSearchQuery,
       budgetMax: activeBudgetMax,
+      budgetCurrency: activeBudgetCurrency,
       isClothing: activeIsClothing,
       keywords: activeKeywords,
       sort: activeSort
     })
   } catch (error: any) {
     console.error('Chat API Error:', error)
-    let errorMessage = `[System Error Debug]: ${error.message || 'Internal error'}`
+    let errorMessage = 'The search request did not complete. Please try again in a moment.'
     if (error.message?.includes('429')) {
       errorMessage = "Hệ thống AI hiện đang nhận quá nhiều yêu cầu cùng lúc. Xin bạn vui lòng đợi vài giây rồi thử lại!"
     }

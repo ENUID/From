@@ -9,12 +9,13 @@ export const ensureUser = mutation({
     email: v.string(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
-    role: v.optional(v.union(v.literal("buyer"), v.literal("merchant"))),
+    role: v.optional(v.literal("buyer")),
   },
   handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim();
     const existingUser = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .withIndex("by_email", (q) => q.eq("email", email))
       .first();
 
     if (existingUser) {
@@ -33,10 +34,38 @@ export const ensureUser = mutation({
 
     // Create new user
     return await ctx.db.insert("users", {
-      email: args.email,
+      email,
       name: args.name,
       image: args.image,
-      role: args.role || "buyer",
+      role: "buyer",
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const createUser = mutation({
+  args: {
+    name: v.string(),
+    email: v.string(),
+    passwordHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim();
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+
+    if (existing) {
+      throw new Error("EMAIL_EXISTS");
+    }
+
+    return await ctx.db.insert("users", {
+      name: args.name.trim(),
+      email,
+      passwordHash: args.passwordHash,
+      role: "buyer",
+      createdAt: Date.now(),
     });
   },
 });
@@ -46,7 +75,7 @@ export const getUserByEmail = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase().trim()))
       .first();
   },
 });

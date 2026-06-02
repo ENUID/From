@@ -7,7 +7,6 @@ import { api } from '../../../convex/_generated/api'
 import { Product } from '@/components/ProductCard'
 import type { BuyerContext } from '@/lib/buyerContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
-import { convertCurrencyAmount } from '@/lib/currency'
 
 export interface Message {
   role: 'user' | 'assistant'
@@ -17,6 +16,7 @@ export interface Message {
   hasNoMore?: boolean
   searchQuery?: string
   budgetMax?: number | null
+  budgetCurrency?: string
   isClothing?: boolean
   keywords?: string[]
   sort?: string
@@ -24,7 +24,7 @@ export interface Message {
 
 export type ConversationTurn = Pick<
   Message,
-  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'isClothing' | 'keywords' | 'sort'
+  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'budgetCurrency' | 'isClothing' | 'keywords' | 'sort'
 >
 
 export type View = 'discover' | 'history' | 'saved'
@@ -54,6 +54,20 @@ function normalizeProductForCurrency(product: Product, currency: string): Produc
 
 function normalizeProductsForCurrency(products: Product[], currency: string) {
   return products.map(product => normalizeProductForCurrency(product, currency))
+}
+
+function buildApiHistory(history: ConversationTurn[]) {
+  return history.map(turn => ({
+    role: turn.role,
+    content: turn.content,
+    products: (turn.products || []).map(product => ({
+      id: product.id,
+      title: product.title,
+      vendor: product.vendor,
+      price: product.price,
+      currency: product.currency || product.base_currency,
+    })),
+  }))
 }
 
 export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates: ExchangeRates) {
@@ -181,22 +195,15 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
     setMessages(previous => [...previous, { role: 'user', content: messageText }])
 
     try {
-      const slimHistory = history.map(h => ({
-        role: h.role,
-        content: h.content,
-        products: (h.products || []).map(p => ({
-          id: p.id,
-          title: p.title,
-          vendor: p.vendor,
-          price: p.price,
-          currency: p.currency || p.base_currency
-        }))
-      }))
-
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageText, history: slimHistory, savedProducts }),
+        body: JSON.stringify({
+          message: messageText,
+          history: buildApiHistory(history),
+          savedProducts,
+          buyerCurrency: buyerContext.currency,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Request failed')
@@ -204,14 +211,6 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
       let products = Array.isArray(data.products)
         ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
         : []
-
-      if (products.length > 0 && data.sort !== 'relevance') {
-        products = [...products].sort((a, b) => {
-          const priceA = convertCurrencyAmount(Number(a.price), a.base_currency || a.currency || 'USD', buyerContext.currency, rates)
-          const priceB = convertCurrencyAmount(Number(b.price), b.base_currency || b.currency || 'USD', buyerContext.currency, rates)
-          return data.sort === 'price_desc' ? priceB - priceA : priceA - priceB
-        })
-      }
 
       rememberSearch(messageText, products.length)
       setMessages(previous => [
@@ -222,6 +221,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           products,
           searchQuery: data.searchQuery,
           budgetMax: data.budgetMax,
+          budgetCurrency: data.budgetCurrency,
           isClothing: data.isClothing,
           keywords: data.keywords,
           sort: data.sort,
@@ -236,6 +236,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           products,
           searchQuery: data.searchQuery,
           budgetMax: data.budgetMax,
+          budgetCurrency: data.budgetCurrency,
           isClothing: data.isClothing,
           keywords: data.keywords,
           sort: data.sort,
@@ -261,19 +262,6 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
     setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: true } : m))
 
     try {
-      const historyUpToMessage = history.slice(0, messageIndex).map(h => ({
-        role: h.role,
-        content: h.content,
-        products: (h.products || []).map(p => ({
-          id: p.id,
-          title: p.title,
-          vendor: p.vendor,
-          price: p.price,
-          currency: p.currency || p.base_currency
-        }))
-      }))
-      
-      // Also exclude IDs from the current message
       const currentExcludeIds = (msg.products || []).map(p => p.id)
 
       const res = await fetch('/api/ai/chat', {
@@ -283,10 +271,12 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           message: 'more',
           searchQuery: msg.searchQuery,
           budgetMax: msg.budgetMax,
+          budgetCurrency: msg.budgetCurrency,
+          buyerCurrency: buyerContext.currency,
           isClothing: msg.isClothing,
           keywords: msg.keywords,
           sort: msg.sort,
-          history: historyUpToMessage,
+          history: buildApiHistory(history),
           currentExcludeIds,
           savedProducts,
         }),
@@ -297,14 +287,6 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
       let newProducts = Array.isArray(data.products)
         ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
         : []
-
-      if (newProducts.length > 0 && data.sort !== 'relevance') {
-        newProducts = [...newProducts].sort((a, b) => {
-          const priceA = convertCurrencyAmount(Number(a.price), a.base_currency || a.currency || 'USD', buyerContext.currency, rates)
-          const priceB = convertCurrencyAmount(Number(b.price), b.base_currency || b.currency || 'USD', buyerContext.currency, rates)
-          return data.sort === 'price_desc' ? priceB - priceA : priceA - priceB
-        })
-      }
 
       setMessages(prev => prev.map((m, idx) => {
         if (idx === messageIndex) {
@@ -320,15 +302,14 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
         return m
       }))
 
-      const historyIndex = messageIndex - 1;
       setHistory(prev => prev.map((h, idx) => {
-        if (idx === historyIndex) {
+        if (idx === messageIndex) {
           const existingIds = new Set((h.products || []).map(p => p.id))
           const uniqueNew = newProducts.filter(p => !existingIds.has(p.id))
           return {
             ...h,
             products: [...(h.products || []), ...uniqueNew]
-          } as any
+          }
         }
         return h
       }))

@@ -155,9 +155,18 @@ export default function Home({
                   )}
 
                   {message.loadingMore && (
-                    <div className="flex justify-center items-center py-4 w-full gap-2 text-[13px] text-[var(--ink3)] animate-pulse">
-                      <div className="w-[14px] h-[14px] rounded-full border-[1.5px] border-[var(--m-border)] border-t-[var(--ink)] animate-spin" />
-                      Đang tìm thêm sản phẩm...
+                    <div className="flex justify-center items-center py-4 w-full">
+                      <div className="flex gap-[5px] p-[12px_18px] bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[18px] w-fit">
+                        {[0, 0.18, 0.36].map(delay => (
+                          <div
+                            key={delay}
+                            className="w-[5px] h-[5px] rounded-full bg-[var(--ink3)]"
+                            style={{
+                              animation: `bounce 1.1s ${delay}s ease-in-out infinite`,
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

@@ -1,5 +1,3 @@
-import { z } from 'zod';
-import { SearchToolArgs } from '../ai/schema';
 import { getExchangeRates } from '../exchangeRates';
 
 export type UcpProduct = {
@@ -24,6 +22,21 @@ export type UcpProduct = {
     media?: Array<{ url: string }>;
   }>;
 }
+
+type ProductSort = 'price_asc' | 'price_desc' | 'relevance';
+
+type CatalogSearchFilters = {
+  budgetMax?: number | null;
+  budgetCurrency?: string | null;
+  excludeIds?: string[];
+  keywords?: string[];
+  sort?: ProductSort;
+  limit: number;
+  rates: Record<string, number>;
+};
+
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const CATALOG_PAGE_LIMIT = 30;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
 
 const COUNTRY_MAP: { [key: string]: string } = {
@@ -44,6 +57,112 @@ const COUNTRY_MAP: { [key: string]: string } = {
 
 const ZERO_DECIMAL_CURRENCIES = new Set(['VND', 'JPY', 'KRW']);
 
+function normalizeCatalogQuery(query: string) {
+  return query.trim().replace(/\s+/g, ' ');
+}
+
+function splitCatalogQuery(query: string) {
+  return normalizeCatalogQuery(query)
+    .split(/\s+OR\s+/i)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function uniqueById<T extends { id?: string }>(items: T[]) {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+
+  for (const item of items) {
+    if (!item.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    unique.push(item);
+  }
+
+  return unique;
+}
+
+function normalizeImageUrl(url?: string): string {
+  if (!url) return '';
+  let normalized = url.startsWith('//') ? `https:${url}` : url;
+  if (normalized.includes('cdn.shopify.com')) {
+    try {
+      const urlObj = new URL(normalized);
+      urlObj.searchParams.set('width', '400');
+      normalized = urlObj.toString();
+    } catch {}
+  }
+  return normalized;
+}
+
+function normalizeCurrency(code?: string | null) {
+  return String(code || 'USD').trim().toUpperCase() || 'USD';
+}
+
+function convertProductPrice(product: UcpProduct, targetCurrency: string, rates: Record<string, number>) {
+  const currency = (product.currency || 'USD').toUpperCase();
+  const target = normalizeCurrency(targetCurrency);
+  if (currency === target) return product.price;
+
+  const productRate = rates[currency];
+  const targetRate = rates[target];
+  if (!productRate || !targetRate) return product.price;
+
+  return (product.price / productRate) * targetRate;
+}
+
+function searchableProductText(product: UcpProduct) {
+  return [
+    product.title,
+    product.description,
+    product.vendor,
+    ...(product.tags || []),
+    ...(product.options?.flatMap(option => [option.name, ...option.values]) || []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function normalizeKeywords(keywords?: string[]) {
+  return (keywords || [])
+    .map(keyword => keyword.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilters) {
+  const excludeIds = new Set(filters.excludeIds || []);
+  const keywords = normalizeKeywords(filters.keywords);
+  const sort = filters.sort || 'price_asc';
+  const budgetCurrency = normalizeCurrency(filters.budgetCurrency);
+
+  let filtered = products.filter(product => {
+    if (excludeIds.has(product.id)) return false;
+    if (
+      filters.budgetMax &&
+      filters.budgetMax > 0 &&
+      convertProductPrice(product, budgetCurrency, filters.rates) > filters.budgetMax
+    ) {
+      return false;
+    }
+    if (keywords.length === 0) return true;
+
+    const searchableText = searchableProductText(product);
+    return keywords.every(keyword => searchableText.includes(keyword));
+  });
+
+  if (sort !== 'relevance') {
+    filtered = [...filtered].sort((a, b) => {
+      const priceA = convertProductPrice(a, budgetCurrency, filters.rates);
+      const priceB = convertProductPrice(b, budgetCurrency, filters.rates);
+      return sort === 'price_desc' ? priceB - priceA : priceA - priceB;
+    });
+  }
+
+  return filtered.slice(0, filters.limit);
+}
+
 export class GlobalCatalogService {
   static async search(
     query: string, 
@@ -51,35 +170,35 @@ export class GlobalCatalogService {
     excludeIds: string[] = [], 
     countryCode?: string | null,
     isClothing?: boolean,
-    keywords: string[] = []
+    keywords: string[] = [],
+    sort: ProductSort = 'price_asc',
+    budgetCurrency: string | null = 'USD'
   ): Promise<UcpProduct[]> {
     const limit = isClothing ? 24 : 12;
-    const cacheKey = `${query.toLowerCase().trim()}:${countryCode || 'global'}`;
+    const normalizedQuery = normalizeCatalogQuery(query);
+    if (!normalizedQuery) return [];
+
+    const normalizedCountryCode = countryCode?.trim().toUpperCase() || null;
+    const cacheKey = `${normalizedQuery.toLowerCase()}:${normalizedCountryCode || 'global'}`;
     const cached = searchCache.get(cacheKey);
     const rates = await getExchangeRates().catch(() => ({} as Record<string, number>));
-    
-    // Use cache if available and less than 15 minutes old
-    if (cached && Date.now() - cached.timestamp < 15 * 60 * 1000) {
-      let finalProducts = cached.products;
-      if (excludeIds.length > 0) {
-        finalProducts = finalProducts.filter(p => !excludeIds.includes(p.id));
-      }
-      if (budgetMax && budgetMax > 0) {
-        finalProducts = finalProducts.filter(p => {
-          const currency = (p.currency || 'USD').toUpperCase();
-          const rate = rates[currency];
-          const priceInUSD = rate ? p.price / rate : p.price;
-          return priceInUSD <= budgetMax;
-        });
-      }
-      return finalProducts.slice(0, limit);
+
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return applyCatalogFilters(cached.products, {
+        budgetMax,
+        budgetCurrency,
+        excludeIds,
+        keywords,
+        sort,
+        limit,
+        rates,
+      });
     }
 
-    // Helper to fetch from global UCP catalog
-    const fetchFromCatalog = async (q: string, useShippingFilter: boolean = true) => {
+    const fetchFromCatalog = async (q: string) => {
       const filters: any = { available: true };
-      if (countryCode && useShippingFilter) {
-        filters.ships_to = { country: countryCode.toUpperCase() };
+      if (normalizedCountryCode) {
+        filters.ships_to = { country: normalizedCountryCode };
       }
 
       const payload = {
@@ -97,7 +216,7 @@ export class GlobalCatalogService {
             catalog: {
               query: q,
               filters,
-              pagination: { limit: 30 }
+              pagination: { limit: CATALOG_PAGE_LIMIT }
             }
           }
         }
@@ -122,24 +241,11 @@ export class GlobalCatalogService {
     // DRY Helper to parse raw product to UcpProduct
     const parseProduct = (p: any): UcpProduct | null => {
       try {
-         const normalizeImageUrl = (url?: string): string => {
-          if (!url) return '';
-          let normalized = url.startsWith('//') ? `https:${url}` : url;
-          if (normalized.includes('cdn.shopify.com')) {
-            try {
-              const urlObj = new URL(normalized);
-              urlObj.searchParams.set('width', '400');
-              normalized = urlObj.toString();
-            } catch (e) {}
-          }
-          return normalized;
-        };
-
         const variant = p.variants?.[0] || {};
         const priceAmount = variant.price?.amount ?? p.price_range?.min?.amount ?? 0;
         const currency = variant.price?.currency ?? p.price_range?.min?.currency ?? 'USD';
         
-        let vendor = 'Shopify Merchant';
+        let vendor = 'Independent Seller';
         if (variant.seller?.name) vendor = variant.seller.name;
         else if (variant.seller?.domain) vendor = variant.seller.domain;
 
@@ -149,7 +255,7 @@ export class GlobalCatalogService {
           const urlObj = new URL(store_url);
           urlObj.searchParams.set('ref', 'from_ai_affiliate');
           store_url = urlObj.toString();
-        } catch (e) {}
+        } catch {}
 
         const textOptions = [
           p.description?.plain,
@@ -212,53 +318,29 @@ export class GlobalCatalogService {
       }
     };
 
-    let rawProducts: any[] = [];
-
-    // Helper to fetch all results (with optional local prioritization) for a single query term
     const fetchAllForQuery = async (q: string): Promise<any[]> => {
-      if (countryCode && COUNTRY_MAP[countryCode.toUpperCase()]) {
-        const countryName = COUNTRY_MAP[countryCode.toUpperCase()];
+      if (normalizedCountryCode && COUNTRY_MAP[normalizedCountryCode]) {
+        const countryName = COUNTRY_MAP[normalizedCountryCode];
         if (!q.toLowerCase().includes(countryName.toLowerCase())) {
           const [localProducts, globalProducts] = await Promise.all([
-            fetchFromCatalog(`${q} ${countryName}`, true),
-            fetchFromCatalog(q, true)
+            fetchFromCatalog(`${q} ${countryName}`),
+            fetchFromCatalog(q)
           ]);
-          const merged = [...localProducts];
-          for (const gp of globalProducts) {
-            if (!merged.some(p => p.id === gp.id)) {
-              merged.push(gp);
-            }
-          }
-          return merged;
+          return uniqueById([...localProducts, ...globalProducts]);
         }
       }
-      return fetchFromCatalog(q, true);
+      return fetchFromCatalog(q);
     };
 
-    // Split the query by " OR " to search different parts/translations in parallel
-    const subQueries = query.split(/\s+OR\s+/i).map(s => s.trim()).filter(Boolean);
-    
-    if (subQueries.length > 1) {
-      const results = await Promise.all(subQueries.map((sq, idx) => {
-        // Only run local country prioritization search on the first sub-query (user's main search term).
-        // For other translations, query the catalog directly to cut down on API calls and reduce latency.
-        return idx === 0 ? fetchAllForQuery(sq) : fetchFromCatalog(sq, true);
-      }));
-      const mergedRaw: any[] = [];
-      results.forEach((products: any[]) => {
-        products.forEach((p: any) => {
-          if (!mergedRaw.some(mr => mr.id === p.id)) {
-            mergedRaw.push(p);
-          }
-        });
-      });
-      rawProducts = mergedRaw;
-    } else {
-      rawProducts = await fetchAllForQuery(query);
-    }
+    const subQueries = splitCatalogQuery(normalizedQuery);
+    const results = await Promise.all(
+      subQueries.map((subQuery, index) =>
+        index === 0 ? fetchAllForQuery(subQuery) : fetchFromCatalog(subQuery)
+      )
+    );
+    const rawProducts = uniqueById(results.flat());
 
-    // Parse primary results, skip products without images
-    let products: UcpProduct[] = [];
+    const products: UcpProduct[] = [];
     let skippedNoImage = 0;
     for (const p of rawProducts) {
       const parsed = parseProduct(p);
@@ -271,52 +353,19 @@ export class GlobalCatalogService {
 
     console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}`);
 
-    // --- DEEP FILTERING ---
-    if (keywords && keywords.length > 0) {
-      const strictFiltered = products.filter(p => {
-        const searchableText = [
-          p.title,
-          p.description,
-          p.vendor,
-          ...(p.tags || []),
-          ...(p.options?.flatMap(o => [o.name, ...o.values]) || [])
-        ].join(' ').toLowerCase();
-        
-        // Product MUST contain ALL keywords to pass
-        return keywords.every(kw => searchableText.includes(kw.toLowerCase().trim()));
-      });
-
-      console.log(`[GlobalCatalog] Deep filter with keywords [${keywords.join(', ')}]: ${products.length} -> ${strictFiltered.length}`);
-      
-      // Self-Healing Mechanism
-      if (strictFiltered.length === 0 && products.length > 0) {
-        console.warn(`[GlobalCatalog] Self-Healing: Deep filter yielded 0 results for keywords [${keywords.join(', ')}]. Falling back to unfiltered pool.`);
-      } else {
-        products = strictFiltered;
-      }
-    }
-    // --- END DEEP FILTERING ---
-
-    // Cache ALL parsed products (before exclude/budget filters) so follow-up searches have full pool
     searchCache.set(cacheKey, { timestamp: Date.now(), products });
 
-    // Apply exclusions and budget filters AFTER caching
-    let filteredProducts = products;
-    if (excludeIds.length > 0) {
-      filteredProducts = filteredProducts.filter(p => !excludeIds.includes(p.id));
-      console.log(`[GlobalCatalog] after excludeIds(${excludeIds.length}): ${filteredProducts.length} remaining`);
-    }
-    if (budgetMax && budgetMax > 0) {
-      filteredProducts = filteredProducts.filter(p => {
-        const currency = (p.currency || 'USD').toUpperCase();
-        const rate = rates[currency];
-        const priceInUSD = rate ? p.price / rate : p.price;
-        return priceInUSD <= budgetMax;
-      });
-      console.log(`[GlobalCatalog] after budgetMax(${budgetMax}): ${filteredProducts.length} remaining`);
-    }
+    const filteredProducts = applyCatalogFilters(products, {
+      budgetMax,
+      budgetCurrency,
+      excludeIds,
+      keywords,
+      sort,
+      limit,
+      rates,
+    });
 
-    console.log(`[GlobalCatalog] returning ${Math.min(filteredProducts.length, limit)} of ${filteredProducts.length} (limit=${limit})`);
-    return filteredProducts.slice(0, limit);
+    console.log(`[GlobalCatalog] returning ${filteredProducts.length} of ${products.length} (limit=${limit})`);
+    return filteredProducts;
   }
 }

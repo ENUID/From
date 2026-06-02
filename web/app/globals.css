@@ -184,10 +184,10 @@ a { color: inherit; text-decoration: none; }
 .fade-in { opacity: 1; }
 
 /* ============================================================
-   MERCHANT / LEGACY VARIABLES (preserved for merchant pages)
+   BUYER UI VARIABLES
    ============================================================ */
 :root {
-  /* Merchant green */
+  /* Navigation green */
   --m-green:       #2a3b2a;
   --m-green-mid:   #3d5c3a;
   --m-green-light: #e8ede6;

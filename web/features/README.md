@@ -1,8 +1,6 @@
 # Feature Structure
 
 - `buyer/`
-  - Buyer-facing workspace and chat UI.
-- `merchant/`
-  - Merchant-facing onboarding, auth, store picker, and dashboard UI.
+  - Buyer-facing workspace, chat UI, product discovery, saved products, and search history.
 
-The `app/` routes now act as thin wrappers so buyer and merchant frontend work can evolve independently without editing route files directly.
+The `app/` routes stay as thin wrappers around buyer feature modules.

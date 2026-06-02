@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "verify:shopify-scopes": "node scripts/verify-shopify-scopes.mjs"
+    "start": "next start"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

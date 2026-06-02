@@ -144,7 +144,7 @@ export default function ProductDrawer({
   // Return policy check
   const isReturnable = product.tags ? product.tags.some(t => t && (t.toLowerCase().includes('returnable => true') || t.toLowerCase().includes('return'))) : false;
 
-  // Extract Sizing details from merchant's description or tags
+  // Extract sizing details from the store description or tags.
   const extractSizingInfo = () => {
     if (product.tags) {
       const chartTag = product.tags.find(t => t && (t.toLowerCase().includes('size-chart') || t.toLowerCase().includes('size chart') || t.toLowerCase().includes('sizing')));
@@ -170,7 +170,7 @@ export default function ProductDrawer({
 
   const sizingContent = extractSizingInfo();
 
-  // Extract Shipping/Delivery details from merchant's description or tags
+  // Extract shipping and delivery details from the store description or tags.
   const extractShippingInfo = () => {
     let tagInfo = '';
     if (product.tags) {
@@ -539,7 +539,7 @@ export default function ProductDrawer({
                   <div style={{ minHeight: '150px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink2)' }}>
                     {activeTab === 'details' && (
                       <div>
-                        <p style={{ marginBottom: 16, fontSize: 13.5, color: 'var(--ink)' }}>{rawDescriptionText || "No description provided by merchant."}</p>
+                        <p style={{ marginBottom: 16, fontSize: 13.5, color: 'var(--ink)' }}>{rawDescriptionText || "No description provided by the seller."}</p>
                         
                         {(material || isReturnable) && (
                           <div style={{ 

@@ -6,7 +6,7 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
-    role: v.optional(v.union(v.literal("buyer"), v.literal("merchant"))),
+    role: v.optional(v.literal("buyer")),
     passwordHash: v.optional(v.string()),
     createdAt: v.optional(v.number()),
   }).index("by_email", ["email"]),

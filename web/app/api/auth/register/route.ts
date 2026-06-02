@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ConvexHttpClient } from 'convex/browser'
 import bcrypt from 'bcryptjs'
-import { api } from '@/lib/convexApi'
+import { api } from '@/convex/_generated/api'
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL

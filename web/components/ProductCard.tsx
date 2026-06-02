@@ -15,7 +15,6 @@ export interface Product {
   base_currency?: string
   tags: string[]
   in_stock: boolean
-  merchant_id?: string
   image_url?: string
   description?: string
   product_type?: string

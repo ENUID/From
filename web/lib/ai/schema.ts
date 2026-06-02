@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const SearchToolSchema = z.object({
   searchQuery: z.string().describe("The full natural language search query describing the product. e.g. 'eco-friendly denim jeans' or 'linen shirts'"),
   budgetMax: z.number().nullable().optional().describe("Maximum budget if specified"),
+  budgetCurrency: z.string().length(3).optional().describe("ISO 4217 currency code for the budget, if the user explicitly names a currency."),
   isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories."),
   keywords: z.array(z.string()).optional().describe("A list of exact mandatory keywords (like color, material, specific styles) that MUST be present in the product for it to be a valid result. Extract these from the user's natural language request."),
   sort: z.enum(['price_asc', 'price_desc', 'relevance']).optional().describe("Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), or 'relevance'. Default is price_asc.")
@@ -25,6 +26,10 @@ export const SEARCH_TOOL_DEF = {
         budgetMax: {
           type: "number",
           description: "The maximum budget the user is willing to spend, if specified."
+        },
+        budgetCurrency: {
+          type: "string",
+          description: "Three-letter ISO currency code for budgetMax if the user explicitly specifies one, e.g. USD, EUR, VND, JPY. Omit it when the currency is implicit."
         },
         isClothing: {
           type: "boolean",
