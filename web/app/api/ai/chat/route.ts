@@ -216,7 +216,7 @@ function formatSearchToolResult(products: UcpProduct[]) {
   }
 
   const preview = products.slice(0, 6).map(product =>
-    `- ${product.title} by ${product.vendor} (${product.price} ${product.currency || product.base_currency})`
+    `- ${product.title} by ${product.vendor} (${product.price} ${product.currency})`
   ).join('\n')
 
   return `search_ucp returned ${products.length} products. Preview:\n${preview}`
