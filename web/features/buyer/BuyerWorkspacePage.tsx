@@ -81,7 +81,7 @@ export default function Home({
   const [isMobile, setIsMobile] = useState(false)
   const [buyerContext] = useState(initialBuyerContext)
   const [rates] = useState(initialRates)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -93,7 +93,12 @@ export default function Home({
 
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
   }, [messages, loading, activeView])
 
   useEffect(() => {
@@ -219,7 +224,7 @@ export default function Home({
   function renderDiscoverView() {
     return (
       <>
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-4 md:gap-6">
+        <div ref={containerRef} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-4 md:gap-6">
           {!hasConversation && (
             <DiscoverView buyerContext={buyerContext} sendMessage={sendMessage} />
           )}
@@ -272,7 +277,6 @@ export default function Home({
               ))}
             </div>
           )}
-          <div ref={bottomRef} />
         </div>
 
         <footer className="flex-shrink-0 border-t border-[var(--m-border)] p-[8px_10px_18px] md:p-[14px_28px_20px] bg-[rgba(255,255,255,0.85)] md:bg-[var(--bg)] backdrop-blur-[12px] md:backdrop-blur-none pb-[max(16px,env(safe-area-inset-bottom))] md:pb-[20px]">
