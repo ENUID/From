@@ -54,6 +54,7 @@ export async function groqChat(
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000),
     })
 
     if (res.status === 429 && retryCount < 2) {

@@ -106,7 +106,8 @@ export class GlobalCatalogService {
         const res = await fetch('https://catalog.shopify.com/api/ucp/mcp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(8000)
         });
         if (!res.ok) return [];
         const rawJson = await res.json();

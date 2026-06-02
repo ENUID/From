@@ -22,6 +22,7 @@ export async function getExchangeRates(): Promise<ExchangeRates> {
   try {
     const response = await fetch('https://open.er-api.com/v6/latest/USD', {
       next: { revalidate: 3600 }, // Next.js cache
+      signal: AbortSignal.timeout(4000)
     });
 
     if (!response.ok) throw new Error('Failed to fetch exchange rates');
