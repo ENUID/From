@@ -126,7 +126,7 @@ CORE GUIDELINES:
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history, savedProducts, searchQuery, budgetMax, isClothing, currentExcludeIds } = await req.json()
+    const { message, history, savedProducts, searchQuery, budgetMax, isClothing, currentExcludeIds, keywords, sort } = await req.json()
     if (!message) throw new Error('No message provided')
     const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
 
@@ -152,7 +152,8 @@ export async function POST(req: NextRequest) {
         budgetMax,
         excludeIds,
         countryCode,
-        isClothing
+        isClothing,
+        keywords || []
       );
 
       return NextResponse.json({
@@ -160,7 +161,9 @@ export async function POST(req: NextRequest) {
         products,
         searchQuery,
         budgetMax,
-        isClothing
+        isClothing,
+        keywords,
+        sort
       });
     }
 
@@ -186,6 +189,8 @@ export async function POST(req: NextRequest) {
     let activeSearchQuery: string | undefined = undefined
     let activeBudgetMax: number | null | undefined = undefined
     let activeIsClothing: boolean | undefined = undefined
+    let activeKeywords: string[] | undefined = undefined
+    let activeSort: string | undefined = undefined
 
     // 3. Handle Tool Execution
     if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
@@ -199,13 +204,15 @@ export async function POST(req: NextRequest) {
           } catch (parseError) {
             console.error('LLM JSON parse error, attempting regex fallback:', parseError);
             const argsStr = toolCall.function.arguments;
-            // Simple regex to extract searchQuery and isClothing as fallback
+            // Simple regex to extract basic parameters as fallback
             const queryMatch = argsStr.match(/"searchQuery"\s*:\s*"([^"]+)"/);
             const clothingMatch = argsStr.match(/"isClothing"\s*:\s*(true|false)/);
+            const sortMatch = argsStr.match(/"sort"\s*:\s*"([^"]+)"/);
             if (queryMatch) {
               rawArgs = {
                 searchQuery: queryMatch[1],
-                isClothing: clothingMatch ? clothingMatch[1] === 'true' : undefined
+                isClothing: clothingMatch ? clothingMatch[1] === 'true' : undefined,
+                sort: sortMatch ? sortMatch[1] : undefined
               };
             } else {
               throw new Error('Failed to parse search arguments via regex fallback');
@@ -215,6 +222,8 @@ export async function POST(req: NextRequest) {
           activeSearchQuery = args.searchQuery
           activeBudgetMax = args.budgetMax
           activeIsClothing = args.isClothing
+          activeKeywords = args.keywords
+          activeSort = args.sort
           
           console.log('AI search intent:', args);
 
@@ -234,7 +243,8 @@ export async function POST(req: NextRequest) {
             args.budgetMax, 
             excludeIds, 
             countryCode,
-            args.isClothing
+            args.isClothing,
+            args.keywords || []
           );
           
           // Provide results back to AI for final synthesis
@@ -278,7 +288,9 @@ export async function POST(req: NextRequest) {
       products,
       searchQuery: activeSearchQuery,
       budgetMax: activeBudgetMax,
-      isClothing: activeIsClothing
+      isClothing: activeIsClothing,
+      keywords: activeKeywords,
+      sort: activeSort
     })
   } catch (error: any) {
     console.error('Chat API Error:', error)

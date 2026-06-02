@@ -50,7 +50,8 @@ export class GlobalCatalogService {
     budgetMax?: number | null, 
     excludeIds: string[] = [], 
     countryCode?: string | null,
-    isClothing?: boolean
+    isClothing?: boolean,
+    keywords: string[] = []
   ): Promise<UcpProduct[]> {
     const limit = isClothing ? 24 : 12;
     const cacheKey = `${query.toLowerCase().trim()}:${countryCode || 'global'}`;
@@ -257,7 +258,7 @@ export class GlobalCatalogService {
     }
 
     // Parse primary results, skip products without images
-    const products: UcpProduct[] = [];
+    let products: UcpProduct[] = [];
     let skippedNoImage = 0;
     for (const p of rawProducts) {
       const parsed = parseProduct(p);
@@ -269,6 +270,32 @@ export class GlobalCatalogService {
     }
 
     console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}`);
+
+    // --- DEEP FILTERING ---
+    if (keywords && keywords.length > 0) {
+      const strictFiltered = products.filter(p => {
+        const searchableText = [
+          p.title,
+          p.description,
+          p.vendor,
+          ...(p.tags || []),
+          ...(p.options?.flatMap(o => [o.name, ...o.values]) || [])
+        ].join(' ').toLowerCase();
+        
+        // Product MUST contain ALL keywords to pass
+        return keywords.every(kw => searchableText.includes(kw.toLowerCase().trim()));
+      });
+
+      console.log(`[GlobalCatalog] Deep filter with keywords [${keywords.join(', ')}]: ${products.length} -> ${strictFiltered.length}`);
+      
+      // Self-Healing Mechanism
+      if (strictFiltered.length === 0 && products.length > 0) {
+        console.warn(`[GlobalCatalog] Self-Healing: Deep filter yielded 0 results for keywords [${keywords.join(', ')}]. Falling back to unfiltered pool.`);
+      } else {
+        products = strictFiltered;
+      }
+    }
+    // --- END DEEP FILTERING ---
 
     // Cache ALL parsed products (before exclude/budget filters) so follow-up searches have full pool
     searchCache.set(cacheKey, { timestamp: Date.now(), products });

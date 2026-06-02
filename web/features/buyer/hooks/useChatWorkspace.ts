@@ -18,11 +18,13 @@ export interface Message {
   searchQuery?: string
   budgetMax?: number | null
   isClothing?: boolean
+  keywords?: string[]
+  sort?: string
 }
 
 export type ConversationTurn = Pick<
   Message,
-  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'isClothing'
+  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'isClothing' | 'keywords' | 'sort'
 >
 
 export type View = 'discover' | 'history' | 'saved'
@@ -203,11 +205,11 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
         ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
         : []
 
-      if (products.length > 0) {
+      if (products.length > 0 && data.sort !== 'relevance') {
         products = [...products].sort((a, b) => {
           const priceA = convertCurrencyAmount(Number(a.price), a.base_currency || a.currency || 'USD', buyerContext.currency, rates)
           const priceB = convertCurrencyAmount(Number(b.price), b.base_currency || b.currency || 'USD', buyerContext.currency, rates)
-          return priceA - priceB
+          return data.sort === 'price_desc' ? priceB - priceA : priceA - priceB
         })
       }
 
@@ -221,6 +223,8 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           searchQuery: data.searchQuery,
           budgetMax: data.budgetMax,
           isClothing: data.isClothing,
+          keywords: data.keywords,
+          sort: data.sort,
         },
       ])
       setHistory(previous => [
@@ -233,6 +237,8 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           searchQuery: data.searchQuery,
           budgetMax: data.budgetMax,
           isClothing: data.isClothing,
+          keywords: data.keywords,
+          sort: data.sort,
         },
       ])
     } catch {
@@ -278,6 +284,8 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           searchQuery: msg.searchQuery,
           budgetMax: msg.budgetMax,
           isClothing: msg.isClothing,
+          keywords: msg.keywords,
+          sort: msg.sort,
           history: historyUpToMessage,
           currentExcludeIds,
           savedProducts,
@@ -290,11 +298,11 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
         ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
         : []
 
-      if (newProducts.length > 0) {
+      if (newProducts.length > 0 && data.sort !== 'relevance') {
         newProducts = [...newProducts].sort((a, b) => {
           const priceA = convertCurrencyAmount(Number(a.price), a.base_currency || a.currency || 'USD', buyerContext.currency, rates)
           const priceB = convertCurrencyAmount(Number(b.price), b.base_currency || b.currency || 'USD', buyerContext.currency, rates)
-          return priceA - priceB
+          return data.sort === 'price_desc' ? priceB - priceA : priceA - priceB
         })
       }
 

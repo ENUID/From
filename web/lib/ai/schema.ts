@@ -3,7 +3,9 @@ import { z } from 'zod';
 export const SearchToolSchema = z.object({
   searchQuery: z.string().describe("The full natural language search query describing the product. e.g. 'eco-friendly denim jeans' or 'linen shirts'"),
   budgetMax: z.number().nullable().optional().describe("Maximum budget if specified"),
-  isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories.")
+  isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories."),
+  keywords: z.array(z.string()).optional().describe("A list of exact mandatory keywords (like color, material, specific styles) that MUST be present in the product for it to be a valid result. Extract these from the user's natural language request."),
+  sort: z.enum(['price_asc', 'price_desc', 'relevance']).optional().describe("Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), or 'relevance'. Default is price_asc.")
 });
 
 export type SearchToolArgs = z.infer<typeof SearchToolSchema>;
@@ -27,6 +29,16 @@ export const SEARCH_TOOL_DEF = {
         isClothing: {
           type: "boolean",
           description: "Set to true if the search query targets clothing, shoes, apparel, garments, jewelry, bags, or other fashion/style accessories."
+        },
+        keywords: {
+          type: "array",
+          items: { type: "string" },
+          description: "A list of mandatory keywords (e.g. ['black', 'linen'], ['denim', 'jacket']) extracted from the user's request. The backend will strictly filter the catalog results to only include products containing ALL of these keywords in their title, description, or tags. Keep these concise and essential."
+        },
+        sort: {
+          type: "string",
+          enum: ["price_asc", "price_desc", "relevance"],
+          description: "The requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), or 'relevance'. If the user doesn't specify, omit this."
         }
       },
       required: ["searchQuery"]
