@@ -43,13 +43,43 @@ const COUNTRY_MAP: { [key: string]: string } = {
 
 export class GlobalCatalogService {
   static isClothingQuery(query: string): boolean {
-    const clothingKeywords = [
-      'shirt', 'pants', 'wear', 'saree', 'kurti', 'dress', 'jeans', 'jacket', 
-      't-shirt', 'coat', 'skirt', 'suit', 'socks', 'shoe', 'boot', 'sneaker', 
-      'top', 'blouse', 'apparel', 'clothing', 'linen', 'cotton'
-    ];
-    const lowercaseQuery = query.toLowerCase();
-    return clothingKeywords.some(kw => lowercaseQuery.includes(kw));
+    const clothingKeywords = new Set([
+      // English
+      'shirt', 'shirts', 'pants', 'wear', 'saree', 'sarees', 'kurti', 'kurtis', 'dress', 'dresses',
+      'jeans', 'jacket', 'jackets', 't-shirt', 't-shirts', 'coat', 'coats', 'skirt', 'skirts',
+      'suit', 'suits', 'socks', 'shoe', 'shoes', 'boot', 'boots', 'sneaker', 'sneakers',
+      'top', 'tops', 'blouse', 'blouses', 'apparel', 'clothing', 'linen', 'cotton', 'silk', 'wool',
+      // Vietnamese (Accented & Unaccented full words)
+      'áo', 'ao', 
+      'quần', 'quan', 
+      'váy', 'vay', 
+      'đầm', 'dam', 
+      'giày', 'giay', 
+      'dép', 'dep', 
+      'vớ', 'vo', 
+      'tất', 'tat', 
+      'nón', 'non', 
+      'mũ', 'mu',
+      'sơ mi', 'so mi',
+      'thời trang', 'thoi trang',
+      'trang phục', 'trang phuc'
+    ]);
+    
+    const words = query.toLowerCase()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, " ")
+      .split(/\s+/);
+      
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (clothingKeywords.has(word)) return true;
+      
+      if (i < words.length - 1) {
+        const twoWords = `${word} ${words[i+1]}`;
+        if (clothingKeywords.has(twoWords)) return true;
+      }
+    }
+    
+    return false;
   }
 
   static async search(
