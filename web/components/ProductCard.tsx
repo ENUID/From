@@ -17,7 +17,7 @@ export const proxyImageUrl = (url?: string): string => {
   if (!safe || safe.startsWith('/') || safe.startsWith('data:') || safe.includes('localhost') || safe.includes('127.0.0.1')) {
     return safe;
   }
-  return `https://wsrv.nl/?url=${encodeURIComponent(safe)}`;
+  return `/api/image-proxy?url=${encodeURIComponent(safe)}`;
 };
 
 /** @deprecated Use ensureHttps + proxyImageUrl instead */
