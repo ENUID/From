@@ -153,3 +153,42 @@ export async function generateRobustAIResponse(
   // 3. Otherwise, it's just a normal text response
   return aiResponse;
 }
+
+/**
+ * Second completion after a tool run. Models often return null content when only
+ * emitting tool_calls; this turn produces the conversational reply for the UI.
+ */
+export async function generatePostToolReply(
+  messages: ChatMessage[],
+  systemPrompt: string,
+  assistantMessage: ChatMessage,
+  toolResult: string,
+): Promise<string | null> {
+  const toolCall = assistantMessage.tool_calls?.[0]
+  if (!toolCall?.id) return null
+
+  const followUp: ChatMessage[] = [
+    ...messages,
+    {
+      role: 'assistant',
+      content: assistantMessage.content,
+      tool_calls: assistantMessage.tool_calls,
+    },
+    {
+      role: 'tool',
+      tool_call_id: toolCall.id,
+      content: toolResult,
+    },
+  ]
+
+  try {
+    const reply = await groqChat(followUp, systemPrompt, undefined, {
+      max_tokens: 280,
+      temperature: 0.5,
+    })
+    return reply?.content?.trim() || null
+  } catch (error) {
+    console.error('Post-search AI reply failed:', error)
+    return null
+  }
+}

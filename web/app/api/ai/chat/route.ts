@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateRobustAIResponse, ChatMessage } from '@/lib/groq'
+import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
 import { GlobalCatalogService, UcpProduct } from '@/lib/services/GlobalCatalogService'
 
@@ -210,6 +210,18 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   }
 }
 
+function formatSearchToolResult(products: UcpProduct[]) {
+  if (products.length === 0) {
+    return 'search_ucp returned 0 products.'
+  }
+
+  const preview = products.slice(0, 6).map(product =>
+    `- ${product.title} by ${product.vendor} (${product.price} ${product.currency || product.base_currency})`
+  ).join('\n')
+
+  return `search_ucp returned ${products.length} products. Preview:\n${preview}`
+}
+
 function fallbackText(message: string, products: UcpProduct[]) {
   const language = inferLanguage(message)
   if (products.length === 0) {
@@ -411,7 +423,17 @@ export async function POST(req: NextRequest) {
           activeBudgetCurrency = result.budgetCurrency
           activeSort = result.sort
           const aiText = aiResponse.content?.trim()
-          finalContent = aiText || fallbackText(message, products)
+          if (aiText) {
+            finalContent = aiText
+          } else {
+            const postSearchText = await generatePostToolReply(
+              messages,
+              dynamicSystemPrompt,
+              aiResponse,
+              formatSearchToolResult(products),
+            )
+            finalContent = postSearchText || fallbackText(message, products)
+          }
         } catch (error: any) {
           console.error('Error executing tool:', error)
           const fallbackIntent = parseDirectSearchIntent(message, activeBuyerCurrency)
