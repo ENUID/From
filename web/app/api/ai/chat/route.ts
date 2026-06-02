@@ -222,22 +222,72 @@ function formatSearchToolResult(products: UcpProduct[]) {
   return `search_ucp returned ${products.length} products. Preview:\n${preview}`
 }
 
+function formatSearchDiagnostics(
+  args: SearchToolArgs,
+  ctx: { countryCode: string | null; buyerCurrency: string },
+  language: 'vi' | 'en',
+) {
+  const orTerms = args.searchQuery
+    .split(/\s+OR\s+/i)
+    .map(term => term.trim())
+    .filter(Boolean)
+  const queryLine = orTerms.length > 1
+    ? (language === 'vi'
+      ? `${orTerms.length} cụm từ khóa (OR): ${orTerms.join(' · ')}`
+      : `${orTerms.length} OR terms: ${orTerms.join(' · ')}`)
+    : (language === 'vi'
+      ? `từ khóa: "${args.searchQuery}"`
+      : `keywords: "${args.searchQuery}"`)
+
+  const filters: string[] = [queryLine]
+  if (args.keywords?.length) {
+    filters.push(
+      language === 'vi'
+        ? `bắt buộc trong mô tả: ${args.keywords.join(', ')}`
+        : `must include: ${args.keywords.join(', ')}`,
+    )
+  }
+  if (typeof args.budgetMax === 'number' && args.budgetMax > 0) {
+    const currency = (args.budgetCurrency || ctx.buyerCurrency).toUpperCase()
+    filters.push(
+      language === 'vi'
+        ? `ngân sách tối đa ${args.budgetMax} ${currency}`
+        : `max budget ${args.budgetMax} ${currency}`,
+    )
+  }
+  if (ctx.countryCode) {
+    filters.push(
+      language === 'vi'
+        ? `giao hàng: ${ctx.countryCode}`
+        : `ships to: ${ctx.countryCode}`,
+    )
+  }
+
+  return filters.join(' · ')
+}
+
 function fallbackText(
   message: string,
   products: UcpProduct[],
-  options?: { budgetMax?: number | null },
+  options?: { budgetMax?: number | null; diagnostics?: string },
 ) {
   const language = inferLanguage(message)
   if (products.length === 0) {
     const hadBudget = typeof options?.budgetMax === 'number' && options.budgetMax > 0
-    if (language === 'vi') {
-      return hadBudget
+    let text = language === 'vi'
+      ? (hadBudget
         ? 'Mình chưa tìm thấy sản phẩm trong ngân sách đó. Bạn thử nới budget hoặc mô tả rộng hơn một chút nhé.'
-        : 'Mình chưa tìm thấy sản phẩm phù hợp. Thử mô tả rộng hơn hoặc đổi từ khóa (màu, chất liệu, kiểu dáng) nhé.'
+        : 'Mình chưa tìm thấy sản phẩm phù hợp. Thử mô tả rộng hơn hoặc đổi từ khóa (màu, chất liệu, kiểu dáng) nhé.')
+      : (hadBudget
+        ? "I couldn't find anything within that budget yet. Try raising the limit or broadening what you're looking for."
+        : "I couldn't find a match yet. Try a broader description or different keywords (color, material, style).")
+
+    if (options?.diagnostics) {
+      text += language === 'vi'
+        ? `\n\nĐã tìm trên Shopify catalog: ${options.diagnostics}`
+        : `\n\nSearched Shopify catalog: ${options.diagnostics}`
     }
-    return hadBudget
-      ? "I couldn't find anything within that budget yet. Try raising the limit or broadening what you're looking for."
-      : "I couldn't find a match yet. Try a broader description or different keywords (color, material, style)."
+    return text
   }
 
   return language === 'vi'
@@ -393,8 +443,16 @@ export async function POST(req: NextRequest) {
         fastFirstPage: true,
       })
 
+      const diagnostics = formatSearchDiagnostics(fallbackIntent, {
+        countryCode,
+        buyerCurrency: activeBuyerCurrency,
+      }, inferLanguage(message))
+
       return NextResponse.json({
-        text: fallbackText(message, result.products, { budgetMax: result.budgetMax }),
+        text: fallbackText(message, result.products, {
+          budgetMax: result.budgetMax,
+          diagnostics: result.products.length === 0 ? diagnostics : undefined,
+        }),
         ...result,
       })
     }
@@ -423,6 +481,11 @@ export async function POST(req: NextRequest) {
           
           console.log('AI search intent:', args);
 
+          const searchDiagnostics = formatSearchDiagnostics(args, {
+            countryCode,
+            buyerCurrency: activeBuyerCurrency,
+          }, inferLanguage(message))
+
           const result = await runCatalogSearch(args, {
             countryCode,
             buyerCurrency: activeBuyerCurrency,
@@ -435,6 +498,11 @@ export async function POST(req: NextRequest) {
           const aiText = aiResponse.content?.trim()
           if (aiText) {
             finalContent = aiText
+            if (products.length === 0) {
+              finalContent += inferLanguage(message) === 'vi'
+                ? `\n\nĐã tìm trên Shopify catalog: ${searchDiagnostics}`
+                : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
+            }
           } else {
             const postSearchText = await generatePostToolReply(
               messages,
@@ -442,7 +510,10 @@ export async function POST(req: NextRequest) {
               aiResponse,
               formatSearchToolResult(products),
             )
-            finalContent = postSearchText || fallbackText(message, products, { budgetMax: activeBudgetMax })
+            finalContent = postSearchText || fallbackText(message, products, {
+              budgetMax: activeBudgetMax,
+              diagnostics: products.length === 0 ? searchDiagnostics : undefined,
+            })
           }
         } catch (error: any) {
           console.error('Error executing tool:', error)
@@ -455,8 +526,16 @@ export async function POST(req: NextRequest) {
               fastFirstPage: true,
             })
 
+            const diagnostics = formatSearchDiagnostics(fallbackIntent, {
+              countryCode,
+              buyerCurrency: activeBuyerCurrency,
+            }, inferLanguage(message))
+
             return NextResponse.json({
-              text: fallbackText(message, result.products, { budgetMax: result.budgetMax }),
+              text: fallbackText(message, result.products, {
+                budgetMax: result.budgetMax,
+                diagnostics: result.products.length === 0 ? diagnostics : undefined,
+              }),
               ...result,
             })
           }
