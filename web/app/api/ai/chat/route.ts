@@ -36,20 +36,60 @@ function isRateLimited(req: NextRequest) {
   return false
 }
 
-function sanitizeHistory(history: any[]): ChatMessage[] {
+function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] {
   const clean: ChatMessage[] = [];
   const recent = history
     .filter((item) => item?.role === 'user' || item?.role === 'assistant')
     .slice(-HISTORY_MAX_TURNS);
 
-  for (const item of recent) {
-    const content = String(item.content ?? '').trim().slice(0, MESSAGE_MAX_CHARS);
-    if (!content) continue;
+  const currentMsgLower = currentMessage.toLowerCase();
+
+  for (let i = 0; i < recent.length; i++) {
+    const item = recent[i];
+    const content = String(item.content ?? item.text ?? '').trim().slice(0, MESSAGE_MAX_CHARS);
+    if (!content && item.role !== 'assistant') continue;
     
-    clean.push({ role: item.role, content });
+    clean.push({ role: item.role, content: content || null });
 
     if (item.role === 'assistant' && item.products && item.products.length > 0) {
-      const productSummary = item.products.map((p: any) => {
+      // Find the user's subsequent reply in history
+      const nextMsg = recent[i + 1];
+      const nextUserText = nextMsg && nextMsg.role === 'user'
+        ? String(nextMsg.content ?? nextMsg.text ?? '').toLowerCase()
+        : '';
+
+      const combinedUserText = `${nextUserText} ${currentMsgLower}`;
+
+      const productsToInclude: any[] = [];
+      item.products.forEach((p: any, idx: number) => {
+        const productIndex = idx + 1;
+        const vendorLower = (p.vendor || '').toLowerCase();
+
+        // Specific match checks
+        const indexWords = [
+          `thứ ${productIndex}`, 
+          `số ${productIndex}`, 
+          `mẫu ${productIndex}`, 
+          `sản phẩm ${productIndex}`, 
+          `sp ${productIndex}`, 
+          `#${productIndex}`,
+          `number ${productIndex}`,
+          `option ${productIndex}`
+        ];
+        
+        const numberRegex = new RegExp(`\\b${productIndex}\\b`);
+        const isIndexReferenced = indexWords.some(w => combinedUserText.includes(w)) || numberRegex.test(combinedUserText);
+
+        const vendorWords = vendorLower.split(/\s+/).filter((w: string) => w.length > 3);
+        const isBrandReferenced = vendorWords.some((w: string) => combinedUserText.includes(w));
+
+        // Always include top 6; lazy load index > 6 on demand
+        if (idx < 6 || isIndexReferenced || isBrandReferenced) {
+          productsToInclude.push(p);
+        }
+      });
+
+      const productSummary = productsToInclude.map((p: any) => {
         return `- ${p.title} by ${p.vendor} (${p.price} ${p.currency || p.base_currency})`;
       }).join('\n');
       
@@ -88,7 +128,7 @@ export async function POST(req: NextRequest) {
     const { message, history, savedProducts } = await req.json()
     if (!message) throw new Error('No message provided')
     const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
-    const cleanHistory = sanitizeHistory(history || [])
+    const cleanHistory = sanitizeHistory(history || [], message)
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
     let dynamicSystemPrompt = SYSTEM_PROMPT;
