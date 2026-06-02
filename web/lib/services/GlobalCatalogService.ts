@@ -222,25 +222,33 @@ export class GlobalCatalogService {
 
     // Parse primary results, skip products without images
     const products: UcpProduct[] = [];
+    let skippedNoImage = 0;
     for (const p of rawProducts) {
       const parsed = parseProduct(p);
       if (parsed && parsed.image_url && parsed.image_url.trim().length > 0) {
         products.push(parsed);
+      } else if (parsed) {
+        skippedNoImage++;
       }
     }
 
-    // Apply exclusions and budget filters to primary list
+    console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}`);
+
+    // Cache ALL parsed products (before exclude/budget filters) so follow-up searches have full pool
+    searchCache.set(cacheKey, { timestamp: Date.now(), products });
+
+    // Apply exclusions and budget filters AFTER caching
     let filteredProducts = products;
     if (excludeIds.length > 0) {
       filteredProducts = filteredProducts.filter(p => !excludeIds.includes(p.id));
+      console.log(`[GlobalCatalog] after excludeIds(${excludeIds.length}): ${filteredProducts.length} remaining`);
     }
     if (budgetMax && budgetMax > 0) {
       filteredProducts = filteredProducts.filter(p => p.price <= budgetMax);
+      console.log(`[GlobalCatalog] after budgetMax(${budgetMax}): ${filteredProducts.length} remaining`);
     }
 
-
-    searchCache.set(cacheKey, { timestamp: Date.now(), products: filteredProducts });
-
+    console.log(`[GlobalCatalog] returning ${Math.min(filteredProducts.length, limit)} of ${filteredProducts.length} (limit=${limit})`);
     return filteredProducts.slice(0, limit);
   }
 }
