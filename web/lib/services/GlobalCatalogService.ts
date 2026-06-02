@@ -121,12 +121,17 @@ export class GlobalCatalogService {
     // DRY Helper to parse raw product to UcpProduct
     const parseProduct = (p: any): UcpProduct | null => {
       try {
-        const normalizeImageUrl = (url?: string): string => {
+         const normalizeImageUrl = (url?: string): string => {
           if (!url) return '';
-          if (url.startsWith('//')) {
-            return `https:${url}`;
+          let normalized = url.startsWith('//') ? `https:${url}` : url;
+          if (normalized.includes('cdn.shopify.com')) {
+            try {
+              const urlObj = new URL(normalized);
+              urlObj.searchParams.set('width', '400');
+              normalized = urlObj.toString();
+            } catch (e) {}
           }
-          return url;
+          return normalized;
         };
 
         const variant = p.variants?.[0] || {};

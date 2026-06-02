@@ -109,7 +109,7 @@ export default function Home({
     if (loading) {
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: 'smooth'
+        behavior: 'auto'
       })
       return
     }
@@ -122,7 +122,7 @@ export default function Home({
         const targetScrollTop = latestElement.offsetTop - container.offsetTop - 16
         container.scrollTo({
           top: Math.max(0, targetScrollTop),
-          behavior: 'smooth'
+          behavior: 'auto'
         })
         return
       }
@@ -131,7 +131,7 @@ export default function Home({
     // Default fallback (e.g. user message sent): scroll to bottom
     container.scrollTo({
       top: container.scrollHeight,
-      behavior: 'smooth'
+      behavior: 'auto'
     })
   }, [messages, loading, activeView, hasConversation])
 
