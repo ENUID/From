@@ -35,8 +35,13 @@ type CatalogSearchFilters = {
   rates: Record<string, number>;
 };
 
+type CatalogSearchOptions = {
+  refreshReserve?: boolean;
+};
+
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const CATALOG_PAGE_LIMIT = 30;
+const REFRESH_PAGE_LIMIT = 60;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
 
 const COUNTRY_MAP: { [key: string]: string } = {
@@ -172,9 +177,11 @@ export class GlobalCatalogService {
     isClothing?: boolean,
     keywords: string[] = [],
     sort: ProductSort = 'price_asc',
-    budgetCurrency: string | null = 'USD'
+    budgetCurrency: string | null = 'USD',
+    options: CatalogSearchOptions = {}
   ): Promise<UcpProduct[]> {
     const limit = isClothing ? 24 : 12;
+    const catalogPageLimit = options.refreshReserve ? REFRESH_PAGE_LIMIT : CATALOG_PAGE_LIMIT;
     const normalizedQuery = normalizeCatalogQuery(query);
     if (!normalizedQuery) return [];
 
@@ -183,7 +190,7 @@ export class GlobalCatalogService {
     const cached = searchCache.get(cacheKey);
     const rates = await getExchangeRates().catch(() => ({} as Record<string, number>));
 
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    if (!options.refreshReserve && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       return applyCatalogFilters(cached.products, {
         budgetMax,
         budgetCurrency,
@@ -216,7 +223,7 @@ export class GlobalCatalogService {
             catalog: {
               query: q,
               filters,
-              pagination: { limit: CATALOG_PAGE_LIMIT }
+              pagination: { limit: catalogPageLimit }
             }
           }
         }

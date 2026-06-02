@@ -179,6 +179,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   countryCode: string | null;
   buyerCurrency: string;
   excludeIds?: string[];
+  refreshReserve?: boolean;
 }) {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
@@ -190,7 +191,8 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
     args.isClothing,
     args.keywords || [],
     sort,
-    budgetCurrency
+    budgetCurrency,
+    { refreshReserve: options.refreshReserve }
   )
 
   return {
@@ -324,7 +326,7 @@ export async function POST(req: NextRequest) {
           keywords: Array.isArray(keywords) ? keywords : [],
           sort: normalizeSort(sort),
         }),
-        { countryCode, buyerCurrency: activeBuyerCurrency, excludeIds }
+        { countryCode, buyerCurrency: activeBuyerCurrency, excludeIds, refreshReserve: true }
       )
 
       console.log(`[Bypass Chat LLM] search: "${searchQuery}" | excludes: ${excludeIds.length}`);
