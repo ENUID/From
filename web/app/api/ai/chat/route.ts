@@ -222,12 +222,22 @@ function formatSearchToolResult(products: UcpProduct[]) {
   return `search_ucp returned ${products.length} products. Preview:\n${preview}`
 }
 
-function fallbackText(message: string, products: UcpProduct[]) {
+function fallbackText(
+  message: string,
+  products: UcpProduct[],
+  options?: { budgetMax?: number | null },
+) {
   const language = inferLanguage(message)
   if (products.length === 0) {
-    return language === 'vi'
-      ? 'Mình chưa tìm thấy sản phẩm phù hợp. Bạn thử nới ngân sách hoặc mô tả rộng hơn một chút nhé.'
-      : "I couldn't find a clean match yet. Try widening the budget or broadening the description a little."
+    const hadBudget = typeof options?.budgetMax === 'number' && options.budgetMax > 0
+    if (language === 'vi') {
+      return hadBudget
+        ? 'Mình chưa tìm thấy sản phẩm trong ngân sách đó. Bạn thử nới budget hoặc mô tả rộng hơn một chút nhé.'
+        : 'Mình chưa tìm thấy sản phẩm phù hợp. Thử mô tả rộng hơn hoặc đổi từ khóa (màu, chất liệu, kiểu dáng) nhé.'
+    }
+    return hadBudget
+      ? "I couldn't find anything within that budget yet. Try raising the limit or broadening what you're looking for."
+      : "I couldn't find a match yet. Try a broader description or different keywords (color, material, style)."
   }
 
   return language === 'vi'
@@ -384,7 +394,7 @@ export async function POST(req: NextRequest) {
       })
 
       return NextResponse.json({
-        text: fallbackText(message, result.products),
+        text: fallbackText(message, result.products, { budgetMax: result.budgetMax }),
         ...result,
       })
     }
@@ -432,7 +442,7 @@ export async function POST(req: NextRequest) {
               aiResponse,
               formatSearchToolResult(products),
             )
-            finalContent = postSearchText || fallbackText(message, products)
+            finalContent = postSearchText || fallbackText(message, products, { budgetMax: activeBudgetMax })
           }
         } catch (error: any) {
           console.error('Error executing tool:', error)
@@ -446,7 +456,7 @@ export async function POST(req: NextRequest) {
             })
 
             return NextResponse.json({
-              text: fallbackText(message, result.products),
+              text: fallbackText(message, result.products, { budgetMax: result.budgetMax }),
               ...result,
             })
           }

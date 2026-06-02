@@ -44,7 +44,7 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const FAST_PAGE_LIMIT = 24;
 const CATALOG_PAGE_LIMIT = 30;
 const REFRESH_PAGE_LIMIT = 60;
-const FAST_SUBQUERY_LIMIT = 2;
+const FAST_SUBQUERY_LIMIT = 3;
 const INITIAL_RESULT_LIMIT = 20;
 const LOAD_MORE_RESULT_LIMIT = 10;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
@@ -171,6 +171,34 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
   }
 
   return filtered.slice(0, filters.limit);
+}
+
+function applyCatalogFiltersWithRetry(products: UcpProduct[], filters: CatalogSearchFilters) {
+  let result = applyCatalogFilters(products, filters);
+  if (result.length > 0) return result;
+
+  const keywords = normalizeKeywords(filters.keywords);
+  if (keywords.length > 0) {
+    result = applyCatalogFilters(products, { ...filters, keywords: [] });
+    if (result.length > 0) {
+      console.log('[GlobalCatalog] relaxed mandatory keywords filter');
+      return result;
+    }
+  }
+
+  if (filters.budgetMax && filters.budgetMax > 0) {
+    result = applyCatalogFilters(products, {
+      ...filters,
+      keywords: [],
+      budgetMax: null,
+    });
+    if (result.length > 0) {
+      console.log('[GlobalCatalog] relaxed budget filter');
+      return result;
+    }
+  }
+
+  return result;
 }
 
 export class GlobalCatalogService {
@@ -350,32 +378,35 @@ export class GlobalCatalogService {
     };
 
     const subQueries = splitCatalogQuery(normalizedQuery);
-    const activeSubQueries = isFastFirstPage ? subQueries.slice(0, FAST_SUBQUERY_LIMIT) : subQueries;
-    const results = await Promise.all(
-      activeSubQueries.map((subQuery, index) =>
-        index === 0 ? fetchAllForQuery(subQuery) : fetchFromCatalog(subQuery)
-      )
-    );
-    const rawProducts = uniqueById(results.flat());
+    const fetchSubQueries = async (queries: string[]) => {
+      const results = await Promise.all(
+        queries.map((subQuery, index) =>
+          index === 0 ? fetchAllForQuery(subQuery) : fetchFromCatalog(subQuery)
+        )
+      );
+      return uniqueById(results.flat());
+    };
 
-    const products: UcpProduct[] = [];
-    let skippedNoImage = 0;
-    for (const p of rawProducts) {
-      const parsed = parseProduct(p);
-      if (parsed && parsed.image_url && parsed.image_url.trim().length > 0) {
-        products.push(parsed);
-      } else if (parsed) {
-        skippedNoImage++;
+    const parseRawProducts = (raw: any[]) => {
+      const parsed: UcpProduct[] = [];
+      let skippedNoImage = 0;
+      for (const p of raw) {
+        const item = parseProduct(p);
+        if (item && item.image_url && item.image_url.trim().length > 0) {
+          parsed.push(item);
+        } else if (item) {
+          skippedNoImage++;
+        }
       }
-    }
+      return { parsed, skippedNoImage };
+    };
 
-    console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}, fast=${isFastFirstPage}`);
+    let rawProducts = await fetchSubQueries(
+      isFastFirstPage ? subQueries.slice(0, FAST_SUBQUERY_LIMIT) : subQueries
+    );
+    let { parsed: products, skippedNoImage } = parseRawProducts(rawProducts);
 
-    if (!isFastFirstPage || options.refreshReserve) {
-      searchCache.set(cacheKey, { timestamp: Date.now(), products });
-    }
-
-    const filteredProducts = applyCatalogFilters(products, {
+    const filterOptions: CatalogSearchFilters = {
       budgetMax,
       budgetCurrency,
       excludeIds,
@@ -383,7 +414,27 @@ export class GlobalCatalogService {
       sort,
       limit,
       rates,
-    });
+    };
+
+    let filteredProducts = applyCatalogFiltersWithRetry(products, filterOptions);
+
+    if (
+      filteredProducts.length === 0 &&
+      isFastFirstPage &&
+      subQueries.length > FAST_SUBQUERY_LIMIT
+    ) {
+      const extraRaw = await fetchSubQueries(subQueries.slice(FAST_SUBQUERY_LIMIT));
+      rawProducts = uniqueById([...rawProducts, ...extraRaw]);
+      ({ parsed: products, skippedNoImage } = parseRawProducts(rawProducts));
+      filteredProducts = applyCatalogFiltersWithRetry(products, filterOptions);
+      console.log(`[GlobalCatalog] fast path expanded OR terms (${subQueries.length} total)`);
+    }
+
+    console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}, fast=${isFastFirstPage}`);
+
+    if (!isFastFirstPage || options.refreshReserve) {
+      searchCache.set(cacheKey, { timestamp: Date.now(), products });
+    }
 
     console.log(`[GlobalCatalog] returning ${filteredProducts.length} of ${products.length} (limit=${limit}, fast=${isFastFirstPage})`);
     return filteredProducts;
