@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
-import { api } from '../../../../convex/_generated/api'
+import { api } from '../../../convex/_generated/api'
 import { Product } from '@/components/ProductCard'
 import type { BuyerContext } from '@/lib/buyerContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
