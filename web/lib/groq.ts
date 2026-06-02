@@ -73,7 +73,19 @@ export async function groqChat(
     }
 
     if (!res.ok) {
-      throw new Error(`AI Provider HTTP ${res.status}: ${await res.text()}`);
+      const errorText = await res.text();
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.code === 'tool_use_failed' && errorJson.error?.failed_generation) {
+          console.warn("Caught Groq tool_use_failed error. Self-healing via failed_generation parser...");
+          return {
+            role: 'assistant',
+            content: errorJson.error.failed_generation
+          };
+        }
+      } catch (e) {}
+
+      throw new Error(`AI Provider HTTP ${res.status}: ${errorText}`);
     }
 
     const data = await res.json()
@@ -106,10 +118,17 @@ export async function generateRobustAIResponse(
 
   // 2. If it leaked Llama-3 style <function> tags into content, repair it!
   if (aiResponse.content && aiResponse.content.includes('<function=')) {
-    const match = aiResponse.content.match(/<function=(\w+)>(.*?)<\/function>/);
+    const match = aiResponse.content.match(/<function=(\w+)>(.*?)<\/function>/) ||
+                  aiResponse.content.match(/<function=(\w+)>(.*)$/);
     if (match) {
       const toolCallName = match[1];
-      const toolCallArgs = match[2];
+      let toolCallArgs = match[2];
+      
+      // Clean up closing tags if we matched the fallback pattern
+      if (toolCallArgs.endsWith('</function>')) {
+        toolCallArgs = toolCallArgs.substring(0, toolCallArgs.length - 11);
+      }
+      
       const toolCallId = 'call_' + Math.random().toString(36).slice(2, 10);
       
       // Clean the raw tags out of the visual content
@@ -123,7 +142,7 @@ export async function generateRobustAIResponse(
           type: "function",
           function: {
             name: toolCallName,
-            arguments: toolCallArgs
+            arguments: toolCallArgs.trim()
           }
         }]
       };

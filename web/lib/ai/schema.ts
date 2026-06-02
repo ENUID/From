@@ -20,7 +20,7 @@ export const SEARCH_TOOL_DEF = {
           description: "A natural search query describing the product in English. E.g., 'blue linen shirts', 'ceramic coffee mugs'."
         },
         budgetMax: {
-          type: ["number", "null"],
+          type: "number",
           description: "The maximum budget the user is willing to spend, if specified."
         }
       },
