@@ -213,24 +213,43 @@ export class GlobalCatalogService {
 
     let rawProducts: any[] = [];
 
-    // Prioritize local results if country mapping is found (Using shipping filter)
-    if (countryCode && COUNTRY_MAP[countryCode.toUpperCase()]) {
-      const countryName = COUNTRY_MAP[countryCode.toUpperCase()];
-      if (!query.toLowerCase().includes(countryName.toLowerCase())) {
-        const localProducts = await fetchFromCatalog(`${query} ${countryName}`, true);
-        const globalProducts = await fetchFromCatalog(query, true);
-        const merged = [...localProducts];
-        for (const gp of globalProducts) {
-          if (!merged.some(p => p.id === gp.id)) {
-            merged.push(gp);
+    // Helper to fetch all results (with optional local prioritization) for a single query term
+    const fetchAllForQuery = async (q: string): Promise<any[]> => {
+      if (countryCode && COUNTRY_MAP[countryCode.toUpperCase()]) {
+        const countryName = COUNTRY_MAP[countryCode.toUpperCase()];
+        if (!q.toLowerCase().includes(countryName.toLowerCase())) {
+          const [localProducts, globalProducts] = await Promise.all([
+            fetchFromCatalog(`${q} ${countryName}`, true),
+            fetchFromCatalog(q, true)
+          ]);
+          const merged = [...localProducts];
+          for (const gp of globalProducts) {
+            if (!merged.some(p => p.id === gp.id)) {
+              merged.push(gp);
+            }
           }
+          return merged;
         }
-        rawProducts = merged;
-      } else {
-        rawProducts = await fetchFromCatalog(query, true);
       }
+      return fetchFromCatalog(q, true);
+    };
+
+    // Split the query by " OR " to search different parts/translations in parallel
+    const subQueries = query.split(/\s+OR\s+/i).map(s => s.trim()).filter(Boolean);
+    
+    if (subQueries.length > 1) {
+      const results = await Promise.all(subQueries.map(sq => fetchAllForQuery(sq)));
+      const mergedRaw: any[] = [];
+      results.forEach(products => {
+        products.forEach(p => {
+          if (!mergedRaw.some(mr => mr.id === p.id)) {
+            mergedRaw.push(p);
+          }
+        });
+      });
+      rawProducts = mergedRaw;
     } else {
-      rawProducts = await fetchFromCatalog(query, true);
+      rawProducts = await fetchAllForQuery(query);
     }
 
     // Parse primary results, skip products without images
