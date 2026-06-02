@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
-import type { Product } from './ProductCard'
+import { Product, normalizeImageUrl } from './ProductCard'
 
 interface Props {
   product: Product
@@ -31,7 +31,7 @@ export default function ProductDrawer({
     const list: string[] = [];
     const addImg = (url?: string) => {
       if (!url || url.trim().length === 0) return;
-      const normalized = url.startsWith('//') ? `https:${url}` : url;
+      const normalized = normalizeImageUrl(url);
       if (!list.includes(normalized)) {
         list.push(normalized);
       }

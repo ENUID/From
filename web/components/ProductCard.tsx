@@ -4,6 +4,20 @@ import { useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
+export const normalizeImageUrl = (url?: string): string => {
+  if (!url) return '';
+  let trimmed = url.trim();
+  if (trimmed.startsWith('//')) {
+    trimmed = `https:${trimmed}`;
+  } else if (trimmed.startsWith('http://')) {
+    trimmed = `https://${trimmed.slice(7)}`;
+  }
+  if (trimmed.startsWith('/') || trimmed.startsWith('data:') || trimmed.includes('localhost') || trimmed.includes('127.0.0.1')) {
+    return trimmed;
+  }
+  return `https://wsrv.nl/?url=${encodeURIComponent(trimmed)}`;
+};
+
 export interface Product {
   id: string
   title: string
@@ -117,7 +131,7 @@ export default function ProductCard({
       >
         {product.image_url && !imageError ? (
           <img
-            src={product.image_url.startsWith('//') ? `https:${product.image_url}` : product.image_url}
+            src={normalizeImageUrl(product.image_url)}
             alt={product.title}
             loading="lazy"
             onError={() => setImageError(true)}
