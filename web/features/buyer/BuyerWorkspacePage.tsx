@@ -6,6 +6,7 @@ import ProductDrawer from '@/components/ProductDrawer'
 import DiscoverView from '@/features/buyer/components/DiscoverView'
 import type { BuyerContext } from '@/lib/buyerContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
+import { convertCurrencyAmount } from '@/lib/currency'
 import { useSession } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
@@ -230,9 +231,29 @@ export default function Home({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Request failed')
 
-      const products = Array.isArray(data.products)
+      let products = Array.isArray(data.products)
         ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
         : []
+
+      // Sort products by converted price ascending (lowest to highest)
+      if (products.length > 0) {
+        products = [...products].sort((a, b) => {
+          const priceA = convertCurrencyAmount(
+            Number(a.price),
+            a.base_currency || a.currency || 'USD',
+            buyerContext.currency,
+            rates
+          )
+          const priceB = convertCurrencyAmount(
+            Number(b.price),
+            b.base_currency || b.currency || 'USD',
+            buyerContext.currency,
+            rates
+          )
+          return priceA - priceB
+        })
+      }
+
       rememberSearch(messageText, products.length)
       setMessages(previous => [...previous, { role: 'assistant', content: data.text, products }])
       setHistory(previous => [
