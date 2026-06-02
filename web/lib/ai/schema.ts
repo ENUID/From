@@ -18,7 +18,7 @@ export const SEARCH_TOOL_DEF = {
       properties: {
         searchQuery: {
           type: "string",
-          description: "A natural search query describing the product in English. E.g., 'blue linen shirts', 'ceramic coffee mugs'."
+          description: "An expanded search query combining 3-5 translations, synonyms, plurals, or brand variations using 'OR' logic to keep the product reservoir filled. E.g., 'shirt OR shirts OR áo sơ mi OR シャツ OR shirt top'."
         },
         budgetMax: {
           type: "number",
