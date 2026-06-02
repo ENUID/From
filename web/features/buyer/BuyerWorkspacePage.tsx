@@ -1,54 +1,15 @@
 'use client'
 
-import { KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import ProductCard, { Product } from '@/components/ProductCard'
+import { KeyboardEvent, useEffect, useLayoutEffect, useRef } from 'react'
+import ProductCard from '@/components/ProductCard'
 import ProductDrawer from '@/components/ProductDrawer'
 import DiscoverView from '@/features/buyer/components/DiscoverView'
 import type { BuyerContext } from '@/lib/buyerContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
-import { convertCurrencyAmount } from '@/lib/currency'
-import { useSession } from 'next-auth/react'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '../../convex/_generated/api'
+import IntersectionSentinel from '@/components/IntersectionSentinel'
+import { useChatWorkspace, View } from './hooks/useChatWorkspace'
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
-
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  products?: Product[]
-  loadingMore?: boolean
-  hasNoMore?: boolean
-  searchQuery?: string
-  budgetMax?: number | null
-  isClothing?: boolean
-}
-
-type ConversationTurn = Pick<
-  Message,
-  | 'role'
-  | 'content'
-  | 'products'
-  | 'searchQuery'
-  | 'budgetMax'
-  | 'isClothing'
->
-type View = 'discover' | 'history' | 'saved'
-
-type SearchHistoryEntry = {
-  id: string
-  query: string
-  createdAt: number
-  resultCount: number
-}
-
-const SAVED_KEY = 'from:saved-products'
-const HISTORY_KEY = 'from:search-history'
-
-const INITIAL_MESSAGE: Message = {
-  role: 'assistant',
-  content: 'Search across connected independent stores in plain language. Describe the item, budget, material, or intended use to get started.',
-}
 
 function formatTime(timestamp: number) {
   return new Intl.DateTimeFormat('en', {
@@ -59,18 +20,6 @@ function formatTime(timestamp: number) {
   }).format(new Date(timestamp))
 }
 
-function normalizeProductForCurrency(product: Product, currency: string): Product {
-  return {
-    ...product,
-    base_currency: product.base_currency ?? product.currency ?? 'USD',
-    currency,
-  }
-}
-
-function normalizeProductsForCurrency(products: Product[], currency: string) {
-  return products.map(product => normalizeProductForCurrency(product, currency))
-}
-
 export default function Home({
   initialBuyerContext,
   initialRates,
@@ -78,366 +27,85 @@ export default function Home({
   initialBuyerContext: BuyerContext
   initialRates: ExchangeRates
 }) {
-  const { data: session } = useSession()
-  const userEmail = session?.user?.email ?? undefined
+  const {
+    messages,
+    input,
+    setInput,
+    loading,
+    activeView,
+    setActiveView,
+    savedProducts,
+    selectedProduct,
+    setSelectedProduct,
+    searchHistory,
+    isSidebarOpen,
+    setIsSidebarOpen,
+    isMobile,
+    buyerContext,
+    rates,
+    hasConversation,
+    savedIds,
+    resetConversation,
+    toggleSaved,
+    clearSavedProducts,
+    sendMessage,
+    loadMoreProducts,
+  } = useChatWorkspace(initialBuyerContext, initialRates)
 
-  const convexSavedProducts = useQuery(api.buyer.getSavedProducts, userEmail ? { userEmail } : "skip")
-  const convexSearchHistory = useQuery(api.buyer.getSearchHistory, userEmail ? { userEmail } : "skip")
-  const toggleConvexSaved = useMutation(api.buyer.toggleSavedProduct)
-  const saveConvexHistory = useMutation(api.buyer.saveSearchHistory)
-  const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
-  const hasConversation = messages.some(message => message.role === 'user')
-  const [history, setHistory] = useState<ConversationTurn[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [activeView, setActiveView] = useState<View>('discover')
-  const [savedProducts, setSavedProducts] = useState<Product[]>([])
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [buyerContext] = useState(initialBuyerContext)
-  const [rates] = useState(initialRates)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const prevMessagesLengthRef = useRef(messages.length)
   const prevScrollTopRef = useRef<number | null>(null)
 
+  // Scroll Preservation during re-renders
   useIsomorphicLayoutEffect(() => {
     if (containerRef.current && prevScrollTopRef.current !== null) {
-      console.log('[SCROLL PRESERVE] Restoring scrollTop to:', prevScrollTopRef.current)
       containerRef.current.scrollTop = prevScrollTopRef.current
       prevScrollTopRef.current = null
     }
   }, [messages])
 
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
-
-
+  // Scroll to bottom logic on new messages
   useEffect(() => {
     if (!containerRef.current) return
-
     const container = containerRef.current
 
-    // Only apply chat auto-scrolling in discover view with active conversation
     if (activeView !== 'discover' || !hasConversation) {
       container.scrollTop = 0
       prevMessagesLengthRef.current = messages.length
       return
     }
 
-    // Only auto-scroll if message count changed OR if loading state changed
     const lengthChanged = messages.length !== prevMessagesLengthRef.current
     prevMessagesLengthRef.current = messages.length
 
     if (!lengthChanged && !loading) {
-      // Do nothing! We are just loading more products inline or updating states!
       return
     }
 
-    // If currently loading, scroll to bottom to show typing indicator
     if (loading) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: 'auto'
-      })
+      container.scrollTo({ top: container.scrollHeight, behavior: 'auto' })
       return
     }
 
-    // When search is done, scroll to the top of the newly added assistant message
     const lastMessage = messages[messages.length - 1]
     if (lastMessage && lastMessage.role === 'assistant') {
       const latestElement = container.querySelector('#latest-message') as HTMLElement
       if (latestElement) {
         const targetScrollTop = latestElement.offsetTop - container.offsetTop - 16
-        container.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: 'auto'
-        })
+        container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'auto' })
         return
       }
     }
 
-    // Default fallback (e.g. user message sent): scroll to bottom
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: 'auto'
-    })
+    container.scrollTo({ top: container.scrollHeight, behavior: 'auto' })
   }, [messages.length, loading, activeView, hasConversation])
 
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container || loading) return
-
-    const handleScroll = () => {
-      // Find the last assistant message index that has products
-      const lastMessageIndex = messages
-        .map((m, i) => ({ m, i }))
-        .filter(({ m }) => m.role === 'assistant' && m.products && m.products.length > 0)
-        .pop()?.i
-
-      if (lastMessageIndex === undefined) return
-      const lastMsg = messages[lastMessageIndex]
-      if (lastMsg.loadingMore || lastMsg.hasNoMore) return
-
-      // Trigger load more if we are scrolled close to the bottom (within 1200px)
-      const threshold = 1200
-      const scrollBottomDiff = container.scrollHeight - container.scrollTop - container.clientHeight
-      const isCloseToBottom = scrollBottomDiff < threshold
-
-      if (isCloseToBottom) {
-        loadMoreProducts(lastMessageIndex)
-      }
-    }
-
-    container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
-  }, [messages, loading, history, savedProducts])
-
-  useEffect(() => {
-    try {
-      const savedRaw = window.localStorage.getItem(SAVED_KEY)
-      const historyRaw = window.localStorage.getItem(HISTORY_KEY)
-      if (savedRaw) {
-        const saved = JSON.parse(savedRaw) as Product[]
-        setSavedProducts(normalizeProductsForCurrency(saved, buyerContext.currency))
-      }
-      if (historyRaw) setSearchHistory(JSON.parse(historyRaw) as SearchHistoryEntry[])
-    } catch {
-      window.localStorage.removeItem(SAVED_KEY)
-      window.localStorage.removeItem(HISTORY_KEY)
-    }
-  }, [buyerContext.currency])
-
-  useEffect(() => {
-    if (convexSavedProducts) {
-      setSavedProducts(normalizeProductsForCurrency(convexSavedProducts, buyerContext.currency))
-    }
-  }, [convexSavedProducts, buyerContext.currency])
-
-  useEffect(() => {
-    if (convexSearchHistory) {
-      setSearchHistory(convexSearchHistory)
-    }
-  }, [convexSearchHistory])
-
-  useEffect(() => {
-    if (!userEmail) {
-      window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedProducts))
-    }
-  }, [savedProducts, userEmail])
-
-  useEffect(() => {
-    if (!userEmail) {
-      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory))
-    }
-  }, [searchHistory, userEmail])
-
-  const savedIds = new Set(savedProducts.map(product => product.id))
-
-  function resetConversation() {
-    if (loading) return
-    setMessages([INITIAL_MESSAGE])
-    setHistory([])
-    setInput('')
-    setActiveView('discover')
-    setIsSidebarOpen(false)
-    setTimeout(() => inputRef.current?.focus(), 0)
-  }
-
-  function rememberSearch(query: string, resultCount: number) {
-    if (userEmail) {
-      saveConvexHistory({ userEmail, query, resultCount })
-    }
-    const entry: SearchHistoryEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      query,
-      createdAt: Date.now(),
-      resultCount,
-    }
-    setSearchHistory(previous => [entry, ...previous.filter(item => item.query !== query)].slice(0, 20))
-  }
-
-  function toggleSaved(product: Product) {
-    if (userEmail) {
-      toggleConvexSaved({ userEmail, product })
-    }
-    setSavedProducts(previous => {
-      const normalizedProduct = normalizeProductForCurrency(product, buyerContext.currency)
-      const exists = previous.some(item => item.id === product.id)
-      if (exists) {
-        return previous.filter(item => item.id !== product.id)
-      }
-      return [normalizedProduct, ...previous]
-    })
-  }
-
-  async function sendMessage(text?: string) {
-    const messageText = text ?? input.trim()
-    if (!messageText || loading) return
-
-    setActiveView('discover')
-    setInput('')
-    setLoading(true)
-    setMessages(previous => [...previous, { role: 'user', content: messageText }])
-
-    try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageText, history, savedProducts }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Request failed')
-
-      let products = Array.isArray(data.products)
-        ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
-        : []
-
-      // Sort products by converted price ascending (lowest to highest)
-      if (products.length > 0) {
-        products = [...products].sort((a, b) => {
-          const priceA = convertCurrencyAmount(
-            Number(a.price),
-            a.base_currency || a.currency || 'USD',
-            buyerContext.currency,
-            rates
-          )
-          const priceB = convertCurrencyAmount(
-            Number(b.price),
-            b.base_currency || b.currency || 'USD',
-            buyerContext.currency,
-            rates
-          )
-          return priceA - priceB
-        })
-      }
-
-      rememberSearch(messageText, products.length)
-      setMessages(previous => [
-        ...previous,
-        {
-          role: 'assistant',
-          content: data.text,
-          products,
-          searchQuery: data.searchQuery,
-          budgetMax: data.budgetMax,
-          isClothing: data.isClothing,
-        },
-      ])
-      setHistory(previous => [
-        ...previous,
-        { role: 'user', content: messageText },
-        {
-          role: 'assistant',
-          content: data.text,
-          products,
-          searchQuery: data.searchQuery,
-          budgetMax: data.budgetMax,
-          isClothing: data.isClothing,
-        },
-      ])
-    } catch {
-      setMessages(previous => [
-        ...previous,
-        {
-          role: 'assistant',
-          content: 'The search request did not complete. Please try again in a moment.',
-        },
-      ])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function loadMoreProducts(messageIndex: number) {
-    const msg = messages[messageIndex]
-    if (!msg || loading) return
-
-    // Set loading state for this message
+  function handleLoadMore(messageIndex: number) {
     if (containerRef.current) {
       prevScrollTopRef.current = containerRef.current.scrollTop
     }
-    setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: true } : m))
-
-    try {
-      // Re-create history up to this message's turn
-      const historyUpToMessage = history.slice(0, messageIndex)
-
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: 'more',
-          searchQuery: msg.searchQuery,
-          budgetMax: msg.budgetMax,
-          isClothing: msg.isClothing,
-          history: historyUpToMessage,
-          savedProducts,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Request failed')
-
-      let newProducts = Array.isArray(data.products)
-        ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
-        : []
-
-      // Sort products by price
-      if (newProducts.length > 0) {
-        newProducts = [...newProducts].sort((a, b) => {
-          const priceA = convertCurrencyAmount(Number(a.price), a.base_currency || a.currency || 'USD', buyerContext.currency, rates)
-          const priceB = convertCurrencyAmount(Number(b.price), b.base_currency || b.currency || 'USD', buyerContext.currency, rates)
-          return priceA - priceB
-        })
-      }
-
-      // Record scroll position before state update to prevent scroll jump
-      if (containerRef.current) {
-        prevScrollTopRef.current = containerRef.current.scrollTop
-      }
-
-      // Append new products to this message and turn off loading
-      setMessages(prev => prev.map((m, idx) => {
-        if (idx === messageIndex) {
-          const existingIds = new Set((m.products || []).map(p => p.id))
-          const uniqueNew = newProducts.filter(p => !existingIds.has(p.id))
-          return {
-            ...m,
-            products: [...(m.products || []), ...uniqueNew],
-            loadingMore: false,
-            hasNoMore: uniqueNew.length === 0
-          }
-        }
-        return m
-      }))
-
-      // Also update history to keep it synced (history index is messageIndex - 1)
-      const historyIndex = messageIndex - 1;
-      setHistory(prev => prev.map((h, idx) => {
-        if (idx === historyIndex) {
-          const existingIds = new Set((h.products || []).map(p => p.id))
-          const uniqueNew = newProducts.filter(p => !existingIds.has(p.id))
-          return {
-            ...h,
-            products: [...(h.products || []), ...uniqueNew]
-          } as any
-        }
-        return h
-      }))
-
-    } catch (e) {
-      console.error('Error loading more products:', e)
-      if (containerRef.current) {
-        prevScrollTopRef.current = containerRef.current.scrollTop
-      }
-      setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: false } : m))
-    }
+    loadMoreProducts(messageIndex)
   }
 
   function renderDiscoverView() {
@@ -481,17 +149,15 @@ export default function Home({
                       />
                     ))}
                   </div>
+                  
+                  {index === messages.length - 1 && !message.loadingMore && !message.hasNoMore && message.products.length >= 10 && (
+                    <IntersectionSentinel onIntersect={() => handleLoadMore(index)} />
+                  )}
+
                   {message.loadingMore && (
-                    <div className="flex gap-[5px] p-[12px_18px] bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[18px_18px_18px_4px] w-fit mt-2">
-                      {[0, 0.18, 0.36].map(delay => (
-                        <div
-                          key={delay}
-                          className="w-[5px] h-[5px] rounded-full bg-[var(--ink3)]"
-                          style={{
-                            animation: `bounce 1.1s ${delay}s ease-in-out infinite`,
-                          }}
-                        />
-                      ))}
+                    <div className="flex justify-center items-center py-4 w-full gap-2 text-[13px] text-[var(--ink3)] animate-pulse">
+                      <div className="w-[14px] h-[14px] rounded-full border-[1.5px] border-[var(--m-border)] border-t-[var(--ink)] animate-spin" />
+                      Đang tìm thêm sản phẩm...
                     </div>
                   )}
                 </div>
@@ -599,7 +265,7 @@ export default function Home({
           {savedProducts.length > 0 && (
             <button
               type="button"
-              onClick={() => setSavedProducts([])}
+              onClick={() => clearSavedProducts()}
               className="border border-[var(--m-border)] bg-transparent rounded-[30px] p-[8px_16px] text-[12px] text-[var(--ink)] cursor-pointer hover:bg-[rgba(0,0,0,0.02)] transition-colors"
             >
               Clear saved
