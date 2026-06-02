@@ -41,6 +41,8 @@ const COUNTRY_MAP: { [key: string]: string } = {
   ES: 'Spain'
 };
 
+const ZERO_DECIMAL_CURRENCIES = new Set(['VND', 'JPY', 'KRW']);
+
 export class GlobalCatalogService {
   static async search(
     query: string, 
@@ -169,23 +171,29 @@ export class GlobalCatalogService {
           : undefined;
 
         // Parse full variants
-        const parsedVariants = (p.variants || []).map((v: any) => ({
-          id: v.id,
-          title: v.title,
-          price: (v.price?.amount ?? 0) / 100,
-          availability: v.availability?.available ?? true,
-          options: v.options || [],
-          media: v.media || []
-        }));
+        const parsedVariants = (p.variants || []).map((v: any) => {
+          const vCurrency = v.price?.currency ?? currency ?? 'USD';
+          const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(vCurrency.toUpperCase());
+          return {
+            id: v.id,
+            title: v.title,
+            price: isZeroDecimal ? (v.price?.amount ?? 0) : (v.price?.amount ?? 0) / 100,
+            availability: v.availability?.available ?? true,
+            options: v.options || [],
+            media: v.media || []
+          };
+        });
 
         // Parse media
         const parsedMedia = p.media || [];
+
+        const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
 
         products.push({
           id: p.id,
           title: p.title || 'Untitled Product',
           vendor,
-          price: priceAmount / 100, // Convert cents to currency units
+          price: isZeroDecimal ? priceAmount : priceAmount / 100, // Convert cents to currency units
           currency,
           store_url,
           image_url: p.media?.[0]?.url || variant.media?.[0]?.url || '',
