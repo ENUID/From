@@ -30,7 +30,8 @@ export async function groqChat(
   messages: ChatMessage[],
   system?: string,
   tools?: any[],
-  opts?: { max_tokens?: number; temperature?: number }
+  opts?: { max_tokens?: number; temperature?: number },
+  retryCount = 0
 ): Promise<any> {
   const allMessages = system
     ? [{ role: 'system', content: system }, ...messages]
@@ -48,18 +49,43 @@ export async function groqChat(
     payload.tool_choice = 'auto'
   }
 
-  const res = await fetch(`${GROQ_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(payload),
-  })
+  try {
+    const res = await fetch(`${GROQ_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    })
 
-  if (!res.ok) {
-    throw new Error(`AI Provider HTTP ${res.status}: ${await res.text()}`)
+    if (res.status === 429 && retryCount < 2) {
+      const errorText = await res.clone().text();
+      let delay = 2000;
+      try {
+        const errorJson = JSON.parse(errorText);
+        const match = errorJson.error?.message?.match(/try again in ([\d\.]+)s/i);
+        if (match) {
+          delay = Math.ceil(parseFloat(match[1]) * 1000) + 200; // Add a small buffer
+        }
+      } catch (e) {}
+
+      console.warn(`Groq Rate Limited (429). Retrying in ${delay}ms... (Attempt ${retryCount + 1})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return groqChat(messages, system, tools, opts, retryCount + 1);
+    }
+
+    if (!res.ok) {
+      throw new Error(`AI Provider HTTP ${res.status}: ${await res.text()}`);
+    }
+
+    const data = await res.json()
+    return data.choices?.[0]?.message
+  } catch (err: any) {
+    if (retryCount < 2 && !err.message?.includes('API key')) {
+      console.warn(`Groq connection error: ${err.message}. Retrying in 2000ms...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return groqChat(messages, system, tools, opts, retryCount + 1);
+    }
+    throw err;
   }
-
-  const data = await res.json()
-  return data.choices?.[0]?.message
 }
 
 /**

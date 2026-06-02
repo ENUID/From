@@ -6,7 +6,7 @@ import { GlobalCatalogService, UcpProduct } from '@/lib/services/GlobalCatalogSe
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
 const MESSAGE_MAX_CHARS = 500
-const HISTORY_MAX_TURNS = 6
+const HISTORY_MAX_TURNS = 4
 
 type RateEntry = {
   count: number
@@ -50,9 +50,7 @@ function sanitizeHistory(history: any[]): ChatMessage[] {
 
     if (item.role === 'assistant' && item.products && item.products.length > 0) {
       const productSummary = item.products.map((p: any) => {
-        const desc = p.description ? `: ${p.description.slice(0, 150)}...` : '';
-        const tags = p.tags && p.tags.length > 0 ? ` [Tags: ${p.tags.join(', ')}]` : '';
-        return `- ${p.title} by ${p.vendor} (${p.price} ${p.base_currency || p.currency})${desc}${tags}`;
+        return `- ${p.title} by ${p.vendor} (${p.price} ${p.currency || p.base_currency})`;
       }).join('\n');
       
       clean.push({
@@ -89,7 +87,7 @@ export async function POST(req: NextRequest) {
   try {
     const { message, history, savedProducts } = await req.json()
     if (!message) throw new Error('No message provided')
-
+    const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
     const cleanHistory = sanitizeHistory(history || [])
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
@@ -127,11 +125,12 @@ export async function POST(req: NextRequest) {
           }
 
           // Single call to Shopify Global Catalog
-          products = await GlobalCatalogService.search(args.searchQuery, args.budgetMax, excludeIds);
+          products = await GlobalCatalogService.search(args.searchQuery, args.budgetMax, excludeIds, countryCode);
           
           // Provide results back to AI for final synthesis
           // Sanitize the product list to prevent token bloat and rate limits
-          const slimProducts = products.map(p => ({ 
+          // Only pass the top 6 products to the AI follow-up context to keep prompt short
+          const slimProducts = products.slice(0, 6).map(p => ({ 
             title: p.title, 
             vendor: p.vendor, 
             price: p.price,
@@ -155,7 +154,11 @@ export async function POST(req: NextRequest) {
         } catch (error: any) {
           console.error('Error executing tool:', error)
           products = []
-          finalContent = `[System Error Debug during Tool Synth]: ${error.message}`
+          if (error.message?.includes('429')) {
+            finalContent = "Tôi xin lỗi, hệ thống AI hiện đang chịu tải cao và gặp giới hạn lượt yêu cầu (Rate Limit). Bạn vui lòng thử gửi lại tin nhắn sau vài giây nhé!"
+          } else {
+            finalContent = `[System Error Debug during Tool Synth]: ${error.message}`
+          }
         }
       }
     }
@@ -166,8 +169,12 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('Chat API Error:', error)
+    let errorMessage = `[System Error Debug]: ${error.message || 'Internal error'}`
+    if (error.message?.includes('429')) {
+      errorMessage = "Hệ thống AI hiện đang nhận quá nhiều yêu cầu cùng lúc. Xin bạn vui lòng đợi vài giây rồi thử lại!"
+    }
     return NextResponse.json({ 
-      text: `[System Error Debug]: ${error.message || 'Internal error'}`,
+      text: errorMessage,
       products: [] 
     })
   }

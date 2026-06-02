@@ -2,7 +2,7 @@
 
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 import ProductCard, { Product } from '@/components/ProductCard'
-import ProductModal from '@/components/ProductModal'
+import ProductDrawer from '@/components/ProductDrawer'
 import DiscoverView from '@/features/buyer/components/DiscoverView'
 import type { BuyerContext } from '@/lib/buyerContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
@@ -504,7 +504,7 @@ export default function Home({
         {activeView === 'saved' && renderSavedView()}
 
         {selectedProduct && (
-          <ProductModal
+          <ProductDrawer
             product={selectedProduct}
             rates={rates}
             onClose={() => setSelectedProduct(null)}

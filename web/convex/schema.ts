@@ -13,40 +13,7 @@ export default defineSchema({
 
   saved_products: defineTable({
     userId: v.id("users"),
-    product: v.object({
-      id: v.string(),
-      title: v.string(),
-      vendor: v.string(),
-      handle: v.string(),
-      store_url: v.string(),
-      price: v.number(),
-      currency: v.optional(v.string()),
-      base_currency: v.optional(v.string()),
-      tags: v.array(v.string()),
-      in_stock: v.boolean(),
-      merchant_id: v.optional(v.string()),
-      image_url: v.optional(v.string()),
-      description: v.optional(v.string()),
-      product_type: v.optional(v.string()),
-      options: v.optional(
-        v.array(
-          v.object({
-            name: v.string(),
-            values: v.array(v.string()),
-          })
-        )
-      ),
-      variants: v.optional(
-        v.array(
-          v.object({
-            shopify_variant_id: v.string(),
-            price: v.number(),
-            title: v.string(),
-            inventory_quantity: v.number(),
-          })
-        )
-      ),
-    }),
+    product: v.any(),
     savedAt: v.number(),
   }).index("by_user", ["userId"])
     .index("by_user_product", ["userId", "product.id"]),

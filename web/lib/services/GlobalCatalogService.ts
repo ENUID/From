@@ -13,12 +13,52 @@ export type UcpProduct = {
   tags: string[];
   description?: string;
   options?: { name: string; values: string[] }[];
+  media?: Array<{ type: string; url: string }>;
+  variants?: Array<{
+    id: string;
+    title: string;
+    price: number;
+    availability: boolean;
+    options: Array<{ name: string; label: string }>;
+    media?: Array<{ url: string }>;
+  }>;
 }
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
 
+const COUNTRY_MAP: { [key: string]: string } = {
+  IN: 'India',
+  VN: 'Vietnam',
+  US: 'United States',
+  GB: 'United Kingdom',
+  CA: 'Canada',
+  AU: 'Australia',
+  JP: 'Japan',
+  KR: 'Korea',
+  SG: 'Singapore',
+  FR: 'France',
+  DE: 'Germany',
+  IT: 'Italy',
+  ES: 'Spain'
+};
+
 export class GlobalCatalogService {
-  static async search(query: string, budgetMax?: number | null, excludeIds: string[] = []): Promise<UcpProduct[]> {
-    const cacheKey = query.toLowerCase().trim();
+  static isClothingQuery(query: string): boolean {
+    const clothingKeywords = [
+      'shirt', 'pants', 'wear', 'saree', 'kurti', 'dress', 'jeans', 'jacket', 
+      't-shirt', 'coat', 'skirt', 'suit', 'socks', 'shoe', 'boot', 'sneaker', 
+      'top', 'blouse', 'apparel', 'clothing', 'linen', 'cotton'
+    ];
+    const lowercaseQuery = query.toLowerCase();
+    return clothingKeywords.some(kw => lowercaseQuery.includes(kw));
+  }
+
+  static async search(
+    query: string, 
+    budgetMax?: number | null, 
+    excludeIds: string[] = [], 
+    countryCode?: string | null
+  ): Promise<UcpProduct[]> {
+    const cacheKey = `${query.toLowerCase().trim()}:${countryCode || 'global'}`;
     const cached = searchCache.get(cacheKey);
     
     // Use cache if available and less than 15 minutes old
@@ -30,133 +70,151 @@ export class GlobalCatalogService {
       if (budgetMax && budgetMax > 0) {
         finalProducts = finalProducts.filter(p => p.price <= budgetMax);
       }
-      return finalProducts.slice(0, 5);
+      const isClothing = this.isClothingQuery(query);
+      return finalProducts.slice(0, isClothing ? 24 : 12);
     }
 
-    const endpoint = 'https://catalog.shopify.com/api/ucp/mcp';
-    
-    // Shopify Global Catalog UCP Filters
-    const filters: any = {
-      available: true
-    };
-    // Local filtering will handle the budget instead of relying on the API's price_range filter
-    
-    const payload = {
-      jsonrpc: "2.0",
-      method: "tools/call",
-      id: "1",
-      params: {
-        name: "search_catalog",
-        arguments: {
-          meta: {
-            "ucp-agent": {
-              profile: "https://shopify.dev/ucp/agent-profiles/2026-04-08/valid-with-capabilities.json"
+    // Helper to fetch from global UCP catalog
+    const fetchFromCatalog = async (q: string) => {
+      const payload = {
+        jsonrpc: "2.0",
+        method: "tools/call",
+        id: "1",
+        params: {
+          name: "search_catalog",
+          arguments: {
+            meta: {
+              "ucp-agent": {
+                profile: "https://shopify.dev/ucp/agent-profiles/2026-04-08/valid-with-capabilities.json"
+              }
+            },
+            catalog: {
+              query: q,
+              filters: { available: true }
             }
-          },
-          catalog: {
-            query: query,
-            filters: filters
           }
         }
+      };
+
+      try {
+        const res = await fetch('https://catalog.shopify.com/api/ucp/mcp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) return [];
+        const rawJson = await res.json();
+        return rawJson.result?.structuredContent?.products || [];
+      } catch (err) {
+        console.error(`Error querying catalog for "${q}":`, err);
+        return [];
       }
     };
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let rawProducts: any[] = [];
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        console.error('Shopify Global Catalog HTTP Error:', res.status, await res.text());
-        return [];
-      }
-
-      const rawJson = await res.json();
-      if (rawJson.error) {
-        console.error('Shopify Global Catalog RPC Error:', rawJson.error);
-        return [];
-      }
-
-      const productsRaw = rawJson.result?.structuredContent?.products || [];
-      const products: UcpProduct[] = [];
-
-      for (const p of productsRaw) {
-        try {
-          const variant = p.variants?.[0] || {};
-          const priceAmount = variant.price?.amount ?? p.price_range?.min?.amount ?? 0;
-          const currency = variant.price?.currency ?? p.price_range?.min?.currency ?? 'USD';
-          
-          let vendor = 'Shopify Merchant';
-          if (variant.seller?.name) vendor = variant.seller.name;
-          else if (variant.seller?.domain) vendor = variant.seller.domain;
-
-          let store_url = variant.url || p.url || `https://${variant.seller?.domain}/products/${p.id.split('/').pop()}`;
-          
-          // Append affiliate tracking
-          try {
-            const urlObj = new URL(store_url);
-            urlObj.searchParams.set('ref', 'from_ai_affiliate');
-            store_url = urlObj.toString();
-          } catch (e) {
-            // Ignore URL parsing errors
+    // Prioritize local results if country mapping is found
+    if (countryCode && COUNTRY_MAP[countryCode.toUpperCase()]) {
+      const countryName = COUNTRY_MAP[countryCode.toUpperCase()];
+      if (!query.toLowerCase().includes(countryName.toLowerCase())) {
+        const localProducts = await fetchFromCatalog(`${query} ${countryName}`);
+        const globalProducts = await fetchFromCatalog(query);
+        const merged = [...localProducts];
+        for (const gp of globalProducts) {
+          if (!merged.some(p => p.id === gp.id)) {
+            merged.push(gp);
           }
-
-          const textOptions = [
-            p.description?.plain,
-            p.variants?.[0]?.description?.plain,
-            p.metadata?.tech_specs
-          ].filter((text): text is string => typeof text === 'string' && text.trim().length > 0);
-          
-          const desc = textOptions.length > 0 
-            ? textOptions.reduce((longest, current) => current.length > longest.length ? current : longest, '') 
-            : undefined;
-          const parsedOptions = Array.isArray(p.options) 
-            ? p.options.map((opt: any) => ({
-                name: opt.name,
-                values: Array.isArray(opt.values) ? opt.values.map((v: any) => v.label || v) : []
-              })).filter((o: any) => o.values.length > 0)
-            : undefined;
-
-          products.push({
-            id: p.id,
-            title: p.title || 'Untitled Product',
-            vendor,
-            price: priceAmount / 100, // Convert cents to dollars
-            currency,
-            store_url,
-            image_url: p.media?.[0]?.url || variant.media?.[0]?.url || '',
-            in_stock: variant.availability?.available ?? true,
-            tags: p.metadata?.top_features ? [p.metadata.top_features.split('\\n')[0].substring(0, 50)] : [], // Use first feature as a tag if available
-            description: desc,
-            options: parsedOptions && parsedOptions.length > 0 ? parsedOptions : undefined
-          });
-        } catch (err) {
-          console.warn('Error parsing individual Shopify product:', err);
         }
+        rawProducts = merged;
+      } else {
+        rawProducts = await fetchFromCatalog(query);
       }
-
-      searchCache.set(cacheKey, { timestamp: Date.now(), products });
-
-      let finalProducts = products;
-      if (excludeIds.length > 0) {
-        finalProducts = finalProducts.filter(p => !excludeIds.includes(p.id));
-      }
-      if (budgetMax && budgetMax > 0) {
-        finalProducts = finalProducts.filter(p => p.price <= budgetMax);
-      }
-
-      return finalProducts.slice(0, 5); // Return top 5 best matches
-    } catch (err) {
-      console.error('Shopify Global Catalog Fetch Error:', err);
-      return [];
+    } else {
+      rawProducts = await fetchFromCatalog(query);
     }
+
+    const products: UcpProduct[] = [];
+
+    for (const p of rawProducts) {
+      try {
+        const variant = p.variants?.[0] || {};
+        const priceAmount = variant.price?.amount ?? p.price_range?.min?.amount ?? 0;
+        const currency = variant.price?.currency ?? p.price_range?.min?.currency ?? 'USD';
+        
+        let vendor = 'Shopify Merchant';
+        if (variant.seller?.name) vendor = variant.seller.name;
+        else if (variant.seller?.domain) vendor = variant.seller.domain;
+
+        let store_url = variant.url || p.url || `https://${variant.seller?.domain}/products/${p.id.split('/').pop()}`;
+        
+        // Append affiliate tracking
+        try {
+          const urlObj = new URL(store_url);
+          urlObj.searchParams.set('ref', 'from_ai_affiliate');
+          store_url = urlObj.toString();
+        } catch (e) {}
+
+        const textOptions = [
+          p.description?.plain,
+          p.variants?.[0]?.description?.plain,
+          p.metadata?.tech_specs
+        ].filter((text): text is string => typeof text === 'string' && text.trim().length > 0);
+        
+        const desc = textOptions.length > 0 
+          ? textOptions.reduce((longest, current) => current.length > longest.length ? current : longest, '') 
+          : undefined;
+        
+        const parsedOptions = Array.isArray(p.options) 
+          ? p.options.map((opt: any) => ({
+              name: opt.name,
+              values: Array.isArray(opt.values) ? opt.values.map((v: any) => v.label || v) : []
+            })).filter((o: any) => o.values.length > 0)
+          : undefined;
+
+        // Parse full variants
+        const parsedVariants = (p.variants || []).map((v: any) => ({
+          id: v.id,
+          title: v.title,
+          price: (v.price?.amount ?? 0) / 100,
+          availability: v.availability?.available ?? true,
+          options: v.options || [],
+          media: v.media || []
+        }));
+
+        // Parse media
+        const parsedMedia = p.media || [];
+
+        products.push({
+          id: p.id,
+          title: p.title || 'Untitled Product',
+          vendor,
+          price: priceAmount / 100, // Convert cents to currency units
+          currency,
+          store_url,
+          image_url: p.media?.[0]?.url || variant.media?.[0]?.url || '',
+          in_stock: variant.availability?.available ?? true,
+          tags: p.tags || [],
+          description: desc,
+          options: parsedOptions && parsedOptions.length > 0 ? parsedOptions : undefined,
+          variants: parsedVariants,
+          media: parsedMedia
+        });
+      } catch (err) {
+        console.warn('Error parsing individual Shopify product:', err);
+      }
+    }
+
+    searchCache.set(cacheKey, { timestamp: Date.now(), products });
+
+    let finalProducts = products;
+    if (excludeIds.length > 0) {
+      finalProducts = finalProducts.filter(p => !excludeIds.includes(p.id));
+    }
+    if (budgetMax && budgetMax > 0) {
+      finalProducts = finalProducts.filter(p => p.price <= budgetMax);
+    }
+
+    const isClothing = this.isClothingQuery(query);
+    return finalProducts.slice(0, isClothing ? 24 : 12);
   }
 }

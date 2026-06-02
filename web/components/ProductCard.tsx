@@ -7,7 +7,7 @@ export interface Product {
   id: string
   title: string
   vendor: string
-  handle: string
+  handle?: string
   store_url: string
   price: number
   currency?: string
@@ -20,11 +20,14 @@ export interface Product {
   product_type?: string
   options?: { name: string; values: string[] }[]
   variants?: Array<{
-    shopify_variant_id: string
-    price: number
+    id: string
     title: string
-    inventory_quantity: number
+    price: number
+    availability: boolean
+    options: Array<{ name: string; label: string }>
+    media?: Array<{ url: string }>
   }>
+  media?: Array<{ type: string; url: string }>
 }
 
 interface Props {
@@ -43,55 +46,59 @@ export default function ProductCard({
   isBest,
   saved = false,
   onToggleSave,
-  ctaLabel = 'View in store',
+  ctaLabel = 'Quick View',
   onClick,
 }: Props) {
   const hasUrl = product.store_url && product.store_url !== '#'
-  const shortDesc = product.description ? (product.description.length > 65 ? `${product.description.substring(0, 65).trim()}...` : product.description) : ''
+  const shortDesc = product.description ? (product.description.length > 55 ? `${product.description.substring(0, 55).trim()}...` : product.description) : ''
 
   return (
     <div
       onClick={onClick}
       style={{
         background: 'var(--bg-card)',
-        border: `1px solid ${isBest ? 'rgba(42,59,42,0.3)' : 'var(--m-border)'}`,
-        borderRadius: 12,
-        padding: '14px 16px',
+        border: `1px solid ${isBest ? 'var(--m-green-mid)' : 'var(--m-border)'}`,
+        borderRadius: 16,
+        padding: '12px',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        gap: 5,
+        gap: 8,
         cursor: 'pointer',
-        transition: 'box-shadow 0.15s, transform 0.12s',
+        transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         position: 'relative',
+        boxShadow: isBest ? '0 4px 12px rgba(90, 154, 90, 0.08)' : '0 2px 8px rgba(0, 0, 0, 0.02)',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.boxShadow = '0 4px 16px rgba(42,59,42,0.09)'
-        e.currentTarget.style.transform = 'translateY(-1px)'
+        e.currentTarget.style.boxShadow = '0 12px 24px rgba(42, 59, 42, 0.1)'
+        e.currentTarget.style.transform = 'translateY(-4px)'
+        e.currentTarget.style.borderColor = 'var(--m-green-mid)'
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = 'none'
+        e.currentTarget.style.boxShadow = isBest ? '0 4px 12px rgba(90, 154, 90, 0.08)' : '0 2px 8px rgba(0, 0, 0, 0.02)'
         e.currentTarget.style.transform = 'none'
+        e.currentTarget.style.borderColor = isBest ? 'var(--m-green-mid)' : 'var(--m-border)'
       }}
     >
       {isBest && (
         <div
           style={{
             position: 'absolute',
-            top: 10,
-            right: 10,
+            top: 20,
+            left: 20,
             fontSize: 9,
-            letterSpacing: '0.1em',
+            letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            color: 'var(--m-green)',
-            background: 'var(--m-green-light)',
-            padding: '2px 8px',
+            color: 'var(--bg-white)',
+            background: 'var(--m-green)',
+            padding: '4px 10px',
             borderRadius: 20,
-            fontWeight: 500,
-            zIndex: 2,
+            fontWeight: 600,
+            zIndex: 10,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
           }}
         >
-          Best match
+          Best Match
         </div>
       )}
 
@@ -99,105 +106,149 @@ export default function ProductCard({
         <div
           style={{
             width: '100%',
-            height: 140,
-            borderRadius: 8,
-            marginBottom: 8,
-            background: `url(${product.image_url}) center/cover no-repeat`,
-            border: '1px solid var(--m-border)',
+            height: '240px',
+            borderRadius: 12,
+            overflow: 'hidden',
+            position: 'relative',
+            border: '1px solid rgba(0,0,0,0.03)',
+            background: '#F9F9FB',
           }}
-        />
+        >
+          <img
+            src={product.image_url}
+            alt={product.title}
+            loading="lazy"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transition: 'transform 0.5s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'scale(1.05)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'none'
+            }}
+          />
+        </div>
       )}
 
-      <div
-        style={{
-          fontSize: 9.5,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: 'var(--ink3)',
-          marginBottom: 1,
-        }}
-      >
-        {product.vendor}
-      </div>
-      <div
-        style={{
-          fontSize: 13.5,
-          fontWeight: 500,
-          color: 'var(--ink)',
-          lineHeight: 1.3,
-          paddingRight: isBest ? 60 : 0,
-        }}
-      >
-        {product.title}
-      </div>
-      <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 600, marginTop: 2 }}>
-        {formatMoney(Number(product.price), product.currency, product.base_currency, rates)}
-      </div>
-
-      {shortDesc && <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4, lineHeight: 1.4 }}>{shortDesc}</div>}
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '4px 4px 0 4px' }}>
         <div
           style={{
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            flexShrink: 0,
-            background: product.in_stock ? '#5a9a5a' : 'var(--ink3)',
+            fontSize: 10,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: 'var(--ink3)',
+            fontWeight: 600,
+            marginBottom: 2,
           }}
-        />
-        <span style={{ fontSize: 11, color: product.in_stock ? '#5a9a5a' : 'var(--ink3)' }}>
-          {product.in_stock ? 'In stock' : 'Contact store'}
-        </span>
+        >
+          {product.vendor}
+        </div>
+        
+        <h3
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: 'var(--ink)',
+            lineHeight: 1.3,
+            marginBottom: 4,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            height: '36px',
+          }}
+        >
+          {product.title}
+        </h3>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 8 }}>
+          <div style={{ fontSize: 16, color: 'var(--ink)', fontWeight: 700 }}>
+            {formatMoney(Number(product.price), product.currency, product.base_currency, rates)}
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: product.in_stock ? '#5a9a5a' : '#d9534f',
+              }}
+            />
+            <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 500 }}>
+              {product.in_stock ? 'In Stock' : 'Out of Stock'}
+            </span>
+          </div>
+        </div>
+
+        {shortDesc && (
+          <p style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 8, lineHeight: 1.4, height: '32px', overflow: 'hidden' }}>
+            {shortDesc}
+          </p>
+        )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 10 }} onClick={e => e.stopPropagation()}>
-        <a
-          href={hasUrl ? product.store_url : undefined}
-          target="_blank"
-          rel="noopener"
+      <div style={{ display: 'flex', gap: 6, width: '100%', marginTop: 8 }} onClick={e => e.stopPropagation()}>
+        <button
+          onClick={onClick}
           style={{
             flex: 1,
-            display: 'block',
-            padding: '8px',
+            padding: '9px',
             textAlign: 'center',
-            textDecoration: 'none',
+            background: 'var(--bg)',
             border: '1px solid var(--m-border)',
-            borderRadius: 8,
+            borderRadius: 10,
             fontSize: 12,
             color: 'var(--ink2)',
-            fontWeight: 500,
-            cursor: hasUrl ? 'pointer' : 'default',
-            opacity: hasUrl ? 1 : 0.4,
-            transition: 'background 0.12s, border-color 0.12s',
-            background: 'transparent',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
           }}
           onMouseEnter={e => {
-            if (!hasUrl) return
             e.currentTarget.style.background = 'var(--m-green-light)'
             e.currentTarget.style.borderColor = 'var(--m-green-mid)'
+            e.currentTarget.style.color = 'var(--m-green)'
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.background = 'var(--bg)'
             e.currentTarget.style.borderColor = 'var(--m-border)'
+            e.currentTarget.style.color = 'var(--ink2)'
           }}
         >
           {ctaLabel}
-        </a>
+        </button>
 
         {onToggleSave && (
           <button
             type="button"
             onClick={() => onToggleSave(product)}
             style={{
-              padding: '8px 12px',
-              borderRadius: 8,
+              padding: '9px 12px',
+              borderRadius: 10,
               border: `1px solid ${saved ? 'var(--m-green)' : 'var(--m-border)'}`,
-              background: saved ? 'var(--m-green-light)' : 'transparent',
+              background: saved ? 'var(--m-green-light)' : 'var(--bg)',
               color: saved ? 'var(--m-green)' : 'var(--ink3)',
               fontSize: 12,
-              fontWeight: 500,
+              fontWeight: 600,
               cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => {
+              if (!saved) {
+                e.currentTarget.style.borderColor = 'var(--m-green-mid)'
+                e.currentTarget.style.color = 'var(--m-green)'
+              }
+            }}
+            onMouseLeave={e => {
+              if (!saved) {
+                e.currentTarget.style.borderColor = 'var(--m-border)'
+                e.currentTarget.style.color = 'var(--ink3)'
+              }
             }}
           >
             {saved ? 'Saved' : 'Save'}
