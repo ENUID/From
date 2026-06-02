@@ -4,24 +4,19 @@ import { useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
-export const ensureHttps = (url?: string): string => {
+export const normalizeImageUrl = (url?: string): string => {
   if (!url) return '';
   let trimmed = url.trim();
-  if (trimmed.startsWith('//')) return `https:${trimmed}`;
-  if (trimmed.startsWith('http://')) return `https://${trimmed.slice(7)}`;
-  return trimmed;
-};
-
-export const proxyImageUrl = (url?: string): string => {
-  const safe = ensureHttps(url);
-  if (!safe || safe.startsWith('/') || safe.startsWith('data:') || safe.includes('localhost') || safe.includes('127.0.0.1')) {
-    return safe;
+  if (trimmed.startsWith('//')) {
+    trimmed = `https:${trimmed}`;
+  } else if (trimmed.startsWith('http://')) {
+    trimmed = `https://${trimmed.slice(7)}`;
   }
-  return `/api/image-proxy?url=${encodeURIComponent(safe)}`;
+  if (trimmed.startsWith('/') || trimmed.startsWith('data:') || trimmed.includes('localhost') || trimmed.includes('127.0.0.1')) {
+    return trimmed;
+  }
+  return `https://wsrv.nl/?url=${encodeURIComponent(trimmed)}`;
 };
-
-/** @deprecated Use ensureHttps + proxyImageUrl instead */
-export const normalizeImageUrl = proxyImageUrl;
 
 export interface Product {
   id: string
@@ -136,11 +131,12 @@ export default function ProductCard({
       >
         {product.image_url && imageState !== 'error' ? (
           <img
-            src={imageState === 'proxy' ? proxyImageUrl(product.image_url) : ensureHttps(product.image_url)}
+            src={imageState === 'proxy' ? normalizeImageUrl(product.image_url) : product.image_url}
             alt={product.title}
             loading="lazy"
             onError={() => {
-              if (imageState === 'proxy') {
+              const proxied = normalizeImageUrl(product.image_url);
+              if (imageState === 'proxy' && proxied !== product.image_url) {
                 setImageState('raw');
               } else {
                 setImageState('error');

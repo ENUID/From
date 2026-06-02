@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
-import { Product, ensureHttps, proxyImageUrl } from './ProductCard'
+import { Product, normalizeImageUrl } from './ProductCard'
 
 interface Props {
   product: Product
@@ -31,7 +31,7 @@ export default function ProductDrawer({
     const list: string[] = [];
     const addImg = (url?: string) => {
       if (!url || url.trim().length === 0) return;
-      const normalized = ensureHttps(url);
+      const normalized = normalizeImageUrl(url);
       if (!list.includes(normalized)) {
         list.push(normalized);
       }
@@ -60,10 +60,11 @@ export default function ProductDrawer({
   const images = getUniqueImages();
 
   const getImgSrcAndOnError = (index: number, originalUrl: string) => {
+    const proxied = normalizeImageUrl(originalUrl);
     const state = imageStates[index] || 'proxy';
-    const src = state === 'proxy' ? proxyImageUrl(originalUrl) : ensureHttps(originalUrl);
+    const src = state === 'proxy' ? proxied : originalUrl;
     const onError = () => {
-      if (state === 'proxy') {
+      if (state === 'proxy' && proxied !== originalUrl) {
         setImageStates(prev => ({ ...prev, [index]: 'raw' }));
       } else {
         setImageStates(prev => ({ ...prev, [index]: 'error' }));
