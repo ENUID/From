@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
@@ -117,15 +116,22 @@ export default function ProductCard({
         }}
       >
         {product.image_url && !imageError ? (
-          <Image
+          <img
             src={product.image_url}
             alt={product.title}
-            fill
-            sizes="(max-width: 768px) 50vw, 25vw"
+            loading="lazy"
             onError={() => setImageError(true)}
             style={{
+              width: '100%',
+              height: '100%',
               objectFit: 'cover',
               transition: 'transform 0.5s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'scale(1.05)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'none'
             }}
           />
         ) : (

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from './ProductCard'
@@ -336,13 +335,11 @@ export default function ProductDrawer({
                 }}
               >
                 {images.length > 0 && !failedImages[activeImageIndex] ? (
-                  <Image 
+                  <img 
                     src={images[activeImageIndex]} 
-                    alt={product.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 50vw"
+                    alt={product.title} 
                     onError={() => setFailedImages(prev => ({ ...prev, [activeImageIndex]: true }))}
-                    style={{ objectFit: 'cover' }} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                   />
                 ) : (
                   <div style={{
@@ -381,11 +378,9 @@ export default function ProductDrawer({
                       }}
                     >
                       {!failedImages[idx] ? (
-                        <Image 
+                        <img 
                           src={img} 
-                          alt={`Thumbnail ${idx}`}
-                          width={64}
-                          height={80}
+                          alt={`Thumbnail ${idx}`} 
                           onError={() => setFailedImages(prev => ({ ...prev, [idx]: true }))}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                         />
