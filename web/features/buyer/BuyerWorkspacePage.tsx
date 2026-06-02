@@ -635,16 +635,18 @@ export default function Home({
       {isMobile && isSidebarOpen && (
         <div
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-[rgba(0,0,0,0.3)] z-[100]"
+          className="fixed inset-0 bg-[rgba(0,0,0,0.35)]"
+          style={{ zIndex: 900 }}
         />
       )}
 
       <aside
-        className={`bg-[var(--m-green)] flex flex-col shrink-0 gap-[8px] h-[100dvh] top-0 z-[1000] py-[22px] ${
+        className={`bg-[var(--m-green)] flex flex-col shrink-0 gap-[8px] h-[100dvh] top-0 py-[22px] transition-transform duration-300 ease-in-out ${
           isMobile
             ? `fixed w-[280px] items-stretch left-0 ${isSidebarOpen ? 'translate-x-0 shadow-[20px_0_50px_rgba(0,0,0,0.15)]' : 'translate-x-[-110%]'}`
             : 'relative w-[72px] items-center'
         }`}
+        style={{ zIndex: 1000 }}
       >
         <div className={`mb-[24px] flex items-center ${isMobile ? 'px-[24px] justify-between' : 'justify-center'}`}>
           <div className="flex items-center gap-[10px]">
