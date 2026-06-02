@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
+
+export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
 import { GlobalCatalogService, UcpProduct } from '@/lib/services/GlobalCatalogService'
 
@@ -181,6 +183,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   excludeIds?: string[];
   refreshReserve?: boolean;
   fastFirstPage?: boolean;
+  loadMore?: boolean;
 }) {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
@@ -196,6 +199,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
     {
       refreshReserve: options.refreshReserve,
       fastFirstPage: options.fastFirstPage,
+      loadMore: options.loadMore,
     }
   )
 
@@ -407,19 +411,13 @@ export async function POST(req: NextRequest) {
         excludeIds,
       }
 
-      let result = await runCatalogSearch(moreArgs, {
+      const result = await runCatalogSearch(moreArgs, {
         ...moreOptions,
-        refreshReserve: false,
+        loadMore: true,
+        refreshReserve: true,
       })
 
-      if (result.products.length === 0) {
-        result = await runCatalogSearch(moreArgs, {
-          ...moreOptions,
-          refreshReserve: true,
-        })
-      }
-
-      console.log(`[Bypass Chat LLM] search: "${searchQuery}" | excludes: ${excludeIds.length} | new: ${result.products.length}`);
+      console.log(`[Load more] catalog refresh | query: "${searchQuery}" | excludes: ${excludeIds.length} | new: ${result.products.length}`);
 
       return NextResponse.json({
         text: "Here are some more options for you:",
@@ -517,16 +515,20 @@ export async function POST(req: NextRequest) {
                 ? `\n\nĐã tìm trên Shopify catalog: ${searchDiagnostics}`
                 : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
             }
+          } else if (products.length > 0) {
+            // Skip 2nd LLM when we already have cards — avoids Vercel timeout / hung UI.
+            finalContent = fallbackText(message, products, { budgetMax: activeBudgetMax })
           } else {
             const postSearchText = await generatePostToolReply(
               messages,
               dynamicSystemPrompt,
               aiResponse,
               formatSearchToolResult(products),
+              5000,
             )
             finalContent = postSearchText || fallbackText(message, products, {
               budgetMax: activeBudgetMax,
-              diagnostics: products.length === 0 ? searchDiagnostics : undefined,
+              diagnostics: searchDiagnostics,
             })
           }
         } catch (error: any) {
