@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, ChatMessage } from '@/lib/groq'
-import { SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
+import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
 import { GlobalCatalogService, UcpProduct } from '@/lib/services/GlobalCatalogService'
 
 const CHAT_WINDOW_MS = 60_000
@@ -8,6 +8,19 @@ const CHAT_MAX_REQUESTS = 20
 const MESSAGE_MAX_CHARS = 500
 const HISTORY_MAX_TURNS = 4
 const SORT_VALUES = new Set(['price_asc', 'price_desc', 'relevance'])
+const CLOTHING_TERMS = [
+  'apparel', 'bag', 'bags', 'blazer', 'boot', 'boots', 'clothing', 'coat',
+  'dress', 'dresses', 'fashion', 'hat', 'jacket', 'jeans', 'jewelry',
+  'linen', 'pants', 'shirt', 'shirts', 'shoe', 'shoes', 'shorts', 'skirt',
+  'sneaker', 'sneakers', 'sweater', 'tee', 'top', 'trouser', 'trousers',
+  'váy', 'áo', 'quần', 'giày', 'túi',
+]
+const FILTER_KEYWORDS = [
+  'black', 'white', 'blue', 'green', 'red', 'pink', 'brown', 'gray', 'grey',
+  'beige', 'cream', 'navy', 'linen', 'cotton', 'wool', 'silk', 'leather',
+  'denim', 'canvas', 'hemp', 'cashmere', 'organic', 'handmade', 'trắng',
+  'đen', 'xanh', 'đỏ', 'hồng', 'nâu',
+]
 
 type RateEntry = {
   count: number
@@ -86,6 +99,122 @@ function parseSearchToolArguments(argumentsText: string) {
       sort: sortMatch ? sortMatch[1] : undefined,
     })
   }
+}
+
+function inferLanguage(message: string) {
+  return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(message)
+    ? 'vi'
+    : 'en'
+}
+
+function stripBudgetText(message: string) {
+  return message
+    .replace(/\b(under|below|less than|up to|max|maximum|budget|for)\s+[$€£¥₫]?\s*\d+(?:[.,]\d+)?\s*(?:k|m|tr|triệu|million)?\s*(?:usd|eur|gbp|jpy|vnd|đ|dong)?/gi, ' ')
+    .replace(/\b(dưới|duoi|tầm|tam|khoảng|khoang|không quá|khong qua)\s+[$€£¥₫]?\s*\d+(?:[.,]\d+)?\s*(?:k|m|tr|triệu|million)?\s*(?:usd|eur|gbp|jpy|vnd|đ|dong)?/gi, ' ')
+    .replace(/[$€£¥₫]\s*\d+(?:[.,]\d+)?\s*(?:k|m|tr|triệu|million)?/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function parseBudget(message: string, buyerCurrency: string) {
+  const raw = message.toLowerCase()
+  const amountMatch = raw.match(/(?:under|below|less than|up to|max|maximum|budget|for|dưới|duoi|tầm|tam|khoảng|khoang|không quá|khong qua)?\s*([$€£¥₫])?\s*(\d+(?:[.,]\d+)?)\s*(k|m|tr|triệu|million)?\s*(usd|eur|gbp|jpy|vnd|đ|dong)?/)
+  if (!amountMatch) return {}
+
+  const symbol = amountMatch[1]
+  const suffix = amountMatch[3]
+  const explicitCurrency = amountMatch[4]
+  let amount = Number(amountMatch[2].replace(',', '.'))
+  if (!Number.isFinite(amount) || amount <= 0) return {}
+
+  if (suffix === 'k') amount *= 1_000
+  if (suffix === 'm' || suffix === 'million') amount *= 1_000_000
+  if (suffix === 'tr' || suffix === 'triệu') amount *= 1_000_000
+
+  let currency = buyerCurrency
+  if (symbol === '$') currency = 'USD'
+  if (symbol === '€') currency = 'EUR'
+  if (symbol === '£') currency = 'GBP'
+  if (symbol === '¥') currency = 'JPY'
+  if (symbol === '₫' || explicitCurrency === 'vnd' || explicitCurrency === 'đ' || explicitCurrency === 'dong') currency = 'VND'
+  if (explicitCurrency && explicitCurrency.length === 3) currency = explicitCurrency.toUpperCase()
+
+  return { budgetMax: amount, budgetCurrency: currency }
+}
+
+function expandDirectQuery(query: string) {
+  const normalized = query.trim().replace(/\s+/g, ' ')
+  if (!normalized) return ''
+
+  const variants = new Set<string>([normalized])
+  if (/\bshirts\b/i.test(normalized)) variants.add(normalized.replace(/\bshirts\b/gi, 'shirt'))
+  if (/\bshirt\b/i.test(normalized)) variants.add(normalized.replace(/\bshirt\b/gi, 'shirts'))
+  if (/\bdresses\b/i.test(normalized)) variants.add(normalized.replace(/\bdresses\b/gi, 'dress'))
+  if (/\bdress\b/i.test(normalized)) variants.add(normalized.replace(/\bdress\b/gi, 'dresses'))
+  if (/\blinen\b/i.test(normalized)) variants.add(`${normalized} clothing`)
+  if (/\bshirt|shirts|top|tee\b/i.test(normalized)) variants.add(`${normalized} top`)
+
+  return Array.from(variants).slice(0, 5).join(' OR ')
+}
+
+function parseDirectSearchIntent(message: string, buyerCurrency: string): SearchToolArgs | null {
+  const query = stripBudgetText(message)
+  if (!query || query.length < 2) return null
+
+  const lowerQuery = query.toLowerCase()
+  const isClothing = CLOTHING_TERMS.some(term => lowerQuery.includes(term))
+  const keywords = FILTER_KEYWORDS.filter(keyword => lowerQuery.includes(keyword))
+  const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'price_asc'
+
+  return SearchToolSchema.parse({
+    searchQuery: expandDirectQuery(query),
+    ...parseBudget(message, buyerCurrency),
+    isClothing,
+    keywords,
+    sort,
+  })
+}
+
+async function runCatalogSearch(args: SearchToolArgs, options: {
+  countryCode: string | null;
+  buyerCurrency: string;
+  excludeIds?: string[];
+}) {
+  const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
+  const sort = normalizeSort(args.sort)
+  const products = await GlobalCatalogService.search(
+    args.searchQuery,
+    args.budgetMax,
+    options.excludeIds || [],
+    options.countryCode,
+    args.isClothing,
+    args.keywords || [],
+    sort,
+    budgetCurrency
+  )
+
+  return {
+    products,
+    searchQuery: args.searchQuery,
+    budgetMax: args.budgetMax,
+    budgetCurrency,
+    isClothing: args.isClothing,
+    keywords: args.keywords,
+    sort,
+  }
+}
+
+function fallbackText(message: string, products: UcpProduct[]) {
+  const language = inferLanguage(message)
+  if (products.length === 0) {
+    return language === 'vi'
+      ? 'Mình chưa tìm thấy sản phẩm phù hợp. Bạn thử nới ngân sách hoặc mô tả rộng hơn một chút nhé.'
+      : "I couldn't find a clean match yet. Try widening the budget or broadening the description a little."
+  }
+
+  return language === 'vi'
+    ? 'Mình tìm được vài lựa chọn phù hợp với yêu cầu của bạn.'
+    : "I found a few options that match what you're looking for."
 }
 
 function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] {
@@ -186,30 +315,23 @@ export async function POST(req: NextRequest) {
     // 1. Direct bypass to skip slow/expensive LLM calls when loading more products
     if (message === 'more' && searchQuery) {
       const excludeIds = collectProductIds(history || [], currentExcludeIds)
-      const activeSort = normalizeSort(sort)
+      const result = await runCatalogSearch(
+        SearchToolSchema.parse({
+          searchQuery,
+          budgetMax,
+          budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
+          isClothing,
+          keywords: Array.isArray(keywords) ? keywords : [],
+          sort: normalizeSort(sort),
+        }),
+        { countryCode, buyerCurrency: activeBuyerCurrency, excludeIds }
+      )
 
       console.log(`[Bypass Chat LLM] search: "${searchQuery}" | excludes: ${excludeIds.length}`);
 
-      const products = await GlobalCatalogService.search(
-        searchQuery,
-        budgetMax,
-        excludeIds,
-        countryCode,
-        isClothing,
-        keywords || [],
-        activeSort,
-        typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency
-      );
-
       return NextResponse.json({
         text: "Here are some more options for you:",
-        products,
-        searchQuery,
-        budgetMax,
-        budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
-        isClothing,
-        keywords,
-        sort: activeSort
+        ...result,
       });
     }
 
@@ -228,7 +350,25 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Initial AI Generation
-    const aiResponse = await generateRobustAIResponse(messages, dynamicSystemPrompt, [SEARCH_TOOL_DEF])
+    let aiResponse: ChatMessage
+    try {
+      aiResponse = await generateRobustAIResponse(messages, dynamicSystemPrompt, [SEARCH_TOOL_DEF])
+    } catch (error: any) {
+      console.error('AI search planning failed, using direct catalog fallback:', error)
+      const fallbackIntent = parseDirectSearchIntent(message, activeBuyerCurrency)
+      if (!fallbackIntent) throw error
+
+      const result = await runCatalogSearch(fallbackIntent, {
+        countryCode,
+        buyerCurrency: activeBuyerCurrency,
+        excludeIds: collectProductIds(history || []),
+      })
+
+      return NextResponse.json({
+        text: fallbackText(message, result.products),
+        ...result,
+      })
+    }
     
     let products: UcpProduct[] = []
     let finalContent = aiResponse.content
@@ -254,19 +394,14 @@ export async function POST(req: NextRequest) {
           
           console.log('AI search intent:', args);
 
-          const excludeIds = collectProductIds(history || [])
-
-          // Single call to Shopify Global Catalog
-          products = await GlobalCatalogService.search(
-            args.searchQuery, 
-            args.budgetMax, 
-            excludeIds, 
+          const result = await runCatalogSearch(args, {
             countryCode,
-            args.isClothing,
-            args.keywords || [],
-            activeSort,
-            activeBudgetCurrency
-          );
+            buyerCurrency: activeBuyerCurrency,
+            excludeIds: collectProductIds(history || []),
+          })
+          products = result.products
+          activeBudgetCurrency = result.budgetCurrency
+          activeSort = result.sort
           
           // Provide results back to AI for final synthesis
           // Sanitize the product list to prevent token bloat and rate limits
@@ -294,6 +429,19 @@ export async function POST(req: NextRequest) {
           finalContent = finalAiResponse.content
         } catch (error: any) {
           console.error('Error executing tool:', error)
+          const fallbackIntent = parseDirectSearchIntent(message, activeBuyerCurrency)
+          if (fallbackIntent) {
+            const result = await runCatalogSearch(fallbackIntent, {
+              countryCode,
+              buyerCurrency: activeBuyerCurrency,
+              excludeIds: collectProductIds(history || []),
+            })
+
+            return NextResponse.json({
+              text: fallbackText(message, result.products),
+              ...result,
+            })
+          }
           products = []
           if (error.message?.includes('429')) {
             finalContent = "Tôi xin lỗi, hệ thống AI hiện đang chịu tải cao và gặp giới hạn lượt yêu cầu (Rate Limit). Bạn vui lòng thử gửi lại tin nhắn sau vài giây nhé!"
