@@ -633,10 +633,11 @@ export default function Home({
     <div className="flex h-[100dvh] max-w-full bg-[var(--bg)] overflow-hidden">
       {/* Mobile Drawer Overlay */}
       {isMobile && isSidebarOpen && (
-        <div
+        <button
+          type="button"
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-[rgba(0,0,0,0.35)]"
-          style={{ zIndex: 900 }}
+          className="fixed inset-0 bg-[rgba(0,0,0,0.35)] border-none outline-none cursor-pointer"
+          style={{ zIndex: 900, cursor: 'pointer' }}
         />
       )}
 
@@ -657,7 +658,7 @@ export default function Home({
             <button
               type="button"
               onClick={() => setIsSidebarOpen(false)}
-              className="bg-transparent border-none text-[var(--bg-white)] cursor-pointer p-[4px]"
+              className="bg-transparent border-none text-[var(--bg-white)] cursor-pointer p-[12px] -mr-[12px]"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 6L6 18M6 6l12 12" />
@@ -709,7 +710,7 @@ export default function Home({
             <button
               type="button"
               onClick={() => setIsSidebarOpen(true)}
-              className="bg-transparent border-none text-[var(--ink)] p-[8px] -ml-[8px] cursor-pointer"
+              className="bg-transparent border-none text-[var(--ink)] p-[12px] -ml-[12px] cursor-pointer"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 12h18M3 6h18M3 18h18" />
