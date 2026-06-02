@@ -156,14 +156,9 @@ export default function ProductDrawer({
     const lines = rawDescriptionText.split('\n');
     const sizingLines = lines.filter((line: string) => {
       const lower = line.toLowerCase();
-      return lower.includes('size chart') || 
-             lower.includes('size guide') || 
-             lower.includes('sizing') ||
-             lower.includes('chest:') ||
-             lower.includes('waist:') ||
-             lower.includes('inseam:') ||
-             lower.includes('fit guide') ||
-             lower.includes('measurements:');
+      // Search for specific size chart indicators, or key metrics paired with values
+      return /\b(size\s+chart|size\s+guide|sizing\s+chart|sizing\s+guide|fit\s+guide|measurements)\b/.test(lower) ||
+             /\b(chest|waist|inseam|hip|hips|shoulder|sleeve|bust)\b\s*:\s*\d+/.test(lower);
     });
 
     if (sizingLines.length > 0) {
@@ -188,12 +183,10 @@ export default function ProductDrawer({
     const lines = rawDescriptionText.split('\n');
     const shippingLines = lines.filter((line: string) => {
       const lower = line.toLowerCase();
-      return lower.includes('ship') || 
-             lower.includes('deliver') || 
-             lower.includes('return') || 
-             lower.includes('refund') || 
-             lower.includes('dispatch') || 
-             lower.includes('courier');
+      // Look for explicit shipping phrases, or shipping terms excluding normal verbs like "delivers comfort"
+      return /\b(shipping\s+policy|return\s+policy|free\s+shipping|standard\s+shipping|express\s+shipping|shipping\s+carrier|delivery\s+time|delivery\s+carrier|dispatch\s+time)\b/.test(lower) ||
+             (/\b(shipping|delivery|dispatch|returns|refunds|postage|transit|fulfillment|courier)\b/.test(lower) && 
+              !/\b(delivers\b|returns\s+to\b|returns\s+the\b)/.test(lower));
     });
 
     if (shippingLines.length > 0 || tagInfo) {
