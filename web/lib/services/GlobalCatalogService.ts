@@ -44,7 +44,7 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const FAST_PAGE_LIMIT = 24;
 const CATALOG_PAGE_LIMIT = 30;
 const REFRESH_PAGE_LIMIT = 60;
-const FAST_SUBQUERY_LIMIT = 3;
+const FAST_SUBQUERY_LIMIT = 1;
 const INITIAL_RESULT_LIMIT = 20;
 const LOAD_MORE_RESULT_LIMIT = 10;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
@@ -364,7 +364,8 @@ export class GlobalCatalogService {
     };
 
     const fetchAllForQuery = async (q: string): Promise<any[]> => {
-      if (normalizedCountryCode && COUNTRY_MAP[normalizedCountryCode]) {
+      // Fast first paint: one catalog call; ships_to filter already scopes by country.
+      if (!isFastFirstPage && normalizedCountryCode && COUNTRY_MAP[normalizedCountryCode]) {
         const countryName = COUNTRY_MAP[normalizedCountryCode];
         if (!q.toLowerCase().includes(countryName.toLowerCase())) {
           const [localProducts, globalProducts] = await Promise.all([
@@ -432,7 +433,7 @@ export class GlobalCatalogService {
 
     console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}, fast=${isFastFirstPage}`);
 
-    if (!isFastFirstPage || options.refreshReserve) {
+    if (products.length > 0) {
       searchCache.set(cacheKey, { timestamp: Date.now(), products });
     }
 

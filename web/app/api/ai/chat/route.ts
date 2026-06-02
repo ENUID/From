@@ -393,19 +393,33 @@ export async function POST(req: NextRequest) {
     // 1. Direct bypass to skip slow/expensive LLM calls when loading more products
     if (message === 'more' && searchQuery) {
       const excludeIds = collectProductIds(history || [], currentExcludeIds)
-      const result = await runCatalogSearch(
-        SearchToolSchema.parse({
-          searchQuery,
-          budgetMax,
-          budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
-          isClothing,
-          keywords: Array.isArray(keywords) ? keywords : [],
-          sort: normalizeSort(sort),
-        }),
-        { countryCode, buyerCurrency: activeBuyerCurrency, excludeIds, refreshReserve: true }
-      )
+      const moreArgs = SearchToolSchema.parse({
+        searchQuery,
+        budgetMax,
+        budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
+        isClothing,
+        keywords: Array.isArray(keywords) ? keywords : [],
+        sort: normalizeSort(sort),
+      })
+      const moreOptions = {
+        countryCode,
+        buyerCurrency: activeBuyerCurrency,
+        excludeIds,
+      }
 
-      console.log(`[Bypass Chat LLM] search: "${searchQuery}" | excludes: ${excludeIds.length}`);
+      let result = await runCatalogSearch(moreArgs, {
+        ...moreOptions,
+        refreshReserve: false,
+      })
+
+      if (result.products.length === 0) {
+        result = await runCatalogSearch(moreArgs, {
+          ...moreOptions,
+          refreshReserve: true,
+        })
+      }
+
+      console.log(`[Bypass Chat LLM] search: "${searchQuery}" | excludes: ${excludeIds.length} | new: ${result.products.length}`);
 
       return NextResponse.json({
         text: "Here are some more options for you:",
