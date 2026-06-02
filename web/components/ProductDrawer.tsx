@@ -436,14 +436,31 @@ export default function ProductDrawer({
                     )}
 
                     {activeTab === 'shipping' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <div>
-                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>⚡ Fast Shipping</h4>
-                          <p>Orders are dispatched within 24-48 hours. Delivery takes 3-5 business days.</p>
+                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            🚚 Shipping Options
+                          </h4>
+                          <ul style={{ paddingLeft: 18, margin: 0, listStyleType: 'disc' }}>
+                            <li><strong>Standard Ground</strong> (3–6 business days): Free on orders over $100, otherwise $4.95.</li>
+                            <li><strong>Express Dispatch</strong> (1–3 business days): Flat rate $12.00.</li>
+                          </ul>
                         </div>
                         <div>
-                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>📦 Returns Policy</h4>
-                          <p>Easy 30-day return policy. Unworn items in original packaging are fully refundable.</p>
+                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            📦 Dispatch & Fulfillment
+                          </h4>
+                          <p style={{ margin: 0 }}>
+                            Orders are processed and shipped directly from the merchant's warehouse within 1–2 business days. Once dispatched, a tracking link will be sent to your email.
+                          </p>
+                        </div>
+                        <div>
+                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            🌍 International Delivery
+                          </h4>
+                          <p style={{ margin: 0 }}>
+                            Available globally. Duties, taxes, and final shipping rates are calculated dynamically at checkout based on your destination.
+                          </p>
                         </div>
                       </div>
                     )}
