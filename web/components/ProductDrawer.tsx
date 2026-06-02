@@ -23,10 +23,34 @@ export default function ProductDrawer({
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<'details' | 'sizeChart' | 'shipping'>('details')
 
-  // Get all images
-  const images = product.media && product.media.length > 0 
-    ? product.media.map(m => m.url) 
-    : (product.image_url ? [product.image_url] : []);
+  // Get all unique images across root image, root media, and variant media
+  const getUniqueImages = () => {
+    const list: string[] = [];
+    if (product.image_url && product.image_url.trim().length > 0) {
+      list.push(product.image_url);
+    }
+    if (product.media && product.media.length > 0) {
+      product.media.forEach(m => {
+        if (m.url && !list.includes(m.url)) {
+          list.push(m.url);
+        }
+      });
+    }
+    if (product.variants && product.variants.length > 0) {
+      product.variants.forEach(v => {
+        if (v.media && v.media.length > 0) {
+          v.media.forEach(m => {
+            if (m.url && !list.includes(m.url)) {
+              list.push(m.url);
+            }
+          });
+        }
+      });
+    }
+    return list;
+  };
+
+  const images = getUniqueImages();
 
   useEffect(() => {
     setIsMounted(true)
