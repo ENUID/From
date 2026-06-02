@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SearchToolArgs } from '../ai/schema';
+import { getExchangeRates } from '../exchangeRates';
 
 export type UcpProduct = {
   id: string;
@@ -54,6 +55,7 @@ export class GlobalCatalogService {
     const limit = isClothing ? 24 : 12;
     const cacheKey = `${query.toLowerCase().trim()}:${countryCode || 'global'}`;
     const cached = searchCache.get(cacheKey);
+    const rates = await getExchangeRates().catch(() => ({} as Record<string, number>));
     
     // Use cache if available and less than 15 minutes old
     if (cached && Date.now() - cached.timestamp < 15 * 60 * 1000) {
@@ -62,7 +64,12 @@ export class GlobalCatalogService {
         finalProducts = finalProducts.filter(p => !excludeIds.includes(p.id));
       }
       if (budgetMax && budgetMax > 0) {
-        finalProducts = finalProducts.filter(p => p.price <= budgetMax);
+        finalProducts = finalProducts.filter(p => {
+          const currency = (p.currency || 'USD').toUpperCase();
+          const rate = rates[currency];
+          const priceInUSD = rate ? p.price / rate : p.price;
+          return priceInUSD <= budgetMax;
+        });
       }
       return finalProducts.slice(0, limit);
     }
@@ -89,7 +96,7 @@ export class GlobalCatalogService {
             catalog: {
               query: q,
               filters,
-              pagination: { limit: 50 }
+              pagination: { limit: 30 }
             }
           }
         }
@@ -244,7 +251,12 @@ export class GlobalCatalogService {
       console.log(`[GlobalCatalog] after excludeIds(${excludeIds.length}): ${filteredProducts.length} remaining`);
     }
     if (budgetMax && budgetMax > 0) {
-      filteredProducts = filteredProducts.filter(p => p.price <= budgetMax);
+      filteredProducts = filteredProducts.filter(p => {
+        const currency = (p.currency || 'USD').toUpperCase();
+        const rate = rates[currency];
+        const priceInUSD = rate ? p.price / rate : p.price;
+        return priceInUSD <= budgetMax;
+      });
       console.log(`[GlobalCatalog] after budgetMax(${budgetMax}): ${filteredProducts.length} remaining`);
     }
 
