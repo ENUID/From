@@ -220,11 +220,13 @@ export class GlobalCatalogService {
       rawProducts = await fetchFromCatalog(query, true);
     }
 
-    // Parse primary results
+    // Parse primary results, skip products without images
     const products: UcpProduct[] = [];
     for (const p of rawProducts) {
       const parsed = parseProduct(p);
-      if (parsed) products.push(parsed);
+      if (parsed && parsed.image_url && parsed.image_url.trim().length > 0) {
+        products.push(parsed);
+      }
     }
 
     // Apply exclusions and budget filters to primary list
