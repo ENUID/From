@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 export const SearchToolSchema = z.object({
   searchQuery: z.string().describe("The full natural language search query describing the product. e.g. 'eco-friendly denim jeans' or 'linen shirts'"),
-  budgetMax: z.number().nullable().optional().describe("Maximum budget if specified")
+  budgetMax: z.number().nullable().optional().describe("Maximum budget if specified"),
+  isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories.")
 });
 
 export type SearchToolArgs = z.infer<typeof SearchToolSchema>;
@@ -22,6 +23,10 @@ export const SEARCH_TOOL_DEF = {
         budgetMax: {
           type: "number",
           description: "The maximum budget the user is willing to spend, if specified."
+        },
+        isClothing: {
+          type: "boolean",
+          description: "Set to true if the search query targets clothing, shoes, apparel, garments, jewelry, bags, or other fashion/style accessories."
         }
       },
       required: ["searchQuery"]

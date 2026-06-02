@@ -46,8 +46,10 @@ export class GlobalCatalogService {
     query: string, 
     budgetMax?: number | null, 
     excludeIds: string[] = [], 
-    countryCode?: string | null
+    countryCode?: string | null,
+    isClothing?: boolean
   ): Promise<UcpProduct[]> {
+    const limit = isClothing ? 24 : 12;
     const cacheKey = `${query.toLowerCase().trim()}:${countryCode || 'global'}`;
     const cached = searchCache.get(cacheKey);
     
@@ -60,7 +62,7 @@ export class GlobalCatalogService {
       if (budgetMax && budgetMax > 0) {
         finalProducts = finalProducts.filter(p => p.price <= budgetMax);
       }
-      return finalProducts.slice(0, 24);
+      return finalProducts.slice(0, limit);
     }
 
     // Helper to fetch from global UCP catalog
@@ -80,7 +82,7 @@ export class GlobalCatalogService {
             catalog: {
               query: q,
               filters: { available: true },
-              pagination: { limit: 24 }
+              pagination: { limit }
             }
           }
         }
@@ -204,6 +206,6 @@ export class GlobalCatalogService {
       finalProducts = finalProducts.filter(p => p.price <= budgetMax);
     }
 
-    return finalProducts.slice(0, 24);
+    return finalProducts.slice(0, limit);
   }
 }

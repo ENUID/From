@@ -165,7 +165,13 @@ export async function POST(req: NextRequest) {
           }
 
           // Single call to Shopify Global Catalog
-          products = await GlobalCatalogService.search(args.searchQuery, args.budgetMax, excludeIds, countryCode);
+          products = await GlobalCatalogService.search(
+            args.searchQuery, 
+            args.budgetMax, 
+            excludeIds, 
+            countryCode,
+            args.isClothing
+          );
           
           // Provide results back to AI for final synthesis
           // Sanitize the product list to prevent token bloat and rate limits
