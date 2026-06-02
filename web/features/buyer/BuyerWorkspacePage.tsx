@@ -174,8 +174,8 @@ export default function Home({
       const lastMsg = messages[lastMessageIndex]
       if (lastMsg.loadingMore || lastMsg.hasNoMore) return
 
-      // Trigger load more if we are scrolled close to the bottom (within 200px)
-      const threshold = 200
+      // Trigger load more if we are scrolled close to the bottom (within 1200px)
+      const threshold = 1200
       const scrollBottomDiff = container.scrollHeight - container.scrollTop - container.clientHeight
       const isCloseToBottom = scrollBottomDiff < threshold
 
