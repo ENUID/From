@@ -15,9 +15,11 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   products?: Product[]
+  loadingMore?: boolean
+  hasNoMore?: boolean
 }
 
-type ConversationTurn = Pick<Message, 'role' | 'content'>
+type ConversationTurn = Pick<Message, 'role' | 'content' | 'products'>
 type View = 'discover' | 'history' | 'saved'
 
 type SearchHistoryEntry = {
@@ -274,6 +276,73 @@ export default function Home({
     }
   }
 
+  async function loadMoreProducts(messageIndex: number) {
+    const msg = messages[messageIndex]
+    if (!msg || loading) return
+
+    // Set loading state for this message
+    setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: true } : m))
+
+    try {
+      // Re-create history up to this message's turn
+      const historyUpToMessage = history.slice(0, messageIndex)
+
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'more', history: historyUpToMessage, savedProducts }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Request failed')
+
+      let newProducts = Array.isArray(data.products)
+        ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
+        : []
+
+      // Sort products by price
+      if (newProducts.length > 0) {
+        newProducts = [...newProducts].sort((a, b) => {
+          const priceA = convertCurrencyAmount(Number(a.price), a.base_currency || a.currency || 'USD', buyerContext.currency, rates)
+          const priceB = convertCurrencyAmount(Number(b.price), b.base_currency || b.currency || 'USD', buyerContext.currency, rates)
+          return priceA - priceB
+        })
+      }
+
+      // Append new products to this message and turn off loading
+      setMessages(prev => prev.map((m, idx) => {
+        if (idx === messageIndex) {
+          const existingIds = new Set((m.products || []).map(p => p.id))
+          const uniqueNew = newProducts.filter(p => !existingIds.has(p.id))
+          return {
+            ...m,
+            products: [...(m.products || []), ...uniqueNew],
+            loadingMore: false,
+            hasNoMore: uniqueNew.length === 0
+          }
+        }
+        return m
+      }))
+
+      // Also update history to keep it synced (history index is messageIndex - 1)
+      const historyIndex = messageIndex - 1;
+      setHistory(prev => prev.map((h, idx) => {
+        if (idx === historyIndex) {
+          const existingIds = new Set((h.products || []).map(p => p.id))
+          const uniqueNew = newProducts.filter(p => !existingIds.has(p.id))
+          return {
+            ...h,
+            products: [...(h.products || []), ...uniqueNew]
+          } as any
+        }
+        return h
+      }))
+
+    } catch (e) {
+      console.error('Error loading more products:', e)
+      setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: false } : m))
+    }
+  }
+
   function renderDiscoverView() {
     return (
       <>
@@ -301,18 +370,39 @@ export default function Home({
               </div>
 
               {message.products && message.products.length > 0 ? (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-[10px] w-full">
-                  {message.products.map((product, offset) => (
-                    <ProductCard
-                      key={product.id || `${index}-${offset}`}
-                      product={product}
-                      rates={rates}
-                      isBest={offset === 0}
-                      saved={savedIds.has(product.id)}
-                      onToggleSave={toggleSaved}
-                      onClick={() => setSelectedProduct(product)}
-                    />
-                  ))}
+                <div className="flex flex-col gap-4 w-full">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-[10px] w-full">
+                    {message.products.map((product, offset) => (
+                      <ProductCard
+                        key={product.id || `${index}-${offset}`}
+                        product={product}
+                        rates={rates}
+                        isBest={offset === 0}
+                        saved={savedIds.has(product.id)}
+                        onToggleSave={toggleSaved}
+                        onClick={() => setSelectedProduct(product)}
+                      />
+                    ))}
+                  </div>
+                  {!message.hasNoMore && message.products.length >= 10 && (
+                    <div className="flex justify-center mt-2">
+                      <button
+                        type="button"
+                        disabled={message.loadingMore}
+                        onClick={() => loadMoreProducts(index)}
+                        className="border border-[var(--m-border)] bg-[var(--bg-card)] rounded-[30px] p-[10px_24px] text-[13px] font-medium text-[var(--ink)] cursor-pointer hover:bg-[rgba(0,0,0,0.02)] transition-colors flex items-center gap-2"
+                      >
+                        {message.loadingMore ? (
+                          <>
+                            <div className="w-[14px] h-[14px] rounded-full border-[1.5px] border-[var(--m-border)] border-t-[var(--ink)] animate-spin" />
+                            Đang tải...
+                          </>
+                        ) : (
+                          'Xem thêm sản phẩm'
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
