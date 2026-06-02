@@ -67,6 +67,11 @@ export class GlobalCatalogService {
 
     // Helper to fetch from global UCP catalog
     const fetchFromCatalog = async (q: string) => {
+      const filters: any = { available: true };
+      if (countryCode) {
+        filters.ships_to = { country: countryCode.toUpperCase() };
+      }
+
       const payload = {
         jsonrpc: "2.0",
         method: "tools/call",
@@ -81,7 +86,7 @@ export class GlobalCatalogService {
             },
             catalog: {
               query: q,
-              filters: { available: true },
+              filters,
               pagination: { limit }
             }
           }
