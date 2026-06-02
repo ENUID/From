@@ -67,7 +67,7 @@ export default function ProductCard({
         height: '100%',
         gap: 8,
         cursor: 'pointer',
-        transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         position: 'relative',
         boxShadow: isBest ? '0 4px 12px rgba(90, 154, 90, 0.08)' : '0 2px 8px rgba(0, 0, 0, 0.02)',
       }}

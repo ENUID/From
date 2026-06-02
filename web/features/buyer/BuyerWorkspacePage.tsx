@@ -459,9 +459,9 @@ export default function Home({
       )}
 
       <aside
-        className={`bg-[var(--m-green)] flex flex-col shrink-0 gap-[8px] h-[100dvh] top-0 transition-[left] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] z-[1000] py-[22px] ${
+        className={`bg-[var(--m-green)] flex flex-col shrink-0 gap-[8px] h-[100dvh] top-0 transition-[transform] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] z-[1000] py-[22px] ${
           isMobile
-            ? `fixed w-[280px] items-stretch ${isSidebarOpen ? 'left-0 shadow-[20px_0_50px_rgba(0,0,0,0.15)]' : 'left-[-300px]'}`
+            ? `fixed w-[280px] items-stretch left-0 ${isSidebarOpen ? 'translate-x-0 shadow-[20px_0_50px_rgba(0,0,0,0.15)]' : 'translate-x-[-110%]'}`
             : 'relative w-[72px] items-center'
         }`}
       >
