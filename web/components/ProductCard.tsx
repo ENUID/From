@@ -67,18 +67,14 @@ export default function ProductCard({
         height: '100%',
         gap: 8,
         cursor: 'pointer',
-        transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'border-color 0.15s ease',
         position: 'relative',
         boxShadow: isBest ? '0 4px 12px rgba(90, 154, 90, 0.08)' : '0 2px 8px rgba(0, 0, 0, 0.02)',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.boxShadow = '0 12px 24px rgba(42, 59, 42, 0.1)'
-        e.currentTarget.style.transform = 'translateY(-4px)'
         e.currentTarget.style.borderColor = 'var(--m-green-mid)'
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = isBest ? '0 4px 12px rgba(90, 154, 90, 0.08)' : '0 2px 8px rgba(0, 0, 0, 0.02)'
-        e.currentTarget.style.transform = 'none'
         e.currentTarget.style.borderColor = isBest ? 'var(--m-green-mid)' : 'var(--m-border)'
       }}
     >
@@ -125,13 +121,6 @@ export default function ProductCard({
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              transition: 'transform 0.5s ease',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = 'scale(1.05)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'none'
             }}
           />
         ) : (

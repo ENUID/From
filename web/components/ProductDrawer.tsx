@@ -251,9 +251,7 @@ export default function ProductDrawer({
         alignItems: 'flex-end',
         justifyContent: 'center',
         background: 'rgba(23, 28, 23, 0.45)',
-        backdropFilter: 'blur(8px)',
         opacity: isMounted ? 1 : 0,
-        transition: 'opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
       onClick={onClose}
     >
@@ -271,7 +269,6 @@ export default function ProductDrawer({
           overflow: 'hidden',
           boxShadow: '0 -10px 40px rgba(0,0,0,0.12)',
           transform: isMounted ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
           border: '1px solid var(--m-border)',
           borderBottom: 'none',
         }}
