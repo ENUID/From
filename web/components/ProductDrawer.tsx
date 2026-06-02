@@ -105,21 +105,104 @@ export default function ProductDrawer({
     }
   }
 
+  // Strips HTML and extracts clean text with linebreaks
+  const getProductDescriptionText = () => {
+    if (!product.description) return '';
+    if (typeof product.description === 'string') {
+      return product.description;
+    }
+    const descObj = product.description as any;
+    if (descObj.html) {
+      let html = descObj.html;
+      html = html.replace(/<br\s*\/?>/gi, '\n');
+      html = html.replace(/<\/p>/gi, '\n');
+      html = html.replace(/<\/div>/gi, '\n');
+      html = html.replace(/<\/li>/gi, '\n');
+      html = html.replace(/<[^>]*>/g, '');
+      return html.trim();
+    }
+    return '';
+  };
+
+  const rawDescriptionText = getProductDescriptionText();
+
   // Parse materials from tags or description
   const extractMaterials = () => {
-    if (!product.tags) return 'Premium organic blend';
-    const materialTags = product.tags.filter(t => t && (t.includes('material') || t.includes('fabric')));
-    if (materialTags.length > 0) {
-      return materialTags.map(t => t.split('=>').pop()?.trim()).join(', ');
+    if (product.tags) {
+      const materialTags = product.tags.filter(t => t && (t.toLowerCase().includes('material') || t.toLowerCase().includes('fabric')));
+      if (materialTags.length > 0) {
+        return materialTags.map(t => t.split('=>').pop()?.trim()).join(', ');
+      }
     }
-    const matches = product.description?.match(/(cotton|linen|wool|silk|hemp|polyester|leather|canvas|cashmere)/i);
-    return matches ? matches[0] : 'Premium organic blend';
+    const matches = rawDescriptionText.match(/(cotton|linen|wool|silk|hemp|polyester|leather|canvas|cashmere|denim|viscose|nylon|spandex)/i);
+    return matches ? matches[0] : '';
   };
 
   const material = extractMaterials();
 
   // Return policy check
   const isReturnable = product.tags ? product.tags.some(t => t && (t.toLowerCase().includes('returnable => true') || t.toLowerCase().includes('return'))) : false;
+
+  // Extract Sizing details from merchant's description or tags
+  const extractSizingInfo = () => {
+    if (product.tags) {
+      const chartTag = product.tags.find(t => t && (t.toLowerCase().includes('size-chart') || t.toLowerCase().includes('size chart') || t.toLowerCase().includes('sizing')));
+      if (chartTag) {
+        return chartTag.split('=>').pop()?.trim() || '';
+      }
+    }
+
+    if (!rawDescriptionText) return '';
+    const lines = rawDescriptionText.split('\n');
+    const sizingLines = lines.filter((line: string) => {
+      const lower = line.toLowerCase();
+      return lower.includes('size chart') || 
+             lower.includes('size guide') || 
+             lower.includes('sizing') ||
+             lower.includes('chest:') ||
+             lower.includes('waist:') ||
+             lower.includes('inseam:') ||
+             lower.includes('fit guide') ||
+             lower.includes('measurements:');
+    });
+
+    if (sizingLines.length > 0) {
+      return sizingLines.map((l: string) => l.trim()).join('\n');
+    }
+    return '';
+  };
+
+  const sizingContent = extractSizingInfo();
+
+  // Extract Shipping/Delivery details from merchant's description or tags
+  const extractShippingInfo = () => {
+    let tagInfo = '';
+    if (product.tags) {
+      const shipTag = product.tags.find(t => t && (t.toLowerCase().includes('shipping') || t.toLowerCase().includes('delivery')));
+      const returnTag = product.tags.find(t => t && (t.toLowerCase().includes('return') || t.toLowerCase().includes('refund')));
+      if (shipTag) tagInfo += `Shipping: ${shipTag.split('=>').pop()?.trim()}\n`;
+      if (returnTag) tagInfo += `Returns: ${returnTag.split('=>').pop()?.trim()}\n`;
+    }
+
+    if (!rawDescriptionText) return tagInfo.trim();
+    const lines = rawDescriptionText.split('\n');
+    const shippingLines = lines.filter((line: string) => {
+      const lower = line.toLowerCase();
+      return lower.includes('ship') || 
+             lower.includes('deliver') || 
+             lower.includes('return') || 
+             lower.includes('refund') || 
+             lower.includes('dispatch') || 
+             lower.includes('courier');
+    });
+
+    if (shippingLines.length > 0 || tagInfo) {
+      return (tagInfo + '\n' + shippingLines.map((l: string) => l.trim()).join('\n')).trim();
+    }
+    return '';
+  };
+
+  const shippingContent = extractShippingInfo();
 
   const category = (() => {
     const title = product.title.toLowerCase();
@@ -163,90 +246,6 @@ export default function ProductDrawer({
     }
     return 'Machine wash cold. Gentle cycle. Hang dry or tumble dry on low heat settings.';
   };
-
-  const getDeliveryInfo = () => {
-    const currency = product.currency || 'USD';
-    const storeUrl = product.store_url || '';
-    
-    const isIndia = currency === 'INR' || storeUrl.includes('.in');
-    const isUK = currency === 'GBP' || storeUrl.includes('.uk') || storeUrl.includes('.co.uk');
-    const isEU = currency === 'EUR' || storeUrl.includes('.eu') || storeUrl.includes('.de') || storeUrl.includes('.fr') || storeUrl.includes('.it') || storeUrl.includes('.es');
-    const isAustralia = currency === 'AUD' || storeUrl.includes('.au');
-    const isCanada = currency === 'CAD' || storeUrl.includes('.ca');
-
-    if (isIndia) {
-      return {
-        carrier: 'Delhivery, Blue Dart & Xpressbees',
-        rates: [
-          { method: 'Standard Delivery', time: '3–6 business days', cost: 'Free above ₹999, otherwise ₹99' },
-          { method: 'Express Shipping', time: '1–3 business days', cost: 'Flat rate ₹199' }
-        ],
-        details: 'Orders are processed from local warehouses within 24-48 hours. Metro areas (Mumbai, Delhi, Bengaluru, etc.) typically receive packages in 2-3 business days. A tracking link via SMS & email is sent upon dispatch.',
-        returns: 'Easy 7-day returns and exchanges. Reverse pickup is arranged free of charge for manufacturing defects or sizing issues.'
-      };
-    }
-
-    if (isUK) {
-      return {
-        carrier: 'Royal Mail & DPD',
-        rates: [
-          { method: 'Standard Tracked', time: '2–4 business days', cost: 'Free above £50, otherwise £3.95' },
-          { method: 'DPD Next Day Delivery', time: 'Next working day', cost: 'Flat rate £6.95' }
-        ],
-        details: 'Orders placed before 2 PM GMT are dispatched same-day. You will receive a 1-hour delivery window notification from DPD on the day of delivery.',
-        returns: 'Hassle-free 30-day returns. Free returns via Royal Mail drop-off points or local Evri locker networks.'
-      };
-    }
-
-    if (isEU) {
-      return {
-        carrier: 'DHL Express & DPD Europe',
-        rates: [
-          { method: 'Standard Courier', time: '3–5 business days', cost: 'Free above €80, otherwise €5.95' },
-          { method: 'DHL Express Saver', time: '1–2 business days', cost: 'Flat rate €14.95' }
-        ],
-        details: 'Shipped from our European fulfillment centers. Fully tracked from dispatch to door. Carbon-neutral delivery options available.',
-        returns: '30-day return policy. Return labels can be printed online. Return shipping is free of charge for all EU members.'
-      };
-    }
-
-    if (isAustralia) {
-      return {
-        carrier: 'Australia Post & StarTrack',
-        rates: [
-          { method: 'Parcel Post', time: '3–7 business days', cost: 'Free above A$120, otherwise A$9.95' },
-          { method: 'Express Post', time: '1–3 business days', cost: 'Flat rate A$15.00' }
-        ],
-        details: 'Dispatched from Melbourne. Regional Western Australia and Northern Territory may require an additional 2-3 business days. Tracking details updated via AusPost app.',
-        returns: '30-day standard return policy. Print label at home and drop off at any Australia Post box or office.'
-      };
-    }
-
-    if (isCanada) {
-      return {
-        carrier: 'Canada Post & Intelcom',
-        rates: [
-          { method: 'Expedited Parcel', time: '3–7 business days', cost: 'Free above C$100, otherwise C$9.99' },
-          { method: 'Xpresspost', time: '1–3 business days', cost: 'Flat rate C$19.99' }
-        ],
-        details: 'Shipped from Toronto or Vancouver depending on proximity. Tracking code sent immediately upon shipping carrier scan.',
-        returns: '30-day return window. Easy online return portal with pre-paid Canada Post shipping labels.'
-      };
-    }
-
-    // Default (US / International)
-    return {
-      carrier: 'USPS, UPS & FedEx',
-      rates: [
-        { method: 'Standard Ground', time: '3–6 business days', cost: 'Free above $75, otherwise $5.99' },
-        { method: 'FedEx Express', time: '1–3 business days', cost: 'Flat rate $15.00' }
-      ],
-      details: 'Orders are processed and shipped directly from the merchant\'s warehouse within 1–2 business days. Once dispatched, a tracking link will be sent to your email.',
-      returns: 'Standard 30-day returns. Easy online portal access to print shipping labels. Items must be unworn and in original packaging.'
-    };
-  };
-
-  const delivery = getDeliveryInfo();
 
   return (
     <div 
@@ -484,10 +483,10 @@ export default function ProductDrawer({
                 <div style={{ borderTop: '1px solid var(--m-border)', marginTop: 12, paddingTop: 16 }}>
                   <div style={{ display: 'flex', borderBottom: '1px solid var(--m-border)', marginBottom: 12, gap: 16 }}>
                     {[
-                      { id: 'details', label: 'Details' },
-                      { id: 'sizeChart', label: 'Size Chart' },
-                      { id: 'shipping', label: 'Delivery' }
-                    ].map(tab => (
+                      { id: 'details', label: 'Details', show: true },
+                      { id: 'sizeChart', label: 'Size Guide', show: !!sizingContent },
+                      { id: 'shipping', label: 'Delivery & Returns', show: !!shippingContent }
+                    ].filter(t => t.show).map(tab => (
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
@@ -512,256 +511,60 @@ export default function ProductDrawer({
                   <div style={{ minHeight: '150px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink2)' }}>
                     {activeTab === 'details' && (
                       <div>
-                        <p style={{ marginBottom: 16, fontSize: 13.5, color: 'var(--ink)' }}>{product.description || "No description provided by merchant."}</p>
+                        <p style={{ marginBottom: 16, fontSize: 13.5, color: 'var(--ink)' }}>{rawDescriptionText || "No description provided by merchant."}</p>
                         
-                        <div style={{ 
-                          background: 'var(--bg)', 
-                          borderRadius: 12, 
-                          padding: '16px', 
-                          border: '1px solid var(--m-border)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 12
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: 8 }}>
-                            <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Material</span>
-                            <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{material}</span>
-                          </div>
-                          
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: 8 }}>
-                            <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Fabric Care</span>
-                            <span style={{ fontSize: 12.5, color: 'var(--ink2)' }}>{getCareInstructions(material)}</span>
-                          </div>
+                        {(material || isReturnable) && (
+                          <div style={{ 
+                            background: 'var(--bg)', 
+                            borderRadius: 12, 
+                            padding: '16px', 
+                            border: '1px solid var(--m-border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 12
+                          }}>
+                            {material && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: isReturnable ? '1px solid rgba(0,0,0,0.03)' : 'none', paddingBottom: isReturnable ? 8 : 0 }}>
+                                <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Material</span>
+                                <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{material}</span>
+                              </div>
+                            )}
+                            
+                            {material && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderBottom: isReturnable ? '1px solid rgba(0,0,0,0.03)' : 'none', paddingBottom: isReturnable ? 8 : 0 }}>
+                                <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Fabric Care</span>
+                                <span style={{ fontSize: 12.5, color: 'var(--ink2)' }}>{getCareInstructions(material)}</span>
+                              </div>
+                            )}
 
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Returns</span>
-                            <span style={{ fontWeight: 500, color: 'var(--ink)' }}>
-                              {isReturnable ? "Easy 30-Day Returns (via Loop)" : "Standard 30-Day Returns"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {activeTab === 'sizeChart' && (
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <span style={{ fontSize: 12, color: 'var(--ink3)' }}>
-                            {category === 'footwear' ? 'Footwear size conversion guide:' : 'Sizing measurement guide:'}
-                          </span>
-                          {category !== 'other' && (
-                            <div style={{ display: 'flex', background: 'var(--bg)', border: '1px solid var(--m-border)', borderRadius: 6, padding: 2 }}>
-                              <button
-                                onClick={() => setSizeUnit('in')}
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  padding: '2px 8px',
-                                  borderRadius: 4,
-                                  border: 'none',
-                                  background: sizeUnit === 'in' ? 'var(--m-green)' : 'transparent',
-                                  color: sizeUnit === 'in' ? '#fff' : 'var(--ink3)',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.15s ease',
-                                }}
-                              >
-                                {category === 'footwear' ? 'US' : 'IN'}
-                              </button>
-                              <button
-                                onClick={() => setSizeUnit('cm')}
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  padding: '2px 8px',
-                                  borderRadius: 4,
-                                  border: 'none',
-                                  background: sizeUnit === 'cm' ? 'var(--m-green)' : 'transparent',
-                                  color: sizeUnit === 'cm' ? '#fff' : 'var(--ink3)',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.15s ease',
-                                }}
-                              >
-                                {category === 'footwear' ? 'EU' : 'CM'}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {category === 'footwear' ? (
-                          <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--m-border)', borderRadius: 8 }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12.5 }}>
-                              <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card)', borderBottom: '1px solid var(--m-border)', zIndex: 1 }}>
-                                <tr style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink3)' }}>
-                                  <th style={{ padding: '8px 6px' }}>US M</th>
-                                  <th style={{ padding: '8px 6px' }}>US W</th>
-                                  <th style={{ padding: '8px 6px' }}>UK</th>
-                                  <th style={{ padding: '8px 6px' }}>EU</th>
-                                  <th style={{ padding: '8px 6px' }}>Length</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {[
-                                  { usm: '7.0', usw: '8.5', uk: '6.0', eu: '40', cm: '25.0', in: '9.8' },
-                                  { usm: '8.0', usw: '9.5', uk: '7.0', eu: '41', cm: '26.0', in: '10.2' },
-                                  { usm: '9.0', usw: '10.5', uk: '8.0', eu: '42.5', cm: '27.0', in: '10.6' },
-                                  { usm: '10.0', usw: '11.5', uk: '9.0', eu: '44', cm: '28.0', in: '11.0' },
-                                  { usm: '11.0', usw: '12.5', uk: '10.0', eu: '45', cm: '29.0', in: '11.4' },
-                                  { usm: '12.0', usw: '13.5', uk: '11.0', eu: '46', cm: '30.0', in: '11.8' }
-                                ].map((row, rIdx) => (
-                                  <tr key={rIdx} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', background: rIdx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)' }}>
-                                    <td style={{ padding: '8px 6px', fontWeight: sizeUnit === 'in' ? 700 : 500, color: sizeUnit === 'in' ? 'var(--m-green)' : 'var(--ink)' }}>{row.usm}</td>
-                                    <td style={{ padding: '8px 6px', fontWeight: 500 }}>{row.usw}</td>
-                                    <td style={{ padding: '8px 6px', fontWeight: 500 }}>{row.uk}</td>
-                                    <td style={{ padding: '8px 6px', fontWeight: sizeUnit === 'cm' ? 700 : 500, color: sizeUnit === 'cm' ? 'var(--m-green)' : 'var(--ink)' }}>{row.eu}</td>
-                                    <td style={{ padding: '8px 6px', color: 'var(--ink3)' }}>{row.cm} cm / {row.in}"</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : category === 'apparel' ? (
-                          <div style={{ border: '1px solid var(--m-border)', borderRadius: 8, overflow: 'hidden' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12.5 }}>
-                              <thead style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--m-border)' }}>
-                                <tr style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink3)' }}>
-                                  <th style={{ padding: '8px 12px' }}>Size</th>
-                                  {isBottoms ? (
-                                    <>
-                                      <th style={{ padding: '8px 6px' }}>Waist</th>
-                                      <th style={{ padding: '8px 6px' }}>Inseam</th>
-                                      <th style={{ padding: '8px 6px' }}>Hip</th>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <th style={{ padding: '8px 6px' }}>Chest</th>
-                                      <th style={{ padding: '8px 6px' }}>Waist</th>
-                                      <th style={{ padding: '8px 6px' }}>Length</th>
-                                    </>
-                                  )}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {isBottoms ? (
-                                  sizeUnit === 'in' ? (
-                                    [
-                                      { sz: 'XS (28)', wa: '28" - 29"', ins: '30"', hp: '34" - 35"' },
-                                      { sz: 'S (30)', wa: '30" - 31"', ins: '30"', hp: '36" - 37"' },
-                                      { sz: 'M (32)', wa: '32" - 33"', ins: '32"', hp: '38" - 39"' },
-                                      { sz: 'L (34)', wa: '34" - 35"', ins: '32"', hp: '40" - 41"' },
-                                      { sz: 'XL (36)', wa: '36" - 38"', ins: '34"', hp: '42" - 44"' },
-                                      { sz: 'XXL (38)', wa: '38" - 40"', ins: '34"', hp: '44" - 46"' }
-                                    ].map((row, rIdx) => (
-                                      <tr key={rIdx} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', background: rIdx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)' }}>
-                                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--ink)' }}>{row.sz}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.wa}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.ins}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.hp}</td>
-                                      </tr>
-                                    ))
-                                  ) : (
-                                    [
-                                      { sz: 'XS (28)', wa: '71 - 74 cm', ins: '76 cm', hp: '86 - 89 cm' },
-                                      { sz: 'S (30)', wa: '76 - 79 cm', ins: '76 cm', hp: '91 - 94 cm' },
-                                      { sz: 'M (32)', wa: '81 - 84 cm', ins: '81 cm', hp: '96 - 99 cm' },
-                                      { sz: 'L (34)', wa: '86 - 89 cm', ins: '81 cm', hp: '101 - 104 cm' },
-                                      { sz: 'XL (36)', wa: '91 - 96 cm', ins: '86 cm', hp: '106 - 112 cm' },
-                                      { sz: 'XXL (38)', wa: '96 - 101 cm', ins: '86 cm', hp: '112 - 117 cm' }
-                                    ].map((row, rIdx) => (
-                                      <tr key={rIdx} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', background: rIdx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)' }}>
-                                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--ink)' }}>{row.sz}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.wa}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.ins}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.hp}</td>
-                                      </tr>
-                                    ))
-                                  )
-                                ) : (
-                                  sizeUnit === 'in' ? (
-                                    [
-                                      { sz: 'S', ch: '35" - 37"', wa: '29" - 31"', len: '28"' },
-                                      { sz: 'M', ch: '38" - 40"', wa: '32" - 34"', len: '29"' },
-                                      { sz: 'L', ch: '41" - 43"', wa: '35" - 37"', len: '30"' },
-                                      { sz: 'XL', ch: '44" - 46"', wa: '38" - 40"', len: '31"' },
-                                      { sz: 'XXL', ch: '47" - 49"', wa: '41" - 43"', len: '32"' }
-                                    ].map((row, rIdx) => (
-                                      <tr key={rIdx} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', background: rIdx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)' }}>
-                                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--ink)' }}>{row.sz}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.ch}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.wa}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.len}</td>
-                                      </tr>
-                                    ))
-                                  ) : (
-                                    [
-                                      { sz: 'S', ch: '89 - 94 cm', wa: '74 - 79 cm', len: '71 cm' },
-                                      { sz: 'M', ch: '96 - 102 cm', wa: '81 - 86 cm', len: '74 cm' },
-                                      { sz: 'L', ch: '104 - 109 cm', wa: '89 - 94 cm', len: '76 cm' },
-                                      { sz: 'XL', ch: '112 - 117 cm', wa: '96 - 102 cm', len: '79 cm' },
-                                      { sz: 'XXL', ch: '119 - 124 cm', wa: '104 - 109 cm', len: '81 cm' }
-                                    ].map((row, rIdx) => (
-                                      <tr key={rIdx} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', background: rIdx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)' }}>
-                                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--ink)' }}>{row.sz}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.ch}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.wa}</td>
-                                        <td style={{ padding: '8px 6px' }}>{row.len}</td>
-                                      </tr>
-                                    ))
-                                  )
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <div style={{ textAlign: 'center', padding: '20px 16px', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--m-border)' }}>
-                            <span style={{ fontSize: 24, display: 'block', marginBottom: 8 }}>📏</span>
-                            <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>One Size / Universal Fit</h4>
-                            <p style={{ fontSize: 13, color: 'var(--ink2)', margin: 0, lineHeight: 1.5 }}>
-                              This product is designed as a universal one-size fit. Adjustable components cover standard adult dimensions.
-                            </p>
+                            {isReturnable && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--ink3)' }}>Returns</span>
+                                <span style={{ fontWeight: 500, color: 'var(--ink)' }}>
+                                  Easy 30-Day Returns
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     )}
 
-                    {activeTab === 'shipping' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {/* Shipping Rates Box */}
-                        <div style={{ background: 'var(--bg)', borderRadius: 12, padding: '16px', border: '1px solid var(--m-border)' }}>
-                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}>
-                            🚚 Shipping Methods & Rates
-                          </h4>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {delivery.rates.map((rate, rIdx) => (
-                              <div key={rIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: rIdx < delivery.rates.length - 1 ? '1px solid rgba(0,0,0,0.03)' : 'none', paddingBottom: rIdx < delivery.rates.length - 1 ? 8 : 0 }}>
-                                <div>
-                                  <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}>{rate.method}</div>
-                                  <div style={{ fontSize: 12, color: 'var(--ink3)' }}>Est. Delivery: {rate.time}</div>
-                                </div>
-                                <div style={{ fontWeight: 600, color: 'var(--m-green)', fontSize: 13 }}>{rate.cost}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                    {activeTab === 'sizeChart' && sizingContent && (
+                      <div style={{ background: 'var(--bg)', borderRadius: 12, padding: '16px', border: '1px solid var(--m-border)', whiteSpace: 'pre-line', fontSize: 13, color: 'var(--ink2)' }}>
+                        <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 8, fontSize: 13.5 }}>
+                          📏 Size Guide & Fit
+                        </h4>
+                        {sizingContent}
+                      </div>
+                    )}
 
-                        {/* Dispatch Details */}
-                        <div>
-                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}>
-                            📦 Fulfillment Partners
-                          </h4>
-                          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink2)' }}>
-                            Shipped via <strong>{delivery.carrier}</strong>. {delivery.details}
-                          </p>
-                        </div>
-
-                        {/* Returns & Exchange info */}
-                        <div>
-                          <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}>
-                            🔄 Returns & Exchanges
-                          </h4>
-                          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink2)' }}>
-                            {delivery.returns}
-                          </p>
-                        </div>
+                    {activeTab === 'shipping' && shippingContent && (
+                      <div style={{ background: 'var(--bg)', borderRadius: 12, padding: '16px', border: '1px solid var(--m-border)', whiteSpace: 'pre-line', fontSize: 13, color: 'var(--ink2)' }}>
+                        <h4 style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 8, fontSize: 13.5 }}>
+                          🚚 Delivery & Returns Info
+                        </h4>
+                        {shippingContent}
                       </div>
                     )}
                   </div>
