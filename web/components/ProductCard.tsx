@@ -4,20 +4,6 @@ import { useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
-export const normalizeImageUrl = (url?: string): string => {
-  if (!url) return '';
-  let trimmed = url.trim();
-  if (trimmed.startsWith('//')) {
-    trimmed = `https:${trimmed}`;
-  } else if (trimmed.startsWith('http://')) {
-    trimmed = `https://${trimmed.slice(7)}`;
-  }
-  if (trimmed.startsWith('/') || trimmed.startsWith('data:') || trimmed.includes('localhost') || trimmed.includes('127.0.0.1')) {
-    return trimmed;
-  }
-  return `https://wsrv.nl/?url=${encodeURIComponent(trimmed)}`;
-};
-
 export interface Product {
   id: string
   title: string
@@ -64,7 +50,7 @@ export default function ProductCard({
   ctaLabel = 'Quick View',
   onClick,
 }: Props) {
-  const [imageState, setImageState] = useState<'proxy' | 'raw' | 'error'>('proxy')
+  const [imageError, setImageError] = useState(false)
   const hasUrl = product.store_url && product.store_url !== '#'
   const shortDesc = product.description ? (product.description.length > 55 ? `${product.description.substring(0, 55).trim()}...` : product.description) : ''
 
@@ -129,19 +115,12 @@ export default function ProductCard({
           background: '#F9F9FB',
         }}
       >
-        {product.image_url && imageState !== 'error' ? (
+        {product.image_url && !imageError ? (
           <img
-            src={imageState === 'proxy' ? normalizeImageUrl(product.image_url) : product.image_url}
+            src={product.image_url}
             alt={product.title}
             loading="lazy"
-            onError={() => {
-              const proxied = normalizeImageUrl(product.image_url);
-              if (imageState === 'proxy' && proxied !== product.image_url) {
-                setImageState('raw');
-              } else {
-                setImageState('error');
-              }
-            }}
+            onError={() => setImageError(true)}
             style={{
               width: '100%',
               height: '100%',

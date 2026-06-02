@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { formatMoney } from '@/lib/currency'
 import { ExchangeRates } from '@/lib/exchangeRates'
-import { Product, normalizeImageUrl } from './ProductCard'
+import type { Product } from './ProductCard'
 
 interface Props {
   product: Product
@@ -20,7 +20,7 @@ export default function ProductDrawer({
 }: Props) {
   const [isMounted, setIsMounted] = useState(false)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
-  const [imageStates, setImageStates] = useState<Record<number, 'proxy' | 'raw' | 'error'>>({})
+  const [failedImages, setFailedImages] = useState<Record<number, boolean>>({})
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<'details' | 'sizeChart' | 'shipping'>('details')
   const [isMobile, setIsMobile] = useState(false)
@@ -29,27 +29,23 @@ export default function ProductDrawer({
   // Get all unique images across root image, root media, and variant media
   const getUniqueImages = () => {
     const list: string[] = [];
-    const addImg = (url?: string) => {
-      if (!url || url.trim().length === 0) return;
-      const normalized = normalizeImageUrl(url);
-      if (!list.includes(normalized)) {
-        list.push(normalized);
-      }
-    };
-
-    if (product.image_url) {
-      addImg(product.image_url);
+    if (product.image_url && product.image_url.trim().length > 0) {
+      list.push(product.image_url);
     }
     if (product.media && product.media.length > 0) {
       product.media.forEach(m => {
-        addImg(m.url);
+        if (m.url && !list.includes(m.url)) {
+          list.push(m.url);
+        }
       });
     }
     if (product.variants && product.variants.length > 0) {
       product.variants.forEach(v => {
         if (v.media && v.media.length > 0) {
           v.media.forEach(m => {
-            addImg(m.url);
+            if (m.url && !list.includes(m.url)) {
+              list.push(m.url);
+            }
           });
         }
       });
@@ -58,20 +54,6 @@ export default function ProductDrawer({
   };
 
   const images = getUniqueImages();
-
-  const getImgSrcAndOnError = (index: number, originalUrl: string) => {
-    const proxied = normalizeImageUrl(originalUrl);
-    const state = imageStates[index] || 'proxy';
-    const src = state === 'proxy' ? proxied : originalUrl;
-    const onError = () => {
-      if (state === 'proxy' && proxied !== originalUrl) {
-        setImageStates(prev => ({ ...prev, [index]: 'raw' }));
-      } else {
-        setImageStates(prev => ({ ...prev, [index]: 'error' }));
-      }
-    };
-    return { src, state, onError };
-  };
 
   useEffect(() => {
     setIsMounted(true)
@@ -352,11 +334,11 @@ export default function ProductDrawer({
                   justifyContent: 'center'
                 }}
               >
-                {images.length > 0 && imageStates[activeImageIndex] !== 'error' ? (
+                {images.length > 0 && !failedImages[activeImageIndex] ? (
                   <img 
-                    src={getImgSrcAndOnError(activeImageIndex, images[activeImageIndex]).src} 
+                    src={images[activeImageIndex]} 
                     alt={product.title} 
-                    onError={getImgSrcAndOnError(activeImageIndex, images[activeImageIndex]).onError}
+                    onError={() => setFailedImages(prev => ({ ...prev, [activeImageIndex]: true }))}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                   />
                 ) : (
@@ -395,11 +377,11 @@ export default function ProductDrawer({
                         transition: 'border 0.2s',
                       }}
                     >
-                      {imageStates[idx] !== 'error' ? (
+                      {!failedImages[idx] ? (
                         <img 
-                          src={getImgSrcAndOnError(idx, img).src} 
+                          src={img} 
                           alt={`Thumbnail ${idx}`} 
-                          onError={getImgSrcAndOnError(idx, img).onError}
+                          onError={() => setFailedImages(prev => ({ ...prev, [idx]: true }))}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                         />
                       ) : (
