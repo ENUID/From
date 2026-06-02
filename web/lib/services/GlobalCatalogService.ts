@@ -68,9 +68,9 @@ export class GlobalCatalogService {
     }
 
     // Helper to fetch from global UCP catalog
-    const fetchFromCatalog = async (q: string) => {
+    const fetchFromCatalog = async (q: string, useShippingFilter: boolean = true) => {
       const filters: any = { available: true };
-      if (countryCode) {
+      if (countryCode && useShippingFilter) {
         filters.ships_to = { country: countryCode.toUpperCase() };
       }
 
@@ -110,31 +110,8 @@ export class GlobalCatalogService {
       }
     };
 
-    let rawProducts: any[] = [];
-
-    // Prioritize local results if country mapping is found
-    if (countryCode && COUNTRY_MAP[countryCode.toUpperCase()]) {
-      const countryName = COUNTRY_MAP[countryCode.toUpperCase()];
-      if (!query.toLowerCase().includes(countryName.toLowerCase())) {
-        const localProducts = await fetchFromCatalog(`${query} ${countryName}`);
-        const globalProducts = await fetchFromCatalog(query);
-        const merged = [...localProducts];
-        for (const gp of globalProducts) {
-          if (!merged.some(p => p.id === gp.id)) {
-            merged.push(gp);
-          }
-        }
-        rawProducts = merged;
-      } else {
-        rawProducts = await fetchFromCatalog(query);
-      }
-    } else {
-      rawProducts = await fetchFromCatalog(query);
-    }
-
-    const products: UcpProduct[] = [];
-
-    for (const p of rawProducts) {
+    // DRY Helper to parse raw product to UcpProduct
+    const parseProduct = (p: any): UcpProduct | null => {
       try {
         const variant = p.variants?.[0] || {};
         const priceAmount = variant.price?.amount ?? p.price_range?.min?.amount ?? 0;
@@ -146,7 +123,6 @@ export class GlobalCatalogService {
 
         let store_url = variant.url || p.url || `https://${variant.seller?.domain}/products/${p.id.split('/').pop()}`;
         
-        // Append affiliate tracking
         try {
           const urlObj = new URL(store_url);
           urlObj.searchParams.set('ref', 'from_ai_affiliate');
@@ -184,16 +160,14 @@ export class GlobalCatalogService {
           };
         });
 
-        // Parse media
         const parsedMedia = p.media || [];
-
         const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
 
-        products.push({
+        return {
           id: p.id,
           title: p.title || 'Untitled Product',
           vendor,
-          price: isZeroDecimal ? priceAmount : priceAmount / 100, // Convert cents to currency units
+          price: isZeroDecimal ? priceAmount : priceAmount / 100,
           currency,
           store_url,
           image_url: p.media?.[0]?.url || variant.media?.[0]?.url || '',
@@ -203,22 +177,95 @@ export class GlobalCatalogService {
           options: parsedOptions && parsedOptions.length > 0 ? parsedOptions : undefined,
           variants: parsedVariants,
           media: parsedMedia
-        });
+        };
       } catch (err) {
         console.warn('Error parsing individual Shopify product:', err);
+        return null;
       }
+    };
+
+    let rawProducts: any[] = [];
+
+    // Prioritize local results if country mapping is found (Using shipping filter)
+    if (countryCode && COUNTRY_MAP[countryCode.toUpperCase()]) {
+      const countryName = COUNTRY_MAP[countryCode.toUpperCase()];
+      if (!query.toLowerCase().includes(countryName.toLowerCase())) {
+        const localProducts = await fetchFromCatalog(`${query} ${countryName}`, true);
+        const globalProducts = await fetchFromCatalog(query, true);
+        const merged = [...localProducts];
+        for (const gp of globalProducts) {
+          if (!merged.some(p => p.id === gp.id)) {
+            merged.push(gp);
+          }
+        }
+        rawProducts = merged;
+      } else {
+        rawProducts = await fetchFromCatalog(query, true);
+      }
+    } else {
+      rawProducts = await fetchFromCatalog(query, true);
     }
 
-    searchCache.set(cacheKey, { timestamp: Date.now(), products });
+    // Parse primary results
+    const products: UcpProduct[] = [];
+    for (const p of rawProducts) {
+      const parsed = parseProduct(p);
+      if (parsed) products.push(parsed);
+    }
 
-    let finalProducts = products;
+    // Apply exclusions and budget filters to primary list
+    let filteredProducts = products;
     if (excludeIds.length > 0) {
-      finalProducts = finalProducts.filter(p => !excludeIds.includes(p.id));
+      filteredProducts = filteredProducts.filter(p => !excludeIds.includes(p.id));
     }
     if (budgetMax && budgetMax > 0) {
-      finalProducts = finalProducts.filter(p => p.price <= budgetMax);
+      filteredProducts = filteredProducts.filter(p => p.price <= budgetMax);
     }
 
-    return finalProducts.slice(0, limit);
+    // FALLBACK DECK: If we got fewer than the target limit after strict shipping filtering
+    if (filteredProducts.length < limit && countryCode) {
+      let fallbackRaw: any[] = [];
+      if (COUNTRY_MAP[countryCode.toUpperCase()]) {
+        const countryName = COUNTRY_MAP[countryCode.toUpperCase()];
+        if (!query.toLowerCase().includes(countryName.toLowerCase())) {
+          const localFallback = await fetchFromCatalog(`${query} ${countryName}`, false);
+          const globalFallback = await fetchFromCatalog(query, false);
+          const mergedFallback = [...localFallback];
+          for (const gp of globalFallback) {
+            if (!mergedFallback.some(p => p.id === gp.id)) {
+              mergedFallback.push(gp);
+            }
+          }
+          fallbackRaw = mergedFallback;
+        } else {
+          fallbackRaw = await fetchFromCatalog(query, false);
+        }
+      } else {
+        fallbackRaw = await fetchFromCatalog(query, false);
+      }
+
+      // Parse and filter fallback results, avoiding duplicates from the primary list
+      const fallbackProducts: UcpProduct[] = [];
+      for (const p of fallbackRaw) {
+        if (products.some(existing => existing.id === p.id)) continue;
+        const parsed = parseProduct(p);
+        if (parsed) fallbackProducts.push(parsed);
+      }
+
+      let filteredFallback = fallbackProducts;
+      if (excludeIds.length > 0) {
+        filteredFallback = filteredFallback.filter(p => !excludeIds.includes(p.id));
+      }
+      if (budgetMax && budgetMax > 0) {
+        filteredFallback = filteredFallback.filter(p => p.price <= budgetMax);
+      }
+
+      // Append fallback products to fill up the slots
+      filteredProducts = [...filteredProducts, ...filteredFallback];
+    }
+
+    searchCache.set(cacheKey, { timestamp: Date.now(), products: filteredProducts });
+
+    return filteredProducts.slice(0, limit);
   }
 }
