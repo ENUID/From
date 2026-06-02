@@ -29,23 +29,27 @@ export default function ProductDrawer({
   // Get all unique images across root image, root media, and variant media
   const getUniqueImages = () => {
     const list: string[] = [];
-    if (product.image_url && product.image_url.trim().length > 0) {
-      list.push(product.image_url);
+    const addImg = (url?: string) => {
+      if (!url || url.trim().length === 0) return;
+      const normalized = url.startsWith('//') ? `https:${url}` : url;
+      if (!list.includes(normalized)) {
+        list.push(normalized);
+      }
+    };
+
+    if (product.image_url) {
+      addImg(product.image_url);
     }
     if (product.media && product.media.length > 0) {
       product.media.forEach(m => {
-        if (m.url && !list.includes(m.url)) {
-          list.push(m.url);
-        }
+        addImg(m.url);
       });
     }
     if (product.variants && product.variants.length > 0) {
       product.variants.forEach(v => {
         if (v.media && v.media.length > 0) {
           v.media.forEach(m => {
-            if (m.url && !list.includes(m.url)) {
-              list.push(m.url);
-            }
+            addImg(m.url);
           });
         }
       });
