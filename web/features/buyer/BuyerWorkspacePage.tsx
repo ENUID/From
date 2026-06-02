@@ -138,6 +138,34 @@ export default function Home({
   }, [messages, loading, activeView, hasConversation])
 
   useEffect(() => {
+    const container = containerRef.current
+    if (!container || loading) return
+
+    const handleScroll = () => {
+      // Find the last assistant message index that has products
+      const lastMessageIndex = messages
+        .map((m, i) => ({ m, i }))
+        .filter(({ m }) => m.role === 'assistant' && m.products && m.products.length > 0)
+        .pop()?.i
+
+      if (lastMessageIndex === undefined) return
+      const lastMsg = messages[lastMessageIndex]
+      if (lastMsg.loadingMore || lastMsg.hasNoMore) return
+
+      // Trigger load more if we are scrolled close to the bottom (within 200px)
+      const threshold = 200
+      const isCloseToBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+
+      if (isCloseToBottom) {
+        loadMoreProducts(lastMessageIndex)
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll)
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [messages, loading, history, savedProducts])
+
+  useEffect(() => {
     try {
       const savedRaw = window.localStorage.getItem(SAVED_KEY)
       const historyRaw = window.localStorage.getItem(HISTORY_KEY)
@@ -384,23 +412,10 @@ export default function Home({
                       />
                     ))}
                   </div>
-                  {!message.hasNoMore && message.products.length >= 10 && (
-                    <div className="flex justify-center mt-2">
-                      <button
-                        type="button"
-                        disabled={message.loadingMore}
-                        onClick={() => loadMoreProducts(index)}
-                        className="border border-[var(--m-border)] bg-[var(--bg-card)] rounded-[30px] p-[10px_24px] text-[13px] font-medium text-[var(--ink)] cursor-pointer hover:bg-[rgba(0,0,0,0.02)] transition-colors flex items-center gap-2"
-                      >
-                        {message.loadingMore ? (
-                          <>
-                            <div className="w-[14px] h-[14px] rounded-full border-[1.5px] border-[var(--m-border)] border-t-[var(--ink)] animate-spin" />
-                            Đang tải...
-                          </>
-                        ) : (
-                          'Xem thêm sản phẩm'
-                        )}
-                      </button>
+                  {message.loadingMore && (
+                    <div className="flex justify-center items-center py-4 w-full gap-2 text-[13px] text-[var(--ink3)] animate-pulse">
+                      <div className="w-[14px] h-[14px] rounded-full border-[1.5px] border-[var(--m-border)] border-t-[var(--ink)] animate-spin" />
+                      Đang tìm thêm sản phẩm...
                     </div>
                   )}
                 </div>
