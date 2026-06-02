@@ -447,19 +447,16 @@ export default function Home({
                     ))}
                   </div>
                   {message.loadingMore && (
-                    <div className="flex items-center gap-[6px] p-[10px_14px] bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[18px_18px_18px_4px] w-fit text-[12.5px] text-[var(--ink-2)] mt-2">
-                      <span>Để mình tìm thêm vài sản phẩm nữa nhé</span>
-                      <div className="flex gap-[3px] items-center ml-1">
-                        {[0, 0.18, 0.36].map(delay => (
-                          <div
-                            key={delay}
-                            className="w-[4.5px] h-[4.5px] rounded-full bg-[var(--ink3)]"
-                            style={{
-                              animation: `bounce 1.1s ${delay}s ease-in-out infinite`,
-                            }}
-                          />
-                        ))}
-                      </div>
+                    <div className="flex gap-[5px] p-[12px_18px] bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[18px_18px_18px_4px] w-fit mt-2">
+                      {[0, 0.18, 0.36].map(delay => (
+                        <div
+                          key={delay}
+                          className="w-[5px] h-[5px] rounded-full bg-[var(--ink3)]"
+                          style={{
+                            animation: `bounce 1.1s ${delay}s ease-in-out infinite`,
+                          }}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
