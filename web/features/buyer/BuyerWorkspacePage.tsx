@@ -1,6 +1,6 @@
 'use client'
 
-import { KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import ProductCard, { Product } from '@/components/ProductCard'
 import ProductDrawer from '@/components/ProductDrawer'
 import DiscoverView from '@/features/buyer/components/DiscoverView'
@@ -10,6 +10,8 @@ import { convertCurrencyAmount } from '@/lib/currency'
 import { useSession } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 interface Message {
   role: 'user' | 'assistant'
@@ -87,6 +89,16 @@ export default function Home({
   const [rates] = useState(initialRates)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const prevMessagesLengthRef = useRef(messages.length)
+  const prevScrollTopRef = useRef<number | null>(null)
+
+  useIsomorphicLayoutEffect(() => {
+    if (containerRef.current && prevScrollTopRef.current !== null) {
+      console.log('[SCROLL PRESERVE] Restoring scrollTop to:', prevScrollTopRef.current)
+      containerRef.current.scrollTop = prevScrollTopRef.current
+      prevScrollTopRef.current = null
+    }
+  }, [messages])
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -104,6 +116,16 @@ export default function Home({
     // Only apply chat auto-scrolling in discover view with active conversation
     if (activeView !== 'discover' || !hasConversation) {
       container.scrollTop = 0
+      prevMessagesLengthRef.current = messages.length
+      return
+    }
+
+    // Only auto-scroll if message count changed OR if loading state changed
+    const lengthChanged = messages.length !== prevMessagesLengthRef.current
+    prevMessagesLengthRef.current = messages.length
+
+    if (!lengthChanged && !loading) {
+      // Do nothing! We are just loading more products inline or updating states!
       return
     }
 
@@ -135,7 +157,7 @@ export default function Home({
       top: container.scrollHeight,
       behavior: 'auto'
     })
-  }, [messages, loading, activeView, hasConversation])
+  }, [messages.length, loading, activeView, hasConversation])
 
   useEffect(() => {
     const container = containerRef.current
@@ -154,7 +176,8 @@ export default function Home({
 
       // Trigger load more if we are scrolled close to the bottom (within 200px)
       const threshold = 200
-      const isCloseToBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+      const scrollBottomDiff = container.scrollHeight - container.scrollTop - container.clientHeight
+      const isCloseToBottom = scrollBottomDiff < threshold
 
       if (isCloseToBottom) {
         loadMoreProducts(lastMessageIndex)
@@ -309,6 +332,9 @@ export default function Home({
     if (!msg || loading) return
 
     // Set loading state for this message
+    if (containerRef.current) {
+      prevScrollTopRef.current = containerRef.current.scrollTop
+    }
     setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: true } : m))
 
     try {
@@ -334,6 +360,11 @@ export default function Home({
           const priceB = convertCurrencyAmount(Number(b.price), b.base_currency || b.currency || 'USD', buyerContext.currency, rates)
           return priceA - priceB
         })
+      }
+
+      // Record scroll position before state update to prevent scroll jump
+      if (containerRef.current) {
+        prevScrollTopRef.current = containerRef.current.scrollTop
       }
 
       // Append new products to this message and turn off loading
@@ -367,6 +398,9 @@ export default function Home({
 
     } catch (e) {
       console.error('Error loading more products:', e)
+      if (containerRef.current) {
+        prevScrollTopRef.current = containerRef.current.scrollTop
+      }
       setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: false } : m))
     }
   }
