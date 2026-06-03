@@ -150,6 +150,30 @@ export async function generateRobustAIResponse(
     }
   }
 
+  // 3. If it leaked bracket-style tool calls (e.g. [search_ucp: "query"])
+  if (aiResponse.content && aiResponse.content.includes('[search_ucp:')) {
+    const match = aiResponse.content.match(/\[(search_ucp):\s*"(.*?)"\]/);
+    if (match) {
+      const toolCallName = match[1];
+      const query = match[2];
+      const toolCallId = 'call_' + Math.random().toString(36).slice(2, 10);
+      const finalContent = aiResponse.content.replace(match[0], '').trim();
+
+      return {
+        role: 'assistant',
+        content: finalContent || null,
+        tool_calls: [{
+          id: toolCallId,
+          type: "function",
+          function: {
+            name: toolCallName,
+            arguments: JSON.stringify({ searchQuery: query })
+          }
+        }]
+      };
+    }
+  }
+
   // 3. Otherwise, it's just a normal text response
   return aiResponse;
 }
