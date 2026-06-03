@@ -113,7 +113,7 @@ export default function Home({
       <>
         <div ref={containerRef} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-4 md:gap-6">
           {!hasConversation && (
-            <DiscoverView buyerContext={buyerContext} sendMessage={sendMessage} />
+            <DiscoverView buyerContext={buyerContext} searchHistory={searchHistory} sendMessage={sendMessage} />
           )}
 
           {hasConversation && messages.map((message, index) => (
@@ -167,8 +167,38 @@ export default function Home({
                       </div>
                     </div>
                   )}
+                  
+                  {message.suggestions && message.suggestions.length > 0 && index === messages.length - 1 && !loading && (
+                    <div className="flex flex-wrap gap-2 mt-2 fade-in">
+                      {message.suggestions.map((sug, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => sendMessage(sug)}
+                          className="bg-transparent border border-[var(--m-border)] rounded-[20px] px-[14px] py-[8px] text-[12px] text-[var(--ink2)] cursor-pointer hover:bg-[var(--m-green)] hover:text-white hover:border-[var(--m-green)] transition-all duration-200"
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ) : null}
+              ) : (
+                message.suggestions && message.suggestions.length > 0 && index === messages.length - 1 && !loading && (
+                  <div className="flex flex-wrap gap-2 mt-2 fade-in">
+                    {message.suggestions.map((sug, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => sendMessage(sug)}
+                        className="bg-transparent border border-[var(--m-border)] rounded-[20px] px-[14px] py-[8px] text-[12px] text-[var(--ink2)] cursor-pointer hover:bg-[var(--m-green)] hover:text-white hover:border-[var(--m-green)] transition-all duration-200"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                )
+              )}
             </div>
           ))}
 

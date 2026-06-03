@@ -1,18 +1,47 @@
+import { useState, useEffect } from 'react'
 import { BuyerContext } from "@/lib/buyerContext"
+import { SearchHistoryEntry } from '../hooks/useChatWorkspace'
 
 export default function DiscoverView({
   buyerContext,
+  searchHistory,
   sendMessage,
 }: {
   buyerContext: BuyerContext
+  searchHistory: SearchHistoryEntry[]
   sendMessage: (text: string) => void
 }) {
-  const suggestions = [
+  const [recommendations, setRecommendations] = useState<string[]>([])
+  const [loadingRecs, setLoadingRecs] = useState(false)
+
+  const defaultSuggestions = [
     'Eco-friendly denim',
     'Handmade leather wallet',
     'Minimalist ceramics',
     'Linen shirts under $80',
   ]
+
+  useEffect(() => {
+    if (searchHistory && searchHistory.length > 0) {
+      setLoadingRecs(true)
+      fetch('/api/ai/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history: searchHistory }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.recommendations && data.recommendations.length > 0) {
+            setRecommendations(data.recommendations)
+          }
+        })
+        .catch(console.error)
+        .finally(() => setLoadingRecs(false))
+    }
+  }, [searchHistory])
+
+  const suggestionsToShow = recommendations.length > 0 ? recommendations : defaultSuggestions
+  const suggestionLabel = recommendations.length > 0 ? 'Recommended for You' : 'Try searching for'
 
   return (
     <div className="flex-1 grid content-center gap-6 md:gap-10 max-w-[800px] mx-auto py-5 md:py-10 text-center">
@@ -33,10 +62,13 @@ export default function DiscoverView({
         </p>
       </div>
 
-      <div className="fade-in" style={{ animationDelay: '0.1s' }}>
-        <div className="text-[10px] tracking-[0.12em] uppercase text-[var(--ink3)] mb-3.5">Try searching for</div>
+      <div className="fade-in" style={{ animationDelay: '0.1s', minHeight: '80px' }}>
+        <div className="text-[10px] tracking-[0.12em] uppercase text-[var(--ink3)] mb-3.5 flex items-center justify-center gap-2">
+          {suggestionLabel}
+          {loadingRecs && <div className="w-[10px] h-[10px] rounded-full border border-[var(--ink3)] border-t-transparent animate-spin" />}
+        </div>
         <div className="flex gap-2.5 flex-wrap justify-center px-2.5 md:px-0">
-          {suggestions.map(text => (
+          {suggestionsToShow.map(text => (
             <button
               key={text}
               type="button"
@@ -79,3 +111,4 @@ export default function DiscoverView({
     </div>
   )
 }
+

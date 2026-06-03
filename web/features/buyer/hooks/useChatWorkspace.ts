@@ -20,11 +20,12 @@ export interface Message {
   isClothing?: boolean
   keywords?: string[]
   sort?: string
+  suggestions?: string[]
 }
 
 export type ConversationTurn = Pick<
   Message,
-  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'budgetCurrency' | 'isClothing' | 'keywords' | 'sort'
+  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'budgetCurrency' | 'isClothing' | 'keywords' | 'sort' | 'suggestions'
 >
 
 export type View = 'discover' | 'history' | 'saved'
@@ -227,6 +228,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           isClothing: data.isClothing,
           keywords: data.keywords,
           sort: data.sort,
+          suggestions: data.suggestions,
         },
       ])
       setHistory(previous => [
@@ -242,6 +244,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           isClothing: data.isClothing,
           keywords: data.keywords,
           sort: data.sort,
+          suggestions: data.suggestions,
         },
       ])
     } catch (error: unknown) {

@@ -387,7 +387,29 @@ CORE GUIDELINES:
 - Pagination: If the user asks for "more" products, you MUST use the 'search_ucp' tool with the EXACT SAME query as your previous search. Do not add words like "more" or "other". The system handles pagination automatically.
 - Presentation: Never manually list products, bullet points, or URLs. The UI will automatically display product cards below your message. Just provide a short, elegant, conversational summary of your actions or advice.
 - Honesty: Never hallucinate or invent products. If the tool returns no results, politely apologize.
+- Contextual Suggestions: At the very end of your final response, you MUST output exactly 2 or 3 follow-up questions that the user might want to ask you next, wrapped in a specific format:
+  [SUGGESTIONS: "Question 1", "Question 2"]
+  For example, if you just showed them some denim jackets, you might output:
+  [SUGGESTIONS: "Do you have any under $100?", "What materials are the first two made of?"]
 - Mirror Language: Always reply in the exact same language the user wrote in.`
+
+function extractSuggestions(text: string): { cleanText: string, suggestions: string[] } {
+  const match = text.match(/\[SUGGESTIONS:\s*(.*?)\]/i)
+  if (!match) return { cleanText: text, suggestions: [] }
+  
+  const suggestionsText = match[1]
+  const cleanText = text.replace(match[0], '').trim()
+  
+  try {
+    // Parse things like "Q1", "Q2" by wrapping in brackets to make valid JSON array
+    const parsed = JSON.parse(`[${suggestionsText}]`)
+    return { cleanText, suggestions: Array.isArray(parsed) ? parsed : [] }
+  } catch {
+    // Fallback if the model didn't format quotes perfectly
+    const split = suggestionsText.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/^["'\s]+|["'\s]+$/g, '').trim()).filter(Boolean)
+    return { cleanText, suggestions: split }
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -570,15 +592,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const extracted = extractSuggestions(finalContent || "I'm sorry, I couldn't process that request right now.")
+
     return NextResponse.json({
-      text: finalContent || "I'm sorry, I couldn't process that request right now.",
+      text: extracted.cleanText,
       products,
       searchQuery: activeSearchQuery,
       budgetMax: activeBudgetMax,
       budgetCurrency: activeBudgetCurrency,
       isClothing: activeIsClothing,
       keywords: activeKeywords,
-      sort: activeSort
+      sort: activeSort,
+      suggestions: extracted.suggestions
     })
   } catch (error: any) {
     console.error('Chat API Error:', error)
