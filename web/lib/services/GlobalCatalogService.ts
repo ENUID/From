@@ -238,14 +238,8 @@ export class GlobalCatalogService {
     const cached = searchCache.get(cacheKey);
     const rates = await getExchangeRates().catch(() => ({} as Record<string, number>));
 
-    if (
-      !options.loadMore &&
-      !options.refreshReserve &&
-      cached &&
-      Date.now() - cached.timestamp < CACHE_TTL_MS
-    ) {
-      console.log(`[GlobalCatalog] cache hit for "${cacheKey}"`);
-      return applyCatalogFilters(cached.products, {
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      const filteredCache = applyCatalogFilters(cached.products, {
         budgetMax,
         budgetCurrency,
         excludeIds,
@@ -254,6 +248,13 @@ export class GlobalCatalogService {
         limit,
         rates,
       });
+      
+      // If we have enough unseen products in the cache, serve them instantly!
+      // If not, we fall through to fetch more from the API and replenish the cache.
+      if (filteredCache.length >= limit || (!options.refreshReserve && filteredCache.length > 0)) {
+        console.log(`[GlobalCatalog] cache hit for "${cacheKey}" (${filteredCache.length} products)`);
+        return filteredCache;
+      }
     }
 
     if (options.loadMore || options.refreshReserve) {
@@ -427,14 +428,12 @@ export class GlobalCatalogService {
 
     let rawProducts: any[];
     if (options.loadMore && subQueries.length > 0) {
-      const pageIndex = Math.floor((excludeIds?.length || 0) / LOAD_MORE_RESULT_LIMIT);
-      const loadMoreQuery = subQueries[pageIndex % subQueries.length];
       if (options.debug) {
-        options.debug.loadMorePage = pageIndex + 1;
-        options.debug.loadMoreQuery = loadMoreQuery;
+        options.debug.loadMorePage = 1;
+        options.debug.loadMoreQuery = 'ALL_SUBQUERIES';
       }
-      console.log(`[GlobalCatalog] load more #${pageIndex + 1} → "${loadMoreQuery}"`);
-      rawProducts = await fetchAllForQuery(loadMoreQuery);
+      console.log(`[GlobalCatalog] load more fetching all subqueries to replenish cache pool`);
+      rawProducts = await fetchSubQueries(subQueries);
     } else {
       rawProducts = await fetchSubQueries(
         isFastFirstPage ? subQueries.slice(0, FAST_SUBQUERY_LIMIT) : subQueries
