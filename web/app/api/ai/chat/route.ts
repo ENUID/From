@@ -164,6 +164,8 @@ function parseDirectSearchIntent(message: string, buyerCurrency: string): Search
   if (!query || query.length < 2) return null
 
   const lowerQuery = query.toLowerCase()
+  if (/\b(compare|which|what|how|why|can you|tell me|hi|hello|thanks|thank you)\b/i.test(lowerQuery)) return null
+
   const isClothing = CLOTHING_TERMS.some(term => lowerQuery.includes(term))
   const keywords = FILTER_KEYWORDS.filter(keyword => lowerQuery.includes(keyword))
   const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'price_asc'
@@ -383,8 +385,8 @@ PERSONALITY & TONE:
 - Keep it concise but elegantly written. Do not be overly verbose, but make every word count to build an emotional connection.
 
 CORE GUIDELINES:
-- Assess Intent: For each user message, determine if they want to find new products (e.g., "find shoes", "sorry, I meant blue") or if they want advice/conversation (e.g., "compare the first and second", "which is better?", "hi").
-- Tool Usage: If they are looking for or refining products, you MUST use the 'search_ucp' tool. 
+- Assess Intent: If the user asks a question about the products already visible on the screen (e.g. "compare them", "which one is better", "what material is the first one"), DO NOT use the search tool! Just answer their question directly in text. ONLY use the 'search_ucp' tool if they are asking to find NEW products or apply NEW filters (e.g. "find shoes", "show me cheaper ones", "I meant blue").
+- Tool Usage: If they are looking for or refining products, you MUST use the 'search_ucp' tool. Do NOT use the tool if they just want advice on existing products.
 - Search Query Expansion & Reservoir Filling: When using the 'search_ucp' tool, you MUST extract the core item and expand it into 3-5 distinct variations (including translations to languages like Vietnamese, Japanese, or Korean, synonyms, plurals, or brand variations) combined using 'OR' logic in the \`searchQuery\`.
   * This is critical to ensure that the search results pool is large and diverse, so that the infinite scroll reservoir is always fully filled with unique products and never runs dry.
   * For example, if the user asks for "shirt", use: "shirt OR shirts OR áo sơ mi OR シャツ OR shirt top"
@@ -549,9 +551,6 @@ export async function POST(req: NextRequest) {
                 ? `\n\nĐã tìm trên Shopify catalog: ${searchDiagnostics}`
                 : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
             }
-          } else if (products.length > 0) {
-            // Skip 2nd LLM when we already have cards — avoids Vercel timeout / hung UI.
-            finalContent = fallbackText(message, products, { budgetMax: activeBudgetMax })
           } else {
             const postSearchText = await generatePostToolReply(
               messages,

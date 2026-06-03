@@ -178,14 +178,8 @@ export async function generatePostToolReply(
   const followUp: ChatMessage[] = [
     ...messages,
     {
-      role: 'assistant',
-      content: assistantMessage.content,
-      tool_calls: assistantMessage.tool_calls,
-    },
-    {
-      role: 'tool',
-      tool_call_id: toolCall.id,
-      content: toolResult,
+      role: 'system',
+      content: `The search tool returned the following results:\n${toolResult}\n\nPlease provide a conversational reply summarizing these results. Do NOT manually list the products, the UI will display them. Remember to append the [SUGGESTIONS: ...] block at the end.`,
     },
   ]
 
