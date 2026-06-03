@@ -5,7 +5,7 @@ export const SearchToolSchema = z.object({
   budgetMax: z.number().nullable().optional().describe("Maximum budget if specified"),
   budgetCurrency: z.string().length(3).optional().describe("ISO 4217 currency code for the budget, if the user explicitly names a currency."),
   isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories."),
-  keywords: z.array(z.string()).optional().describe("A list of exact mandatory keywords (like color, material, specific styles) that MUST be present in the product for it to be a valid result. Extract these from the user's natural language request."),
+  keywords: z.array(z.string()).optional().describe("A list of exact mandatory keywords. ONLY extract CONCRETE nouns (e.g. 'black', 'leather', 'denim', 'shirt'). NEVER extract abstract adjectives or concepts (e.g. 'eco-friendly', 'beautiful', 'cheap') because it will break the exact-match text filter and cause 0 results!"),
   sort: z.enum(['price_asc', 'price_desc', 'relevance']).optional().describe("Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), or 'relevance'. Default is price_asc.")
 });
 
@@ -38,7 +38,7 @@ export const SEARCH_TOOL_DEF = {
         keywords: {
           type: "array",
           items: { type: "string" },
-          description: "A list of mandatory keywords (e.g. ['black', 'linen'], ['denim', 'jacket']) extracted from the user's request. The backend will strictly filter the catalog results to only include products containing ALL of these keywords in their title, description, or tags. Keep these concise and essential."
+          description: "A list of mandatory keywords extracted from the user's request. ONLY extract CONCRETE nouns (e.g. ['black', 'linen', 'denim', 'jacket']). NEVER extract abstract adjectives or concepts (e.g. 'eco-friendly', 'sustainable', 'beautiful', 'cheap', 'best') because the backend uses strict exact-match text filtering and abstract concepts will cause 0 results. Keep these extremely concise and essential."
         },
         sort: {
           type: "string",

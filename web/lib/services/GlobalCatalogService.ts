@@ -35,17 +35,24 @@ type CatalogSearchFilters = {
   rates: Record<string, number>;
 };
 
+export type CatalogSearchDebug = {
+  catalogFetched?: boolean;
+  loadMorePage?: number;
+  loadMoreQuery?: string;
+};
+
 type CatalogSearchOptions = {
   refreshReserve?: boolean;
   fastFirstPage?: boolean;
   loadMore?: boolean;
+  debug?: CatalogSearchDebug;
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const FAST_PAGE_LIMIT = 24;
 const CATALOG_PAGE_LIMIT = 30;
 const REFRESH_PAGE_LIMIT = 60;
-const FAST_SUBQUERY_LIMIT = 2;
+const FAST_SUBQUERY_LIMIT = 1;
 const INITIAL_RESULT_LIMIT = 20;
 const LOAD_MORE_RESULT_LIMIT = 10;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
@@ -251,6 +258,7 @@ export class GlobalCatalogService {
 
     if (options.loadMore || options.refreshReserve) {
       console.log(`[GlobalCatalog] catalog fetch (loadMore=${Boolean(options.loadMore)}, refresh=${Boolean(options.refreshReserve)})`);
+      if (options.debug) options.debug.catalogFetched = true;
     }
 
     const catalogTimeoutMs = isFastFirstPage ? 6000 : 8000;
@@ -417,9 +425,21 @@ export class GlobalCatalogService {
       return { parsed, skippedNoImage };
     };
 
-    let rawProducts = await fetchSubQueries(
-      isFastFirstPage ? subQueries.slice(0, FAST_SUBQUERY_LIMIT) : subQueries
-    );
+    let rawProducts: any[];
+    if (options.loadMore && subQueries.length > 0) {
+      const pageIndex = Math.floor((excludeIds?.length || 0) / LOAD_MORE_RESULT_LIMIT);
+      const loadMoreQuery = subQueries[pageIndex % subQueries.length];
+      if (options.debug) {
+        options.debug.loadMorePage = pageIndex + 1;
+        options.debug.loadMoreQuery = loadMoreQuery;
+      }
+      console.log(`[GlobalCatalog] load more #${pageIndex + 1} → "${loadMoreQuery}"`);
+      rawProducts = await fetchAllForQuery(loadMoreQuery);
+    } else {
+      rawProducts = await fetchSubQueries(
+        isFastFirstPage ? subQueries.slice(0, FAST_SUBQUERY_LIMIT) : subQueries
+      );
+    }
     let { parsed: products, skippedNoImage } = parseRawProducts(rawProducts);
 
     const filterOptions: CatalogSearchFilters = {

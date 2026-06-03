@@ -158,11 +158,19 @@ export async function generateRobustAIResponse(
  * Second completion after a tool run. Models often return null content when only
  * emitting tool_calls; this turn produces the conversational reply for the UI.
  */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>(resolve => setTimeout(() => resolve(null), ms)),
+  ])
+}
+
 export async function generatePostToolReply(
   messages: ChatMessage[],
   systemPrompt: string,
   assistantMessage: ChatMessage,
   toolResult: string,
+  timeoutMs = 5000,
 ): Promise<string | null> {
   const toolCall = assistantMessage.tool_calls?.[0]
   if (!toolCall?.id) return null
@@ -182,11 +190,18 @@ export async function generatePostToolReply(
   ]
 
   try {
-    const reply = await groqChat(followUp, systemPrompt, undefined, {
-      max_tokens: 280,
-      temperature: 0.5,
-    })
-    return reply?.content?.trim() || null
+    const reply = await withTimeout(
+      groqChat(followUp, systemPrompt, undefined, {
+        max_tokens: 200,
+        temperature: 0.5,
+      }).catch(() => null),
+      timeoutMs,
+    )
+    if (!reply) {
+      console.warn(`Post-search AI reply timed out after ${timeoutMs}ms`)
+      return null
+    }
+    return reply.content?.trim() || null
   } catch (error) {
     console.error('Post-search AI reply failed:', error)
     return null

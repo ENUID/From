@@ -3,7 +3,7 @@ import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
-import { GlobalCatalogService, UcpProduct } from '@/lib/services/GlobalCatalogService'
+import { GlobalCatalogService, UcpProduct, type CatalogSearchDebug } from '@/lib/services/GlobalCatalogService'
 
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
@@ -184,6 +184,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   refreshReserve?: boolean;
   fastFirstPage?: boolean;
   loadMore?: boolean;
+  debug?: CatalogSearchDebug;
 }) {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
@@ -200,6 +201,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
       refreshReserve: options.refreshReserve,
       fastFirstPage: options.fastFirstPage,
       loadMore: options.loadMore,
+      debug: options.debug,
     }
   )
 
@@ -411,17 +413,20 @@ export async function POST(req: NextRequest) {
         excludeIds,
       }
 
+      const catalogDebug: CatalogSearchDebug = {}
       const result = await runCatalogSearch(moreArgs, {
         ...moreOptions,
         loadMore: true,
         refreshReserve: true,
+        debug: catalogDebug,
       })
 
-      console.log(`[Load more] catalog refresh | query: "${searchQuery}" | excludes: ${excludeIds.length} | new: ${result.products.length}`);
+      console.log(`[Load more] catalog refresh | query: "${searchQuery}" | excludes: ${excludeIds.length} | new: ${result.products.length}`, catalogDebug);
 
       return NextResponse.json({
         text: "Here are some more options for you:",
         ...result,
+        meta: catalogDebug,
       });
     }
 

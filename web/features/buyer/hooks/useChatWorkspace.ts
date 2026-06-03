@@ -38,6 +38,7 @@ export type SearchHistoryEntry = {
 
 const SAVED_KEY = 'from:saved-products'
 const HISTORY_KEY = 'from:search-history'
+const CHAT_REQUEST_TIMEOUT_MS = 28_000
 
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
@@ -204,6 +205,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           savedProducts,
           buyerCurrency: buyerContext.currency,
         }),
+        signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Request failed')
@@ -242,12 +244,15 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           sort: data.sort,
         },
       ])
-    } catch {
+    } catch (error: unknown) {
+      const timedOut = error instanceof Error && error.name === 'TimeoutError'
       setMessages(previous => [
         ...previous,
         {
           role: 'assistant',
-          content: 'The search request did not complete. Please try again in a moment.',
+          content: timedOut
+            ? 'Yêu cầu mất quá nhiều thời gian. Vui lòng thử lại — lần sau thường nhanh hơn nhờ cache.'
+            : 'The search request did not complete. Please try again in a moment.',
         },
       ])
     } finally {
