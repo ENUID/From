@@ -5,6 +5,7 @@ export const SearchToolSchema = z.object({
   budgetMax: z.number().nullable().optional().describe("Maximum budget if specified"),
   budgetCurrency: z.string().length(3).optional().describe("ISO 4217 currency code for the budget, if the user explicitly names a currency."),
   isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories."),
+  mandatoryConcepts: z.array(z.array(z.string())).optional().describe("Groups of essential concepts that MUST be present. Each group is an array of synonyms/translations. E.g. [['bag', 'túi'], ['vietnam', 'việt nam', 'vietnamese']]"),
   sort: z.enum(['price_asc', 'price_desc', 'relevance']).optional().describe("Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), or 'relevance'. Default is price_asc.")
 });
 
@@ -33,6 +34,14 @@ export const SEARCH_TOOL_DEF = {
         isClothing: {
           type: "boolean",
           description: "Set to true if the search query targets clothing, shoes, apparel, garments, jewelry, bags, or other fashion/style accessories."
+        },
+        mandatoryConcepts: {
+          type: "array",
+          items: {
+            type: "array",
+            items: { type: "string" }
+          },
+          description: "Extract the most critical concepts the user requested (e.g. product type, origin, material). For each concept, provide an array of synonyms and translations. Example for 'leather bags vietnam': [['bag', 'bags', 'túi'], ['leather', 'da'], ['vietnam', 'việt nam', 'vietnamese']]. The system will filter out any products that don't match ALL concept groups."
         },
         sort: {
           type: "string",

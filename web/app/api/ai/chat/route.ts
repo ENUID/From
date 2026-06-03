@@ -194,6 +194,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
     options.excludeIds || [],
     options.countryCode,
     args.isClothing,
+    args.mandatoryConcepts || [],
     sort,
     budgetCurrency,
     {
@@ -236,6 +237,13 @@ function formatSearchDiagnostics(
       ? `tìm kiếm: "${args.searchQuery}"`
       : `search: "${args.searchQuery}"`)
     : 'browsing products';
+
+  if (args.mandatoryConcepts?.length) {
+    const concepts = args.mandatoryConcepts.map(c => `[${c.join(' | ')}]`).join(' AND ');
+    searchDiagnostics += language === 'vi'
+      ? `, lọc: ${concepts}`
+      : `, filter: ${concepts}`;
+  }
 
   if (args.budgetMax) {
     const currency = (args.budgetCurrency || ctx.buyerCurrency).toUpperCase()
@@ -375,6 +383,9 @@ CORE GUIDELINES:
   * For brand searches like "Faherty", use: "Faherty OR Faherty Brand OR Faherty clothing OR Faherty shirt OR Faherty apparel"
   * For "linen dress", use: "linen dress OR váy linen OR リネン ドレス OR linen clothing OR linen midi dress OR đầm linen"
   * Do not copy the user's query literally. Always expand it to at least 5-8 terms using 'OR'.
+- Smart Concept Filtering: In addition to the broad \`searchQuery\`, you MUST extract the critical concepts (e.g., product type, specific material, country of origin) into \`mandatoryConcepts\`. Group synonyms and translations for each concept together. The system will filter out any product that doesn't contain at least one word from EVERY concept group.
+  * E.g. User asks for "sustainable leather bags from vietnam": 
+    mandatoryConcepts: [["bag", "bags", "túi"], ["leather", "da", "cuero"], ["vietnam", "việt nam", "vietnamese"]]
 - Pagination: If the user asks for "more" products, you MUST use the 'search_ucp' tool with the EXACT SAME query as your previous search. Do not add words like "more" or "other". The system handles pagination automatically.
 - Presentation: Never manually list products, bullet points, or URLs. The UI will automatically display product cards below your message. Just provide a short, elegant, conversational summary of your actions or advice.
 - Honesty: Never hallucinate or invent products. If the tool returns no results, politely apologize.
@@ -414,6 +425,7 @@ export async function POST(req: NextRequest) {
         budgetMax,
         budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
         isClothing,
+        mandatoryConcepts: [],
         sort: normalizeSort(sort),
       })
       const moreOptions = {

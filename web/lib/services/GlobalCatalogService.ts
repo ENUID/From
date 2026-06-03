@@ -29,6 +29,7 @@ type CatalogSearchFilters = {
   budgetMax?: number | null;
   budgetCurrency?: string | null;
   excludeIds?: string[];
+  mandatoryConcepts?: string[][];
   sort?: ProductSort;
   limit: number;
   rates: Record<string, number>;
@@ -130,6 +131,19 @@ function convertProductPrice(product: UcpProduct, targetCurrency: string, rates:
 
 
 
+function searchableProductText(product: UcpProduct) {
+  return [
+    product.title,
+    product.description,
+    product.vendor,
+    ...(product.tags || []),
+    ...(product.options?.flatMap(option => [option.name, ...option.values]) || []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
 function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilters) {
   const excludeIds = new Set(filters.excludeIds || []);
   const sort = filters.sort || 'price_asc';
@@ -144,6 +158,16 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     ) {
       return false;
     }
+
+    if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
+      const text = searchableProductText(product);
+      const matchesAllConcepts = filters.mandatoryConcepts.every(conceptGroup => {
+        if (!conceptGroup || conceptGroup.length === 0) return true;
+        return conceptGroup.some(word => text.includes(word.toLowerCase().trim()));
+      });
+      if (!matchesAllConcepts) return false;
+    }
+
     return true;
   });
 
@@ -169,6 +193,19 @@ function applyCatalogFiltersWithRetry(products: UcpProduct[], filters: CatalogSe
     });
     if (result.length > 0) {
       console.log('[GlobalCatalog] relaxed budget filter');
+      return result;
+    }
+  }
+
+  if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
+    result = applyCatalogFilters(products, {
+      ...filters,
+      mandatoryConcepts: [],
+      budgetMax: null,
+    });
+    if (result.length > 0) {
+      console.log('[GlobalCatalog] relaxed mandatory concepts and budget filters');
+      return result;
     }
   }
 
@@ -182,6 +219,7 @@ export class GlobalCatalogService {
     excludeIds: string[] = [], 
     countryCode?: string | null,
     isClothing?: boolean,
+    mandatoryConcepts: string[][] = [],
     sort: ProductSort = 'price_asc',
     budgetCurrency: string | null = 'USD',
     options: CatalogSearchOptions = {}
@@ -208,6 +246,7 @@ export class GlobalCatalogService {
         budgetMax,
         budgetCurrency,
         excludeIds,
+        mandatoryConcepts,
         sort,
         limit,
         rates,
@@ -404,6 +443,7 @@ export class GlobalCatalogService {
       budgetMax,
       budgetCurrency,
       excludeIds,
+      mandatoryConcepts,
       sort,
       limit,
       rates,
