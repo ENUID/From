@@ -174,7 +174,30 @@ export async function generateRobustAIResponse(
     }
   }
 
-  // 3. Otherwise, it's just a normal text response
+  // 4. If it leaked search_ucp>{...} or similar malformed JSON tags
+  if (aiResponse.content && aiResponse.content.includes('search_ucp')) {
+    const match = aiResponse.content.match(/search_ucp>?\s*({.*})/);
+    if (match) {
+      const toolCallArgs = match[1];
+      const toolCallId = 'call_' + Math.random().toString(36).slice(2, 10);
+      const finalContent = aiResponse.content.replace(match[0], '').trim();
+
+      return {
+        role: 'assistant',
+        content: finalContent || null,
+        tool_calls: [{
+          id: toolCallId,
+          type: "function",
+          function: {
+            name: 'search_ucp',
+            arguments: toolCallArgs
+          }
+        }]
+      };
+    }
+  }
+
+  // 5. Otherwise, it's just a normal text response
   return aiResponse;
 }
 
