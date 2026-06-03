@@ -5,7 +5,6 @@ export const SearchToolSchema = z.object({
   budgetMax: z.number().nullable().optional().describe("Maximum budget if specified"),
   budgetCurrency: z.string().length(3).optional().describe("ISO 4217 currency code for the budget, if the user explicitly names a currency."),
   isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories."),
-  keywords: z.array(z.string()).optional().describe("A list of exact mandatory keywords. ONLY extract CONCRETE nouns (e.g. 'black', 'leather', 'denim', 'shirt'). NEVER extract abstract adjectives or concepts (e.g. 'eco-friendly', 'beautiful', 'cheap') because it will break the exact-match text filter and cause 0 results!"),
   sort: z.enum(['price_asc', 'price_desc', 'relevance']).optional().describe("Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), or 'relevance'. Default is price_asc.")
 });
 
@@ -21,7 +20,7 @@ export const SEARCH_TOOL_DEF = {
       properties: {
         searchQuery: {
           type: "string",
-          description: "An expanded search query combining 3-5 translations, synonyms, plurals, or brand variations using 'OR' logic to keep the product reservoir filled. E.g., 'shirt OR shirts OR áo sơ mi OR シャツ OR shirt top'."
+          description: "An expanded search query combining 5-8 translations (e.g. Vietnamese, English, Japanese, Korean), synonyms, plurals, or brand variations using 'OR' logic to cast the widest net possible. E.g., 'shirt OR shirts OR áo sơ mi OR シャツ OR button down OR 셔츠'."
         },
         budgetMax: {
           type: "number",
@@ -34,11 +33,6 @@ export const SEARCH_TOOL_DEF = {
         isClothing: {
           type: "boolean",
           description: "Set to true if the search query targets clothing, shoes, apparel, garments, jewelry, bags, or other fashion/style accessories."
-        },
-        keywords: {
-          type: "array",
-          items: { type: "string" },
-          description: "A list of mandatory keywords extracted from the user's request. ONLY extract CONCRETE nouns (e.g. ['black', 'linen', 'denim', 'jacket']). NEVER extract abstract adjectives or concepts (e.g. 'eco-friendly', 'sustainable', 'beautiful', 'cheap', 'best') because the backend uses strict exact-match text filtering and abstract concepts will cause 0 results. Keep these extremely concise and essential."
         },
         sort: {
           type: "string",

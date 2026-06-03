@@ -18,14 +18,13 @@ export interface Message {
   budgetMax?: number | null
   budgetCurrency?: string
   isClothing?: boolean
-  keywords?: string[]
-  sort?: string
+  sort?: 'price_asc' | 'price_desc' | 'relevance'
   suggestions?: string[]
 }
 
 export type ConversationTurn = Pick<
   Message,
-  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'budgetCurrency' | 'isClothing' | 'keywords' | 'sort' | 'suggestions'
+  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'budgetCurrency' | 'isClothing' | 'sort' | 'suggestions'
 >
 
 export type View = 'discover' | 'history' | 'saved'
@@ -226,7 +225,6 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           budgetMax: data.budgetMax,
           budgetCurrency: data.budgetCurrency,
           isClothing: data.isClothing,
-          keywords: data.keywords,
           sort: data.sort,
           suggestions: data.suggestions,
         },
@@ -242,7 +240,6 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           budgetMax: data.budgetMax,
           budgetCurrency: data.budgetCurrency,
           isClothing: data.isClothing,
-          keywords: data.keywords,
           sort: data.sort,
           suggestions: data.suggestions,
         },
@@ -282,7 +279,6 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           budgetCurrency: msg.budgetCurrency,
           buyerCurrency: buyerContext.currency,
           isClothing: msg.isClothing,
-          keywords: msg.keywords,
           sort: msg.sort,
           history: buildApiHistory(history),
           currentExcludeIds,

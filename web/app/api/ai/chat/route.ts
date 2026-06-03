@@ -167,14 +167,12 @@ function parseDirectSearchIntent(message: string, buyerCurrency: string): Search
   if (/\b(compare|which|what|how|why|can you|tell me|hi|hello|thanks|thank you)\b/i.test(lowerQuery)) return null
 
   const isClothing = CLOTHING_TERMS.some(term => lowerQuery.includes(term))
-  const keywords = FILTER_KEYWORDS.filter(keyword => lowerQuery.includes(keyword))
   const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'price_asc'
 
   return SearchToolSchema.parse({
     searchQuery: expandDirectQuery(query),
     ...parseBudget(message, buyerCurrency),
     isClothing,
-    keywords,
     sort,
   })
 }
@@ -196,7 +194,6 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
     options.excludeIds || [],
     options.countryCode,
     args.isClothing,
-    args.keywords || [],
     sort,
     budgetCurrency,
     {
@@ -213,7 +210,6 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
     budgetMax: args.budgetMax,
     budgetCurrency,
     isClothing: args.isClothing,
-    keywords: args.keywords,
     sort,
   }
 }
@@ -235,43 +231,32 @@ function formatSearchDiagnostics(
   ctx: { countryCode: string | null; buyerCurrency: string },
   language: 'vi' | 'en',
 ) {
-  const orTerms = args.searchQuery
-    .split(/\s+OR\s+/i)
-    .map(term => term.trim())
-    .filter(Boolean)
-  const queryLine = orTerms.length > 1
+  let searchDiagnostics = args.searchQuery
     ? (language === 'vi'
-      ? `${orTerms.length} cụm từ khóa (OR): ${orTerms.join(' · ')}`
-      : `${orTerms.length} OR terms: ${orTerms.join(' · ')}`)
-    : (language === 'vi'
-      ? `từ khóa: "${args.searchQuery}"`
-      : `keywords: "${args.searchQuery}"`)
+      ? `tìm kiếm: "${args.searchQuery}"`
+      : `search: "${args.searchQuery}"`)
+    : 'browsing products';
 
-  const filters: string[] = [queryLine]
-  if (args.keywords?.length) {
-    filters.push(
-      language === 'vi'
-        ? `bắt buộc trong mô tả: ${args.keywords.join(', ')}`
-        : `must include: ${args.keywords.join(', ')}`,
-    )
-  }
-  if (typeof args.budgetMax === 'number' && args.budgetMax > 0) {
+  if (args.budgetMax) {
     const currency = (args.budgetCurrency || ctx.buyerCurrency).toUpperCase()
-    filters.push(
-      language === 'vi'
-        ? `ngân sách tối đa ${args.budgetMax} ${currency}`
-        : `max budget ${args.budgetMax} ${currency}`,
-    )
-  }
-  if (ctx.countryCode) {
-    filters.push(
-      language === 'vi'
-        ? `giao hàng: ${ctx.countryCode}`
-        : `ships to: ${ctx.countryCode}`,
-    )
+    searchDiagnostics += language === 'vi'
+      ? `, tối đa ${args.budgetMax} ${currency}`
+      : `, max ${args.budgetMax} ${currency}`;
   }
 
-  return filters.join(' · ')
+  if (args.sort) {
+    searchDiagnostics += language === 'vi'
+      ? `, sắp xếp: ${args.sort}`
+      : `, sort: ${args.sort}`;
+  }
+
+  if (ctx.countryCode) {
+    searchDiagnostics += language === 'vi'
+      ? `, giao hàng: ${ctx.countryCode}`
+      : `, ships to: ${ctx.countryCode}`;
+  }
+
+  return searchDiagnostics
 }
 
 function fallbackText(
@@ -319,7 +304,6 @@ function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] 
     clean.push({ role: item.role, content: content || null });
 
     if (item.role === 'assistant' && item.products && item.products.length > 0) {
-      // Find the user's subsequent reply in history
       const nextMsg = recent[i + 1];
       const nextUserText = nextMsg && nextMsg.role === 'user'
         ? String(nextMsg.content ?? nextMsg.text ?? '').toLowerCase()
@@ -332,7 +316,6 @@ function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] 
         const productIndex = idx + 1;
         const vendorLower = (p.vendor || '').toLowerCase();
 
-        // Specific match checks
         const indexWords = [
           `thứ ${productIndex}`, 
           `số ${productIndex}`, 
@@ -350,7 +333,6 @@ function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] 
         const vendorWords = vendorLower.split(/\s+/).filter((w: string) => w.length > 3);
         const isBrandReferenced = vendorWords.some((w: string) => combinedUserText.includes(w));
 
-        // Always include top 6; lazy load index > 6 on demand
         if (idx < 6 || isIndexReferenced || isBrandReferenced) {
           productsToInclude.push(p);
         }
@@ -387,12 +369,12 @@ PERSONALITY & TONE:
 CORE GUIDELINES:
 - Assess Intent: If the user asks a question about the products already visible on the screen (e.g. "compare them", "which one is better", "what material is the first one"), DO NOT use the search tool! Just answer their question directly in text. ONLY use the 'search_ucp' tool if they are asking to find NEW products or apply NEW filters (e.g. "find shoes", "show me cheaper ones", "I meant blue").
 - Tool Usage: If they are looking for or refining products, you MUST use the 'search_ucp' tool. Do NOT use the tool if they just want advice on existing products.
-- Search Query Expansion & Reservoir Filling: When using the 'search_ucp' tool, you MUST extract the core item and expand it into 3-5 distinct variations (including translations to languages like Vietnamese, Japanese, or Korean, synonyms, plurals, or brand variations) combined using 'OR' logic in the \`searchQuery\`.
-  * This is critical to ensure that the search results pool is large and diverse, so that the infinite scroll reservoir is always fully filled with unique products and never runs dry.
-  * For example, if the user asks for "shirt", use: "shirt OR shirts OR áo sơ mi OR シャツ OR shirt top"
+- Search Query Expansion & Reservoir Filling: When using the 'search_ucp' tool, you MUST extract the core item and expand it into 5-8 distinct variations (including translations to languages like Vietnamese, English, Japanese, Korean, Spanish, synonyms, plurals, or brand variations) combined using 'OR' logic in the \`searchQuery\`.
+  * This is critical to ensure that the search results pool is massive and diverse, so that the infinite scroll reservoir is always fully filled with unique products and never runs dry.
+  * For example, if the user asks for "shirt", use: "shirt OR shirts OR áo sơ mi OR シャツ OR button down OR 셔츠 OR camisa"
   * For brand searches like "Faherty", use: "Faherty OR Faherty Brand OR Faherty clothing OR Faherty shirt OR Faherty apparel"
-  * For "linen dress", use: "linen dress OR váy linen OR リネン ドレス OR linen clothing OR linen midi dress"
-  * Do not copy the user's query literally. Always expand it to at least 3-5 terms using 'OR'.
+  * For "linen dress", use: "linen dress OR váy linen OR リネン ドレス OR linen clothing OR linen midi dress OR đầm linen"
+  * Do not copy the user's query literally. Always expand it to at least 5-8 terms using 'OR'.
 - Pagination: If the user asks for "more" products, you MUST use the 'search_ucp' tool with the EXACT SAME query as your previous search. Do not add words like "more" or "other". The system handles pagination automatically.
 - Presentation: Never manually list products, bullet points, or URLs. The UI will automatically display product cards below your message. Just provide a short, elegant, conversational summary of your actions or advice.
 - Honesty: Never hallucinate or invent products. If the tool returns no results, politely apologize.
@@ -410,11 +392,9 @@ function extractSuggestions(text: string): { cleanText: string, suggestions: str
   const cleanText = text.replace(match[0], '').trim()
   
   try {
-    // Parse things like "Q1", "Q2" by wrapping in brackets to make valid JSON array
     const parsed = JSON.parse(`[${suggestionsText}]`)
     return { cleanText, suggestions: Array.isArray(parsed) ? parsed : [] }
   } catch {
-    // Fallback if the model didn't format quotes perfectly
     const split = suggestionsText.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/^["'\s]+|["'\s]+$/g, '').trim()).filter(Boolean)
     return { cleanText, suggestions: split }
   }
@@ -422,12 +402,11 @@ function extractSuggestions(text: string): { cleanText: string, suggestions: str
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, keywords, sort } = await req.json()
+    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort } = await req.json()
     if (!message) throw new Error('No message provided')
     const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
     const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
 
-    // 1. Direct bypass to skip slow/expensive LLM calls when loading more products
     if (message === 'more' && searchQuery) {
       const excludeIds = collectProductIds(history || [], currentExcludeIds)
       const moreArgs = SearchToolSchema.parse({
@@ -435,7 +414,6 @@ export async function POST(req: NextRequest) {
         budgetMax,
         budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
         isClothing,
-        keywords: Array.isArray(keywords) ? keywords : [],
         sort: normalizeSort(sort),
       })
       const moreOptions = {
@@ -452,8 +430,6 @@ export async function POST(req: NextRequest) {
         debug: catalogDebug,
       })
 
-      console.log(`[Load more] catalog refresh | query: "${searchQuery}" | excludes: ${excludeIds.length} | new: ${result.products.length}`, catalogDebug);
-
       return NextResponse.json({
         text: "Here are some more options for you:",
         ...result,
@@ -461,7 +437,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Normal path requires rate limit checking
     if (isRateLimited(req)) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
@@ -475,7 +450,6 @@ export async function POST(req: NextRequest) {
       dynamicSystemPrompt += `\n\nUSER'S SAVED PRODUCTS:\nThe user has saved the following products in their cart/favorites:\n${savedSummary}\nKeep this in mind if they ask to compare or refer to things they've saved or liked.`;
     }
 
-    // 2. Initial AI Generation
     let aiResponse: ChatMessage
     try {
       aiResponse = await generateRobustAIResponse(messages, dynamicSystemPrompt, [SEARCH_TOOL_DEF])
@@ -511,10 +485,8 @@ export async function POST(req: NextRequest) {
     let activeBudgetMax: number | null | undefined = undefined
     let activeBudgetCurrency: string | undefined = undefined
     let activeIsClothing: boolean | undefined = undefined
-    let activeKeywords: string[] | undefined = undefined
     let activeSort: 'price_asc' | 'price_desc' | 'relevance' | undefined = undefined
 
-    // 3. Handle Tool Execution
     if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
       const toolCall = aiResponse.tool_calls[0]
       if (toolCall.function.name === 'search_ucp') {
@@ -524,11 +496,8 @@ export async function POST(req: NextRequest) {
           activeBudgetMax = args.budgetMax
           activeBudgetCurrency = (args.budgetCurrency || activeBuyerCurrency).toUpperCase()
           activeIsClothing = args.isClothing
-          activeKeywords = args.keywords
           activeSort = normalizeSort(args.sort)
           
-          console.log('AI search intent:', args);
-
           const searchDiagnostics = formatSearchDiagnostics(args, {
             countryCode,
             buyerCurrency: activeBuyerCurrency,
@@ -607,7 +576,6 @@ export async function POST(req: NextRequest) {
       budgetMax: activeBudgetMax,
       budgetCurrency: activeBudgetCurrency,
       isClothing: activeIsClothing,
-      keywords: activeKeywords,
       sort: activeSort,
       suggestions: extracted.suggestions
     })

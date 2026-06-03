@@ -29,7 +29,6 @@ type CatalogSearchFilters = {
   budgetMax?: number | null;
   budgetCurrency?: string | null;
   excludeIds?: string[];
-  keywords?: string[];
   sort?: ProductSort;
   limit: number;
   rates: Record<string, number>;
@@ -136,22 +135,24 @@ function searchableProductText(product: UcpProduct) {
     product.vendor,
     ...(product.tags || []),
     ...(product.options?.flatMap(option => [option.name, ...option.values]) || []),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+function normalizeCurrency(code?: string | null) {
+  return String(code || 'USD').trim().toUpperCase() || 'USD';
 }
 
-function normalizeKeywords(keywords?: string[]) {
-  return (keywords || [])
-    .map(keyword => keyword.trim().toLowerCase())
-    .filter(Boolean)
-    .slice(0, 8);
+function convertProductPrice(product: UcpProduct, targetCurrency: string, rates: Record<string, number>) {
+  const currency = (product.currency || 'USD').toUpperCase();
+  const target = normalizeCurrency(targetCurrency);
+  if (currency === target) return product.price;
+
+  const productRate = rates[currency];
+  const targetRate = rates[target];
+  if (!productRate || !targetRate) return product.price;
+
+  return (product.price / productRate) * targetRate;
 }
 
 function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilters) {
   const excludeIds = new Set(filters.excludeIds || []);
-  const keywords = normalizeKeywords(filters.keywords);
   const sort = filters.sort || 'price_asc';
   const budgetCurrency = normalizeCurrency(filters.budgetCurrency);
 
@@ -164,10 +165,7 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     ) {
       return false;
     }
-    if (keywords.length === 0) return true;
-
-    const searchableText = searchableProductText(product);
-    return keywords.every(keyword => searchableText.includes(keyword));
+    return true;
   });
 
   if (sort !== 'relevance') {
@@ -185,24 +183,13 @@ function applyCatalogFiltersWithRetry(products: UcpProduct[], filters: CatalogSe
   let result = applyCatalogFilters(products, filters);
   if (result.length > 0) return result;
 
-  const keywords = normalizeKeywords(filters.keywords);
-  if (keywords.length > 0) {
-    result = applyCatalogFilters(products, { ...filters, keywords: [] });
-    if (result.length > 0) {
-      console.log('[GlobalCatalog] relaxed mandatory keywords filter');
-      return result;
-    }
-  }
-
   if (filters.budgetMax && filters.budgetMax > 0) {
     result = applyCatalogFilters(products, {
       ...filters,
-      keywords: [],
       budgetMax: null,
     });
     if (result.length > 0) {
       console.log('[GlobalCatalog] relaxed budget filter');
-      return result;
     }
   }
 
@@ -216,7 +203,6 @@ export class GlobalCatalogService {
     excludeIds: string[] = [], 
     countryCode?: string | null,
     isClothing?: boolean,
-    keywords: string[] = [],
     sort: ProductSort = 'price_asc',
     budgetCurrency: string | null = 'USD',
     options: CatalogSearchOptions = {}
@@ -243,14 +229,11 @@ export class GlobalCatalogService {
         budgetMax,
         budgetCurrency,
         excludeIds,
-        keywords,
         sort,
         limit,
         rates,
       });
       
-      // If we have enough unseen products in the cache, serve them instantly!
-      // If not, we fall through to fetch more from the API and replenish the cache.
       if (filteredCache.length >= limit || (!options.refreshReserve && filteredCache.length > 0)) {
         console.log(`[GlobalCatalog] cache hit for "${cacheKey}" (${filteredCache.length} products)`);
         return filteredCache;
@@ -307,7 +290,6 @@ export class GlobalCatalogService {
       }
     };
 
-    // DRY Helper to parse raw product to UcpProduct
     const parseProduct = (p: any): UcpProduct | null => {
       try {
         const variant = p.variants?.[0] || {};
@@ -343,7 +325,6 @@ export class GlobalCatalogService {
             })).filter((o: any) => o.values.length > 0)
           : undefined;
 
-        // Parse full variants
         const parsedVariants = (p.variants || []).map((v: any) => {
           const vCurrency = v.price?.currency ?? currency ?? 'USD';
           const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(vCurrency.toUpperCase());
@@ -388,7 +369,6 @@ export class GlobalCatalogService {
     };
 
     const fetchAllForQuery = async (q: string): Promise<any[]> => {
-      // Fast first paint: one catalog call; ships_to filter already scopes by country.
       if (!isFastFirstPage && normalizedCountryCode && COUNTRY_MAP[normalizedCountryCode]) {
         const countryName = COUNTRY_MAP[normalizedCountryCode];
         if (!q.toLowerCase().includes(countryName.toLowerCase())) {
@@ -445,7 +425,6 @@ export class GlobalCatalogService {
       budgetMax,
       budgetCurrency,
       excludeIds,
-      keywords,
       sort,
       limit,
       rates,
@@ -453,7 +432,6 @@ export class GlobalCatalogService {
 
     let filteredProducts = applyCatalogFiltersWithRetry(products, filterOptions);
 
-    // Extra OR fetches if the first batch yielded too few products, even on first paint
     if (
       filteredProducts.length < 6 &&
       subQueries.length > FAST_SUBQUERY_LIMIT
