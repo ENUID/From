@@ -197,19 +197,7 @@ function applyCatalogFiltersWithRetry(products: UcpProduct[], filters: CatalogSe
     }
   }
 
-  if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
-    result = applyCatalogFilters(products, {
-      ...filters,
-      mandatoryConcepts: [],
-      budgetMax: null,
-    });
-    if (result.length > 0) {
-      console.log('[GlobalCatalog] relaxed mandatory concepts and budget filters');
-      return result;
-    }
-  }
-
-  return result;
+  return [];
 }
 
 export class GlobalCatalogService {

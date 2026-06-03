@@ -533,9 +533,17 @@ export async function POST(req: NextRequest) {
                 : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
             }
           } else {
+            const POST_TOOL_PROMPT = `You are a high-end AI shopping assistant.
+The system has ALREADY searched for the products and displayed them to the user.
+Your ONLY job right now is to write a short, elegant, conversational summary (1-2 sentences) of what you just found.
+DO NOT use any tools. DO NOT output any JSON. DO NOT try to search again.
+At the very end of your final response, you MUST output exactly 2 or 3 follow-up questions that the user might want to ask you next, wrapped in this specific format:
+[SUGGESTIONS: "Question 1", "Question 2"]
+Mirror the language the user wrote in.`
+
             const postSearchText = await generatePostToolReply(
               messages,
-              dynamicSystemPrompt,
+              POST_TOOL_PROMPT,
               aiResponse,
               formatSearchToolResult(products),
               5000,
