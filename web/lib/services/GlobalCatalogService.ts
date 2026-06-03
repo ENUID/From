@@ -52,7 +52,7 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const FAST_PAGE_LIMIT = 24;
 const CATALOG_PAGE_LIMIT = 30;
 const REFRESH_PAGE_LIMIT = 60;
-const FAST_SUBQUERY_LIMIT = 1;
+const FAST_SUBQUERY_LIMIT = 3;
 const INITIAL_RESULT_LIMIT = 20;
 const LOAD_MORE_RESULT_LIMIT = 10;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
@@ -453,17 +453,16 @@ export class GlobalCatalogService {
 
     let filteredProducts = applyCatalogFiltersWithRetry(products, filterOptions);
 
-    // Extra OR fetches only on full refresh (load more), not first paint — avoids doubling wait.
+    // Extra OR fetches if the first batch yielded too few products, even on first paint
     if (
-      filteredProducts.length === 0 &&
-      !isFastFirstPage &&
+      filteredProducts.length < 6 &&
       subQueries.length > FAST_SUBQUERY_LIMIT
     ) {
+      console.log(`[GlobalCatalog] sparse results (${filteredProducts.length}), fetching remaining ${subQueries.length - FAST_SUBQUERY_LIMIT} OR terms`);
       const extraRaw = await fetchSubQueries(subQueries.slice(FAST_SUBQUERY_LIMIT));
       rawProducts = uniqueById([...rawProducts, ...extraRaw]);
       ({ parsed: products, skippedNoImage } = parseRawProducts(rawProducts));
       filteredProducts = applyCatalogFiltersWithRetry(products, filterOptions);
-      console.log(`[GlobalCatalog] expanded OR terms (${subQueries.length} total)`);
     }
 
     console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}, fast=${isFastFirstPage}`);
