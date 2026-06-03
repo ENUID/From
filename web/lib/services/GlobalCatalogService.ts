@@ -128,28 +128,7 @@ function convertProductPrice(product: UcpProduct, targetCurrency: string, rates:
   return (product.price / productRate) * targetRate;
 }
 
-function searchableProductText(product: UcpProduct) {
-  return [
-    product.title,
-    product.description,
-    product.vendor,
-    ...(product.tags || []),
-    ...(product.options?.flatMap(option => [option.name, ...option.values]) || []),
-function normalizeCurrency(code?: string | null) {
-  return String(code || 'USD').trim().toUpperCase() || 'USD';
-}
 
-function convertProductPrice(product: UcpProduct, targetCurrency: string, rates: Record<string, number>) {
-  const currency = (product.currency || 'USD').toUpperCase();
-  const target = normalizeCurrency(targetCurrency);
-  if (currency === target) return product.price;
-
-  const productRate = rates[currency];
-  const targetRate = rates[target];
-  if (!productRate || !targetRate) return product.price;
-
-  return (product.price / productRate) * targetRate;
-}
 
 function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilters) {
   const excludeIds = new Set(filters.excludeIds || []);
