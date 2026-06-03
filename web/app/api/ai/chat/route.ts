@@ -567,6 +567,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (finalContent) {
+      finalContent = finalContent.replace(/\[search_ucp:\s*[^\]]+\]/gi, '').trim()
+    }
+
     const extracted = extractSuggestions(finalContent || "I'm sorry, I couldn't process that request right now.")
 
     return NextResponse.json({
