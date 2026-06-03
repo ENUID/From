@@ -355,8 +355,15 @@ function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] 
       });
 
       const productSummary = productsToInclude.map((p: any) => {
-        return `- ${p.title} by ${p.vendor} (${p.price} ${p.currency || p.base_currency})`;
-      }).join('\n');
+        let text = `- [ID: ${p.id}] ${p.title} by ${p.vendor} (${p.price} ${p.currency || p.base_currency})`;
+        if (p.description) text += `\n  Description: ${p.description.substring(0, 300).replace(/\n/g, ' ')}...`;
+        if (p.tags && p.tags.length > 0) text += `\n  Tags: ${p.tags.join(', ')}`;
+        if (p.options && p.options.length > 0) {
+          const opts = p.options.map((o: any) => `${o.name}: ${o.values.join('/')}`).join(', ');
+          text += `\n  Options: ${opts}`;
+        }
+        return text;
+      }).join('\n\n');
       
       clean.push({
         role: 'system',
