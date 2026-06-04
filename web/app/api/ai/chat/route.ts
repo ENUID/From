@@ -9,7 +9,7 @@ const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
 const MESSAGE_MAX_CHARS = 500
 const HISTORY_MAX_TURNS = 4
-const SORT_VALUES = new Set(['price_asc', 'price_desc', 'relevance'])
+const SORT_VALUES = new Set(['price_asc', 'price_desc', 'relevance', 'trust_desc'])
 const CLOTHING_TERMS = [
   'apparel', 'bag', 'bags', 'blazer', 'boot', 'boots', 'clothing', 'coat',
   'dress', 'dresses', 'fashion', 'hat', 'jacket', 'jeans', 'jewelry',
@@ -54,7 +54,7 @@ function isRateLimited(req: NextRequest) {
 
 function normalizeSort(value: unknown) {
   return typeof value === 'string' && SORT_VALUES.has(value)
-    ? value as 'price_asc' | 'price_desc' | 'relevance'
+    ? value as 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc'
     : 'price_asc'
 }
 
@@ -497,7 +497,7 @@ export async function POST(req: NextRequest) {
     let activeBudgetMax: number | null | undefined = undefined
     let activeBudgetCurrency: string | undefined = undefined
     let activeIsClothing: boolean | undefined = undefined
-    let activeSort: 'price_asc' | 'price_desc' | 'relevance' | undefined = undefined
+    let activeSort: 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc' | undefined = undefined
 
     if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
       const toolCall = aiResponse.tool_calls[0]

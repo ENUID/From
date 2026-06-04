@@ -21,9 +21,10 @@ export type UcpProduct = {
     options: Array<{ name: string; label: string }>;
     media?: Array<{ url: string }>;
   }>;
+  trust_score?: number;
 }
 
-type ProductSort = 'price_asc' | 'price_desc' | 'relevance';
+type ProductSort = 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc';
 
 type CatalogSearchFilters = {
   budgetMax?: number | null;
@@ -131,6 +132,22 @@ function convertProductPrice(product: UcpProduct, targetCurrency: string, rates:
 
 
 
+function calculateTrustScore(product: UcpProduct): number {
+  let hash = 0;
+  const vendor = product.vendor || 'Unknown';
+  for (let i = 0; i < vendor.length; i++) {
+    hash = vendor.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  let baseScore = 70 + (Math.abs(hash) % 25); // 70 to 94
+
+  // Bonuses
+  if (product.tags && product.tags.length > 0) baseScore += 2;
+  if (product.options && product.options.length > 0) baseScore += 2;
+  if (product.description && product.description.length > 100) baseScore += 2;
+
+  return Math.min(100, baseScore);
+}
+
 function searchableProductText(product: UcpProduct) {
   return [
     product.title,
@@ -171,7 +188,9 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     return true;
   });
 
-  if (sort !== 'relevance') {
+  if (sort === 'trust_desc') {
+    filtered = [...filtered].sort((a, b) => (b.trust_score || 0) - (a.trust_score || 0));
+  } else if (sort !== 'relevance') {
     filtered = [...filtered].sort((a, b) => {
       const priceA = convertProductPrice(a, budgetCurrency, filters.rates);
       const priceB = convertProductPrice(b, budgetCurrency, filters.rates);
@@ -353,7 +372,7 @@ export class GlobalCatalogService {
         }));
         const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
 
-        return {
+        const productData = {
           id: p.id,
           title: p.title || 'Untitled Product',
           vendor,
@@ -367,6 +386,11 @@ export class GlobalCatalogService {
           options: parsedOptions && parsedOptions.length > 0 ? parsedOptions : undefined,
           variants: parsedVariants,
           media: parsedMedia
+        };
+
+        return {
+          ...productData,
+          trust_score: calculateTrustScore(productData as UcpProduct)
         };
       } catch (err) {
         console.warn('Error parsing individual Shopify product:', err);
