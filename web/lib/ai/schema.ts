@@ -6,7 +6,7 @@ export const SearchToolSchema = z.object({
   budgetCurrency: z.string().length(3).optional().describe("ISO 4217 currency code for the budget, if the user explicitly names a currency."),
   isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories."),
   mandatoryConcepts: z.array(z.array(z.string())).optional().describe("Groups of essential concepts that MUST be present. Each group is an array of synonyms/translations. E.g. [['bag', 'túi'], ['vietnam', 'việt nam', 'vietnamese']]"),
-  sort: z.enum(['price_asc', 'price_desc', 'relevance', 'trust_desc']).optional().describe("Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), 'relevance', or 'trust_desc' (highest reputation shops first). Default is price_asc.")
+  sort: z.enum(['price_asc', 'price_desc', 'relevance', 'trust_desc']).optional().describe("Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), 'relevance', or 'trust_desc' (highest reputation shops first). Default is trust_desc.")
 });
 
 export type SearchToolArgs = z.infer<typeof SearchToolSchema>;
@@ -46,7 +46,7 @@ export const SEARCH_TOOL_DEF = {
         sort: {
           type: "string",
           enum: ["price_asc", "price_desc", "relevance", "trust_desc"],
-          description: "Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), 'relevance', or 'trust_desc' (prioritize shops with highest prestige/reputation). Default is price_asc."
+          description: "Requested sorting order. 'price_asc' (cheapest first), 'price_desc' (most expensive first), 'relevance', or 'trust_desc' (prioritize shops with highest prestige/reputation). Default is trust_desc."
         }
       },
       required: ["searchQuery"]

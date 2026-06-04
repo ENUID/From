@@ -175,7 +175,7 @@ function searchableProductText(product: UcpProduct) {
 
 function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilters) {
   const excludeIds = new Set(filters.excludeIds || []);
-  const sort = filters.sort || 'price_asc';
+  const sort = filters.sort || 'trust_desc';
   const budgetCurrency = normalizeCurrency(filters.budgetCurrency);
 
   let filtered = products.filter(product => {
@@ -239,7 +239,7 @@ export class GlobalCatalogService {
     countryCode?: string | null,
     isClothing?: boolean,
     mandatoryConcepts: string[][] = [],
-    sort: ProductSort = 'price_asc',
+    sort: ProductSort = 'trust_desc',
     budgetCurrency: string | null = 'USD',
     options: CatalogSearchOptions = {}
   ): Promise<UcpProduct[]> {

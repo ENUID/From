@@ -55,7 +55,7 @@ function isRateLimited(req: NextRequest) {
 function normalizeSort(value: unknown) {
   return typeof value === 'string' && SORT_VALUES.has(value)
     ? value as 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc'
-    : 'price_asc'
+    : 'trust_desc'
 }
 
 function collectProductIds(history: any[] = [], extraIds: unknown = []) {
@@ -386,6 +386,7 @@ CORE GUIDELINES:
 - Smart Concept Filtering: In addition to the broad \`searchQuery\`, you MUST extract the critical concepts (e.g., product type, specific material, country of origin) into \`mandatoryConcepts\`. Group synonyms and translations for each concept together. The system will filter out any product that doesn't contain at least one word from EVERY concept group.
   * E.g. User asks for "sustainable leather bags from vietnam": 
     mandatoryConcepts: [["bag", "bags", "túi"], ["leather", "da", "cuero"], ["vietnam", "việt nam", "vietnamese"]]
+  * IMPORTANT: If the user starts a new search for a completely different item (e.g. they were searching for "cotton shirts" and now just say "tìm dress"), DO NOT carry over old concepts like "cotton". Only extract the concepts explicitly requested for the new item.
 - Pagination: If the user asks for "more" products, you MUST use the 'search_ucp' tool with the EXACT SAME query as your previous search. Do not add words like "more" or "other". The system handles pagination automatically.
 - Presentation: Never manually list products, bullet points, or URLs. The UI will automatically display product cards below your message. Just provide a short, elegant, conversational summary of your actions or advice.
 - Honesty: Never hallucinate or invent products. If the tool returns no results, politely apologize.
