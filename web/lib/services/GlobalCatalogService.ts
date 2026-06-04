@@ -476,12 +476,19 @@ export class GlobalCatalogService {
     }
 
     const fetchChunkedFromCatalog = async (q: string): Promise<any[]> => {
-      console.log(`[GlobalCatalog] Querying global catalog in ${chunks.length} chunks for ${allowedDomains.length} domains...`);
+      // Simplify the search query: AI expands to many OR terms which,
+      // combined with domain AND clauses, creates queries too complex
+      // for the Shopify Catalog API. Use only the first 2 core terms.
+      const subTerms = splitCatalogQuery(q);
+      const simplifiedQuery = subTerms.slice(0, 2).join(' OR ');
+      
+      console.log(`[GlobalCatalog] Querying global catalog in ${chunks.length} chunks for ${allowedDomains.length} domains (query: "${simplifiedQuery}")...`);
       const startTime = Date.now();
 
       const promises = chunks.map(async (chunk, index) => {
         const domainClause = chunk.map(d => `"${d}"`).join(" OR ");
-        const chunkQuery = `(${q}) AND (${domainClause})`;
+        const chunkQuery = `(${simplifiedQuery}) AND (${domainClause})`;
+
 
         const filters: any = { available: true };
         if (normalizedCountryCode) {
