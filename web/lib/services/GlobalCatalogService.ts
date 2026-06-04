@@ -132,7 +132,7 @@ function convertProductPrice(product: UcpProduct, targetCurrency: string, rates:
 
 
 
-function calculateTrustScore(product: UcpProduct): number {
+function calculateTrustScore(product: UcpProduct, mandatoryConcepts: string[][] = []): number {
   let hash = 0;
   const vendor = product.vendor || 'Unknown';
   for (let i = 0; i < vendor.length; i++) {
@@ -144,6 +144,18 @@ function calculateTrustScore(product: UcpProduct): number {
   if (product.tags && product.tags.length > 0) baseScore += 2;
   if (product.options && product.options.length > 0) baseScore += 2;
   if (product.description && product.description.length > 100) baseScore += 2;
+
+  // Concept matching bonus in Title or Vendor
+  if (mandatoryConcepts.length > 0) {
+    const titleAndVendor = `${product.title} ${vendor}`.toLowerCase();
+    for (const conceptGroup of mandatoryConcepts) {
+      if (!conceptGroup || conceptGroup.length === 0) continue;
+      const matched = conceptGroup.some(word => titleAndVendor.includes(word.toLowerCase().trim()));
+      if (matched) {
+        baseScore += 10;
+      }
+    }
+  }
 
   return Math.min(100, baseScore);
 }
@@ -390,7 +402,7 @@ export class GlobalCatalogService {
 
         return {
           ...productData,
-          trust_score: calculateTrustScore(productData as UcpProduct)
+          trust_score: calculateTrustScore(productData as UcpProduct, mandatoryConcepts)
         };
       } catch (err) {
         console.warn('Error parsing individual Shopify product:', err);
