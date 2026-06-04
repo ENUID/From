@@ -6,12 +6,12 @@ export type StoreProfile = {
 
 export const UCP_REGISTRY: StoreProfile[] = [
   {
-    "domain": "gymshark.com",
+    "domain": "gymsharkusa.myshopify.com",
     "categories": [],
     "vibe": []
   },
   {
-    "domain": "skims.com",
+    "domain": "skimsbody.myshopify.com",
     "categories": [],
     "vibe": []
   },
@@ -46,12 +46,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "bombas.com",
+    "domain": "bombas.myshopify.com",
     "categories": [],
     "vibe": []
   },
   {
-    "domain": "chubbiesshorts.com",
+    "domain": "chubbies.myshopify.com",
     "categories": [],
     "vibe": []
   },
@@ -61,7 +61,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "fahertybrand.com",
+    "domain": "faherty.myshopify.com",
     "categories": [],
     "vibe": []
   },
@@ -71,17 +71,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "spanx.com",
+    "domain": "spanx-com.myshopify.com",
     "categories": [],
     "vibe": []
   },
   {
     "domain": "outdoorvoices.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "sofiedhoore.be",
     "categories": [],
     "vibe": []
   },
@@ -92,11 +87,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
   },
   {
     "domain": "backalleybodega.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "bysera.zid.store",
     "categories": [],
     "vibe": []
   },
@@ -156,11 +146,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "aritzia.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
     "domain": "finaldraftclo.com",
     "categories": [],
     "vibe": []
@@ -177,11 +162,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
   },
   {
     "domain": "gentag.store",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "slowsteadyclub.com",
     "categories": [],
     "vibe": []
   },
@@ -241,7 +221,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "slvrlake-denim.com",
+    "domain": "slvrlake.myshopify.com",
     "categories": [],
     "vibe": []
   },
@@ -266,22 +246,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "bohemegoods.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
     "domain": "and-daughter.com",
     "categories": [],
     "vibe": []
   },
   {
     "domain": "vahro.in",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "turnblack.in",
     "categories": [],
     "vibe": []
   },
@@ -341,11 +311,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "jucca.it",
-    "categories": [],
-    "vibe": []
-  },
-  {
     "domain": "myfriendjoni.com",
     "categories": [],
     "vibe": []
@@ -371,7 +336,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "gethommey.com.au",
+    "domain": "hommeyusa.myshopify.com",
     "categories": [],
     "vibe": []
   },
@@ -402,16 +367,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
   },
   {
     "domain": "elvntee.in",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "camper.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "menspoem.in",
     "categories": [],
     "vibe": []
   },
@@ -466,7 +421,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "senso.com.au",
+    "domain": "senso.myshopify.com",
     "categories": [],
     "vibe": []
   },
@@ -526,7 +481,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "asos.com",
+    "domain": "asos.myshopify.com",
     "categories": [],
     "vibe": []
   },
@@ -556,17 +511,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "atpco.it",
-    "categories": [],
-    "vibe": []
-  },
-  {
     "domain": "musclemind.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "marksandspencer.in",
     "categories": [],
     "vibe": []
   },
@@ -576,7 +521,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "studiojeffs.com",
+    "domain": "jeffs.myshopify.com",
     "categories": [],
     "vibe": []
   },
@@ -587,11 +532,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
   },
   {
     "domain": "ludic.life",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "offonclothing.com",
     "categories": [],
     "vibe": []
   },
@@ -611,11 +551,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "thatie.ru",
-    "categories": [],
-    "vibe": []
-  },
-  {
     "domain": "theforbiddenfruit.in",
     "categories": [],
     "vibe": []
@@ -631,22 +566,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "pertestore.ru",
-    "categories": [],
-    "vibe": []
-  },
-  {
     "domain": "orr.store",
     "categories": [],
     "vibe": []
   },
   {
     "domain": "oldlinenmill.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "sensclothing.com",
     "categories": [],
     "vibe": []
   },
@@ -681,11 +606,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "herbyh.design",
-    "categories": [],
-    "vibe": []
-  },
-  {
     "domain": "wtflex.in",
     "categories": [],
     "vibe": []
@@ -697,11 +617,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
   },
   {
     "domain": "thedeer.in",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "ekke.co",
     "categories": [],
     "vibe": []
   },
@@ -756,16 +671,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": []
   },
   {
-    "domain": "amoslook.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "studiodoe.cc",
-    "categories": [],
-    "vibe": []
-  },
-  {
     "domain": "coteleparis.com",
     "categories": [],
     "vibe": []
@@ -782,21 +687,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
   },
   {
     "domain": "11-11.in",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "noconcept.ru",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "mimpikita.com.my",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "jhoola.com.tr",
     "categories": [],
     "vibe": []
   },
@@ -847,11 +737,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
   },
   {
     "domain": "azaadclo.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "ourlegacy.com",
     "categories": [],
     "vibe": []
   },
