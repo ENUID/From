@@ -52,11 +52,11 @@ type CatalogSearchOptions = {
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
-const FAST_PAGE_LIMIT = 24;
-const CATALOG_PAGE_LIMIT = 30;
+const FAST_PAGE_LIMIT = 30;
+const CATALOG_PAGE_LIMIT = 50;
 const REFRESH_PAGE_LIMIT = 60;
 const FAST_SUBQUERY_LIMIT = 3;
-const INITIAL_RESULT_LIMIT = 20;
+const INITIAL_RESULT_LIMIT = 30;
 const LOAD_MORE_RESULT_LIMIT = 10;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
 
@@ -195,7 +195,14 @@ function cleanBrandName(domain: string): string {
 function isDomainMatch(productDomain: string, allowedDomain: string): boolean {
   const p = cleanBrandName(productDomain);
   const a = cleanBrandName(allowedDomain);
-  return p === a && p.length > 0;
+  if (!p || !a) return false;
+  // Exact match
+  if (p === a) return true;
+  // Fuzzy: one contains or starts with the other (handles regional suffixes like "gymsharkusa" ↔ "gymshark")
+  if (p.length >= 3 && a.length >= 3) {
+    if (p.startsWith(a) || a.startsWith(p)) return true;
+  }
+  return false;
 }
 
 function getProductStoreDomain(product: UcpProduct): string {
@@ -232,14 +239,10 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
       return false;
     }
 
-    if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
-      const text = searchableProductText(product);
-      const matchesAllConcepts = filters.mandatoryConcepts.every(conceptGroup => {
-        if (!conceptGroup || conceptGroup.length === 0) return true;
-        return conceptGroup.some(word => text.includes(word.toLowerCase().trim()));
-      });
-      if (!matchesAllConcepts) return false;
-    }
+    // mandatoryConcepts are used for trust_score ranking only, not hard filtering.
+    // Products from verified stores (already filtered by domain above) should not be
+    // excluded just because their title/description is in a different language than
+    // the AI's concept synonyms. The Shopify Catalog API query already handles relevance.
 
     return true;
   });
