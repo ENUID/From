@@ -175,6 +175,29 @@ function searchableProductText(product: UcpProduct) {
     .toLowerCase();
 }
 
+function cleanBrandName(domain: string): string {
+  let cleaned = domain
+    .replace(/^www\./i, '')
+    .replace(/\.myshopify\.com$/i, '')
+    .replace(/\.(com|net|org|co|io|store|co\.uk|com\.au|it|fr|in|de|es|be|pk|ca|au|edu|gov|eu|ph|ae|ru|gr|store|cc|co\.id|cl)$/i, '')
+    .toLowerCase()
+    .trim();
+  
+  // Remove common prefixes
+  cleaned = cleaned.replace(/^(shop|weare|the|buy|get|official|studio|wear)\-?/i, '');
+  
+  // Remove common suffixes
+  cleaned = cleaned.replace(/\-?(shop|store|clothing|brand|official|studio|wear|collective|denim)$/i, '');
+  
+  return cleaned;
+}
+
+function isDomainMatch(productDomain: string, allowedDomain: string): boolean {
+  const p = cleanBrandName(productDomain);
+  const a = cleanBrandName(allowedDomain);
+  return p === a && p.length > 0;
+}
+
 function getProductStoreDomain(product: UcpProduct): string {
   try {
     const urlObj = new URL(product.store_url);
@@ -191,14 +214,15 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
   const excludeIds = new Set(filters.excludeIds || []);
   const sort = filters.sort || 'trust_desc';
   const budgetCurrency = normalizeCurrency(filters.budgetCurrency);
-  const allowedStoresSet = new Set(UCP_REGISTRY.map(s => s.domain.toLowerCase().trim()));
 
   let filtered = products.filter(product => {
     if (excludeIds.has(product.id)) return false;
 
-    // Strict allowed store filtering
+    // Strict allowed store filtering with domain matching
     const storeDomain = getProductStoreDomain(product);
-    if (!allowedStoresSet.has(storeDomain)) return false;
+    const hasMatch = UCP_REGISTRY.some(s => isDomainMatch(storeDomain, s.domain));
+    if (!hasMatch) return false;
+
 
     if (
       filters.budgetMax &&
