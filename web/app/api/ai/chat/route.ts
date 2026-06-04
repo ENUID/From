@@ -4,6 +4,8 @@ import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
 import { GlobalCatalogService, UcpProduct, type CatalogSearchDebug } from '@/lib/services/GlobalCatalogService'
+import { UCP_REGISTRY } from '@/lib/stores'
+
 
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20
@@ -462,6 +464,10 @@ export async function POST(req: NextRequest) {
       const savedSummary = savedProducts.map((p: any) => `- ${p.title} (${p.price} ${p.currency})`).join('\n');
       dynamicSystemPrompt += `\n\nUSER'S SAVED PRODUCTS:\nThe user has saved the following products in their cart/favorites:\n${savedSummary}\nKeep this in mind if they ask to compare or refer to things they've saved or liked.`;
     }
+
+    const allowedDomains = UCP_REGISTRY.map(s => s.domain);
+    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from the allowed boutique store list:\n${allowedDomains.map(d => `- ${d}`).join('\n')}\nThe search tool 'search_ucp' will strictly filter results and only return products from these stores. Do not recommend or talk about products from any other stores.`;
+
 
     let aiResponse: ChatMessage
     try {

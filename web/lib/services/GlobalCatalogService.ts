@@ -1,4 +1,6 @@
 import { getExchangeRates } from '../exchangeRates';
+import { UCP_REGISTRY } from '../stores';
+
 
 export type UcpProduct = {
   id: string;
@@ -173,13 +175,31 @@ function searchableProductText(product: UcpProduct) {
     .toLowerCase();
 }
 
+function getProductStoreDomain(product: UcpProduct): string {
+  try {
+    const urlObj = new URL(product.store_url);
+    return urlObj.hostname.replace(/^www\./i, '').toLowerCase().trim();
+  } catch {
+    if (product.vendor && product.vendor.includes('.')) {
+      return product.vendor.replace(/^www\./i, '').toLowerCase().trim();
+    }
+    return '';
+  }
+}
+
 function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilters) {
   const excludeIds = new Set(filters.excludeIds || []);
   const sort = filters.sort || 'trust_desc';
   const budgetCurrency = normalizeCurrency(filters.budgetCurrency);
+  const allowedStoresSet = new Set(UCP_REGISTRY.map(s => s.domain.toLowerCase().trim()));
 
   let filtered = products.filter(product => {
     if (excludeIds.has(product.id)) return false;
+
+    // Strict allowed store filtering
+    const storeDomain = getProductStoreDomain(product);
+    if (!allowedStoresSet.has(storeDomain)) return false;
+
     if (
       filters.budgetMax &&
       filters.budgetMax > 0 &&
@@ -424,13 +444,65 @@ export class GlobalCatalogService {
       return fetchFromCatalog(q);
     };
 
-    const subQueries = splitCatalogQuery(normalizedQuery);
-    const fetchSubQueries = async (queries: string[]) => {
-      const results = await Promise.all(
-        queries.map((subQuery, index) =>
-          index === 0 ? fetchAllForQuery(subQuery) : fetchFromCatalog(subQuery)
-        )
-      );
+    const allowedDomains = UCP_REGISTRY.map(s => s.domain.toLowerCase().trim());
+    const chunkSize = 10;
+    const chunks: string[][] = [];
+    for (let i = 0; i < allowedDomains.length; i += chunkSize) {
+      chunks.push(allowedDomains.slice(i, i + chunkSize));
+    }
+
+    const fetchChunkedFromCatalog = async (q: string): Promise<any[]> => {
+      console.log(`[GlobalCatalog] Querying global catalog in ${chunks.length} chunks for ${allowedDomains.length} domains...`);
+      const startTime = Date.now();
+
+      const promises = chunks.map(async (chunk, index) => {
+        const domainClause = chunk.map(d => `"${d}"`).join(" OR ");
+        const chunkQuery = `(${q}) AND (${domainClause})`;
+
+        const filters: any = { available: true };
+        if (normalizedCountryCode) {
+          filters.ships_to = { country: normalizedCountryCode };
+        }
+
+        const payload = {
+          jsonrpc: "2.0",
+          method: "tools/call",
+          id: `chunk-${index}`,
+          params: {
+            name: "search_catalog",
+            arguments: {
+              meta: {
+                "ucp-agent": {
+                  profile: "https://shopify.dev/ucp/agent-profiles/2026-04-08/valid-with-capabilities.json"
+                }
+              },
+              catalog: {
+                query: chunkQuery,
+                filters,
+                pagination: { limit: catalogPageLimit }
+              }
+            }
+          }
+        };
+
+        try {
+          const res = await fetch('https://catalog.shopify.com/api/ucp/mcp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(catalogTimeoutMs)
+          });
+          if (!res.ok) return [];
+          const rawJson = await res.json();
+          return rawJson.result?.structuredContent?.products || [];
+        } catch (err) {
+          console.warn(`[GlobalCatalog] Chunk query failed for chunk index ${index}:`, err);
+          return [];
+        }
+      });
+
+      const results = await Promise.all(promises);
+      console.log(`[GlobalCatalog] Chunk queries finished in ${Date.now() - startTime}ms`);
       return uniqueById(results.flat());
     };
 
@@ -448,19 +520,7 @@ export class GlobalCatalogService {
       return { parsed, skippedNoImage };
     };
 
-    let rawProducts: any[];
-    if (options.loadMore && subQueries.length > 0) {
-      if (options.debug) {
-        options.debug.loadMorePage = 1;
-        options.debug.loadMoreQuery = 'ALL_SUBQUERIES';
-      }
-      console.log(`[GlobalCatalog] load more fetching all subqueries to replenish cache pool`);
-      rawProducts = await fetchSubQueries(subQueries);
-    } else {
-      rawProducts = await fetchSubQueries(
-        isFastFirstPage ? subQueries.slice(0, FAST_SUBQUERY_LIMIT) : subQueries
-      );
-    }
+    const rawProducts = await fetchChunkedFromCatalog(normalizedQuery);
     let { parsed: products, skippedNoImage } = parseRawProducts(rawProducts);
 
     const filterOptions: CatalogSearchFilters = {
@@ -475,16 +535,6 @@ export class GlobalCatalogService {
 
     let filteredProducts = applyCatalogFiltersWithRetry(products, filterOptions);
 
-    if (
-      filteredProducts.length < 6 &&
-      subQueries.length > FAST_SUBQUERY_LIMIT
-    ) {
-      console.log(`[GlobalCatalog] sparse results (${filteredProducts.length}), fetching remaining ${subQueries.length - FAST_SUBQUERY_LIMIT} OR terms`);
-      const extraRaw = await fetchSubQueries(subQueries.slice(FAST_SUBQUERY_LIMIT));
-      rawProducts = uniqueById([...rawProducts, ...extraRaw]);
-      ({ parsed: products, skippedNoImage } = parseRawProducts(rawProducts));
-      filteredProducts = applyCatalogFiltersWithRetry(products, filterOptions);
-    }
 
     console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}, fast=${isFastFirstPage}`);
 
