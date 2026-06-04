@@ -469,25 +469,26 @@ export class GlobalCatalogService {
     };
 
     const allowedDomains = UCP_REGISTRY.map(s => s.domain.toLowerCase().trim());
-    const chunkSize = 10;
-    const chunks: string[][] = [];
-    for (let i = 0; i < allowedDomains.length; i += chunkSize) {
-      chunks.push(allowedDomains.slice(i, i + chunkSize));
-    }
 
     const fetchChunkedFromCatalog = async (q: string): Promise<any[]> => {
-      // Simplify the search query: AI expands to many OR terms which,
-      // combined with domain AND clauses, creates queries too complex
-      // for the Shopify Catalog API. Use only the first 2 core terms.
-      const subTerms = splitCatalogQuery(q);
-      const simplifiedQuery = subTerms.slice(0, 2).join(' OR ');
+      // Dynamically size chunks based on query complexity.
+      // More OR terms in the query → fewer domains per chunk to stay
+      // within Shopify Catalog API query complexity limits.
+      // This preserves ALL multilingual search terms (e.g., シャツ, 셔츠, camisa).
+      const orTermCount = splitCatalogQuery(q).length;
+      const chunkSize = orTermCount <= 2 ? 10 : orTermCount <= 4 ? 7 : 5;
       
-      console.log(`[GlobalCatalog] Querying global catalog in ${chunks.length} chunks for ${allowedDomains.length} domains (query: "${simplifiedQuery}")...`);
+      const chunks: string[][] = [];
+      for (let i = 0; i < allowedDomains.length; i += chunkSize) {
+        chunks.push(allowedDomains.slice(i, i + chunkSize));
+      }
+
+      console.log(`[GlobalCatalog] Querying global catalog in ${chunks.length} chunks (size=${chunkSize}) for ${allowedDomains.length} domains (${orTermCount} search terms)...`);
       const startTime = Date.now();
 
       const promises = chunks.map(async (chunk, index) => {
         const domainClause = chunk.map(d => `"${d}"`).join(" OR ");
-        const chunkQuery = `(${simplifiedQuery}) AND (${domainClause})`;
+        const chunkQuery = `(${q}) AND (${domainClause})`;
 
 
         const filters: any = { available: true };
