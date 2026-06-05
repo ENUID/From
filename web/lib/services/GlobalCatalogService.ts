@@ -1055,18 +1055,59 @@ export class GlobalCatalogService {
         });
       });
 
-      const settled = await Promise.allSettled(promises);
+      // Progressive accumulation: collect results as stores respond,
+      // return early once we have enough products instead of waiting for all stores
+      const EARLY_RETURN_THRESHOLD = 60; // raw products needed for early return
+      const EARLY_RETURN_TIMEOUT_MS = isFastFirstPage ? 2000 : 4000;
       const directProducts: any[] = [];
-      for (const res of settled) {
-        if (res.status === 'fulfilled' && res.value) {
-          const { domain, products } = res.value;
-          for (const p of products) {
-            p._directDomain = domain;
-            directProducts.push(p);
-          }
+      let resolvedCount = 0;
+
+      const collectResult = (res: { domain: string; products: any[] }) => {
+        for (const p of res.products) {
+          p._directDomain = res.domain;
+          directProducts.push(p);
         }
-      }
-      console.log(`[GlobalCatalog] Direct storefront queries finished in ${Date.now() - startTime}ms. Fetched ${directProducts.length} raw products across parts.`);
+        resolvedCount++;
+      };
+
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const total = promises.length;
+
+        const tryResolve = () => {
+          if (settled) return;
+          if (resolvedCount >= total) {
+            settled = true;
+            resolve();
+          } else if (directProducts.length >= EARLY_RETURN_THRESHOLD) {
+            settled = true;
+            console.log(`[GlobalCatalog] Early return: ${directProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
+            resolve();
+          }
+        };
+
+        // Attach .then to each promise to collect results progressively
+        for (const p of promises) {
+          p.then((res) => {
+            if (res) collectResult(res);
+            tryResolve();
+          }).catch(() => {
+            resolvedCount++;
+            tryResolve();
+          });
+        }
+
+        // Timeout: resolve with whatever we have
+        setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            console.log(`[GlobalCatalog] Timeout return: ${directProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
+            resolve();
+          }
+        }, EARLY_RETURN_TIMEOUT_MS);
+      });
+
+      console.log(`[GlobalCatalog] Direct storefront queries finished in ${Date.now() - startTime}ms. Fetched ${directProducts.length} raw products (${resolvedCount}/${promises.length} stores responded).`);
       rawProducts = directProducts;
     } else {
       console.log(`[GlobalCatalog] No targeted match. Falling back to Global Catalog MCP.`);
