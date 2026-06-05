@@ -53,8 +53,8 @@ type CatalogSearchOptions = {
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const FAST_PAGE_LIMIT = 30;
-const CATALOG_PAGE_LIMIT = 50;
-const REFRESH_PAGE_LIMIT = 60;
+const CATALOG_PAGE_LIMIT = 30;
+const REFRESH_PAGE_LIMIT = 30;
 const FAST_SUBQUERY_LIMIT = 3;
 const INITIAL_RESULT_LIMIT = 30;
 const LOAD_MORE_RESULT_LIMIT = 10;
@@ -88,6 +88,81 @@ function splitCatalogQuery(query: string) {
     .map(part => part.trim())
     .filter(Boolean)
     .slice(0, 6);
+}
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  "top": [
+    "shirt", "shirts", "t-shirt", "t-shirts", "tee", "tees", "top", "tops", "tank", "tanks", 
+    "blouse", "blouses", "crop", "henley", "polo", "sơ mi", "ao", "áo", "シャツ", "셔츠", "camisa"
+  ],
+  "bottom": [
+    "short", "shorts", "pants", "trouser", "trousers", "jean", "jeans", "denim", "skirt", "skirts", 
+    "leggings", "jogger", "joggers", "sweatpant", "sweatpants", "quần", "裤"
+  ],
+  "dress": [
+    "dress", "dresses", "gown", "gowns", "jumpsuit", "jumpsuits", "bodysuit", "bodysuits", 
+    "romper", "rompers", "váy", "đầm", "ワンピース"
+  ],
+  "outerwear": [
+    "jacket", "jackets", "coat", "coats", "hoodie", "hoodies", "sweatshirt", "sweatshirts", 
+    "sweater", "sweaters", "cardigan", "cardigans", "blazer", "blazers", "fleece", "vest", "vests", 
+    "khoác", "len", "ジャケット", "코트"
+  ],
+  "footwear": [
+    "shoe", "shoes", "sneaker", "sneakers", "boot", "boots", "sandal", "sandals", "heel", "heels", 
+    "slide", "slides", "loafer", "loafers", "giày", "dép", "guốc", "shoes", "boots", "sneakers", "靴", "신발"
+  ],
+  "underwear": [
+    "sock", "socks", "underwear", "bra", "bras", "briefs", "boxer", "boxers", "thong", "thongs", 
+    "sleepwear", "robe", "robes", "lingerie", "vớ", "sịp", "lót", "下着", "속옷"
+  ],
+  "accessory": [
+    "bag", "bags", "backpack", "backpacks", "hat", "hats", "cap", "caps", "belt", "belts", 
+    "sunglasses", "túi", "ví", "mũ", "nón", "kính", "バッグ", "모자"
+  ]
+};
+
+function getMatchingDomains(query: string): string[] {
+  const normalized = query.toLowerCase();
+  const words = normalized
+    .replace(/[()\"',]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(Boolean);
+
+  const matchedCategories = new Set<string>();
+
+  for (const word of words) {
+    if (word === 'or' || word === 'and') continue;
+    
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywords.some(kw => {
+        if (kw.length < 3) {
+          return word === kw;
+        }
+        return word.includes(kw) || kw.includes(word);
+      })) {
+        matchedCategories.add(category);
+      }
+    }
+  }
+
+  if (matchedCategories.size === 0) {
+    console.log(`[GlobalCatalog] No specific category matched for query "${query}". Using all stores.`);
+    return UCP_REGISTRY.map(s => s.domain.toLowerCase().trim());
+  }
+
+  const matchedDomains = UCP_REGISTRY.filter(store => 
+    store.categories.some(cat => matchedCategories.has(cat))
+  ).map(s => s.domain.toLowerCase().trim());
+
+  console.log(`[GlobalCatalog] Query "${query}" matched categories [${Array.from(matchedCategories).join(', ')}]. Selected ${matchedDomains.length} of ${UCP_REGISTRY.length} stores.`);
+
+  if (matchedDomains.length === 0) {
+    return UCP_REGISTRY.map(s => s.domain.toLowerCase().trim());
+  }
+
+  return matchedDomains;
 }
 
 function uniqueById<T extends { id?: string }>(items: T[]) {
@@ -176,13 +251,32 @@ function searchableProductText(product: UcpProduct) {
 }
 
 function cleanBrandName(domain: string): string {
-  let cleaned = domain
-    .replace(/^www\./i, '')
-    .replace(/\.myshopify\.com$/i, '')
-    .replace(/\.(com|net|org|co|io|store|co\.uk|com\.au|it|fr|in|de|es|be|pk|ca|au|edu|gov|eu|ph|ae|ru|gr|store|cc|co\.id|cl)$/i, '')
-    .toLowerCase()
-    .trim();
+  if (!domain) return '';
+  let cleaned = domain.toLowerCase().trim();
   
+  // Remove protocols
+  cleaned = cleaned.replace(/^(https?:\/\/)?(www\.)?/, '');
+  cleaned = cleaned.split('/')[0];
+
+  // If it ends with myshopify.com, get the part right before myshopify
+  if (cleaned.includes('.myshopify.com')) {
+    const parts = cleaned.replace(/\.myshopify\.com$/, '').split('.');
+    cleaned = parts[parts.length - 1];
+  } else {
+    // Split by . and filter out TLDs
+    const parts = cleaned.split('.');
+    const tlds = new Set(['com', 'co', 'uk', 'org', 'net', 'store', 'in', 'us', 'ca', 'au', 'io', 'website', 'com', 'au', 'me', 'ph', 'ae', 'fr', 'eu', 'gr', 'it', 'co', 'id', 'xyz', 'cc']);
+    const nonTlds = parts.filter(p => !tlds.has(p));
+    if (nonTlds.length > 0) {
+      cleaned = nonTlds[nonTlds.length - 1];
+    } else {
+      cleaned = parts[0];
+    }
+  }
+
+  // Remove all hyphens and underscores to handle "alo-yoga" -> "aloyoga"
+  cleaned = cleaned.replace(/[\-_]/g, '');
+
   // Remove common prefixes
   cleaned = cleaned.replace(/^(shop|weare|the|buy|get|official|studio|wear)\-?/i, '');
   
@@ -228,7 +322,9 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     // Strict allowed store filtering with domain matching
     const storeDomain = getProductStoreDomain(product);
     const hasMatch = UCP_REGISTRY.some(s => isDomainMatch(storeDomain, s.domain));
-    if (!hasMatch) return false;
+    if (!hasMatch) {
+      return false;
+    }
 
 
     if (
@@ -447,6 +543,8 @@ export class GlobalCatalogService {
           media: parsedMedia
         };
 
+
+
         return {
           ...productData,
           trust_score: calculateTrustScore(productData as UcpProduct, mandatoryConcepts)
@@ -471,7 +569,7 @@ export class GlobalCatalogService {
       return fetchFromCatalog(q);
     };
 
-    const allowedDomains = UCP_REGISTRY.map(s => s.domain.toLowerCase().trim());
+    const allowedDomains = getMatchingDomains(normalizedQuery);
 
     const fetchChunkedFromCatalog = async (q: string): Promise<any[]> => {
       // Dynamically size chunks based on query complexity.
@@ -527,9 +625,14 @@ export class GlobalCatalogService {
             body: JSON.stringify(payload),
             signal: AbortSignal.timeout(catalogTimeoutMs)
           });
-          if (!res.ok) return [];
+          if (!res.ok) {
+            console.warn(`[GlobalCatalog] Chunk query HTTP error status for chunk index ${index}: ${res.status}`);
+            return [];
+          }
           const rawJson = await res.json();
-          return rawJson.result?.structuredContent?.products || [];
+          const products = rawJson.result?.structuredContent?.products || [];
+          console.log(`[GlobalCatalog] Chunk ${index} query returned ${products.length} products (HTTP status ${res.status})`);
+          return products;
         } catch (err) {
           console.warn(`[GlobalCatalog] Chunk query failed for chunk index ${index}:`, err);
           return [];

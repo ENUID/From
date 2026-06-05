@@ -7,747 +7,1480 @@ export type StoreProfile = {
 export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "gymsharkusa.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "bottom",
+      "outerwear",
+      "top",
+      "accessory",
+      "underwear"
+    ],
+    "vibe": [
+      "workout",
+      "sport",
+      "seamless",
+      "casual"
+    ]
   },
   {
     "domain": "skimsbody.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "dress",
+      "underwear",
+      "bottom",
+      "top",
+      "outerwear"
+    ],
+    "vibe": [
+      "seamless"
+    ]
   },
   {
     "domain": "aloyoga.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "bottom",
+      "outerwear",
+      "footwear",
+      "accessory"
+    ],
+    "vibe": [
+      "streetwear",
+      "cozy"
+    ]
   },
   {
     "domain": "kith.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "accessory",
+      "bottom",
+      "outerwear",
+      "underwear"
+    ],
+    "vibe": [
+      "organic"
+    ]
   },
   {
     "domain": "fashionnova.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "formal"
+    ]
   },
   {
     "domain": "allbirds.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "footwear",
+      "underwear",
+      "top"
+    ],
+    "vibe": [
+      "denim"
+    ]
   },
   {
     "domain": "taylorstitch.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "outerwear",
+      "top",
+      "bottom",
+      "underwear"
+    ],
+    "vibe": [
+      "organic"
+    ]
   },
   {
     "domain": "marinelayer.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "bottom",
+      "dress",
+      "top"
+    ],
+    "vibe": [
+      "streetwear",
+      "denim"
+    ]
   },
   {
     "domain": "bombas.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "underwear",
+      "dress",
+      "top"
+    ],
+    "vibe": [
+      "seamless",
+      "active"
+    ]
   },
   {
     "domain": "chubbies.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "bottom",
+      "accessory",
+      "top"
+    ],
+    "vibe": [
+      "casual",
+      "active",
+      "outdoor"
+    ]
   },
   {
     "domain": "goodamerican.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "bottom"
+    ],
+    "vibe": [
+      "denim"
+    ]
   },
   {
     "domain": "faherty.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "bottom",
+      "top",
+      "outerwear"
+    ],
+    "vibe": [
+      "sport",
+      "organic",
+      "outdoor",
+      "denim"
+    ]
   },
   {
     "domain": "pangaia.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "bottom",
+      "outerwear",
+      "top",
+      "dress"
+    ],
+    "vibe": [
+      "outdoor",
+      "seamless",
+      "organic"
+    ]
   },
   {
     "domain": "spanx-com.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "bottom",
+      "underwear",
+      "dress",
+      "outerwear",
+      "top"
+    ],
+    "vibe": [
+      "seamless",
+      "denim",
+      "casual"
+    ]
   },
   {
     "domain": "outdoorvoices.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "outdoor",
+      "seamless",
+      "cozy"
+    ]
   },
   {
     "domain": "toa.st",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "backalleybodega.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "outdoor",
+      "denim"
+    ]
   },
   {
     "domain": "dissh.com.au",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
+    ],
+    "vibe": [
+      "active",
+      "casual"
+    ]
   },
   {
     "domain": "porterjames.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "workout",
+      "sport"
+    ]
   },
   {
     "domain": "caseycasey.eu",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "luroq.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "bottom",
+      "outerwear",
+      "dress"
+    ],
+    "vibe": [
+      "outdoor"
+    ]
   },
   {
     "domain": "luso.com.pk",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "organic",
+      "luxury",
+      "outdoor"
+    ]
   },
   {
     "domain": "effelements.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "seamless",
+      "outdoor"
+    ]
   },
   {
     "domain": "favrics.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "denim"
+    ]
   },
   {
     "domain": "fromherman.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "luxury",
+      "streetwear"
+    ]
   },
   {
     "domain": "loomforma.com",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "pegador.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "outdoor"
+    ]
   },
   {
     "domain": "commas.cc",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "bottom",
+      "outerwear"
+    ],
+    "vibe": [
+      "casual",
+      "cozy"
+    ]
   },
   {
     "domain": "finaldraftclo.com",
-    "categories": [],
+    "categories": [
+      "bottom",
+      "outerwear",
+      "accessory",
+      "top"
+    ],
     "vibe": []
   },
   {
     "domain": "wearneutralground.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "casual",
+      "workout",
+      "outdoor",
+      "streetwear"
+    ]
   },
   {
     "domain": "sweatscollective.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "luxury",
+      "organic",
+      "cozy",
+      "streetwear"
+    ]
   },
   {
     "domain": "gentag.store",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "antifragilecompany.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "sport",
+      "workout",
+      "organic"
+    ]
   },
   {
     "domain": "itsashirt.gr",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "casual",
+      "streetwear",
+      "formal"
+    ]
   },
   {
     "domain": "circolo1901.it",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "sport"
+    ]
   },
   {
     "domain": "limited-clothing.co.uk",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "laurenmanoogian.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "seamless",
+      "sport",
+      "formal"
+    ]
   },
   {
     "domain": "borderlineofficial.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top"
+    ],
+    "vibe": [
+      "outdoor",
+      "seamless",
+      "active"
+    ]
   },
   {
     "domain": "stosi.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "outdoor",
+      "casual",
+      "organic",
+      "active"
+    ]
   },
   {
     "domain": "studiopeterjohn.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "casual",
+      "formal",
+      "cozy",
+      "streetwear"
+    ]
   },
   {
     "domain": "lacorsia.co",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "sport"
+    ]
   },
   {
     "domain": "commonleisureweb.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "casual",
+      "active"
+    ]
   },
   {
     "domain": "ladywhiteco.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic"
+    ]
   },
   {
     "domain": "slvrlake.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "outerwear"
+    ],
+    "vibe": [
+      "seamless"
+    ]
   },
   {
     "domain": "studionicholson.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "seamless"
+    ]
   },
   {
     "domain": "haruhar.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "seamless",
+      "active"
+    ]
   },
   {
     "domain": "coverchord.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "bottom",
+      "accessory",
+      "outerwear",
+      "footwear"
+    ],
+    "vibe": [
+      "outdoor",
+      "active"
+    ]
   },
   {
     "domain": "lionessfashion.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "casual",
+      "formal"
+    ]
   },
   {
     "domain": "and-daughter.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "casual",
+      "active"
+    ]
   },
   {
     "domain": "vahro.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "casual"
+    ]
   },
   {
     "domain": "desiminimals.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "casual",
+      "formal",
+      "denim"
+    ]
   },
   {
     "domain": "lovepangolin.com",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "chapter2drip.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic"
+    ]
   },
   {
     "domain": "friendswithfrank.com",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "shop-crowd.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "outerwear"
+    ],
+    "vibe": [
+      "active",
+      "streetwear",
+      "casual",
+      "seamless",
+      "cozy"
+    ]
   },
   {
     "domain": "assemblylabel.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "casual"
+    ]
   },
   {
     "domain": "solacetheory.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "cozy",
+      "active",
+      "outdoor"
+    ]
   },
   {
     "domain": "hemblanks.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "active",
+      "cozy"
+    ]
   },
   {
     "domain": "yurofficial.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "formal"
+    ]
   },
   {
     "domain": "theruesociety.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "casual",
+      "formal",
+      "active",
+      "organic"
+    ]
   },
   {
     "domain": "malverra.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "cozy",
+      "outdoor",
+      "active",
+      "seamless"
+    ]
   },
   {
     "domain": "myfriendjoni.com",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "kartikresearch.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "sport",
+      "outdoor"
+    ]
   },
   {
     "domain": "ceucle.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "bottom",
+      "top",
+      "outerwear",
+      "accessory"
+    ],
+    "vibe": [
+      "sport"
+    ]
   },
   {
     "domain": "pariya.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic"
+    ]
   },
   {
     "domain": "aimeleondore.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "luxury",
+      "cozy",
+      "active",
+      "workout"
+    ]
   },
   {
     "domain": "hommeyusa.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "underwear"
+    ],
+    "vibe": [
+      "organic",
+      "cozy",
+      "sport",
+      "active"
+    ]
   },
   {
     "domain": "primulaveri.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "outerwear",
+      "bottom",
+      "top",
+      "accessory"
+    ],
+    "vibe": [
+      "organic"
+    ]
   },
   {
     "domain": "elkacollective.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "denim",
+      "seamless"
+    ]
   },
   {
     "domain": "selectedhomme.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "sport",
+      "active"
+    ]
   },
   {
     "domain": "rarabarefoot.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "outdoor",
+      "active",
+      "cozy"
+    ]
   },
   {
     "domain": "maisonx.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "seamless"
+    ]
   },
   {
     "domain": "elvntee.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active"
+    ]
   },
   {
     "domain": "wearbrun.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "outdoor"
+    ]
   },
   {
     "domain": "wearloqo.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "cozy",
+      "workout",
+      "active"
+    ]
   },
   {
     "domain": "theminimalcloset.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "seamless",
+      "active",
+      "denim"
+    ]
   },
   {
     "domain": "sleepscientist.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "cozy"
+    ]
   },
   {
     "domain": "urbanmonkey.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "cozy"
+    ]
   },
   {
     "domain": "wearcomet.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "outerwear"
+    ],
+    "vibe": [
+      "denim"
+    ]
   },
   {
     "domain": "milkandwhisky.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "seamless",
+      "organic",
+      "sport"
+    ]
   },
   {
     "domain": "pepeinner.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "outdoor"
+    ]
   },
   {
     "domain": "monkstory.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "accessory",
+      "footwear"
+    ],
+    "vibe": [
+      "formal",
+      "streetwear"
+    ]
   },
   {
     "domain": "stooky.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "cozy",
+      "seamless"
+    ]
   },
   {
     "domain": "senso.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "luxury",
+      "seamless"
+    ]
   },
   {
     "domain": "tezzo.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "seamless"
+    ]
   },
   {
     "domain": "andreanthony.co.id",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "streetwear",
+      "outdoor"
+    ]
   },
   {
     "domain": "shopdozo.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "outerwear",
+      "top"
+    ],
+    "vibe": [
+      "cozy",
+      "active"
+    ]
   },
   {
     "domain": "thekiots.com",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "urbansocks.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "luxury",
+      "seamless",
+      "casual",
+      "sport"
+    ]
   },
   {
     "domain": "hzyclo.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "cozy",
+      "active"
+    ]
   },
   {
     "domain": "lamastore.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "footwear",
+      "top"
+    ],
+    "vibe": [
+      "organic"
+    ]
   },
   {
     "domain": "xyxxcrew.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "organic"
+    ]
   },
   {
     "domain": "biancajeswant.com",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "saphed.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "dress",
+      "top",
+      "bottom",
+      "outerwear"
+    ],
+    "vibe": [
+      "streetwear",
+      "casual"
+    ]
   },
   {
     "domain": "theater.xyz",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "outerwear",
+      "top"
+    ],
+    "vibe": [
+      "outdoor"
+    ]
   },
   {
     "domain": "asos.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "seamless",
+      "streetwear",
+      "workout"
+    ]
   },
   {
     "domain": "biasedblack.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "cozy",
+      "active",
+      "seamless",
+      "outdoor"
+    ]
   },
   {
     "domain": "thebearhouse.com",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "kairo.store",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "bottom"
+    ],
+    "vibe": [
+      "active",
+      "denim"
+    ]
   },
   {
     "domain": "harlanholden.ph",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "luxury",
+      "seamless",
+      "outdoor"
+    ]
   },
   {
     "domain": "kaicollections.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "active"
+    ]
   },
   {
     "domain": "musclemind.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "workout",
+      "casual"
+    ]
   },
   {
     "domain": "ballerathletik.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "sport"
+    ]
   },
   {
     "domain": "jeffs.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear",
+      "casual",
+      "active",
+      "cozy"
+    ]
   },
   {
     "domain": "moderaegy.myshopify.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "cozy",
+      "denim",
+      "organic",
+      "outdoor"
+    ]
   },
   {
     "domain": "ludic.life",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "top",
+      "bottom",
+      "accessory",
+      "outerwear"
+    ],
+    "vibe": [
+      "active",
+      "organic"
+    ]
   },
   {
     "domain": "doodledept.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "active"
+    ]
   },
   {
     "domain": "thestylevault.ae",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "classymastour.fr",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "luxury"
+    ]
   },
   {
     "domain": "theforbiddenfruit.in",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "koa.com.pk",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "organic",
+      "sport",
+      "outdoor"
+    ]
   },
   {
     "domain": "botnia.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "accessory"
+    ],
+    "vibe": [
+      "outdoor",
+      "active"
+    ]
   },
   {
     "domain": "orr.store",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "casual"
+    ]
   },
   {
     "domain": "oldlinenmill.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "dress",
+      "accessory"
+    ],
+    "vibe": [
+      "denim",
+      "organic",
+      "casual",
+      "outdoor"
+    ]
   },
   {
     "domain": "asslcollectionparis.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "luxury",
+      "streetwear",
+      "cozy"
+    ]
   },
   {
     "domain": "shopnirvanaa.com",
-    "categories": [],
+    "categories": [
+      "dress",
+      "bottom",
+      "top",
+      "outerwear"
+    ],
     "vibe": []
   },
   {
     "domain": "bamboovogue.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "workout",
+      "seamless"
+    ]
   },
   {
     "domain": "mugasa.co.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active"
+    ]
   },
   {
     "domain": "lunaco.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "outdoor"
+    ]
   },
   {
     "domain": "daxuen.com",
-    "categories": [],
+    "categories": [
+      "bottom",
+      "footwear",
+      "accessory",
+      "top",
+      "outerwear"
+    ],
     "vibe": []
   },
   {
     "domain": "wtflex.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "denim",
+      "workout",
+      "active",
+      "outdoor",
+      "seamless"
+    ]
   },
   {
     "domain": "surmaye.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "dress",
+      "top"
+    ],
+    "vibe": [
+      "luxury",
+      "organic",
+      "cozy"
+    ]
   },
   {
     "domain": "thedeer.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "outdoor",
+      "organic"
+    ]
   },
   {
     "domain": "themusk.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "sport",
+      "cozy"
+    ]
   },
   {
     "domain": "oziss.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "active",
+      "seamless"
+    ]
   },
   {
     "domain": "whipped.store",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic",
+      "cozy"
+    ]
   },
   {
     "domain": "gangafashions.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "casual",
+      "streetwear",
+      "active",
+      "seamless",
+      "formal"
+    ]
   },
   {
     "domain": "dushaamai.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "seamless"
+    ]
   },
   {
     "domain": "lininworld.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "organic"
+    ]
   },
   {
     "domain": "themisnomer.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "formal",
+      "active",
+      "cozy"
+    ]
   },
   {
     "domain": "vanshitaaz.in",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "cozy",
+      "outdoor",
+      "active"
+    ]
   },
   {
     "domain": "sergebasics.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "casual",
+      "streetwear",
+      "active"
+    ]
   },
   {
     "domain": "bayek.fr",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear"
+    ]
   },
   {
     "domain": "coteleparis.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "outdoor",
+      "active",
+      "organic"
+    ]
   },
   {
     "domain": "mariniclothing.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "formal",
+      "casual"
+    ]
   },
   {
     "domain": "almostgods.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "streetwear"
+    ]
   },
   {
     "domain": "11-11.in",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   },
   {
     "domain": "shopunrush.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "dress",
+      "top",
+      "outerwear",
+      "bottom"
+    ],
+    "vibe": [
+      "cozy"
+    ]
   },
   {
     "domain": "kissagoi.com",
-    "categories": [],
-    "vibe": []
+    "categories": [
+      "apparel"
+    ],
+    "vibe": [
+      "denim"
+    ]
   },
   {
     "domain": "ikaibyraginiahuja.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "dirtymanners.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "towards.website",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "blueowl.us",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "morrisonshop.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "payalkhandwala.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "dashanddot.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "azaadclo.com",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "harah.in",
-    "categories": [],
-    "vibe": []
-  },
-  {
-    "domain": "houseofmasaba.com",
-    "categories": [],
+    "categories": [
+      "apparel"
+    ],
     "vibe": []
   }
 ];
