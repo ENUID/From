@@ -1080,12 +1080,49 @@ export class GlobalCatalogService {
 
     if (!isFallback) {
       const queryParts = splitCatalogQuery(cleanedQuery).slice(0, 2);
-      console.log(`[GlobalCatalog] Target match found. Querying ${allowedDomains.length} storefront MCPs in parallel for parts [${queryParts.join(', ')}]...`);
+      
+      // Relevance Throttling: if we match too many storefronts, sort them by relevance and select top 40.
+      let domainsToQuery = [...allowedDomains];
+      if (domainsToQuery.length > 40) {
+        const queryLower = cleanedQuery.toLowerCase();
+        domainsToQuery.sort((a, b) => {
+          const profileA = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === a);
+          const profileB = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === b);
+          
+          let scoreA = 0;
+          let scoreB = 0;
+          
+          if (profileA) {
+            for (const vibe of profileA.vibe) {
+              if (queryLower.includes(vibe.toLowerCase())) {
+                scoreA += 10;
+              }
+            }
+            scoreA += profileA.categories.length;
+          }
+          
+          if (profileB) {
+            for (const vibe of profileB.vibe) {
+              if (queryLower.includes(vibe.toLowerCase())) {
+                scoreB += 10;
+              }
+            }
+            scoreB += profileB.categories.length;
+          }
+          
+          return scoreB - scoreA;
+        });
+        
+        domainsToQuery = domainsToQuery.slice(0, 40);
+        console.log(`[GlobalCatalog] Throttled storefront queries from ${allowedDomains.length} to ${domainsToQuery.length} domains to optimize network concurrency.`);
+      }
+
+      console.log(`[GlobalCatalog] Target match found. Querying ${domainsToQuery.length} storefront MCPs in parallel for parts [${queryParts.join(', ')}]...`);
       const startTime = Date.now();
       
       const queryLang = detectQueryLanguage(queryParts[0]);
 
-      const promises = allowedDomains.flatMap((domain) => {
+      const promises = domainsToQuery.flatMap((domain) => {
         const storeProfile = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain);
         const storeLanguages = storeProfile?.languages || ['en'];
         const primaryLang = storeLanguages[0];
