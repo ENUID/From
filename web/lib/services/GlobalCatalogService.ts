@@ -1192,40 +1192,34 @@ export class GlobalCatalogService {
       return parsedStoreProducts;
     };
 
-    // 1. Cache Hit Logic with JIT Lazy pre-fetch next chunk
+    // 1. Cache Hit Logic with JIT Lazy replenishment check
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       const filteredCache = applyCatalogFilters(cached.products, filterOptions);
       
       if (filteredCache.length >= limit || (!options.refreshReserve && filteredCache.length > 0)) {
         console.log(`[GlobalCatalog] Cache hit for "${cacheKey}" (${filteredCache.length} products).`);
         
-        // Pre-fetch the next chunk ONLY if the remaining products in cache is running low (e.g. < 40 products)
-        if (options.loadMore || options.refreshReserve) {
-          const remainingProductsCount = filteredCache.length - limit;
-          console.log(`[GlobalCatalog] Cache hit: returned ${limit} products, ${remainingProductsCount} products remaining in cache.`);
-          
-          if (remainingProductsCount < 40) {
-            const nextChunkIndex = cached.nextChunkIndex ?? 1;
-            const nextChunk = chunks[nextChunkIndex];
-            if (nextChunk && nextChunk.length > 0) {
-              console.log(`[GlobalCatalog] Cache running low (${remainingProductsCount} left). Pre-fetching Chunk ${nextChunkIndex + 1}/${chunks.length} in background...`);
-              cached.nextChunkIndex = nextChunkIndex + 1;
-              searchCache.set(cacheKey, cached);
-              
-              (async () => {
-                try {
-                  await Promise.all(nextChunk.map(async (domain) => {
-                    const products = await queryDomain(domain);
-                    cacheStoreProducts(domain, products);
-                  }));
-                  console.log(`[GlobalCatalog] Background JIT pre-fetch of Chunk ${nextChunkIndex + 1} complete.`);
-                } catch (err) {
-                  console.warn(`[GlobalCatalog] Background JIT pre-fetch of Chunk ${nextChunkIndex + 1} failed:`, err);
-                }
-              })();
-            }
-          } else {
-            console.log(`[GlobalCatalog] Cache has sufficient buffer (${remainingProductsCount} remaining). Skipping background pre-fetch.`);
+        // Replenishment Check: If remaining products in cache is less than 40, pre-fetch the next store chunk
+        const remainingCount = filteredCache.length - limit;
+        if (remainingCount < 40) {
+          const nextChunkIndex = cached.nextChunkIndex ?? 1;
+          const nextChunk = chunks[nextChunkIndex];
+          if (nextChunk && nextChunk.length > 0) {
+            console.log(`[GlobalCatalog] Replenishment threshold triggered (${remainingCount} < 40). Fetching Store Chunk ${nextChunkIndex + 1}/${chunks.length} in background...`);
+            cached.nextChunkIndex = nextChunkIndex + 1;
+            searchCache.set(cacheKey, cached);
+            
+            (async () => {
+              try {
+                await Promise.all(nextChunk.map(async (domain) => {
+                  const products = await queryDomain(domain);
+                  cacheStoreProducts(domain, products);
+                }));
+                console.log(`[GlobalCatalog] Background replenishment of Store Chunk ${nextChunkIndex + 1} complete.`);
+              } catch (err) {
+                console.warn(`[GlobalCatalog] Background replenishment of Store Chunk ${nextChunkIndex + 1} failed:`, err);
+              }
+            })();
           }
         }
         return filteredCache.slice(0, limit);
@@ -1288,9 +1282,29 @@ export class GlobalCatalogService {
 
         console.log(`[GlobalCatalog] Chunk 1 queries finished in ${Date.now() - startTime}ms. Fetched & parsed ${directParsedProducts.length} products.`);
 
-        // Set nextChunkIndex = 1 in cache (for subsequent load-mores when products run low)
+        // Replenishment Check: If remaining products in cache is less than 40, pre-fetch Chunk 2
         const currentCached = searchCache.get(cacheKey);
-        if (currentCached) {
+        const allAvailable = currentCached ? applyCatalogFilters(currentCached.products, filterOptions) : [];
+        const remainingCount = allAvailable.length - 30;
+
+        if (remainingCount < 40) {
+          const secondChunk = chunks[1];
+          if (secondChunk && secondChunk.length > 0 && currentCached) {
+            console.log(`[GlobalCatalog] Replenishment threshold reached for first page (${remainingCount} < 40). Fetching Store Chunk 2/${chunks.length} in background...`);
+            currentCached.nextChunkIndex = 2;
+            searchCache.set(cacheKey, currentCached);
+            
+            (async () => {
+              try {
+                await Promise.all(secondChunk.map(async (domain) => {
+                  const products = await queryDomain(domain);
+                  cacheStoreProducts(domain, products);
+                }));
+                console.log(`[GlobalCatalog] Background replenishment of Chunk 2 complete.`);
+              } catch {}
+            })();
+          }
+        } else if (currentCached) {
           currentCached.nextChunkIndex = 1;
           searchCache.set(cacheKey, currentCached);
         }
@@ -1335,6 +1349,28 @@ export class GlobalCatalogService {
           searchCache.set(cacheKey, currentCached);
         }
 
+        // Replenishment Check: If remaining products in cache is less than 40, pre-fetch the next chunk
+        const allAvailable = currentCached ? applyCatalogFilters(currentCached.products, filterOptions) : [];
+        const remainingCount = allAvailable.length - limit;
+
+        if (remainingCount < 40) {
+          const finalNextChunk = chunks[currentNextChunkIndex];
+          if (finalNextChunk && finalNextChunk.length > 0 && currentCached) {
+            console.log(`[GlobalCatalog] Replenishment threshold reached for loadMore (${remainingCount} < 40). Fetching Store Chunk ${currentNextChunkIndex + 1}/${chunks.length} in background...`);
+            currentCached.nextChunkIndex = currentNextChunkIndex + 1;
+            searchCache.set(cacheKey, currentCached);
+
+            (async () => {
+              try {
+                await Promise.all(finalNextChunk.map(async (domain) => {
+                  const products = await queryDomain(domain);
+                  cacheStoreProducts(domain, products);
+                }));
+                console.log(`[GlobalCatalog] Background replenishment of Chunk ${currentNextChunkIndex + 1} complete.`);
+              } catch {}
+            })();
+          }
+        }
       }
     } else {
       console.log(`[GlobalCatalog] No targeted match. Falling back to Global Catalog MCP.`);
