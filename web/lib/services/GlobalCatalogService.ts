@@ -165,6 +165,28 @@ function getMatchingDomains(query: string): string[] {
   return matchedDomains;
 }
 
+function parseProductsFromMcpResult(data: any): any[] {
+  if (data?.result?.structuredContent?.products) {
+    return data.result.structuredContent.products;
+  }
+  const textContent = data?.result?.content?.[0]?.text;
+  if (textContent && typeof textContent === 'string') {
+    try {
+      const parsedInner = JSON.parse(textContent);
+      if (parsedInner && Array.isArray(parsedInner.products)) {
+        return parsedInner.products;
+      }
+    } catch (e) {
+      console.warn('Failed to parse stringified UCP response:', e);
+    }
+  }
+  if (data?.result?.products) {
+    return data.result.products;
+  }
+  return [];
+}
+
+
 function uniqueById<T extends { id?: string }>(items: T[]) {
   const seen = new Set<string>();
   const unique: T[] = [];
@@ -470,22 +492,38 @@ export class GlobalCatalogService {
       }
     };
 
-    const parseProduct = (p: any): UcpProduct | null => {
+    const parseProduct = (p: any, defaultVendor?: string): UcpProduct | null => {
       try {
         const variant = p.variants?.[0] || {};
         const priceAmount = variant.price?.amount ?? p.price_range?.min?.amount ?? 0;
         const currency = variant.price?.currency ?? p.price_range?.min?.currency ?? 'USD';
         
         let vendor = 'Independent Seller';
-        if (variant.seller?.name) vendor = variant.seller.name;
-        else if (variant.seller?.domain) vendor = variant.seller.domain;
+        if (variant.seller?.name) {
+          vendor = variant.seller.name;
+        } else if (variant.seller?.domain) {
+          vendor = variant.seller.domain;
+        } else if (defaultVendor) {
+          const cleanBrand = cleanBrandName(defaultVendor);
+          vendor = cleanBrand ? cleanBrand.charAt(0).toUpperCase() + cleanBrand.slice(1) : defaultVendor;
+        }
 
-        let store_url = variant.url || p.url || `https://${variant.seller?.domain}/products/${p.id.split('/').pop()}`;
+        let store_url = variant.url || p.url || '';
+        if (store_url.startsWith('/')) {
+          const base = defaultVendor ? (defaultVendor.startsWith('http') ? defaultVendor : `https://${defaultVendor}`) : '';
+          store_url = `${base}${store_url}`;
+        } else if (!store_url && defaultVendor) {
+          store_url = `https://${defaultVendor}/products/${p.id.split('/').pop()}`;
+        } else if (!store_url && variant.seller?.domain) {
+          store_url = `https://${variant.seller.domain}/products/${p.id.split('/').pop()}`;
+        }
         
         try {
-          const urlObj = new URL(store_url);
-          urlObj.searchParams.set('ref', 'from_ai_affiliate');
-          store_url = urlObj.toString();
+          if (store_url) {
+            const urlObj = new URL(store_url);
+            urlObj.searchParams.set('ref', 'from_ai_affiliate');
+            store_url = urlObj.toString();
+          }
         } catch {}
 
         const textOptions = [
@@ -648,7 +686,7 @@ export class GlobalCatalogService {
       const parsed: UcpProduct[] = [];
       let skippedNoImage = 0;
       for (const p of raw) {
-        const item = parseProduct(p);
+        const item = parseProduct(p, p._directDomain);
         if (item && item.image_url && item.image_url.trim().length > 0) {
           parsed.push(item);
         } else if (item) {
@@ -658,7 +696,77 @@ export class GlobalCatalogService {
       return { parsed, skippedNoImage };
     };
 
-    const rawProducts = await fetchChunkedFromCatalog(normalizedQuery);
+    let rawProducts: any[] = [];
+    const isFallback = allowedDomains.length === UCP_REGISTRY.length;
+
+    if (!isFallback) {
+      console.log(`[GlobalCatalog] Target match found. Querying ${allowedDomains.length} storefront MCPs in parallel for "${normalizedQuery}"...`);
+      const startTime = Date.now();
+      const promises = allowedDomains.map(async (domain) => {
+        const endpoint = `https://${domain}/api/mcp`;
+        
+        const filters: any = { available: true };
+        if (normalizedCountryCode) {
+          filters.ships_to = { country: normalizedCountryCode };
+        }
+
+        const payload = {
+          jsonrpc: "2.0",
+          method: "tools/call",
+          id: 1,
+          params: {
+            name: "search_catalog",
+            arguments: {
+              catalog: {
+                query: normalizedQuery,
+                filters,
+                pagination: { limit: catalogPageLimit }
+              }
+            }
+          }
+        };
+
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(6000)
+          });
+          
+          if (!res.ok) {
+            console.warn(`[GlobalCatalog] Direct MCP query failed for ${domain} with status ${res.status}`);
+            return { domain, products: [] };
+          }
+          
+          const data = await res.json();
+          const parsedProducts = parseProductsFromMcpResult(data);
+          
+          return { domain, products: parsedProducts };
+        } catch (err: any) {
+          console.warn(`[GlobalCatalog] Direct MCP query error for ${domain}:`, err.message || err);
+          return { domain, products: [] };
+        }
+      });
+
+      const settled = await Promise.allSettled(promises);
+      const directProducts: any[] = [];
+      for (const res of settled) {
+        if (res.status === 'fulfilled' && res.value) {
+          const { domain, products } = res.value;
+          for (const p of products) {
+            p._directDomain = domain;
+            directProducts.push(p);
+          }
+        }
+      }
+      console.log(`[GlobalCatalog] Direct storefront queries finished in ${Date.now() - startTime}ms. Fetched ${directProducts.length} raw products.`);
+      rawProducts = directProducts;
+    } else {
+      console.log(`[GlobalCatalog] No targeted match. Falling back to Global Catalog MCP.`);
+      rawProducts = await fetchChunkedFromCatalog(normalizedQuery);
+    }
+
     let { parsed: products, skippedNoImage } = parseRawProducts(rawProducts);
 
     const filterOptions: CatalogSearchFilters = {
