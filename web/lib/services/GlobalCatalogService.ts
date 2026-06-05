@@ -1057,7 +1057,7 @@ export class GlobalCatalogService {
 
       // Progressive accumulation: collect results as stores respond,
       // return early once we have enough products instead of waiting for all stores
-      const EARLY_RETURN_THRESHOLD = 60; // raw products needed for early return
+      const EARLY_RETURN_THRESHOLD = 30; // raw products needed for early return (1 page)
       const EARLY_RETURN_TIMEOUT_MS = isFastFirstPage ? 2000 : 4000;
       const directProducts: any[] = [];
       let resolvedCount = 0;
