@@ -186,6 +186,61 @@ function parseProductsFromMcpResult(data: any): any[] {
   return [];
 }
 
+function getProductKeywords(query: string): string[] {
+  const cleaned = query
+    .replace(/\b(and|or)\b/gi, ' ')
+    .replace(/domain:\S+/gi, ' ')
+    .replace(/[()\"']/g, ' ')
+    .toLowerCase();
+  
+  const words = cleaned.split(/\s+/).map(w => w.trim()).filter(w => {
+    return w.length >= 2 && 
+           !w.includes('.') && 
+           !w.includes('/') && 
+           !w.includes(':') &&
+           w !== 'in' && w !== 'on' && w !== 'at' && w !== 'for' && w !== 'with' && w !== 'the' && w !== 'and' && w !== 'buy';
+  });
+
+  return Array.from(new Set(words));
+}
+
+function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
+  const normalizedQuery = query.toLowerCase();
+  const queryKeywords = getProductKeywords(normalizedQuery);
+  const searchableText = `${product.title} ${product.description || ''}`.toLowerCase();
+  
+  if (queryKeywords.some(kw => searchableText.includes(kw))) {
+    return false;
+  }
+  
+  const matchedCategories = new Set<string>();
+  const words = normalizedQuery
+    .replace(/[()\"',]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(Boolean);
+
+  for (const word of words) {
+    if (word === 'or' || word === 'and') continue;
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywords.some(kw => {
+        if (kw.length < 3) return word === kw;
+        return word.includes(kw) || kw.includes(word);
+      })) {
+        matchedCategories.add(category);
+      }
+    }
+  }
+
+  for (const cat of matchedCategories) {
+    const keywords = CATEGORY_KEYWORDS[cat] || [];
+    if (keywords.some(kw => searchableText.includes(kw))) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 function uniqueById<T extends { id?: string }>(items: T[]) {
   const seen = new Set<string>();
@@ -365,15 +420,24 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     return true;
   });
 
-  if (sort === 'trust_desc') {
-    filtered = [...filtered].sort((a, b) => (b.trust_score || 0) - (a.trust_score || 0));
-  } else if (sort !== 'relevance') {
-    filtered = [...filtered].sort((a, b) => {
+  const isMismatch = (p: UcpProduct) => (p.trust_score || 0) < 40;
+
+  filtered = [...filtered].sort((a, b) => {
+    const mismatchA = isMismatch(a);
+    const mismatchB = isMismatch(b);
+    if (mismatchA !== mismatchB) {
+      return mismatchA ? 1 : -1;
+    }
+
+    if (sort === 'trust_desc') {
+      return (b.trust_score || 0) - (a.trust_score || 0);
+    } else if (sort !== 'relevance') {
       const priceA = convertProductPrice(a, budgetCurrency, filters.rates);
       const priceB = convertProductPrice(b, budgetCurrency, filters.rates);
       return sort === 'price_desc' ? priceB - priceA : priceA - priceB;
-    });
-  }
+    }
+    return 0;
+  });
 
   return filtered.slice(0, filters.limit);
 }
@@ -583,9 +647,13 @@ export class GlobalCatalogService {
 
 
 
+        let trustScore = calculateTrustScore(productData as UcpProduct, mandatoryConcepts);
+        if (isProductQueryMismatch(productData as UcpProduct, query)) {
+          trustScore = Math.max(0, trustScore - 60);
+        }
         return {
           ...productData,
-          trust_score: calculateTrustScore(productData as UcpProduct, mandatoryConcepts)
+          trust_score: trustScore
         };
       } catch (err) {
         console.warn('Error parsing individual Shopify product:', err);
