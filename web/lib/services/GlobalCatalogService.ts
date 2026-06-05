@@ -59,7 +59,7 @@ const REFRESH_PAGE_LIMIT = 30;
 const FAST_SUBQUERY_LIMIT = 3;
 const INITIAL_RESULT_LIMIT = 30;
 const LOAD_MORE_RESULT_LIMIT = 10;
-const searchCache = new Map<string, { timestamp: number, products: UcpProduct[] }>();
+const searchCache = new Map<string, { timestamp: number, products: UcpProduct[], nextChunkIndex?: number }>();
 
 const COUNTRY_MAP: { [key: string]: string } = {
   IN: 'India',
@@ -800,22 +800,7 @@ export class GlobalCatalogService {
     const cached = searchCache.get(cacheKey);
     const rates = await getExchangeRates().catch(() => ({} as Record<string, number>));
 
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      const filteredCache = applyCatalogFilters(cached.products, {
-        budgetMax,
-        budgetCurrency,
-        excludeIds,
-        mandatoryConcepts,
-        sort,
-        limit,
-        rates,
-      });
-      
-      if (filteredCache.length >= limit || (!options.refreshReserve && filteredCache.length > 0)) {
-        console.log(`[GlobalCatalog] cache hit for "${cacheKey}" (${filteredCache.length} products)`);
-        return filteredCache;
-      }
-    }
+
 
     if (options.loadMore || options.refreshReserve) {
       console.log(`[GlobalCatalog] catalog fetch (loadMore=${Boolean(options.loadMore)}, refresh=${Boolean(options.refreshReserve)})`);
@@ -1075,200 +1060,6 @@ export class GlobalCatalogService {
       return { parsed, skippedNoImage };
     };
 
-    let rawProducts: any[] = [];
-    const isFallback = allowedDomains.length === UCP_REGISTRY.length;
-
-    if (!isFallback) {
-      const queryParts = splitCatalogQuery(cleanedQuery).slice(0, 2);
-      
-      // Relevance Throttling: if we match too many storefronts, sort them by relevance and select top 40.
-      let domainsToQuery = [...allowedDomains];
-      if (domainsToQuery.length > 40) {
-        const queryLower = cleanedQuery.toLowerCase();
-        domainsToQuery.sort((a, b) => {
-          const profileA = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === a);
-          const profileB = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === b);
-          
-          let scoreA = 0;
-          let scoreB = 0;
-          
-          if (profileA) {
-            for (const vibe of profileA.vibe) {
-              if (queryLower.includes(vibe.toLowerCase())) {
-                scoreA += 10;
-              }
-            }
-            scoreA += profileA.categories.length;
-          }
-          
-          if (profileB) {
-            for (const vibe of profileB.vibe) {
-              if (queryLower.includes(vibe.toLowerCase())) {
-                scoreB += 10;
-              }
-            }
-            scoreB += profileB.categories.length;
-          }
-          
-          return scoreB - scoreA;
-        });
-        
-        domainsToQuery = domainsToQuery.slice(0, 40);
-        console.log(`[GlobalCatalog] Throttled storefront queries from ${allowedDomains.length} to ${domainsToQuery.length} domains to optimize network concurrency.`);
-      }
-
-      console.log(`[GlobalCatalog] Target match found. Querying ${domainsToQuery.length} storefront MCPs in parallel for parts [${queryParts.join(', ')}]...`);
-      const startTime = Date.now();
-      
-      const queryLang = detectQueryLanguage(queryParts[0]);
-
-      const promises = domainsToQuery.flatMap((domain) => {
-        const storeProfile = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain);
-        const storeLanguages = storeProfile?.languages || ['en'];
-        const primaryLang = storeLanguages[0];
-
-        let storeParts: string[];
-
-        if (storeLanguages.length > 1) {
-          // Multi-language store: query in all supported languages
-          const allParts = new Set(queryParts);
-          for (const part of queryParts) {
-            for (const lang of storeLanguages) {
-              if (lang === queryLang) continue;
-              let translated = '';
-              if (queryLang === 'en' && lang === 'ja') translated = translateEnToJa(part);
-              else if (queryLang === 'ja' && lang === 'en') translated = translateJaToEn(part);
-              if (translated?.trim()) allParts.add(translated.trim());
-            }
-          }
-          storeParts = Array.from(allParts);
-          if (storeParts.length > queryParts.length) {
-            console.log(`[GlobalCatalog] Multi-language store ${domain}: query in ${storeLanguages.join('+')} → [${storeParts.join(', ')}]`);
-          }
-        } else if (queryLang !== primaryLang) {
-          // Single-language store, query is in wrong language → translate
-          const translated: string[] = [];
-          for (const part of queryParts) {
-            let t = '';
-            if (queryLang === 'ja' && primaryLang === 'en') t = translateJaToEn(part);
-            else if (queryLang === 'en' && primaryLang === 'ja') t = translateEnToJa(part);
-            if (t?.trim()) translated.push(t.trim());
-          }
-          storeParts = translated.length > 0 ? translated : queryParts;
-        } else {
-          // Same language → use original
-          storeParts = queryParts;
-        }
-
-        return storeParts.map(async (part) => {
-          const endpoint = `https://${domain}/api/mcp`;
-          
-          const filters: any = { available: true };
-          if (normalizedCountryCode) {
-            filters.ships_to = { country: normalizedCountryCode };
-          }
-
-          const payload = {
-            jsonrpc: "2.0",
-            method: "tools/call",
-            id: 1,
-            params: {
-              name: "search_catalog",
-              arguments: {
-                catalog: {
-                  query: part,
-                  filters,
-                  pagination: { limit: catalogPageLimit }
-                }
-              }
-            }
-          };
-
-          try {
-            const res = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-              signal: AbortSignal.timeout(6000)
-            });
-            
-            if (!res.ok) {
-              console.warn(`[GlobalCatalog] Direct MCP query failed for ${domain} with query "${part}" status ${res.status}`);
-              return { domain, products: [] };
-            }
-            
-            const data = await res.json();
-            const parsedProducts = parseProductsFromMcpResult(data);
-            
-            return { domain, products: parsedProducts };
-          } catch (err: any) {
-            console.warn(`[GlobalCatalog] Direct MCP query error for ${domain} with query "${part}":`, err.message || err);
-            return { domain, products: [] };
-          }
-        });
-      });
-
-      // Progressive accumulation: collect results as stores respond,
-      // return early once we have enough products instead of waiting for all stores
-      const EARLY_RETURN_THRESHOLD = 30; // raw products needed for early return (1 page)
-      const EARLY_RETURN_TIMEOUT_MS = isFastFirstPage ? 2000 : 4000;
-      const directProducts: any[] = [];
-      let resolvedCount = 0;
-
-      const collectResult = (res: { domain: string; products: any[] }) => {
-        for (const p of res.products) {
-          p._directDomain = res.domain;
-          directProducts.push(p);
-        }
-        resolvedCount++;
-      };
-
-      await new Promise<void>((resolve) => {
-        let settled = false;
-        const total = promises.length;
-
-        const tryResolve = () => {
-          if (settled) return;
-          if (resolvedCount >= total) {
-            settled = true;
-            resolve();
-          } else if (directProducts.length >= EARLY_RETURN_THRESHOLD) {
-            settled = true;
-            console.log(`[GlobalCatalog] Early return: ${directProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
-            resolve();
-          }
-        };
-
-        // Attach .then to each promise to collect results progressively
-        for (const p of promises) {
-          p.then((res) => {
-            if (res) collectResult(res);
-            tryResolve();
-          }).catch(() => {
-            resolvedCount++;
-            tryResolve();
-          });
-        }
-
-        // Timeout: resolve with whatever we have
-        setTimeout(() => {
-          if (!settled) {
-            settled = true;
-            console.log(`[GlobalCatalog] Timeout return: ${directProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
-            resolve();
-          }
-        }, EARLY_RETURN_TIMEOUT_MS);
-      });
-
-      console.log(`[GlobalCatalog] Direct storefront queries finished in ${Date.now() - startTime}ms. Fetched ${directProducts.length} raw products (${resolvedCount}/${promises.length} stores responded).`);
-      rawProducts = directProducts;
-    } else {
-      console.log(`[GlobalCatalog] No targeted match. Falling back to Global Catalog MCP.`);
-      rawProducts = await fetchChunkedFromCatalog(cleanedQuery);
-    }
-
-    let { parsed: products, skippedNoImage } = parseRawProducts(rawProducts);
-
     const filterOptions: CatalogSearchFilters = {
       budgetMax,
       budgetCurrency,
@@ -1279,17 +1070,288 @@ export class GlobalCatalogService {
       rates,
     };
 
-    let filteredProducts = applyCatalogFiltersWithRetry(products, filterOptions);
+    const isFallback = allowedDomains.length === UCP_REGISTRY.length;
 
+    // Relevance Sorting & Chunking setup for Direct Storefront query
+    let domainsToQuery = [...allowedDomains];
+    const queryLower = cleanedQuery.toLowerCase();
+    domainsToQuery.sort((a, b) => {
+      const profileA = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === a);
+      const profileB = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === b);
+      let scoreA = 0;
+      let scoreB = 0;
+      if (profileA) {
+        for (const vibe of profileA.vibe) {
+          if (queryLower.includes(vibe.toLowerCase())) scoreA += 10;
+        }
+        scoreA += profileA.categories.length;
+      }
+      if (profileB) {
+        for (const vibe of profileB.vibe) {
+          if (queryLower.includes(vibe.toLowerCase())) scoreB += 10;
+        }
+        scoreB += profileB.categories.length;
+      }
+      return scoreB - scoreA;
+    });
 
-    console.log(`[GlobalCatalog] raw=${rawProducts.length}, parsed_with_image=${products.length}, skipped_no_image=${skippedNoImage}, fast=${isFastFirstPage}`);
-
-    if (products.length > 0) {
-      const merged = uniqueById([...(cached?.products || []), ...products]);
-      searchCache.set(cacheKey, { timestamp: Date.now(), products: merged });
+    const CHUNK_SIZE = 30;
+    const chunks: string[][] = [];
+    for (let i = 0; i < domainsToQuery.length; i += CHUNK_SIZE) {
+      chunks.push(domainsToQuery.slice(i, i + CHUNK_SIZE));
     }
 
-    console.log(`[GlobalCatalog] returning ${filteredProducts.length} of ${products.length} (limit=${limit}, fast=${isFastFirstPage})`);
+    const queryParts = splitCatalogQuery(cleanedQuery).slice(0, 2);
+    const queryLang = detectQueryLanguage(queryParts[0]);
+
+    // Helper to query a single domain
+    const queryDomain = async (domain: string): Promise<any[]> => {
+      const storeProfile = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain);
+      const storeLanguages = storeProfile?.languages || ['en'];
+      const primaryLang = storeLanguages[0];
+
+      let storeParts: string[];
+      if (storeLanguages.length > 1) {
+        const allParts = new Set(queryParts);
+        for (const part of queryParts) {
+          for (const lang of storeLanguages) {
+            if (lang === queryLang) continue;
+            let translated = '';
+            if (queryLang === 'en' && lang === 'ja') translated = translateEnToJa(part);
+            else if (queryLang === 'ja' && lang === 'en') translated = translateJaToEn(part);
+            if (translated?.trim()) allParts.add(translated.trim());
+          }
+        }
+        storeParts = Array.from(allParts);
+      } else if (queryLang !== primaryLang) {
+        const translated: string[] = [];
+        for (const part of queryParts) {
+          let t = '';
+          if (queryLang === 'ja' && primaryLang === 'en') t = translateJaToEn(part);
+          else if (queryLang === 'en' && primaryLang === 'ja') t = translateEnToJa(part);
+          if (t?.trim()) translated.push(t.trim());
+        }
+        storeParts = translated.length > 0 ? translated : queryParts;
+      } else {
+        storeParts = queryParts;
+      }
+
+      const partPromises = storeParts.map(async (part) => {
+        const endpoint = `https://${domain}/api/mcp`;
+        const filters: any = { available: true };
+        if (normalizedCountryCode) {
+          filters.ships_to = { country: normalizedCountryCode };
+        }
+        const payload = {
+          jsonrpc: "2.0",
+          method: "tools/call",
+          id: 1,
+          params: {
+            name: "search_catalog",
+            arguments: {
+              catalog: {
+                query: part,
+                filters,
+                pagination: { limit: catalogPageLimit }
+              }
+            }
+          }
+        };
+
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(6000)
+          });
+          if (!res.ok) return [];
+          const data = await res.json();
+          return parseProductsFromMcpResult(data);
+        } catch (err: any) {
+          return [];
+        }
+      });
+
+      const results = await Promise.all(partPromises);
+      return results.flat();
+    };
+
+    // Helper to parse and store products into cache
+    const cacheStoreProducts = (domain: string, rawStoreProducts: any[]) => {
+      if (!rawStoreProducts || rawStoreProducts.length === 0) return [];
+      for (const p of rawStoreProducts) {
+        p._directDomain = domain;
+      }
+      const { parsed: parsedStoreProducts } = parseRawProducts(rawStoreProducts);
+      if (parsedStoreProducts.length > 0) {
+        const cachedState = searchCache.get(cacheKey);
+        const merged = uniqueById([...(cachedState?.products || []), ...parsedStoreProducts]);
+        searchCache.set(cacheKey, { timestamp: Date.now(), products: merged, nextChunkIndex: cachedState?.nextChunkIndex ?? 1 });
+      }
+      return parsedStoreProducts;
+    };
+
+    // 1. Cache Hit Logic with JIT Lazy pre-fetch next chunk
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      const filteredCache = applyCatalogFilters(cached.products, filterOptions);
+      
+      if (filteredCache.length >= limit || (!options.refreshReserve && filteredCache.length > 0)) {
+        console.log(`[GlobalCatalog] Cache hit for "${cacheKey}" (${filteredCache.length} products).`);
+        
+        // Pre-fetch the next chunk ONLY if the remaining products in cache is running low (e.g. < 40 products)
+        if (options.loadMore || options.refreshReserve) {
+          const remainingProductsCount = filteredCache.length - limit;
+          console.log(`[GlobalCatalog] Cache hit: returned ${limit} products, ${remainingProductsCount} products remaining in cache.`);
+          
+          if (remainingProductsCount < 40) {
+            const nextChunkIndex = cached.nextChunkIndex ?? 1;
+            const nextChunk = chunks[nextChunkIndex];
+            if (nextChunk && nextChunk.length > 0) {
+              console.log(`[GlobalCatalog] Cache running low (${remainingProductsCount} left). Pre-fetching Chunk ${nextChunkIndex + 1}/${chunks.length} in background...`);
+              cached.nextChunkIndex = nextChunkIndex + 1;
+              searchCache.set(cacheKey, cached);
+              
+              (async () => {
+                try {
+                  await Promise.all(nextChunk.map(async (domain) => {
+                    const products = await queryDomain(domain);
+                    cacheStoreProducts(domain, products);
+                  }));
+                  console.log(`[GlobalCatalog] Background JIT pre-fetch of Chunk ${nextChunkIndex + 1} complete.`);
+                } catch (err) {
+                  console.warn(`[GlobalCatalog] Background JIT pre-fetch of Chunk ${nextChunkIndex + 1} failed:`, err);
+                }
+              })();
+            }
+          } else {
+            console.log(`[GlobalCatalog] Cache has sufficient buffer (${remainingProductsCount} remaining). Skipping background pre-fetch.`);
+          }
+        }
+        return filteredCache.slice(0, limit);
+      }
+    }
+
+    if (options.loadMore || options.refreshReserve) {
+      console.log(`[GlobalCatalog] Cache miss or exhausted for loadMore. Performing catalog fetch...`);
+      if (options.debug) options.debug.catalogFetched = true;
+    }
+
+    // 2. Cache Miss / Exhaustion Querying
+    if (!isFallback) {
+      if (isFastFirstPage) {
+        // First Page load: Query Chunk 1 and return early as soon as 30 products are found
+        console.log(`[GlobalCatalog] First page search. Querying Chunk 1 (${chunks[0]?.length || 0} stores) with early return threshold 30...`);
+        const firstChunk = chunks[0] || [];
+        const directParsedProducts: UcpProduct[] = [];
+        let resolvedCount = 0;
+        const startTime = Date.now();
+
+        const firstChunkPromises = firstChunk.map(async (domain) => {
+          try {
+            const products = await queryDomain(domain);
+            const parsed = cacheStoreProducts(domain, products);
+            directParsedProducts.push(...parsed);
+          } catch {} finally {
+            resolvedCount++;
+          }
+        });
+
+        await new Promise<void>((resolve) => {
+          let settled = false;
+          const total = firstChunkPromises.length;
+
+          const tryResolve = () => {
+            if (settled) return;
+            if (resolvedCount >= total) {
+              settled = true;
+              resolve();
+            } else if (directParsedProducts.length >= 30) {
+              settled = true;
+              console.log(`[GlobalCatalog] Early return for first page: ${directParsedProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
+              resolve();
+            }
+          };
+
+          for (const p of firstChunkPromises) {
+            p.then(tryResolve).catch(tryResolve);
+          }
+
+          setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              console.log(`[GlobalCatalog] Timeout return for first page: ${directParsedProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
+              resolve();
+            }
+          }, 2000);
+        });
+
+        console.log(`[GlobalCatalog] Chunk 1 queries finished in ${Date.now() - startTime}ms. Fetched & parsed ${directParsedProducts.length} products.`);
+
+        // Set nextChunkIndex = 1 in cache (for subsequent load-mores when products run low)
+        const currentCached = searchCache.get(cacheKey);
+        if (currentCached) {
+          currentCached.nextChunkIndex = 1;
+          searchCache.set(cacheKey, currentCached);
+        }
+      } else {
+        // Load More cache exhaustion: synchronously query chunk X until we have enough products
+        const startTime = Date.now();
+        const nextChunkIndex = cached?.nextChunkIndex ?? 1;
+        let currentNextChunkIndex = nextChunkIndex;
+        console.log(`[GlobalCatalog] Synchronously fetching Chunk ${currentNextChunkIndex + 1}/${chunks.length} to satisfy loadMore...`);
+
+        while (currentNextChunkIndex < chunks.length) {
+          const chunkToQuery = chunks[currentNextChunkIndex];
+          console.log(`[GlobalCatalog] Fetching Chunk ${currentNextChunkIndex + 1} with ${chunkToQuery.length} stores...`);
+          
+          const chunkResults = await Promise.all(chunkToQuery.map(async (domain) => {
+            try {
+              const products = await queryDomain(domain);
+              return { domain, products };
+            } catch {
+              return { domain, products: [] };
+            }
+          }));
+
+          for (const res of chunkResults) {
+            cacheStoreProducts(res.domain, res.products);
+          }
+
+          currentNextChunkIndex++;
+
+          // Check if cache now has enough products
+          const currentCached = searchCache.get(cacheKey);
+          const filteredNow = applyCatalogFilters(currentCached?.products || [], filterOptions);
+          if (filteredNow.length >= limit) {
+            break;
+          }
+        }
+
+        // Update cached nextChunkIndex
+        const currentCached = searchCache.get(cacheKey);
+        if (currentCached) {
+          currentCached.nextChunkIndex = currentNextChunkIndex;
+          searchCache.set(cacheKey, currentCached);
+        }
+
+      }
+    } else {
+      console.log(`[GlobalCatalog] No targeted match. Falling back to Global Catalog MCP.`);
+      const rawFallback = await fetchChunkedFromCatalog(cleanedQuery);
+      const { parsed: parsedFallback } = parseRawProducts(rawFallback);
+      if (parsedFallback.length > 0) {
+        const cachedState = searchCache.get(cacheKey);
+        const merged = uniqueById([...(cachedState?.products || []), ...parsedFallback]);
+        searchCache.set(cacheKey, { timestamp: Date.now(), products: merged, nextChunkIndex: cachedState?.nextChunkIndex ?? 1 });
+      }
+    }
+
+    const finalCached = searchCache.get(cacheKey);
+    const finalProducts = finalCached?.products || [];
+    let filteredProducts = applyCatalogFiltersWithRetry(finalProducts, filterOptions);
+
+    console.log(`[GlobalCatalog] returning ${filteredProducts.length} of ${finalProducts.length} (limit=${limit}, fast=${isFastFirstPage})`);
     return filteredProducts;
   }
 }
