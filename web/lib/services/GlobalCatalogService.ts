@@ -244,23 +244,25 @@ function cleanQueryForStorefront(query: string): string {
   const parts = query.split(/\s+OR\s+/i).map(p => p.trim()).filter(Boolean);
   if (parts.length === 0) return '';
   
-  // Find the first part that is primarily English/ASCII (since all stores are English-based)
-  // We check if it doesn't contain non-ASCII characters (like Vietnamese diacritics)
   for (const part of parts) {
-    const isEnglish = !/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(part);
-    if (isEnglish) {
+    const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(part);
+    const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(part);
+    if (!hasVietnamese && !hasJapanese) {
       return part;
     }
   }
   
-  // If no part is English (e.g. the query is entirely Vietnamese), translate the first part to English!
-  const translated = translateVietnameseToEnglish(parts[0]);
-  if (translated) {
-    return translated;
+  // All parts are non-English — try translating the first part
+  const first = parts[0];
+  const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(first);
+  if (hasJapanese) {
+    const ja = translateJaToEn(first);
+    if (ja) return ja;
   }
+  const vi = translateVietnameseToEnglish(first);
+  if (vi) return vi;
   
-  // Fallback to the first part
-  return parts[0];
+  return first;
 }
 
 function splitCatalogQuery(query: string) {
@@ -985,15 +987,7 @@ export class GlobalCatalogService {
     const isFallback = allowedDomains.length === UCP_REGISTRY.length;
 
     if (!isFallback) {
-      const rawQueryParts = splitCatalogQuery(normalizedQuery).slice(0, 2);
-      const queryParts = Array.from(new Set(rawQueryParts.map(part => {
-        const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(part);
-        if (hasVietnamese) {
-          const translated = translateVietnameseToEnglish(part);
-          return translated || part;
-        }
-        return part;
-      })));
+      const queryParts = splitCatalogQuery(cleanedQuery).slice(0, 2);
       console.log(`[GlobalCatalog] Target match found. Querying ${allowedDomains.length} storefront MCPs in parallel for parts [${queryParts.join(', ')}]...`);
       const startTime = Date.now();
       
