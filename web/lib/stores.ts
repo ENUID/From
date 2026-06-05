@@ -1014,11 +1014,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "theater.xyz",
     "categories": [
-      "outerwear",
-      "top"
+      "footwear",
+      "accessory",
+      "underwear"
     ],
     "vibe": [
-      "outdoor"
+      "casual"
     ]
   },
   {
