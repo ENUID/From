@@ -989,22 +989,44 @@ export class GlobalCatalogService {
       console.log(`[GlobalCatalog] Target match found. Querying ${allowedDomains.length} storefront MCPs in parallel for parts [${queryParts.join(', ')}]...`);
       const startTime = Date.now();
       
-      const promises = allowedDomains.flatMap((domain) => {
-        // For multi-language stores, expand queries with translations
-        const storeProfile = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain);
-        const storeLanguages = storeProfile?.languages;
+      const queryLang = detectQueryLanguage(queryParts[0]);
 
-        let storeParts = queryParts;
-        if (storeLanguages && storeLanguages.length > 1) {
+      const promises = allowedDomains.flatMap((domain) => {
+        const storeProfile = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain);
+        const storeLanguages = storeProfile?.languages || ['en'];
+        const primaryLang = storeLanguages[0];
+
+        let storeParts: string[];
+
+        if (storeLanguages.length > 1) {
+          // Multi-language store: query in all supported languages
           const allParts = new Set(queryParts);
           for (const part of queryParts) {
-            const translated = getTranslatedQueries(part, storeLanguages);
-            translated.forEach(t => allParts.add(t));
+            for (const lang of storeLanguages) {
+              if (lang === queryLang) continue;
+              let translated = '';
+              if (queryLang === 'en' && lang === 'ja') translated = translateEnToJa(part);
+              else if (queryLang === 'ja' && lang === 'en') translated = translateJaToEn(part);
+              if (translated?.trim()) allParts.add(translated.trim());
+            }
           }
           storeParts = Array.from(allParts);
           if (storeParts.length > queryParts.length) {
-            console.log(`[GlobalCatalog] Multi-language store ${domain}: expanded ${queryParts.length} → ${storeParts.length} query parts (${storeLanguages.join(', ')})`);
+            console.log(`[GlobalCatalog] Multi-language store ${domain}: query in ${storeLanguages.join('+')} → [${storeParts.join(', ')}]`);
           }
+        } else if (queryLang !== primaryLang) {
+          // Single-language store, query is in wrong language → translate
+          const translated: string[] = [];
+          for (const part of queryParts) {
+            let t = '';
+            if (queryLang === 'ja' && primaryLang === 'en') t = translateJaToEn(part);
+            else if (queryLang === 'en' && primaryLang === 'ja') t = translateEnToJa(part);
+            if (t?.trim()) translated.push(t.trim());
+          }
+          storeParts = translated.length > 0 ? translated : queryParts;
+        } else {
+          // Same language → use original
+          storeParts = queryParts;
         }
 
         return storeParts.map(async (part) => {
