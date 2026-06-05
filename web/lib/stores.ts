@@ -8,10 +8,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "gymsharkusa.myshopify.com",
     "categories": [
+      "top",
       "bottom",
       "outerwear",
-      "top",
-      "accessory",
+      "footwear",
       "underwear"
     ],
     "vibe": [
@@ -24,11 +24,13 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "skimsbody.myshopify.com",
     "categories": [
-      "dress",
-      "underwear",
-      "bottom",
       "top",
-      "outerwear"
+      "bottom",
+      "dress",
+      "outerwear",
+      "footwear",
+      "underwear",
+      "accessory"
     ],
     "vibe": [
       "seamless"
@@ -37,10 +39,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "aloyoga.com",
     "categories": [
-      "top",
       "bottom",
       "outerwear",
-      "footwear",
+      "underwear",
       "accessory"
     ],
     "vibe": [
@@ -52,10 +53,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "kith.com",
     "categories": [
       "top",
-      "accessory",
       "bottom",
       "outerwear",
-      "underwear"
+      "footwear",
+      "accessory"
     ],
     "vibe": [
       "organic"
@@ -64,7 +65,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "fashionnova.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "footwear",
+      "underwear",
+      "accessory"
     ],
     "vibe": [
       "formal"
@@ -73,9 +79,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "allbirds.com",
     "categories": [
-      "footwear",
-      "underwear",
-      "top"
+      "footwear"
     ],
     "vibe": [
       "denim"
@@ -84,10 +88,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "taylorstitch.com",
     "categories": [
-      "outerwear",
       "top",
       "bottom",
-      "underwear"
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "organic"
@@ -96,9 +100,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "marinelayer.com",
     "categories": [
+      "top",
       "bottom",
       "dress",
-      "top"
+      "outerwear",
+      "underwear",
+      "accessory"
     ],
     "vibe": [
       "streetwear",
@@ -108,9 +115,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "bombas.myshopify.com",
     "categories": [
-      "underwear",
-      "dress",
-      "top"
+      "top",
+      "underwear"
     ],
     "vibe": [
       "seamless",
@@ -120,9 +126,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "chubbies.myshopify.com",
     "categories": [
+      "top",
       "bottom",
-      "accessory",
-      "top"
+      "outerwear",
+      "underwear"
     ],
     "vibe": [
       "casual",
@@ -134,7 +141,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "goodamerican.com",
     "categories": [
       "top",
-      "bottom"
+      "bottom",
+      "dress",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "denim"
@@ -143,9 +153,11 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "faherty.myshopify.com",
     "categories": [
-      "bottom",
       "top",
-      "outerwear"
+      "bottom",
+      "dress",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "sport",
@@ -157,10 +169,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "pangaia.com",
     "categories": [
-      "bottom",
-      "outerwear",
       "top",
-      "dress"
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": [
       "outdoor",
@@ -171,11 +183,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "spanx-com.myshopify.com",
     "categories": [
+      "top",
       "bottom",
-      "underwear",
       "dress",
-      "outerwear",
-      "top"
+      "outerwear"
     ],
     "vibe": [
       "seamless",
@@ -186,7 +197,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "outdoorvoices.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "underwear"
     ],
     "vibe": [
       "outdoor",
@@ -197,14 +211,22 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "toa.st",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear",
+      "footwear",
+      "underwear",
+      "accessory"
     ],
     "vibe": []
   },
   {
     "domain": "backalleybodega.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "streetwear",
@@ -228,7 +250,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "porterjames.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "active",
@@ -239,7 +263,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "caseycasey.eu",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": []
   },
@@ -248,8 +275,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "categories": [
       "top",
       "bottom",
-      "outerwear",
-      "dress"
+      "dress",
+      "outerwear"
     ],
     "vibe": [
       "outdoor"
@@ -258,7 +285,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "luso.com.pk",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "accessory"
     ],
     "vibe": [
       "streetwear",
@@ -270,7 +299,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "effelements.in",
     "categories": [
-      "apparel"
+      "top"
     ],
     "vibe": [
       "active",
@@ -281,7 +310,11 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "favrics.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "footwear",
+      "accessory"
     ],
     "vibe": [
       "organic",
@@ -291,7 +324,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "fromherman.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "luxury",
@@ -301,14 +336,17 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "loomforma.com",
     "categories": [
-      "apparel"
+      "top",
+      "outerwear"
     ],
     "vibe": []
   },
   {
     "domain": "pegador.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "outdoor"
@@ -329,17 +367,21 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "finaldraftclo.com",
     "categories": [
+      "top",
       "bottom",
       "outerwear",
-      "accessory",
-      "top"
+      "accessory"
     ],
     "vibe": []
   },
   {
     "domain": "wearneutralground.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "active",
@@ -352,7 +394,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "sweatscollective.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "luxury",
@@ -364,7 +409,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "gentag.store",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": []
   },
@@ -382,7 +430,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "itsashirt.gr",
     "categories": [
-      "apparel"
+      "top"
     ],
     "vibe": [
       "casual",
@@ -393,7 +441,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "circolo1901.it",
     "categories": [
-      "apparel"
+      "top",
+      "outerwear"
     ],
     "vibe": [
       "sport"
@@ -402,14 +451,21 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "limited-clothing.co.uk",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": []
   },
   {
     "domain": "laurenmanoogian.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear",
+      "footwear"
     ],
     "vibe": [
       "active",
@@ -421,7 +477,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "borderlineofficial.com",
     "categories": [
-      "top"
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "outdoor",
@@ -432,7 +489,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "stosi.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "streetwear",
@@ -445,7 +504,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "studiopeterjohn.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "casual",
@@ -457,7 +519,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "lacorsia.co",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "sport"
@@ -466,7 +531,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "commonleisureweb.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress"
     ],
     "vibe": [
       "casual",
@@ -476,7 +543,11 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "ladywhiteco.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "footwear",
+      "underwear"
     ],
     "vibe": [
       "organic"
@@ -486,7 +557,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "slvrlake.myshopify.com",
     "categories": [
       "top",
-      "outerwear"
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "seamless"
@@ -495,7 +568,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "studionicholson.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": [
       "active",
@@ -505,7 +581,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "haruhar.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": [
       "seamless",
@@ -517,9 +596,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "categories": [
       "top",
       "bottom",
-      "accessory",
-      "outerwear",
-      "footwear"
+      "footwear",
+      "accessory"
     ],
     "vibe": [
       "outdoor",
@@ -529,7 +607,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "lionessfashion.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "casual",
@@ -539,7 +619,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "and-daughter.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "casual",
@@ -549,7 +631,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "vahro.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "active",
@@ -559,7 +643,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "desiminimals.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "casual",
@@ -570,14 +656,17 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "lovepangolin.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": []
   },
   {
     "domain": "chapter2drip.com",
     "categories": [
-      "apparel"
+      "top",
+      "outerwear"
     ],
     "vibe": [
       "organic"
@@ -586,13 +675,19 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "friendswithfrank.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "underwear",
+      "accessory"
     ],
     "vibe": []
   },
   {
     "domain": "shop-crowd.com",
     "categories": [
+      "top",
+      "bottom",
       "outerwear"
     ],
     "vibe": [
@@ -606,7 +701,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "assemblylabel.com",
     "categories": [
-      "apparel"
+      "top",
+      "dress",
+      "outerwear",
+      "footwear",
+      "underwear",
+      "accessory"
     ],
     "vibe": [
       "organic",
@@ -616,7 +716,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "solacetheory.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "organic",
@@ -628,7 +730,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "hemblanks.com",
     "categories": [
-      "apparel"
+      "top",
+      "outerwear"
     ],
     "vibe": [
       "organic",
@@ -639,7 +742,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "yurofficial.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "streetwear",
@@ -649,7 +755,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "theruesociety.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": [
       "streetwear",
@@ -662,7 +771,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "malverra.com",
     "categories": [
-      "apparel"
+      "top",
+      "dress"
     ],
     "vibe": [
       "cozy",
@@ -674,7 +784,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "myfriendjoni.com",
     "categories": [
-      "apparel"
+      "bottom",
+      "outerwear"
     ],
     "vibe": []
   },
@@ -691,8 +802,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "ceucle.com",
     "categories": [
-      "bottom",
       "top",
+      "bottom",
       "outerwear",
       "accessory"
     ],
@@ -703,7 +814,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "pariya.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress"
     ],
     "vibe": [
       "organic"
@@ -712,7 +825,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "aimeleondore.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "footwear",
+      "underwear",
+      "accessory"
     ],
     "vibe": [
       "organic",
@@ -725,7 +843,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "hommeyusa.myshopify.com",
     "categories": [
-      "underwear"
+      "top",
+      "accessory"
     ],
     "vibe": [
       "organic",
@@ -737,10 +856,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "primulaveri.com",
     "categories": [
-      "outerwear",
-      "bottom",
       "top",
-      "accessory"
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "organic"
@@ -749,7 +867,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "elkacollective.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "active",
@@ -760,7 +881,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "selectedhomme.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom"
     ],
     "vibe": [
       "organic",
@@ -782,7 +904,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "maisonx.in",
     "categories": [
-      "apparel"
+      "top",
+      "dress"
     ],
     "vibe": [
       "seamless"
@@ -791,7 +914,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "elvntee.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "active"
@@ -800,7 +925,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "wearbrun.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": [
       "outdoor"
@@ -809,7 +937,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "wearloqo.com",
     "categories": [
-      "apparel"
+      "footwear"
     ],
     "vibe": [
       "cozy",
@@ -820,7 +948,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "theminimalcloset.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "seamless",
@@ -831,7 +962,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "sleepscientist.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "cozy"
@@ -840,7 +973,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "urbanmonkey.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "streetwear",
@@ -850,7 +986,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "wearcomet.com",
     "categories": [
-      "outerwear"
+      "apparel"
     ],
     "vibe": [
       "denim"
@@ -859,7 +995,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "milkandwhisky.in",
     "categories": [
-      "apparel"
+      "footwear",
+      "underwear"
     ],
     "vibe": [
       "seamless",
@@ -870,7 +1007,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "pepeinner.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "underwear"
     ],
     "vibe": [
       "outdoor"
@@ -879,9 +1019,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "monkstory.com",
     "categories": [
-      "top",
-      "accessory",
-      "footwear"
+      "footwear",
+      "underwear"
     ],
     "vibe": [
       "formal",
@@ -891,7 +1030,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "stooky.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "cozy",
@@ -901,7 +1042,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "senso.myshopify.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "underwear",
+      "accessory"
     ],
     "vibe": [
       "luxury",
@@ -911,7 +1055,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "tezzo.in",
     "categories": [
-      "apparel"
+      "bottom",
+      "footwear"
     ],
     "vibe": [
       "active",
@@ -921,7 +1066,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "andreanthony.co.id",
     "categories": [
-      "apparel"
+      "footwear",
+      "underwear"
     ],
     "vibe": [
       "organic",
@@ -932,8 +1078,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "shopdozo.com",
     "categories": [
-      "outerwear",
-      "top"
+      "dress"
     ],
     "vibe": [
       "cozy",
@@ -950,7 +1095,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "urbansocks.in",
     "categories": [
-      "apparel"
+      "underwear"
     ],
     "vibe": [
       "organic",
@@ -963,7 +1108,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "hzyclo.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "organic",
@@ -974,7 +1121,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "lamastore.in",
     "categories": [
-      "footwear",
       "top"
     ],
     "vibe": [
@@ -984,7 +1130,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "xyxxcrew.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "underwear"
     ],
     "vibe": [
       "active",
@@ -994,16 +1143,18 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "biancajeswant.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "accessory"
     ],
     "vibe": []
   },
   {
     "domain": "saphed.com",
     "categories": [
-      "dress",
       "top",
       "bottom",
+      "dress",
       "outerwear"
     ],
     "vibe": [
@@ -1015,8 +1166,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "theater.xyz",
     "categories": [
       "footwear",
-      "accessory",
-      "underwear"
+      "accessory"
     ],
     "vibe": [
       "casual"
@@ -1036,7 +1186,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "biasedblack.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "streetwear",
@@ -1049,14 +1201,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "thebearhouse.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom"
     ],
     "vibe": []
   },
   {
     "domain": "kairo.store",
     "categories": [
-      "bottom"
+      "top",
+      "outerwear"
     ],
     "vibe": [
       "active",
@@ -1066,7 +1220,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "harlanholden.ph",
     "categories": [
-      "apparel"
+      "top"
     ],
     "vibe": [
       "organic",
@@ -1078,7 +1232,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "kaicollections.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom"
     ],
     "vibe": [
       "streetwear",
@@ -1088,7 +1243,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "musclemind.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "underwear"
     ],
     "vibe": [
       "active",
@@ -1099,7 +1257,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "ballerathletik.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "underwear",
+      "accessory"
     ],
     "vibe": [
       "sport"
@@ -1120,7 +1281,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "moderaegy.myshopify.com",
     "categories": [
-      "apparel"
+      "top",
+      "outerwear"
     ],
     "vibe": [
       "cozy",
@@ -1133,9 +1295,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "ludic.life",
     "categories": [
       "top",
-      "bottom",
-      "accessory",
-      "outerwear"
+      "accessory"
     ],
     "vibe": [
       "active",
@@ -1145,7 +1305,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "doodledept.com",
     "categories": [
-      "apparel"
+      "top",
+      "outerwear",
+      "underwear",
+      "accessory"
     ],
     "vibe": [
       "organic",
@@ -1155,14 +1318,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "thestylevault.ae",
     "categories": [
-      "apparel"
+      "dress"
     ],
     "vibe": []
   },
   {
     "domain": "classymastour.fr",
     "categories": [
-      "apparel"
+      "top",
+      "outerwear",
+      "underwear"
     ],
     "vibe": [
       "luxury"
@@ -1171,14 +1336,19 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "theforbiddenfruit.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": []
   },
   {
     "domain": "koa.com.pk",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "accessory"
     ],
     "vibe": [
       "active",
@@ -1190,7 +1360,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "botnia.in",
     "categories": [
-      "accessory"
+      "top",
+      "bottom",
+      "dress"
     ],
     "vibe": [
       "outdoor",
@@ -1200,7 +1372,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "orr.store",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "organic",
@@ -1210,6 +1384,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "oldlinenmill.com",
     "categories": [
+      "top",
+      "bottom",
       "dress",
       "accessory"
     ],
@@ -1223,7 +1399,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "asslcollectionparis.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "underwear"
     ],
     "vibe": [
       "luxury",
@@ -1234,9 +1413,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "shopnirvanaa.com",
     "categories": [
-      "dress",
-      "bottom",
       "top",
+      "bottom",
       "outerwear"
     ],
     "vibe": []
@@ -1244,7 +1422,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "bamboovogue.in",
     "categories": [
-      "apparel"
+      "top"
     ],
     "vibe": [
       "workout",
@@ -1254,7 +1432,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "mugasa.co.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress"
     ],
     "vibe": [
       "active"
@@ -1263,7 +1443,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "lunaco.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "outdoor"
@@ -1272,10 +1454,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "daxuen.com",
     "categories": [
-      "bottom",
-      "footwear",
-      "accessory",
       "top",
+      "bottom",
       "outerwear"
     ],
     "vibe": []
@@ -1283,7 +1463,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "wtflex.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom"
     ],
     "vibe": [
       "denim",
@@ -1296,8 +1477,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "surmaye.com",
     "categories": [
-      "dress",
-      "top"
+      "top",
+      "dress"
     ],
     "vibe": [
       "luxury",
@@ -1308,7 +1489,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "thedeer.in",
     "categories": [
-      "apparel"
+      "top"
     ],
     "vibe": [
       "active",
@@ -1319,7 +1500,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "themusk.in",
     "categories": [
-      "apparel"
+      "top",
+      "dress"
     ],
     "vibe": [
       "sport",
@@ -1329,7 +1511,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "oziss.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress"
     ],
     "vibe": [
       "active",
@@ -1339,7 +1523,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "whipped.store",
     "categories": [
-      "apparel"
+      "top"
     ],
     "vibe": [
       "organic",
@@ -1349,7 +1533,7 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "gangafashions.com",
     "categories": [
-      "apparel"
+      "top"
     ],
     "vibe": [
       "casual",
@@ -1362,7 +1546,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "dushaamai.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "seamless"
@@ -1371,7 +1557,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "lininworld.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": [
       "organic"
@@ -1380,7 +1569,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "themisnomer.com",
     "categories": [
-      "apparel"
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "formal",
@@ -1391,7 +1582,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "vanshitaaz.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress"
     ],
     "vibe": [
       "cozy",
@@ -1402,7 +1595,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "sergebasics.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom"
     ],
     "vibe": [
       "casual",
@@ -1413,7 +1607,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "bayek.fr",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "streetwear"
@@ -1422,7 +1618,8 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "coteleparis.com",
     "categories": [
-      "apparel"
+      "bottom",
+      "accessory"
     ],
     "vibe": [
       "outdoor",
@@ -1433,7 +1630,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "mariniclothing.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear",
+      "accessory"
     ],
     "vibe": [
       "formal",
@@ -1443,7 +1643,9 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "almostgods.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "outerwear"
     ],
     "vibe": [
       "streetwear"
@@ -1452,17 +1654,18 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "11-11.in",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress"
     ],
     "vibe": []
   },
   {
     "domain": "shopunrush.com",
     "categories": [
-      "dress",
       "top",
-      "outerwear",
-      "bottom"
+      "bottom",
+      "dress"
     ],
     "vibe": [
       "cozy"
@@ -1471,7 +1674,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "kissagoi.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "outerwear"
     ],
     "vibe": [
       "denim"
@@ -1480,7 +1686,10 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "ikaibyraginiahuja.com",
     "categories": [
-      "apparel"
+      "top",
+      "bottom",
+      "dress",
+      "accessory"
     ],
     "vibe": []
   }
