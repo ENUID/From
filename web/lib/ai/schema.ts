@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const SearchToolSchema = z.object({
-  searchQuery: z.string().describe("The full natural language search query describing the product. e.g. 'eco-friendly denim jeans' or 'linen shirts'"),
+  searchQuery: z.string().describe("A clean, simple search query in the dominant language of the target storefront(s) (e.g. 'linen shirt' or 'shoes'). Do NOT use logical OR, synonyms, or multiple languages."),
   budgetMax: z.number().nullable().optional().describe("Maximum budget if specified"),
   budgetCurrency: z.string().length(3).optional().describe("ISO 4217 currency code for the budget, if the user explicitly names a currency."),
   isClothing: z.boolean().optional().describe("Set to true if the product category is clothing, shoes, apparel, jewelry, bags, or other fashion/style accessories."),
@@ -21,7 +21,7 @@ export const SEARCH_TOOL_DEF = {
       properties: {
         searchQuery: {
           type: "string",
-          description: "An expanded search query combining 5-8 translations (e.g. Vietnamese, English, Japanese, Korean), synonyms, plurals, or brand variations using 'OR' logic to cast the widest net possible. E.g., 'shirt OR shirts OR áo sơ mi OR シャツ OR button down OR 셔츠'."
+          description: "A clean, simple search query containing only keywords in the dominant language of the target storefront(s) (e.g. 'linen shirt' for English stores, 'シャツ' for Japanese stores). Do NOT use logical OR, synonyms, or multiple languages."
         },
         budgetMax: {
           type: "number",

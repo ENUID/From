@@ -82,6 +82,187 @@ function normalizeCatalogQuery(query: string) {
   return query.trim().replace(/\s+/g, ' ');
 }
 
+const VIETNAMESE_TO_ENGLISH: Record<string, string> = {
+  'lanh': 'linen',
+  'thun': 'cotton',
+  'len': 'wool',
+  'lụa': 'silk',
+  'tơ': 'silk',
+  'da': 'leather',
+  'bò': 'denim',
+  'kaki': 'khaki',
+  'áo': 'shirt',
+  'sơ mi': 'shirt',
+  'quần': 'pants',
+  'váy': 'dress',
+  'đầm': 'dress',
+  'khoác': 'jacket',
+  'giày': 'shoes',
+  'dép': 'sandals',
+  'túi': 'bag',
+  'ví': 'wallet',
+  'mũ': 'hat',
+  'nón': 'hat',
+  'kính': 'glasses',
+  'trắng': 'white',
+  'đen': 'black',
+  'xanh': 'blue',
+  'đỏ': 'red',
+  'hồng': 'pink',
+  'nâu': 'brown',
+  'vàng': 'yellow'
+};
+
+function translateVietnameseToEnglish(query: string): string {
+  const normalized = query.toLowerCase();
+  
+  // Replace compound phrases first
+  let cleaned = normalized
+    .replace(/\bsơ\s+mi\b/g, 'shirt')
+    .replace(/\báo\s+khoác\b/g, 'jacket')
+    .replace(/\báo\s+thun\b/g, 't-shirt');
+    
+  // Split into words
+  const words = cleaned.split(/\s+/).map(w => w.trim()).filter(Boolean);
+  const translatedWords: string[] = [];
+  
+  for (const word of words) {
+    if (VIETNAMESE_TO_ENGLISH[word]) {
+      translatedWords.push(VIETNAMESE_TO_ENGLISH[word]);
+    } else {
+      const isAscii = !/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(word);
+      if (isAscii) {
+        translatedWords.push(word);
+      }
+    }
+  }
+  
+  const unique = Array.from(new Set(translatedWords));
+  
+  if (unique.includes('jacket') && unique.includes('shirt')) {
+    const idx = unique.indexOf('shirt');
+    unique.splice(idx, 1);
+  }
+  
+  const materials = ['linen', 'cotton', 'wool', 'silk', 'leather', 'denim', 'khaki'];
+  const colors = ['white', 'black', 'blue', 'red', 'pink', 'brown', 'yellow'];
+  
+  const matchesMaterials = unique.filter(w => materials.includes(w));
+  const matchesColors = unique.filter(w => colors.includes(w));
+  const matchesOthers = unique.filter(w => !materials.includes(w) && !colors.includes(w));
+  
+  const reordered = [...matchesColors, ...matchesMaterials, ...matchesOthers];
+  
+  return reordered.join(' ');
+}
+
+// ── Japanese ↔ English translation for multi-language stores ──
+
+const EN_TO_JA: Record<string, string> = {
+  'shirt': 'シャツ', 'shirts': 'シャツ', 't-shirt': 'Tシャツ', 'tee': 'Tシャツ',
+  'pants': 'パンツ', 'trousers': 'パンツ', 'jeans': 'ジーンズ',
+  'jacket': 'ジャケット', 'coat': 'コート', 'sweater': 'セーター',
+  'hoodie': 'フーディー', 'cardigan': 'カーディガン', 'vest': 'ベスト', 'blazer': 'ブレザー',
+  'dress': 'ワンピース', 'skirt': 'スカート', 'shorts': 'ショーツ',
+  'shoes': '靴', 'sneakers': 'スニーカー', 'boots': 'ブーツ',
+  'sandals': 'サンダル', 'loafers': 'ローファー',
+  'bag': 'バッグ', 'bags': 'バッグ', 'backpack': 'リュック',
+  'hat': '帽子', 'cap': 'キャップ', 'belt': 'ベルト',
+  'wallet': '財布', 'socks': '靴下', 'scarf': 'スカーフ',
+  'linen': 'リネン', 'cotton': 'コットン', 'wool': 'ウール',
+  'silk': 'シルク', 'leather': 'レザー', 'denim': 'デニム',
+  'cashmere': 'カシミヤ', 'fleece': 'フリース', 'nylon': 'ナイロン',
+};
+
+const JA_TO_EN: Record<string, string> = {
+  'シャツ': 'shirt', 'Tシャツ': 't-shirt', 'パンツ': 'pants',
+  'ジーンズ': 'jeans', 'デニム': 'denim', 'ジャケット': 'jacket',
+  'コート': 'coat', 'セーター': 'sweater', 'フーディー': 'hoodie',
+  'カーディガン': 'cardigan', 'ベスト': 'vest', 'ブレザー': 'blazer',
+  'ワンピース': 'dress', 'スカート': 'skirt', 'ショーツ': 'shorts',
+  '靴': 'shoes', 'スニーカー': 'sneakers', 'ブーツ': 'boots',
+  'サンダル': 'sandals', 'ローファー': 'loafers',
+  'バッグ': 'bag', 'リュック': 'backpack',
+  '帽子': 'hat', 'キャップ': 'cap', 'ベルト': 'belt',
+  '財布': 'wallet', '靴下': 'socks', 'スカーフ': 'scarf',
+  'リネン': 'linen', 'コットン': 'cotton', 'ウール': 'wool',
+  'シルク': 'silk', 'レザー': 'leather',
+  'カシミヤ': 'cashmere', 'フリース': 'fleece', 'ナイロン': 'nylon',
+};
+
+function detectQueryLanguage(query: string): string {
+  if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(query)) return 'ja';
+  return 'en';
+}
+
+function translateEnToJa(query: string): string {
+  const words = query.toLowerCase().split(/\s+/);
+  const translated = words.map(w => EN_TO_JA[w]).filter(Boolean);
+  return translated.length > 0 ? translated.join(' ') : '';
+}
+
+function translateJaToEn(query: string): string {
+  // Try exact word matches first (space-separated)
+  const words = query.split(/\s+/);
+  const translated: string[] = [];
+  for (const word of words) {
+    if (JA_TO_EN[word]) {
+      translated.push(JA_TO_EN[word]);
+    } else {
+      // Try substring matching for compound Japanese words
+      let found = false;
+      for (const [ja, en] of Object.entries(JA_TO_EN)) {
+        if (word.includes(ja)) {
+          translated.push(en);
+          found = true;
+          break;
+        }
+      }
+      if (!found && /^[a-zA-Z0-9\-]+$/.test(word)) {
+        translated.push(word);
+      }
+    }
+  }
+  return translated.length > 0 ? translated.join(' ') : '';
+}
+
+function getTranslatedQueries(query: string, storeLanguages: string[]): string[] {
+  if (!storeLanguages || storeLanguages.length <= 1) return [];
+  const queryLang = detectQueryLanguage(query);
+  const translations: string[] = [];
+  for (const lang of storeLanguages) {
+    if (lang === queryLang) continue;
+    let translated = '';
+    if (queryLang === 'en' && lang === 'ja') translated = translateEnToJa(query);
+    else if (queryLang === 'ja' && lang === 'en') translated = translateJaToEn(query);
+    if (translated && translated.trim()) translations.push(translated.trim());
+  }
+  return translations;
+}
+
+function cleanQueryForStorefront(query: string): string {
+  const parts = query.split(/\s+OR\s+/i).map(p => p.trim()).filter(Boolean);
+  if (parts.length === 0) return '';
+  
+  // Find the first part that is primarily English/ASCII (since all stores are English-based)
+  // We check if it doesn't contain non-ASCII characters (like Vietnamese diacritics)
+  for (const part of parts) {
+    const isEnglish = !/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(part);
+    if (isEnglish) {
+      return part;
+    }
+  }
+  
+  // If no part is English (e.g. the query is entirely Vietnamese), translate the first part to English!
+  const translated = translateVietnameseToEnglish(parts[0]);
+  if (translated) {
+    return translated;
+  }
+  
+  // Fallback to the first part
+  return parts[0];
+}
+
 function splitCatalogQuery(query: string) {
   return normalizeCatalogQuery(query)
     .split(/\s+OR\s+/i)
@@ -204,42 +385,77 @@ function getProductKeywords(query: string): string[] {
   return Array.from(new Set(words));
 }
 
+const MATERIALS = [
+  'linen', 'cotton', 'wool', 'silk', 'leather', 'denim', 'canvas', 'hemp', 'cashmere', 'satin', 'velvet', 'lace',
+  'lanh', 'len', 'lụa', 'tơ', 'da', 'bò', 'kaki', 'polyester', 'nylon', 'spandex', 'fleece'
+];
+
+const MATERIAL_SYNONYMS: Record<string, string[]> = {
+  'linen': ['linen', 'lanh'],
+  'lanh': ['linen', 'lanh'],
+  'cotton': ['cotton', 'thun'],
+  'wool': ['wool', 'len'],
+  'len': ['wool', 'len'],
+  'silk': ['silk', 'lụa', 'tơ'],
+  'lụa': ['silk', 'lụa', 'tơ'],
+  'tơ': ['silk', 'lụa', 'tơ'],
+  'leather': ['leather', 'da'],
+  'da': ['leather', 'da'],
+  'denim': ['denim', 'bò', 'jean', 'jeans'],
+  'bò': ['denim', 'bò', 'jean', 'jeans'],
+  'jean': ['denim', 'bò', 'jean', 'jeans'],
+  'jeans': ['denim', 'bò', 'jean', 'jeans']
+};
+
 function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   const normalizedQuery = query.toLowerCase();
-  const queryKeywords = getProductKeywords(normalizedQuery);
   const searchableText = `${product.title} ${product.description || ''}`.toLowerCase();
-  
-  if (queryKeywords.some(kw => searchableText.includes(kw))) {
-    return false;
-  }
-  
-  const matchedCategories = new Set<string>();
-  const words = normalizedQuery
-    .replace(/[()\"',]/g, ' ')
-    .split(/\s+/)
-    .map(w => w.trim())
-    .filter(Boolean);
 
-  for (const word of words) {
-    if (word === 'or' || word === 'and') continue;
+  const queryKeywords = getProductKeywords(normalizedQuery);
+  if (queryKeywords.length === 0) return false;
+
+  // 1. Material check
+  const queryMaterials = MATERIALS.filter(mat => 
+    queryKeywords.some(kw => kw === mat || kw.includes(mat) || mat.includes(kw))
+  );
+
+  if (queryMaterials.length > 0) {
+    const hasMaterial = queryMaterials.some(mat => {
+      const synonyms = MATERIAL_SYNONYMS[mat] || [mat];
+      return synonyms.some(syn => searchableText.includes(syn));
+    });
+    if (!hasMaterial) {
+      return true; // Mismatch because of material
+    }
+  }
+
+  // 2. Category check
+  const queryCategories = new Set<string>();
+  for (const kw of queryKeywords) {
     for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-      if (keywords.some(kw => {
-        if (kw.length < 3) return word === kw;
-        return word.includes(kw) || kw.includes(word);
-      })) {
-        matchedCategories.add(category);
+      if (keywords.some(k => kw === k || kw.includes(k) || k.includes(kw))) {
+        queryCategories.add(category);
       }
     }
   }
 
-  for (const cat of matchedCategories) {
-    const keywords = CATEGORY_KEYWORDS[cat] || [];
-    if (keywords.some(kw => searchableText.includes(kw))) {
-      return false;
+  if (queryCategories.size > 0) {
+    const productCategories = new Set<string>();
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywords.some(k => searchableText.includes(k))) {
+        productCategories.add(category);
+      }
+    }
+
+    if (productCategories.size > 0) {
+      const matchesQueryCategory = Array.from(queryCategories).some(cat => productCategories.has(cat));
+      if (!matchesQueryCategory) {
+        return true; // Mismatch because of category
+      }
     }
   }
 
-  return true;
+  return false;
 }
 
 function uniqueById<T extends { id?: string }>(items: T[]) {
@@ -482,7 +698,8 @@ export class GlobalCatalogService {
         ? FAST_PAGE_LIMIT
         : CATALOG_PAGE_LIMIT;
     const normalizedQuery = normalizeCatalogQuery(query);
-    if (!normalizedQuery) return [];
+    const cleanedQuery = cleanQueryForStorefront(normalizedQuery);
+    if (!cleanedQuery) return [];
 
     const normalizedCountryCode = countryCode?.trim().toUpperCase() || null;
     const cacheKey = `${normalizedQuery.toLowerCase()}:${normalizedCountryCode || 'global'}`;
@@ -648,7 +865,7 @@ export class GlobalCatalogService {
 
 
         let trustScore = calculateTrustScore(productData as UcpProduct, mandatoryConcepts);
-        if (isProductQueryMismatch(productData as UcpProduct, query)) {
+        if (isProductQueryMismatch(productData as UcpProduct, cleanedQuery)) {
           trustScore = Math.max(0, trustScore - 60);
         }
         return {
@@ -675,7 +892,7 @@ export class GlobalCatalogService {
       return fetchFromCatalog(q);
     };
 
-    const allowedDomains = getMatchingDomains(normalizedQuery);
+    const allowedDomains = getMatchingDomains(cleanedQuery);
 
     const fetchChunkedFromCatalog = async (q: string): Promise<any[]> => {
       // Dynamically size chunks based on query complexity.
@@ -768,53 +985,74 @@ export class GlobalCatalogService {
     const isFallback = allowedDomains.length === UCP_REGISTRY.length;
 
     if (!isFallback) {
-      console.log(`[GlobalCatalog] Target match found. Querying ${allowedDomains.length} storefront MCPs in parallel for "${normalizedQuery}"...`);
+      const queryParts = splitCatalogQuery(normalizedQuery).slice(0, 2);
+      console.log(`[GlobalCatalog] Target match found. Querying ${allowedDomains.length} storefront MCPs in parallel for parts [${queryParts.join(', ')}]...`);
       const startTime = Date.now();
-      const promises = allowedDomains.map(async (domain) => {
-        const endpoint = `https://${domain}/api/mcp`;
-        
-        const filters: any = { available: true };
-        if (normalizedCountryCode) {
-          filters.ships_to = { country: normalizedCountryCode };
+      
+      const promises = allowedDomains.flatMap((domain) => {
+        // For multi-language stores, expand queries with translations
+        const storeProfile = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain);
+        const storeLanguages = storeProfile?.languages;
+
+        let storeParts = queryParts;
+        if (storeLanguages && storeLanguages.length > 1) {
+          const allParts = new Set(queryParts);
+          for (const part of queryParts) {
+            const translated = getTranslatedQueries(part, storeLanguages);
+            translated.forEach(t => allParts.add(t));
+          }
+          storeParts = Array.from(allParts);
+          if (storeParts.length > queryParts.length) {
+            console.log(`[GlobalCatalog] Multi-language store ${domain}: expanded ${queryParts.length} → ${storeParts.length} query parts (${storeLanguages.join(', ')})`);
+          }
         }
 
-        const payload = {
-          jsonrpc: "2.0",
-          method: "tools/call",
-          id: 1,
-          params: {
-            name: "search_catalog",
-            arguments: {
-              catalog: {
-                query: normalizedQuery,
-                filters,
-                pagination: { limit: catalogPageLimit }
+        return storeParts.map(async (part) => {
+          const endpoint = `https://${domain}/api/mcp`;
+          
+          const filters: any = { available: true };
+          if (normalizedCountryCode) {
+            filters.ships_to = { country: normalizedCountryCode };
+          }
+
+          const payload = {
+            jsonrpc: "2.0",
+            method: "tools/call",
+            id: 1,
+            params: {
+              name: "search_catalog",
+              arguments: {
+                catalog: {
+                  query: part,
+                  filters,
+                  pagination: { limit: catalogPageLimit }
+                }
               }
             }
-          }
-        };
+          };
 
-        try {
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(6000)
-          });
-          
-          if (!res.ok) {
-            console.warn(`[GlobalCatalog] Direct MCP query failed for ${domain} with status ${res.status}`);
+          try {
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(6000)
+            });
+            
+            if (!res.ok) {
+              console.warn(`[GlobalCatalog] Direct MCP query failed for ${domain} with query "${part}" status ${res.status}`);
+              return { domain, products: [] };
+            }
+            
+            const data = await res.json();
+            const parsedProducts = parseProductsFromMcpResult(data);
+            
+            return { domain, products: parsedProducts };
+          } catch (err: any) {
+            console.warn(`[GlobalCatalog] Direct MCP query error for ${domain} with query "${part}":`, err.message || err);
             return { domain, products: [] };
           }
-          
-          const data = await res.json();
-          const parsedProducts = parseProductsFromMcpResult(data);
-          
-          return { domain, products: parsedProducts };
-        } catch (err: any) {
-          console.warn(`[GlobalCatalog] Direct MCP query error for ${domain}:`, err.message || err);
-          return { domain, products: [] };
-        }
+        });
       });
 
       const settled = await Promise.allSettled(promises);
@@ -828,11 +1066,11 @@ export class GlobalCatalogService {
           }
         }
       }
-      console.log(`[GlobalCatalog] Direct storefront queries finished in ${Date.now() - startTime}ms. Fetched ${directProducts.length} raw products.`);
+      console.log(`[GlobalCatalog] Direct storefront queries finished in ${Date.now() - startTime}ms. Fetched ${directProducts.length} raw products across parts.`);
       rawProducts = directProducts;
     } else {
       console.log(`[GlobalCatalog] No targeted match. Falling back to Global Catalog MCP.`);
-      rawProducts = await fetchChunkedFromCatalog(normalizedQuery);
+      rawProducts = await fetchChunkedFromCatalog(cleanedQuery);
     }
 
     let { parsed: products, skippedNoImage } = parseRawProducts(rawProducts);

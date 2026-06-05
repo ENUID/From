@@ -147,18 +147,7 @@ function parseBudget(message: string, buyerCurrency: string) {
 }
 
 function expandDirectQuery(query: string) {
-  const normalized = query.trim().replace(/\s+/g, ' ')
-  if (!normalized) return ''
-
-  const variants = new Set<string>([normalized])
-  if (/\bshirts\b/i.test(normalized)) variants.add(normalized.replace(/\bshirts\b/gi, 'shirt'))
-  if (/\bshirt\b/i.test(normalized)) variants.add(normalized.replace(/\bshirt\b/gi, 'shirts'))
-  if (/\bdresses\b/i.test(normalized)) variants.add(normalized.replace(/\bdresses\b/gi, 'dress'))
-  if (/\bdress\b/i.test(normalized)) variants.add(normalized.replace(/\bdress\b/gi, 'dresses'))
-  if (/\blinen\b/i.test(normalized)) variants.add(`${normalized} clothing`)
-  if (/\bshirt|shirts|top|tee\b/i.test(normalized)) variants.add(`${normalized} top`)
-
-  return Array.from(variants).slice(0, 5).join(' OR ')
+  return query.trim().replace(/\s+/g, ' ');
 }
 
 function parseDirectSearchIntent(message: string, buyerCurrency: string): SearchToolArgs | null {
@@ -379,11 +368,12 @@ PERSONALITY & TONE:
 CORE GUIDELINES:
 - Assess Intent: If the user asks a question about the products already visible on the screen (e.g. "compare them", "which one is better", "what material is the first one"), DO NOT use the search tool! Just answer their question directly in text. ONLY use the 'search_ucp' tool if they are asking to find NEW products or apply NEW filters (e.g. "find shoes", "show me cheaper ones", "I meant blue").
 - Tool Usage: If they are looking for or refining products, you MUST use the 'search_ucp' tool. Do NOT use the tool if they just want advice on existing products.
-- Search Query: When using the 'search_ucp' tool, keep the 'searchQuery' simple, specific, and focused. Do NOT expand the query with too many OR terms or synonyms, as this floods the catalog search with unrelated reseller/spam products and crowds out the official stores' genuine products. Simply use the user's search term (in their language), and optionally at most one or two direct translations or close synonyms (max 2-3 terms combined with OR).
-  * For example, if the user asks for "shoes", use: "shoes OR sneakers"
-  * For "shirt", use: "shirt OR shirts" (or "áo sơ mi" if in Vietnamese)
-  * Do not add 5+ synonyms or multiple languages simultaneously unless specifically requested.
-- Smart Concept Filtering: In addition to the broad \`searchQuery\`, you MUST extract the critical concepts (e.g., product type, specific material, country of origin) into \`mandatoryConcepts\`. Group synonyms and translations for each concept together. The system will filter out any product that doesn't contain at least one word from EVERY concept group.
+- Search Query: When using the 'search_ucp' tool, keep the 'searchQuery' simple, specific, and focused. Do NOT use the logical 'OR' operator or expand the query with synonyms/translations (e.g. do NOT write "shoes OR sneakers", just write "shoes").
+  * Query Language: Look at the targeted store(s) in the boutique store list. The 'searchQuery' MUST be written in the targeted store's catalog language (English for English stores, Japanese for Japanese stores).
+  * E.g. If the user targets 'coverchord.com', the searchQuery MUST be in Japanese (e.g., "シャツ" for shirt) or English.
+  * Since all stores are English or Japanese catalog, the searchQuery parameter MUST NEVER contain Vietnamese words (like "áo sơ mi", "giày", etc.) under any circumstances.
+  * Never combine multiple languages in a single query.
+- Smart Concept Filtering: In addition to the broad \`searchQuery\`, you MUST extract the critical concepts (e.g., product type, specific material, country of origin) into \`mandatoryConcepts\`. Group synonyms and translations for each concept together. The system uses this to calculate trust scores and prioritize matching products.
   * E.g. User asks for "sustainable leather bags from vietnam": 
     mandatoryConcepts: [["bag", "bags", "túi"], ["leather", "da", "cuero"], ["vietnam", "việt nam", "vietnamese"]]
   * IMPORTANT: If the user starts a new search for a completely different item (e.g. they were searching for "cotton shirts" and now just say "tìm dress"), DO NOT carry over old concepts like "cotton". Only extract the concepts explicitly requested for the new item.
@@ -463,8 +453,18 @@ export async function POST(req: NextRequest) {
       dynamicSystemPrompt += `\n\nUSER'S SAVED PRODUCTS:\nThe user has saved the following products in their cart/favorites:\n${savedSummary}\nKeep this in mind if they ask to compare or refer to things they've saved or liked.`;
     }
 
-    const allowedDomains = UCP_REGISTRY.map(s => s.domain);
-    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from the allowed boutique store list:\n${allowedDomains.map(d => `- ${d}`).join('\n')}\nThe search tool 'search_ucp' will strictly filter results and only return products from these stores. Do not recommend or talk about products from any other stores.`;
+    const storeDescriptions = UCP_REGISTRY.map(store => {
+      const domain = store.domain.toLowerCase();
+      let lang = 'English';
+      if (domain.endsWith('.gr')) lang = 'Greek/English';
+      else if (domain.endsWith('.it')) lang = 'Italian/English';
+      else if (domain.endsWith('.jp')) lang = 'Japanese/English';
+      else if (domain.includes('coverchord')) lang = 'Japanese/English';
+      
+      const categories = store.categories.join(', ');
+      return `${store.domain} (Language: ${lang}, Categories: [${categories}])`;
+    });
+    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from the allowed boutique store list:\n${storeDescriptions.map(d => `- ${d}`).join('\n')}\nThe search tool 'search_ucp' will strictly filter results and only return products from these stores. Do not recommend or talk about products from any other stores.`;
 
 
     let aiResponse: ChatMessage
