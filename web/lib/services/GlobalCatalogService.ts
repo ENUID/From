@@ -1,5 +1,6 @@
 import { getExchangeRates } from '../exchangeRates';
 import { UCP_REGISTRY } from '../stores';
+import { groqChat } from '../groq';
 
 
 export type UcpProduct = {
@@ -240,30 +241,121 @@ function getTranslatedQueries(query: string, storeLanguages: string[]): string[]
   return translations;
 }
 
-function cleanQueryForStorefront(query: string): string {
+const COMMON_ENGLISH_WORDS = new Set([
+  // Categories
+  'shirt', 'shirts', 't-shirt', 't-shirts', 'tee', 'tees', 'top', 'tops', 'tank', 'tanks',
+  'blouse', 'blouses', 'crop', 'polo', 'polos', 'henley', 'henleys',
+  'pants', 'jeans', 'trousers', 'shorts', 'bottom', 'bottoms', 'leggings', 'joggers', 'sweatpants',
+  'jacket', 'jackets', 'coat', 'coats', 'hoodie', 'hoodies', 'sweater', 'sweaters', 'cardigan', 'cardigans',
+  'blazer', 'blazers', 'suit', 'suits', 'vest', 'vests',
+  'dress', 'dresses', 'skirt', 'skirts', 'gown', 'gowns',
+  'shoes', 'sneakers', 'boots', 'sandals', 'loafers', 'flats', 'heels', 'slippers', 'footwear',
+  'socks', 'underwear', 'bra', 'boxers', 'briefs', 'swimwear', 'bikini',
+  'bag', 'bags', 'backpack', 'backpacks', 'wallet', 'wallets', 'purse', 'purses',
+  'hat', 'hats', 'cap', 'caps', 'beanie', 'beanies', 'belt', 'belts', 'scarf', 'scarves', 'gloves',
+  'glasses', 'sunglasses', 'watch', 'watches', 'jewelry', 'ring', 'rings', 'necklace', 'necklaces',
+  'bracelet', 'bracelets', 'earrings',
+
+  // Materials
+  'linen', 'cotton', 'silk', 'wool', 'leather', 'denim', 'suede', 'velvet', 'nylon', 'polyester',
+  'knit', 'fleece', 'canvas', 'cashmere', 'satin', 'lace', 'fur', 'shearling', 'corduroy',
+
+  // Colors
+  'black', 'white', 'grey', 'gray', 'red', 'blue', 'green', 'yellow', 'pink', 'purple',
+  'orange', 'brown', 'beige', 'navy', 'gold', 'silver', 'olive', 'khaki', 'cream', 'charcoal',
+  'tan', 'mustard', 'burgundy', 'maroon', 'teal', 'turquoise',
+
+  // Descriptors/Adjectives/Sizes/Numbers
+  'mens', 'womens', 'kids', 'unisex', 'casual', 'formal', 'vintage', 'classic', 'modern',
+  'sport', 'sports', 'running', 'active', 'outdoor', 'indoor', 'summer', 'winter', 'spring',
+  'autumn', 'fall', 'light', 'heavy', 'warm', 'cool', 'soft', 'hard', 'stretch', 'slim',
+  'loose', 'oversized', 'regular', 'fit', 'size', 'xs', 's', 'm', 'l', 'xl', 'xxl',
+  'striped', 'plain', 'patterned', 'floral', 'printed', 'graphic', 'long', 'short', 'sleeve',
+  'sleeveless', 'neck', 'vneck', 'crewneck', 'collar', 'collared', 'button', 'buttondown',
+  'zip', 'zipper', 'pocket', 'pockets', 'hooded',
+
+  // Common prepositions/conjunctions/articles
+  'a', 'an', 'the', 'with', 'in', 'on', 'for', 'of', 'and', 'or', 'by', 'to', 'from'
+]);
+
+const translationCache = new Map<string, string>();
+
+function isTriviallyEnglish(query: string): boolean {
+  if (/[^\x00-\x7F]/.test(query)) return false;
+  
+  const words = query.toLowerCase().split(/[\s\-_',.()&/]+/).filter(Boolean);
+  if (words.length === 0) return false;
+  
+  return words.every(word => COMMON_ENGLISH_WORDS.has(word) || /^\d+%?$/.test(word));
+}
+
+async function cleanQueryForStorefront(query: string): Promise<string> {
   const parts = query.split(/\s+OR\s+/i).map(p => p.trim()).filter(Boolean);
   if (parts.length === 0) return '';
   
+  const translatedParts: string[] = [];
+  
   for (const part of parts) {
-    const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(part);
-    const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(part);
-    if (!hasVietnamese && !hasJapanese) {
-      return part;
+    if (isTriviallyEnglish(part)) {
+      translatedParts.push(part);
+      continue;
+    }
+    
+    // Check cache
+    const cacheKey = part.toLowerCase();
+    if (translationCache.has(cacheKey)) {
+      translatedParts.push(translationCache.get(cacheKey)!);
+      continue;
+    }
+    
+    // Call LLM
+    try {
+      const systemPrompt = `You are a professional search query translator.
+Translate the input search query from any language (Vietnamese, Japanese, Chinese, French, Spanish, Korean, etc.) to a clean, simple, lowercase English search query suitable for a clothing storefront (e.g. "shirt", "linen pants", "black leather shoes").
+- If the query contains multiple items, translate them clearly.
+- If the query is already in English, output it exactly as-is.
+- Output ONLY the translated English search query. Do not include any explanations, quotes, preambles, or punctuation.`;
+
+      const response = await groqChat([
+        { role: 'user', content: part }
+      ], systemPrompt, undefined, { temperature: 0, max_tokens: 30 });
+      
+      const translated = response?.content?.trim() || '';
+      const cleanedTranslation = translated
+        .replace(/^["']|["']$/g, '') // strip wrapping quotes
+        .trim();
+        
+      if (cleanedTranslation) {
+        console.log(`[GlobalCatalog] LLM translated "${part}" to "${cleanedTranslation}"`);
+        translationCache.set(cacheKey, cleanedTranslation);
+        translatedParts.push(cleanedTranslation);
+      } else {
+        throw new Error('Empty LLM response');
+      }
+    } catch (err) {
+      console.warn(`[GlobalCatalog] LLM translation failed for "${part}", falling back to dictionary:`, err);
+      // Fallback to local dictionary translation
+      const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(part);
+      if (hasJapanese) {
+        const ja = translateJaToEn(part);
+        if (ja) {
+          translatedParts.push(ja);
+          continue;
+        }
+      }
+      const vi = translateVietnameseToEnglish(part);
+      if (vi) {
+        translatedParts.push(vi);
+        continue;
+      }
+      translatedParts.push(part);
     }
   }
   
-  // All parts are non-English — try translating the first part
-  const first = parts[0];
-  const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(first);
-  if (hasJapanese) {
-    const ja = translateJaToEn(first);
-    if (ja) return ja;
-  }
-  const vi = translateVietnameseToEnglish(first);
-  if (vi) return vi;
-  
-  return first;
+  const uniqueParts = Array.from(new Set(translatedParts));
+  return uniqueParts.join(' OR ');
 }
+
 
 function splitCatalogQuery(query: string) {
   return normalizeCatalogQuery(query)
@@ -700,7 +792,7 @@ export class GlobalCatalogService {
         ? FAST_PAGE_LIMIT
         : CATALOG_PAGE_LIMIT;
     const normalizedQuery = normalizeCatalogQuery(query);
-    const cleanedQuery = cleanQueryForStorefront(normalizedQuery);
+    const cleanedQuery = await cleanQueryForStorefront(normalizedQuery);
     if (!cleanedQuery) return [];
 
     const normalizedCountryCode = countryCode?.trim().toUpperCase() || null;
