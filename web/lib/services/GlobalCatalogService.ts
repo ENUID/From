@@ -985,7 +985,15 @@ export class GlobalCatalogService {
     const isFallback = allowedDomains.length === UCP_REGISTRY.length;
 
     if (!isFallback) {
-      const queryParts = splitCatalogQuery(normalizedQuery).slice(0, 2);
+      const rawQueryParts = splitCatalogQuery(normalizedQuery).slice(0, 2);
+      const queryParts = Array.from(new Set(rawQueryParts.map(part => {
+        const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(part);
+        if (hasVietnamese) {
+          const translated = translateVietnameseToEnglish(part);
+          return translated || part;
+        }
+        return part;
+      })));
       console.log(`[GlobalCatalog] Target match found. Querying ${allowedDomains.length} storefront MCPs in parallel for parts [${queryParts.join(', ')}]...`);
       const startTime = Date.now();
       
