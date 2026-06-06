@@ -16,8 +16,8 @@ const BRD   = "rgba(0,0,0,0.09)"
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 
-// ── FROM wordmark — Season / Playfair Display ─────────────────────────────────
-const SEASON = "'Playfair Display', 'Cormorant Garamond', Georgia, serif"
+// ── FROM wordmark — Bodoni Moda (Season-equivalent: same high-contrast hairlines) ──
+const SEASON = "'Bodoni Moda', 'Cormorant Garamond', Georgia, serif"
 
 function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
   return (
@@ -26,12 +26,12 @@ function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: str
       fontSize: size,
       fontWeight: 400,
       color,
-      letterSpacing: '0.18em',
+      letterSpacing: '0.14em',
       lineHeight: 1,
       display: 'block',
       userSelect: 'none',
     }}>
-      FROM
+      From
     </span>
   )
 }
@@ -186,7 +186,7 @@ export default function FromApp({
   return (
     <div style={{ fontFamily: SANS, background: BG, minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&display=swap');
         html,body,#root{margin:0;padding:0;background:${BG};min-height:100%;width:100%;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
         ::-webkit-scrollbar{display:none;}
