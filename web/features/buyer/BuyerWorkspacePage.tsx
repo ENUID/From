@@ -26,7 +26,7 @@ function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: str
       fontSize: size,
       fontWeight: 400,
       color,
-      letterSpacing: '0.14em',
+      letterSpacing: '0.03em',
       lineHeight: 1,
       display: 'block',
       userSelect: 'none',
@@ -261,28 +261,35 @@ export default function FromApp({
         .fr-hi:hover{background:rgba(0,0,0,.05);}
         .fr-hi.on{background:rgba(0,0,0,.07);font-weight:500;}
 
-        /* search bar — white with black border ring */
+        /* search bar — Claude-style floating card */
         .fr-bar{
-          display:flex;align-items:flex-end;gap:0;
-          background:${BG};
-          border-radius:100px;
-          padding:10px 14px 10px 16px;
-          box-shadow:0 0 0 1.5px rgba(0,0,0,.12),0 2px 16px rgba(0,0,0,.06);
+          display:flex;flex-direction:column;gap:10px;
+          background:#fff;
+          border-radius:20px;
+          padding:14px 14px 10px 16px;
+          box-shadow:0 4px 28px rgba(0,0,0,.10),0 1px 4px rgba(0,0,0,.06),0 0 0 1px rgba(0,0,0,.04);
           border:none;
         }
+        .fr-bar-top{display:flex;align-items:flex-end;gap:8px;}
+        .fr-bar-btm{display:flex;align-items:center;justify-content:space-between;}
+        .fr-bar-left{display:flex;align-items:center;gap:6px;}
+        .fr-bar-right{display:flex;align-items:center;gap:8px;}
         .fr-ta{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;
-          font-size:13px;color:${INK};caret-color:${INK};resize:none;overflow:hidden;
-          min-height:20px;max-height:100px;line-height:1.5;padding:0;display:block;outline:none;}
-        .fr-ta::placeholder{color:rgba(0,0,0,.3);}
-        .fr-icon-btn{width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+          font-size:14px;color:${INK};caret-color:${INK};resize:none;overflow:hidden;
+          min-height:22px;max-height:120px;line-height:1.55;padding:0;display:block;outline:none;width:100%;}
+        .fr-ta::placeholder{color:rgba(0,0,0,.28);}
+        /* icon buttons — gray pill like Claude */
+        .fr-icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:#f2f2f2;
           display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
-          transition:background .15s;color:${INK3};}
-        .fr-icon-btn:hover{background:rgba(0,0,0,.06);}
-        .fr-send-btn{width:34px;height:34px;border-radius:50%;border:none;
-          background:${canSend ? INK : 'rgba(0,0,0,.1)'};
+          transition:background .15s,box-shadow .15s;color:${INK2};
+          box-shadow:0 1px 3px rgba(0,0,0,.06);}
+        .fr-icon-btn:hover{background:#e8e8e8;box-shadow:0 2px 6px rgba(0,0,0,.1);}
+        .fr-send-btn{width:36px;height:36px;border-radius:50%;border:none;
+          background:${canSend ? INK : '#d0d0d0'};
           display:flex;align-items:center;justify-content:center;cursor:${canSend ? 'pointer' : 'default'};
-          flex-shrink:0;transition:background .2s,transform .15s;margin-left:2px;}
-        .fr-send-btn:hover{transform:${canSend ? 'scale(1.06)' : 'none'};}
+          flex-shrink:0;transition:background .2s,transform .15s,box-shadow .2s;
+          box-shadow:${canSend ? '0 2px 10px rgba(0,0,0,.25)' : 'none'};}
+        .fr-send-btn:hover{transform:${canSend ? 'scale(1.06)' : 'none'};box-shadow:${canSend ? '0 4px 14px rgba(0,0,0,.32)' : 'none'};}
 
         /* bottom sheet */
         .fr-sheet{position:absolute;bottom:0;left:0;right:0;border-radius:24px 24px 0 0;
@@ -522,38 +529,50 @@ export default function FromApp({
             <div style={{ height: 12 }} />
           </div>
 
-          {/* ── Search bar ── */}
-          <div style={{ padding: "8px clamp(12px,4vw,18px) clamp(12px,3.5vw,20px)", background: BG, flexShrink: 0 }}>
+          {/* ── Search bar — Claude-style floating card ── */}
+          <div style={{ padding: "8px clamp(12px,4vw,18px) clamp(16px,4vw,24px)", background: BG, flexShrink: 0 }}>
             <div className="fr-bar">
-              {uploadedImage ? (
-                <img src={uploadedImage} className="fr-uth" alt="attached" title="Remove" onClick={removeUpload} />
-              ) : (
-                <button type="button" className="fr-icon-btn" onClick={() => fileRef.current?.click()} style={{ marginRight: 4 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                </button>
-              )}
 
-              <textarea ref={taRef} className="fr-ta" rows={1}
-                placeholder="What are you looking for?"
-                value={input} onChange={e => setInput(e.target.value)}
-                onKeyDown={kd} disabled={loading} />
+              {/* Row 1: input */}
+              <div className="fr-bar-top">
+                {uploadedImage && (
+                  <img src={uploadedImage} className="fr-uth" alt="attached" title="Remove" onClick={removeUpload} />
+                )}
+                <textarea ref={taRef} className="fr-ta" rows={1}
+                  placeholder="What are you looking for?"
+                  value={input} onChange={e => setInput(e.target.value)}
+                  onKeyDown={kd} disabled={loading} />
+              </div>
 
-              <button type="button" className="fr-icon-btn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                  <rect x="9" y="2" width="6" height="12" rx="3"/>
-                  <path d="M5 10a7 7 0 0 0 14 0M12 19v3M9 22h6"/>
-                </svg>
-              </button>
-
-              <button type="button" className="fr-send-btn" onClick={() => canSend && doSearch()}>
-                {loading
-                  ? <div style={{ width: 12, height: 12, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.3)', borderTopColor: 'white', animation: 'spin .8s linear infinite' }} />
-                  : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="19" x2="12" y2="5"/>
-                      <polyline points="5 12 12 5 19 12"/>
+              {/* Row 2: action buttons */}
+              <div className="fr-bar-btm">
+                <div className="fr-bar-left">
+                  {/* attach */}
+                  <button type="button" className="fr-icon-btn" onClick={() => fileRef.current?.click()}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>
+                </div>
+                <div className="fr-bar-right">
+                  {/* mic */}
+                  <button type="button" className="fr-icon-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+                      <rect x="9" y="2" width="6" height="12" rx="3"/>
+                      <path d="M5 10a7 7 0 0 0 14 0M12 19v3M9 22h6"/>
                     </svg>
-                }
-              </button>
+                  </button>
+                  {/* send */}
+                  <button type="button" className="fr-send-btn" onClick={() => canSend && doSearch()}>
+                    {loading
+                      ? <div style={{ width: 12, height: 12, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.3)', borderTopColor: 'white', animation: 'spin .8s linear infinite' }} />
+                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="19" x2="12" y2="5"/>
+                          <polyline points="5 12 12 5 19 12"/>
+                        </svg>
+                    }
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
 
