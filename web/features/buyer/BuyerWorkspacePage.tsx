@@ -424,8 +424,8 @@ export default function FromApp({
 
           {/* ── Sidebar ── */}
           <div className={`fr-sb ${sidebarOpen ? "open" : ""}`}>
-            <div style={{ padding: "clamp(20px,5vw,28px) 20px 16px", borderBottom: `1px solid rgba(0,0,0,.07)` }}>
-              <FromLogo size={22} color={INK} />
+            <div style={{ padding: "clamp(22px,5vw,30px) 22px 18px", borderBottom: `1px solid rgba(0,0,0,.07)` }}>
+              <FromLogo size={26} color={INK} />
             </div>
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
               <div style={{ padding: "10px 10px 4px" }}>
@@ -490,9 +490,9 @@ export default function FromApp({
             </div>
           </div>
 
-          {/* ── Nav bar — glass ── */}
+          {/* ── Nav bar — glass, hamburger top-left ── */}
           <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
+            display: "flex", alignItems: "center", justifyContent: "flex-start",
             padding: "clamp(14px,4vw,20px) clamp(16px,5vw,22px) clamp(6px,2vw,10px)",
             flexShrink: 0, position: "sticky", top: 0, zIndex: 50,
             background: "rgba(249,249,249,0.75)",
@@ -501,23 +501,22 @@ export default function FromApp({
             borderBottom: "0.5px solid rgba(255,255,255,0.55)",
             boxShadow: "0 0.5px 0 rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.85)",
           }}>
-            <div style={{ cursor: "default", userSelect: "none" }}>
-              <FromLogo size={28} color={INK} />
-            </div>
+            {/* Hamburger top-left — 2.5 lines (full, full, half) */}
             <button onClick={() => setSidebar(true)} style={{
               width: 36, height: 36, borderRadius: "50%", border: "none",
               background: "rgba(255,255,255,0.65)",
               backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" as any,
               boxShadow: "0 2px 8px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.95)",
-              display: "flex", flexDirection: "column", alignItems: "flex-end",
-              justifyContent: "center", gap: 5, padding: "8px 6px", cursor: "pointer",
+              display: "flex", flexDirection: "column", alignItems: "flex-start",
+              justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
               transition: "box-shadow .15s, transform .1s",
             }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 3px 12px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,1)"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
               onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
             >
-              <span style={{ display: "block", width: 18, height: 1.5, background: INK, borderRadius: 1 }} />
-              <span style={{ display: "block", width: 13, height: 1.5, background: INK, borderRadius: 1 }} />
+              <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
+              <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
+              <span style={{ display: "block", width: 9,  height: 1.5, background: INK, borderRadius: 1 }} />
             </button>
           </div>
 
