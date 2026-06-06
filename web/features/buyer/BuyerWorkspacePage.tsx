@@ -313,7 +313,7 @@ export default function FromApp({
           position:relative;overflow:hidden;
           display:flex;flex-direction:column;gap:10px;
           border-radius:20px;border:none;
-          padding:14px 14px 10px 16px;
+          padding:14px 14px 13px 18px;
           will-change:transform;
 
           /* Glass material */
@@ -673,7 +673,7 @@ export default function FromApp({
                   <div className="fr-bar-btm">
 
                     {/* Paperclip — opens attach menu */}
-                    <div ref={attachWrap} style={{ position: 'relative', marginLeft: 3, marginBottom: 2 }}>
+                    <div ref={attachWrap} style={{ position: 'relative' }}>
 
                       {/* Floating glass attach menu */}
                       {attachMenuOpen && (
