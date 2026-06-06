@@ -16,16 +16,23 @@ const BRD   = "rgba(0,0,0,0.09)"
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 
-// ── FROM wordmark ─────────────────────────────────────────────────────────────
-function FromLogo({ size = 60, color = "#000000" }: { size?: number; color?: string }) {
+// ── FROM wordmark — Season / Playfair Display ─────────────────────────────────
+const SEASON = "'Playfair Display', 'Cormorant Garamond', Georgia, serif"
+
+function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
   return (
-    <svg viewBox="0 0 220 58" width={size * (220 / 58)} height={size} fill={color}
-      xmlns="http://www.w3.org/2000/svg" style={{ display: "block", overflow: "visible" }}>
-      <path d="M 4 4 L 4 54 L 8 54 L 8 32 L 26 32 L 26 29 L 8 29 L 8 7 L 30 7 L 30 4 Z" />
-      <path d="M 36 4 L 36 54 L 40 54 L 40 32 L 52 32 L 62 54 L 66.5 54 L 56 31.5 C 62 29.5 66 24.5 66 18 C 66 10 61 4 51 4 Z M 40 7 L 50 7 C 58 7 62 11 62 18 C 62 25.5 57.5 29 50 29 L 40 29 Z" />
-      <path d="M 90 3 C 78 3 70 12 70 29 C 70 46 78 55 90 55 C 102 55 110 46 110 29 C 110 12 102 3 90 3 Z M 90 6.5 C 100 6.5 106 15 106 29 C 106 43 100 51.5 90 51.5 C 80 51.5 74 43 74 29 C 74 15 80 6.5 90 6.5 Z" />
-      <path d="M 118 4 L 118 54 L 122 54 L 122 10 L 140 42 L 142 42 L 160 10 L 160 54 L 164 54 L 164 4 L 160.5 4 L 141 37 L 121.5 4 Z" />
-    </svg>
+    <span style={{
+      fontFamily: SEASON,
+      fontSize: size,
+      fontWeight: 400,
+      color,
+      letterSpacing: '0.18em',
+      lineHeight: 1,
+      display: 'block',
+      userSelect: 'none',
+    }}>
+      FROM
+    </span>
   )
 }
 
@@ -179,7 +186,7 @@ export default function FromApp({
   return (
     <div style={{ fontFamily: SANS, background: BG, minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;500&display=swap');
         html,body,#root{margin:0;padding:0;background:${BG};min-height:100%;width:100%;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
         ::-webkit-scrollbar{display:none;}
@@ -199,12 +206,12 @@ export default function FromApp({
         /* scrollable body */
         .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;}
 
-        /* home state: center greeting vertically */
-        .fr-body.home{justify-content:center;}
+        /* home state: greeting sits in upper-third, not dead-center */
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(28px,9vh,56px);}
 
         /* greeting */
         .fr-greet{
-          padding:clamp(20px,5vw,32px) clamp(16px,5vw,24px) clamp(16px,4vw,24px);
+          padding:0 clamp(16px,5vw,24px) clamp(16px,4vw,24px);
           opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s;
         }
         .fr-greet.in{opacity:1;transform:translateY(0);}
