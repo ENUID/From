@@ -673,7 +673,7 @@ export default function FromApp({
                   <div className="fr-bar-btm">
 
                     {/* Paperclip — opens attach menu */}
-                    <div ref={attachWrap} style={{ position: 'relative' }}>
+                    <div ref={attachWrap} style={{ position: 'relative', marginLeft: 3, marginBottom: 2 }}>
 
                       {/* Floating glass attach menu */}
                       {attachMenuOpen && (
