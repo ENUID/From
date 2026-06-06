@@ -300,22 +300,44 @@ export default function FromApp({
         .from-abtn{width:32px;height:32px;border-radius:50%;border:1px solid rgba(59,31,14,.12);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(59,31,14,.05);transition:all .2s;}
         .from-abtn:hover{background:rgba(59,31,14,.1);}
 
-        .from-szb{font-family:'DM Sans',sans-serif;font-size:11px;color:${DARK};background:transparent;border:1px solid ${BRD};border-radius:6px;padding:7px 13px;cursor:pointer;transition:all .18s;min-width:40px;text-align:center;}
-        .from-szb:hover{border-color:${DARK};}
-        .from-szb.sel{background:${CHOC};color:${MILK};border-color:${CHOC};}
-
-        .from-ckb{
-          width:100%;padding:15px 20px;border:none;border-radius:100px;
-          font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
-          position:relative;overflow:hidden;
-          background:${CHOC};color:${MILK};
-          border:1px solid rgba(255,255,255,0.1);
-          box-shadow:0 8px 28px rgba(59,31,14,.32),0 1px 0 rgba(255,255,255,.1) inset;
-          transition:all .25s;text-decoration:none;display:block;text-align:center;
+        /* Size — underline tab style matching reference */
+        .from-szb{
+          font-family:'DM Sans',sans-serif;font-size:13px;color:${MID};
+          background:transparent;border:none;border-bottom:2px solid transparent;
+          padding:6px 4px;cursor:pointer;transition:all .18s;
+          min-width:36px;text-align:center;font-weight:400;
         }
-        .from-ckb::before{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(to bottom,rgba(255,255,255,.08),transparent);border-radius:100px 100px 0 0;pointer-events:none;}
-        .from-ckb:hover{background:#4e2a14;box-shadow:0 10px 32px rgba(59,31,14,.42);}
-        .from-ckb.warn{background:${MID};cursor:default;}
+        .from-szb:hover{color:${DARK};}
+        .from-szb.sel{color:${DARK};border-bottom-color:${DARK};font-weight:500;}
+
+        /* Add to Cart — full width dark brown */
+        .from-atc{
+          flex:1;padding:16px;border:none;border-radius:0;
+          font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
+          background:${CHOC};color:${MILK};transition:background .2s;
+          text-decoration:none;display:flex;align-items:center;justify-content:center;
+        }
+        .from-atc:hover{background:#4e2a14;}
+        .from-atc.warn{background:${MID};cursor:default;pointer-events:none;}
+
+        /* Heart button beside Add to Cart */
+        .from-hrt{
+          width:56px;flex-shrink:0;padding:16px;border:none;border-left:1px solid rgba(255,255,255,.15);
+          background:${CHOC};color:${MILK};cursor:pointer;transition:background .2s;
+          display:flex;align-items:center;justify-content:center;
+        }
+        .from-hrt:hover{background:#4e2a14;}
+        .from-hrt.saved{background:#5c2d0e;}
+
+        /* Buy It Now — full width below */
+        .from-bin{
+          width:100%;padding:16px;border:none;border-radius:0;
+          font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
+          background:${CHOC};color:${MILK};transition:background .2s;
+          text-decoration:none;display:block;text-align:center;
+          border-top:1px solid rgba(255,255,255,.1);
+        }
+        .from-bin:hover{background:#4e2a14;}
 
         .from-sb{position:absolute;top:0;left:0;bottom:0;width:min(275px,82%);z-index:200;transform:translateX(-100%);transition:transform .36s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;
           background:rgba(253,252,250,0.92);backdrop-filter:blur(36px) saturate(1.5);-webkit-backdrop-filter:blur(36px) saturate(1.5);
@@ -752,43 +774,51 @@ export default function FromApp({
                     </div>
                   </div>
 
-                  {/* Product header */}
-                  <div style={{ padding: "14px 20px 2px" }}>
-                    <p style={{ fontFamily: SERIF, fontSize: 11, fontWeight: 300, fontStyle: "italic", color: GOLD }}>From: {selectedProduct.vendor}</p>
-                  </div>
-                  <div style={{ padding: "2px 20px 12px" }}>
-                    <h2 style={{ fontFamily: SERIF, fontSize: "clamp(22px,6vw,30px)", fontWeight: 300, color: DARK, lineHeight: 1.1, letterSpacing: "-.01em", marginBottom: 4 }}>
+                  {/* Product header — bold title + plain price (matches reference) */}
+                  <div style={{ padding: "18px 20px 0" }}>
+                    <h2 style={{ fontFamily: SANS, fontSize: "clamp(17px,4.5vw,20px)", fontWeight: 700, color: DARK, lineHeight: 1.2, letterSpacing: "-.01em", marginBottom: 6 }}>
                       {selectedProduct.title}
                     </h2>
-                    <p style={{ fontFamily: SERIF, fontSize: "clamp(16px,4.5vw,21px)", fontWeight: 400, fontStyle: "italic", color: DARK }}>
+                    <p style={{ fontFamily: SANS, fontSize: "clamp(14px,4vw,17px)", fontWeight: 400, color: DARK, marginBottom: 0 }}>
                       {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, rates)}
                     </p>
                   </div>
 
+                  {/* Description — no section label, just the text */}
                   {sheetDesc && (
-                    <InfoSection label="About">
-                      <p style={{ fontFamily: SANS, fontSize: "clamp(11px,3vw,13px)", color: MID, lineHeight: 1.72, fontWeight: 300 }}>{sheetDesc}</p>
-                    </InfoSection>
+                    <div style={{ padding: "14px 20px 0" }}>
+                      <p style={{ fontFamily: SANS, fontSize: 13, color: MID, lineHeight: 1.7, fontWeight: 300 }}>{sheetDesc}</p>
+                    </div>
                   )}
 
-                  {sheetMaterial && (
-                    <InfoSection label="Material">
-                      <p style={{ fontFamily: SANS, fontSize: "clamp(11px,3vw,13px)", color: DARK, lineHeight: 1.65, fontWeight: 300 }}>{sheetMaterial}</p>
-                    </InfoSection>
-                  )}
-
-                  {sheetColor && (
-                    <InfoSection label="Colour">
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: 12, color: DARK, fontWeight: 300 }}>
-                        <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#c8b89a", border: `1px solid ${BRD}` }} />
-                        {sheetColor}
+                  {/* Colour thumbnails — variant images as small swatches */}
+                  {sheetImages.length > 1 && (
+                    <div style={{ padding: "16px 20px 0" }}>
+                      <div style={{ height: 1, background: BRD, marginBottom: 14 }} />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {sheetImages.slice(0, 4).map((img, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setActiveImg(i)}
+                            style={{
+                              width: 52, height: 65, borderRadius: 4, overflow: "hidden", padding: 0,
+                              border: `2px solid ${i === activeImg ? DARK : 'transparent'}`,
+                              cursor: "pointer", background: "#e6ddd0", flexShrink: 0,
+                              transition: "border-color .15s",
+                            }}
+                          >
+                            <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          </button>
+                        ))}
                       </div>
-                    </InfoSection>
+                    </div>
                   )}
 
+                  {/* Size — underline tab selector */}
                   {sheetSizes.length > 0 && (
-                    <InfoSection label="Size">
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <div style={{ padding: "16px 20px 0" }}>
+                      <div style={{ height: 1, background: BRD, marginBottom: 14 }} />
+                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", borderBottom: `1px solid ${BRD}`, paddingBottom: 2 }}>
                         {sheetSizes.map(s => (
                           <button
                             key={s}
@@ -799,7 +829,7 @@ export default function FromApp({
                           </button>
                         ))}
                       </div>
-                    </InfoSection>
+                    </div>
                   )}
 
                   {selectedProduct.tags && selectedProduct.tags.length > 0 && (
@@ -825,20 +855,40 @@ export default function FromApp({
                   <div style={{ height: 10 }} />
                 </div>
 
-                {/* Checkout CTA */}
-                <div style={{ padding: "clamp(10px,3vw,16px) 20px", borderTop: `1px solid ${BRD}`, background: "rgba(253,252,250,0.94)", backdropFilter: "blur(20px)", flexShrink: 0 }}>
-                  {sheetSizes.length > 0 && !selectedSize ? (
-                    <button className="from-ckb warn" disabled>Select a size</button>
-                  ) : (
+                {/* CTA block — Add to Cart + heart / Buy It Now (matches reference) */}
+                <div style={{ borderTop: `1px solid ${BRD}`, background: MILK, flexShrink: 0, overflow: "hidden" }}>
+                  {/* Row 1: Add to Cart + heart */}
+                  <div style={{ display: "flex" }}>
                     <a
-                      href={checkoutUrl}
+                      href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="from-ckb"
+                      className={`from-atc${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
+                      onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}
                     >
-                      Checkout
+                      {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Add to Cart"}
                     </a>
-                  )}
+                    <button
+                      className={`from-hrt${savedIds.has(selectedProduct.id) ? " saved" : ""}`}
+                      onClick={() => toggleSaved(selectedProduct)}
+                      title={savedIds.has(selectedProduct.id) ? "Remove from saved" : "Save"}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? MILK : "none"} stroke={MILK} strokeWidth="1.8">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                      </svg>
+                    </button>
+                  </div>
+                  {/* Row 2: Buy It Now */}
+                  <a
+                    href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="from-bin"
+                    onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}
+                    style={{ opacity: sheetSizes.length > 0 && !selectedSize ? 0.5 : 1 }}
+                  >
+                    Buy It Now
+                  </a>
                 </div>
               </>
             )}
