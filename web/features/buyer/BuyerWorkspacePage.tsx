@@ -498,8 +498,7 @@ export default function FromApp({
             background: "rgba(249,249,249,0.75)",
             backdropFilter: "blur(20px) saturate(160%)",
             WebkitBackdropFilter: "blur(20px) saturate(160%)" as any,
-            borderBottom: "0.5px solid rgba(255,255,255,0.55)",
-            boxShadow: "0 0.5px 0 rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.85)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
           }}>
             {/* Hamburger top-left — 2.5 lines (full, full, half) */}
             <button onClick={() => setSidebar(true)} style={{
