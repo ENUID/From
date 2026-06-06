@@ -261,13 +261,13 @@ export default function FromApp({
         .fr-hi:hover{background:rgba(0,0,0,.05);}
         .fr-hi.on{background:rgba(0,0,0,.07);font-weight:500;}
 
-        /* search bar — Claude-style floating card */
+        /* search bar — floating card, shadow only, no border */
         .fr-bar{
           display:flex;flex-direction:column;gap:10px;
           background:#fff;
           border-radius:20px;
           padding:14px 14px 10px 16px;
-          box-shadow:0 4px 28px rgba(0,0,0,.10),0 1px 4px rgba(0,0,0,.06),0 0 0 1px rgba(0,0,0,.04);
+          box-shadow:0 8px 30px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
           border:none;
         }
         .fr-bar-top{display:flex;align-items:flex-end;gap:8px;}
@@ -553,13 +553,6 @@ export default function FromApp({
                   </button>
                 </div>
                 <div className="fr-bar-right">
-                  {/* mic */}
-                  <button type="button" className="fr-icon-btn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
-                      <rect x="9" y="2" width="6" height="12" rx="3"/>
-                      <path d="M5 10a7 7 0 0 0 14 0M12 19v3M9 22h6"/>
-                    </svg>
-                  </button>
                   {/* send */}
                   <button type="button" className="fr-send-btn" onClick={() => canSend && doSearch()}>
                     {loading
