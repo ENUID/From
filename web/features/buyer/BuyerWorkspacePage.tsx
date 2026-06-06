@@ -434,19 +434,19 @@ export default function FromApp({
 
             {/* Greeting — always visible */}
             <div className={`fr-greet${loaded ? ' in' : ''}`}>
-              <div style={{ fontFamily: SERIF, fontSize: "clamp(30px,8vw,44px)", fontWeight: 300, lineHeight: 1.12, letterSpacing: "-.018em", marginBottom: 6 }}>
-                <span style={{ color: INK }}>Hello, </span>
+              <div style={{ fontFamily: SERIF, fontSize: "clamp(28px,8vw,42px)", lineHeight: 1.12, letterSpacing: "-.015em", marginBottom: 6 }}>
+                <span style={{ fontWeight: 300, color: INK }}>Hello, </span>
                 {isEditingName ? (
                   <input ref={nameRef} value={nameInput}
                     onChange={e => setNameInput(e.target.value)}
                     onBlur={saveName}
                     onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameInput(''); setIsEditing(false) } }}
                     maxLength={22} placeholder="your name"
-                    style={{ fontFamily: SERIF, fontSize: "clamp(30px,8vw,44px)", fontWeight: 400, fontStyle: "italic", color: INK, background: "transparent", border: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, width: "clamp(120px,48vw,210px)", letterSpacing: "-.018em", outline: "none" }}
+                    style={{ fontFamily: SERIF, fontSize: "clamp(28px,8vw,42px)", fontWeight: 400, fontStyle: "italic", color: INK, background: "transparent", border: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, width: "clamp(120px,48vw,210px)", letterSpacing: "-.015em", outline: "none" }}
                   />
                 ) : (
                   <span onClick={() => { setNameInput(userName); setIsEditing(true) }}
-                    style={{ fontStyle: "italic", fontWeight: 400, cursor: "pointer", color: hasName ? INK : INK3, borderBottom: `1px dashed ${hasName ? INK : 'rgba(0,0,0,.3)'}`, paddingBottom: 1 }}>
+                    style={{ fontFamily: SERIF, fontWeight: 400, fontStyle: "italic", cursor: "pointer", color: hasName ? INK : INK3, borderBottom: `1px dashed ${hasName ? INK : 'rgba(0,0,0,.3)'}`, paddingBottom: 1 }}>
                     {hasName ? userName : "your name"}
                   </span>
                 )}
