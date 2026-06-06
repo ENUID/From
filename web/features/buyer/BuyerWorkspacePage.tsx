@@ -313,7 +313,7 @@ export default function FromApp({
           position:relative;overflow:hidden;
           display:flex;flex-direction:column;gap:10px;
           border-radius:20px;border:none;
-          padding:14px 14px 7px 12px;
+          padding:14px 14px 7px 8px;
           will-change:transform;
 
           /* Glass material */
