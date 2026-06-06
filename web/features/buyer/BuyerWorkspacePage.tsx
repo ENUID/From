@@ -1,26 +1,114 @@
 'use client'
 
-import { KeyboardEvent, useEffect, useLayoutEffect, useRef } from 'react'
-import ProductCard from '@/components/ProductCard'
-import ProductDrawer from '@/components/ProductDrawer'
-import DiscoverView from '@/features/buyer/components/DiscoverView'
+import { useState, useEffect, useRef } from 'react'
+import { useChatWorkspace } from './hooks/useChatWorkspace'
+import { formatMoney } from '@/lib/currency'
 import type { BuyerContext } from '@/lib/buyerContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
-import IntersectionSentinel from '@/components/IntersectionSentinel'
-import { useChatWorkspace, View } from './hooks/useChatWorkspace'
+import type { Product } from '@/components/ProductCard'
 
-const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+// ── Palette ───────────────────────────────────────────────────────────────────
+const MILK  = "#fdfcfa"
+const CHOC  = "#3b1f0e"
+const DARK  = "#1e1008"
+const MID   = "#6b4c38"
+const GOLD  = "#a87840"
+const SANS  = "'DM Sans', system-ui, sans-serif"
+const SERIF = "'Cormorant Garamond', Georgia, serif"
+const BRD   = "rgba(30,16,8,0.07)"
 
-function formatTime(timestamp: number) {
-  return new Intl.DateTimeFormat('en', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(timestamp))
+// ── Logo ──────────────────────────────────────────────────────────────────────
+function FromLogo({ size = 60, color = "#1e1008" }: { size?: number; color?: string }) {
+  return (
+    <svg
+      viewBox="0 0 220 58"
+      width={size * (220 / 58)}
+      height={size}
+      fill={color}
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ display: "block", overflow: "visible" }}
+    >
+      <path d="M 4 4 L 4 54 L 8 54 L 8 32 L 26 32 L 26 29 L 8 29 L 8 7 L 30 7 L 30 4 Z" />
+      <path d="M 36 4 L 36 54 L 40 54 L 40 32 L 52 32 L 62 54 L 66.5 54 L 56 31.5 C 62 29.5 66 24.5 66 18 C 66 10 61 4 51 4 Z M 40 7 L 50 7 C 58 7 62 11 62 18 C 62 25.5 57.5 29 50 29 L 40 29 Z" />
+      <path d="M 90 3 C 78 3 70 12 70 29 C 70 46 78 55 90 55 C 102 55 110 46 110 29 C 110 12 102 3 90 3 Z M 90 6.5 C 100 6.5 106 15 106 29 C 106 43 100 51.5 90 51.5 C 80 51.5 74 43 74 29 C 74 15 80 6.5 90 6.5 Z" />
+      <path d="M 118 4 L 118 54 L 122 54 L 122 10 L 140 42 L 142 42 L 160 10 L 160 54 L 164 54 L 164 4 L 160.5 4 L 141 37 L 121.5 4 Z" />
+    </svg>
+  )
 }
 
-export default function Home({
+// ── Sheet info row ────────────────────────────────────────────────────────────
+function InfoSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <div style={{ height: 1, background: BRD, margin: "0 20px" }} />
+      <div style={{ padding: "13px 20px" }}>
+        <p style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, letterSpacing: ".18em", textTransform: "uppercase", color: GOLD, marginBottom: 9 }}>
+          {label}
+        </p>
+        {children}
+      </div>
+    </>
+  )
+}
+
+// ── Product data helpers ──────────────────────────────────────────────────────
+function getProductImages(product: Product): string[] {
+  const list: string[] = []
+  if (product.image_url) list.push(product.image_url)
+  product.media?.forEach(m => { if (m.url && !list.includes(m.url)) list.push(m.url) })
+  product.variants?.forEach(v => {
+    v.media?.forEach(m => { if (m.url && !list.includes(m.url)) list.push(m.url) })
+  })
+  return list
+}
+
+function getDescriptionText(product: Product): string {
+  if (!product.description) return ''
+  let text = product.description
+  text = text.replace(/<br\s*\/?>/gi, '\n')
+  text = text.replace(/<\/p>/gi, '\n')
+  text = text.replace(/<\/div>/gi, '\n')
+  text = text.replace(/<\/li>/gi, '\n')
+  text = text.replace(/<[^>]*>/g, '')
+  return text.trim()
+}
+
+function extractMaterial(product: Product): string {
+  const matTag = product.tags?.find(t => t?.toLowerCase().includes('material') || t?.toLowerCase().includes('fabric'))
+  if (matTag) return matTag.split('=>').pop()?.trim() || ''
+  const desc = getDescriptionText(product)
+  const match = desc.match(/(cotton|linen|wool|silk|hemp|polyester|leather|canvas|cashmere|denim|viscose|nylon|spandex)/i)
+  return match?.[0] || ''
+}
+
+function getProductSizes(product: Product): string[] {
+  const sizeOpt = product.options?.find(o => o.name.toLowerCase().includes('size'))
+  return sizeOpt?.values || []
+}
+
+function getProductColor(product: Product): string {
+  const colorOpt = product.options?.find(o =>
+    o.name.toLowerCase().includes('color') || o.name.toLowerCase().includes('colour')
+  )
+  return colorOpt?.values?.[0] || ''
+}
+
+function getCheckoutUrl(product: Product, selectedSize: string | null): string {
+  const variant = selectedSize
+    ? product.variants?.find(v => v.options.some(o => o.label === selectedSize))
+    : product.variants?.[0]
+  if (!variant) return product.store_url
+  try {
+    const url = new URL(product.store_url)
+    const variantId = variant.id.split('/').pop()
+    return `https://${url.hostname}/cart/${variantId}:1`
+  } catch {
+    return product.store_url
+  }
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function FromApp({
   initialBuyerContext,
   initialRates,
 }: {
@@ -32,434 +120,734 @@ export default function Home({
     input,
     setInput,
     loading,
-    activeView,
-    setActiveView,
-    savedProducts,
-    selectedProduct,
-    setSelectedProduct,
-    searchHistory,
-    isSidebarOpen,
-    setIsSidebarOpen,
-    isMobile,
-    buyerContext,
-    rates,
     hasConversation,
     savedIds,
-    resetConversation,
-    toggleSaved,
-    clearSavedProducts,
+    savedProducts,
+    searchHistory,
+    buyerContext,
+    rates,
     sendMessage,
+    toggleSaved,
+    resetConversation,
     loadMoreProducts,
   } = useChatWorkspace(initialBuyerContext, initialRates)
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const prevMessagesLengthRef = useRef(messages.length)
-  const prevScrollTopRef = useRef<number | null>(null)
+  // Local UI state
+  const [userName, setUserName]       = useState("")
+  const [isEditingName, setIsEditing] = useState(false)
+  const [nameInput, setNameInput]     = useState("")
+  const [selectedProduct, setSelected] = useState<Product | null>(null)
+  const [selectedSize, setSize]       = useState<string | null>(null)
+  const [activeImg, setActiveImg]     = useState(0)
+  const [sheetY, setSheetY]           = useState(0)
+  const [isDragging, setIsDragging]   = useState(false)
+  const [sidebarOpen, setSidebar]     = useState(false)
+  const [sidebarView, setSidebarView] = useState<'nav' | 'saved'>('nav')
+  const [uploadedImage, setUploaded]  = useState<string | null>(null)
+  const [uploadName, setUploadName]   = useState("")
+  const [loaded, setLoaded]           = useState(false)
 
-  // Scroll Preservation during re-renders
-  useIsomorphicLayoutEffect(() => {
-    if (containerRef.current && prevScrollTopRef.current !== null) {
-      containerRef.current.scrollTop = prevScrollTopRef.current
-      prevScrollTopRef.current = null
-    }
-  }, [messages])
+  const nameRef    = useRef<HTMLInputElement>(null)
+  const taRef      = useRef<HTMLTextAreaElement>(null)
+  const fileRef    = useRef<HTMLInputElement>(null)
+  const dragStartY = useRef(0)
 
-  // Scroll to bottom logic on new messages
+  // Derive display state from messages
+  const lastProductMsg = [...messages].reverse().find(m => m.role === 'assistant' && m.products && m.products.length > 0)
+  const lastProductMsgIndex = lastProductMsg ? messages.lastIndexOf(lastProductMsg as any) : -1
+  const displayProducts: Product[] = lastProductMsg?.products || []
+  const lastAssistantText = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
+
+  const showHome  = !hasConversation
+  const showGrid  = hasConversation && displayProducts.length > 0
+  const showEmpty = hasConversation && displayProducts.length === 0 && !loading
+  const canSend   = input.trim().length > 0 || !!uploadedImage
+  const hasName   = userName.length > 0
+  const dispName  = hasName ? userName : "your name"
+  const nameClr   = hasName ? CHOC : GOLD
+
+  useEffect(() => { setTimeout(() => setLoaded(true), 80) }, [])
   useEffect(() => {
-    if (!containerRef.current) return
-    const container = containerRef.current
-
-    if (activeView !== 'discover' || !hasConversation) {
-      container.scrollTop = 0
-      prevMessagesLengthRef.current = messages.length
-      return
+    if (isEditingName && nameRef.current) {
+      nameRef.current.focus()
+      nameRef.current.select()
     }
-
-    const lengthChanged = messages.length !== prevMessagesLengthRef.current
-    prevMessagesLengthRef.current = messages.length
-
-    if (!lengthChanged && !loading) {
-      return
+  }, [isEditingName])
+  useEffect(() => {
+    if (selectedProduct) { setSize(null); setActiveImg(0); setSheetY(0) }
+  }, [selectedProduct])
+  useEffect(() => {
+    if (taRef.current) {
+      taRef.current.style.height = "auto"
+      taRef.current.style.height = Math.min(taRef.current.scrollHeight, 130) + "px"
     }
+  }, [input])
 
-    if (loading) {
-      container.scrollTo({ top: container.scrollHeight, behavior: 'auto' })
-      return
-    }
-
-    const lastMessage = messages[messages.length - 1]
-    if (lastMessage && lastMessage.role === 'assistant') {
-      const latestElement = container.querySelector('#latest-message') as HTMLElement
-      if (latestElement) {
-        const targetScrollTop = latestElement.offsetTop - container.offsetTop - 16
-        container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'auto' })
-        return
-      }
-    }
-
-    container.scrollTo({ top: container.scrollHeight, behavior: 'auto' })
-  }, [messages.length, loading, activeView, hasConversation])
-
-  function handleLoadMore(messageIndex: number) {
-    if (containerRef.current) {
-      prevScrollTopRef.current = containerRef.current.scrollTop
-    }
-    loadMoreProducts(messageIndex)
+  // Sheet drag
+  const onHandleDown = (e: React.PointerEvent) => {
+    e.preventDefault()
+    ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    dragStartY.current = e.clientY - sheetY
+    setIsDragging(true)
+  }
+  const onHandleMove = (e: React.PointerEvent) => {
+    if (!isDragging) return
+    setSheetY(Math.max(0, e.clientY - dragStartY.current))
+  }
+  const onHandleUp = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (sheetY > 100) { setSelected(null); setSheetY(0) } else setSheetY(0)
   }
 
-  function renderDiscoverView() {
-    return (
-      <>
-        <div ref={containerRef} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-4 md:gap-6">
-          {!hasConversation && (
-            <DiscoverView buyerContext={buyerContext} searchHistory={searchHistory} sendMessage={sendMessage} />
-          )}
+  const doSearch = () => {
+    if (!canSend || loading) return
+    const q = [input.trim(), uploadName].filter(Boolean).join(' ')
+    if (!q) return
+    if (q !== input.trim()) setInput(q)
+    sendMessage(q)
+    setUploaded(null)
+    setUploadName('')
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
-          {hasConversation && messages.map((message, index) => (
-            <div
-              key={`${message.role}-${index}`}
-              id={index === messages.length - 1 ? 'latest-message' : undefined}
-              className={`fade-in flex flex-col gap-[14px] ${
-                message.role === 'user' ? 'items-end' : 'items-start'
-              }`}
-            >
-              <div
-                className={`max-w-[88%] md:max-w-[64%] p-[10px_14px] md:p-[12px_18px] text-[12.5px] md:text-[13.5px] leading-[1.72] ${
-                  message.role === 'user'
-                    ? 'rounded-[18px_18px_4px_18px] bg-[var(--m-green)] text-[var(--bg-white)]'
-                    : 'rounded-[18px_18px_18px_4px] bg-[var(--bg-card)] text-[var(--ink)] border border-[var(--m-border)]'
-                }`}
-              >
-                {message.content}
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setUploaded(ev.target?.result as string)
+    reader.readAsDataURL(file)
+    const kw = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').toLowerCase()
+    setUploadName(kw)
+  }
+
+  const removeUpload = () => {
+    setUploaded(null)
+    setUploadName('')
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const doHistorySearch = (q: string) => {
+    setSidebar(false)
+    sendMessage(q)
+  }
+
+  const saveName = () => { setUserName(nameInput.trim()); setIsEditing(false) }
+
+  const kd = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() }
+  }
+
+  // Product sheet values
+  const sheetImages   = selectedProduct ? getProductImages(selectedProduct) : []
+  const sheetDesc     = selectedProduct ? getDescriptionText(selectedProduct) : ''
+  const sheetMaterial = selectedProduct ? extractMaterial(selectedProduct) : ''
+  const sheetSizes    = selectedProduct ? getProductSizes(selectedProduct) : []
+  const sheetColor    = selectedProduct ? getProductColor(selectedProduct) : ''
+  const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize) : '#'
+
+  return (
+    <div style={{ fontFamily: SANS, background: MILK, minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+        html,body,#root{margin:0;padding:0;background:${MILK};min-height:100%;width:100%;}
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
+        ::-webkit-scrollbar{display:none;}
+
+        .from-wrap{display:flex;align-items:flex-start;justify-content:center;min-height:100vh;width:100%;background:${MILK};}
+        .from-phone{width:100%;min-height:100vh;background:${MILK};position:relative;display:flex;flex-direction:column;overflow:hidden;}
+        @media(min-width:768px){
+          .from-wrap{align-items:center;padding:32px 16px;background:#ded5c8;}
+          .from-phone{width:min(460px,100%);min-height:0;height:min(880px,calc(100vh - 64px));border-radius:40px;
+            box-shadow:0 40px 90px rgba(30,16,8,.2),0 2px 0 rgba(255,255,255,.95) inset,inset 0 0 0 1px rgba(30,16,8,.04);}
+        }
+        @media(min-width:1200px){
+          .from-wrap{background:#cec3b4;}
+          .from-phone{width:400px;height:min(840px,calc(100vh - 80px));border-radius:46px;
+            box-shadow:0 56px 110px rgba(30,16,8,.26),0 2px 0 rgba(255,255,255,.95) inset,inset 0 0 0 1px rgba(30,16,8,.04);}
+        }
+
+        .from-bscroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;}
+
+        .from-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px;}
+        .from-gi{aspect-ratio:4/5;position:relative;overflow:hidden;cursor:pointer;background:#e6ddd0;border-radius:8px;opacity:0;animation:from-fi .45s ease forwards;}
+        @keyframes from-fi{to{opacity:1;}}
+        .from-gi:nth-child(1){animation-delay:.00s}.from-gi:nth-child(2){animation-delay:.05s}.from-gi:nth-child(3){animation-delay:.10s}
+        .from-gi:nth-child(4){animation-delay:.15s}.from-gi:nth-child(5){animation-delay:.20s}.from-gi:nth-child(6){animation-delay:.25s}
+        .from-gi:nth-child(7){animation-delay:.30s}.from-gi:nth-child(8){animation-delay:.35s}.from-gi:nth-child(9){animation-delay:.40s}
+        .from-gi:nth-child(10){animation-delay:.45s}.from-gi:nth-child(11){animation-delay:.50s}.from-gi:nth-child(12){animation-delay:.55s}
+        .from-gi img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .45s,filter .3s;}
+        .from-gi:hover img{transform:scale(1.04);filter:brightness(.86);}
+        .from-pq{position:absolute;bottom:0;left:0;right:0;padding:20px 8px 8px;background:linear-gradient(to top,rgba(30,16,8,.5),transparent);opacity:0;transition:opacity .2s;border-radius:0 0 8px 8px;pointer-events:none;}
+        .from-gi:hover .from-pq{opacity:1;}
+        .from-no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#e6ddd0;}
+
+        .from-sbtn{
+          width:32px;height:32px;border-radius:50%;border:none;flex-shrink:0;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;
+          position:relative;overflow:hidden;
+          background:${CHOC};
+          border:1px solid rgba(255,255,255,0.14);
+          box-shadow:0 4px 16px rgba(59,31,14,.38),0 1px 0 rgba(255,255,255,.16) inset;
+          transition:transform .15s,box-shadow .2s;
+        }
+        .from-sbtn::before{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(to bottom,rgba(255,255,255,.15),transparent);border-radius:50% 50% 0 0;pointer-events:none;}
+        .from-sbtn:hover{transform:scale(1.07);box-shadow:0 6px 20px rgba(59,31,14,.48);}
+        .from-sbtn:active{transform:scale(.91);}
+        .from-sbtn.off{background:rgba(59,31,14,.1);border-color:transparent;box-shadow:none;cursor:default;}
+        .from-sbtn.off::before{display:none;}
+
+        .from-abtn{width:32px;height:32px;border-radius:50%;border:1px solid rgba(59,31,14,.12);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(59,31,14,.05);transition:all .2s;}
+        .from-abtn:hover{background:rgba(59,31,14,.1);}
+
+        .from-szb{font-family:'DM Sans',sans-serif;font-size:11px;color:${DARK};background:transparent;border:1px solid ${BRD};border-radius:6px;padding:7px 13px;cursor:pointer;transition:all .18s;min-width:40px;text-align:center;}
+        .from-szb:hover{border-color:${DARK};}
+        .from-szb.sel{background:${CHOC};color:${MILK};border-color:${CHOC};}
+
+        .from-ckb{
+          width:100%;padding:15px 20px;border:none;border-radius:100px;
+          font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+          position:relative;overflow:hidden;
+          background:${CHOC};color:${MILK};
+          border:1px solid rgba(255,255,255,0.1);
+          box-shadow:0 8px 28px rgba(59,31,14,.32),0 1px 0 rgba(255,255,255,.1) inset;
+          transition:all .25s;text-decoration:none;display:block;text-align:center;
+        }
+        .from-ckb::before{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(to bottom,rgba(255,255,255,.08),transparent);border-radius:100px 100px 0 0;pointer-events:none;}
+        .from-ckb:hover{background:#4e2a14;box-shadow:0 10px 32px rgba(59,31,14,.42);}
+        .from-ckb.warn{background:${MID};cursor:default;}
+
+        .from-sb{position:absolute;top:0;left:0;bottom:0;width:min(275px,82%);z-index:200;transform:translateX(-100%);transition:transform .36s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;
+          background:rgba(253,252,250,0.92);backdrop-filter:blur(36px) saturate(1.5);-webkit-backdrop-filter:blur(36px) saturate(1.5);
+          border-right:1px solid rgba(255,255,255,.8);box-shadow:6px 0 40px rgba(30,16,8,.14);border-radius:inherit;}
+        .from-sb.open{transform:translateX(0);}
+        .from-sov{position:absolute;inset:0;background:rgba(30,16,8,0);z-index:199;pointer-events:none;transition:background .36s ease;border-radius:inherit;}
+        .from-sov.open{background:rgba(30,16,8,.28);pointer-events:all;}
+        .from-hi{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-radius:8px;transition:background .15s;font-family:'DM Sans',sans-serif;font-size:12px;color:${DARK};font-weight:300;}
+        .from-hi:hover{background:rgba(59,31,14,.06);}
+        .from-hi.active{background:rgba(59,31,14,.08);font-weight:500;}
+
+        .from-sheet{position:absolute;bottom:0;left:0;right:0;border-radius:26px 26px 0 0;display:flex;flex-direction:column;z-index:101;
+          background:rgba(253,252,250,0.93);backdrop-filter:blur(40px) saturate(1.6);-webkit-backdrop-filter:blur(40px) saturate(1.6);
+          border-top:1px solid rgba(255,255,255,.85);box-shadow:0 -12px 48px rgba(30,16,8,.13);}
+        .from-sov2{position:absolute;inset:0;background:rgba(30,16,8,0);z-index:100;pointer-events:none;transition:background .38s ease;border-radius:inherit;}
+        .from-sov2.vis{background:rgba(30,16,8,.34);pointer-events:all;}
+
+        .from-ibar{
+          display:flex;align-items:flex-end;gap:8px;
+          border-radius:18px;
+          padding:clamp(9px,2.5vw,11px) clamp(10px,3vw,14px);
+          background:rgba(59,31,14,0.05);
+          backdrop-filter:blur(20px) saturate(1.3);
+          -webkit-backdrop-filter:blur(20px) saturate(1.3);
+          border:1px solid rgba(255,255,255,0.72);
+          box-shadow:0 2px 14px rgba(59,31,14,.06),0 1px 0 rgba(255,255,255,.9) inset;
+        }
+        .from-ta{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:clamp(12px,3.2vw,13px);color:${DARK};caret-color:${GOLD};resize:none;overflow:hidden;min-height:20px;max-height:130px;line-height:1.55;padding:0;display:block;overflow-y:auto;}
+        .from-ta::placeholder{color:${MID};opacity:.4;}
+        .from-ta:focus{outline:none;}
+        input:focus{outline:none;}
+
+        .from-dh{padding:10px 0 4px;display:flex;justify-content:center;flex-shrink:0;cursor:ns-resize;touch-action:none;user-select:none;}
+        .from-dp{width:36px;height:4px;background:rgba(30,16,8,.13);border-radius:2px;}
+
+        .from-uthumb{width:36px;height:36px;border-radius:8px;object-fit:cover;border:1.5px solid rgba(59,31,14,.15);flex-shrink:0;cursor:pointer;transition:opacity .2s;margin-bottom:1px;}
+        .from-uthumb:hover{opacity:.75;}
+
+        .from-save-btn{background:none;border:none;cursor:pointer;padding:4px 6px;display:flex;align-items:center;transition:opacity .15s;}
+        .from-save-btn:hover{opacity:.7;}
+
+        @keyframes from-bounce{0%,100%{transform:translateY(0);opacity:.3;}50%{transform:translateY(-7px);opacity:1;}}
+        button{cursor:pointer;}
+      `}</style>
+
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} />
+
+      <div className="from-wrap">
+        <div className="from-phone">
+
+          {/* Sidebar overlay */}
+          <div className={`from-sov ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebar(false)} />
+
+          {/* Sidebar */}
+          <div className={`from-sb ${sidebarOpen ? "open" : ""}`}>
+            <div style={{ padding: "clamp(18px,4vw,24px) 16px 14px", borderBottom: `1px solid ${BRD}`, display: "flex", alignItems: "center" }}>
+              <FromLogo size={22} color={DARK} />
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
+              <div style={{ padding: "10px 8px 2px" }}>
+                {([
+                  ["Explore", "compass"],
+                  ["Saved", "bookmark"],
+                  ["Brands", "grid"],
+                  ["Settings", "settings"],
+                ] as [string, string][]).map(([l, ic]) => (
+                  <div
+                    key={l}
+                    className={`from-hi${sidebarView === 'saved' && l === 'Saved' ? ' active' : ''}`}
+                    onClick={() => {
+                      if (l === 'Explore') { setSidebarView('nav'); resetConversation(); setSidebar(false) }
+                      else if (l === 'Saved') { setSidebarView('saved') }
+                      else setSidebar(false)
+                    }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={MID} strokeWidth="1.8">
+                      {ic === "compass"  && <><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></>}
+                      {ic === "bookmark" && <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />}
+                      {ic === "grid"     && <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></>}
+                      {ic === "settings" && <><circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" /></>}
+                    </svg>
+                    {l}
+                    {l === 'Saved' && savedProducts.length > 0 && (
+                      <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 10, fontWeight: 500, color: GOLD }}>{savedProducts.length}</span>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {message.products && message.products.length > 0 ? (
-                <div className="flex flex-col gap-4 w-full">
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-[10px] w-full">
-                    {message.products.map((product, offset) => (
-                      <ProductCard
-                        key={product.id || `${index}-${offset}`}
-                        product={product}
-                        rates={rates}
-                        isBest={offset === 0}
-                        saved={savedIds.has(product.id)}
-                        onToggleSave={toggleSaved}
-                        onClick={() => setSelectedProduct(product)}
-                      />
-                    ))}
+              {sidebarView === 'nav' ? (
+                <>
+                  <div style={{ height: 1, background: BRD, margin: "6px 14px" }} />
+                  <div style={{ padding: "6px 8px 4px" }}>
+                    <p style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, letterSpacing: ".16em", textTransform: "uppercase", color: GOLD, padding: "4px 6px 8px" }}>Recent</p>
+                    {searchHistory.length === 0 ? (
+                      <p style={{ fontFamily: SANS, fontSize: 11, color: MID, padding: "4px 6px", opacity: 0.6 }}>No recent searches</p>
+                    ) : (
+                      searchHistory.slice(0, 10).map(h => (
+                        <div key={h.id} className="from-hi" onClick={() => doHistorySearch(h.query)}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={MID} strokeWidth="1.8">
+                            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                          </svg>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.query}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
-                  
-                  {index === messages.length - 1 && message.searchQuery && !message.loadingMore && !message.hasNoMore && message.products.length > 0 && (
-                    <IntersectionSentinel onIntersect={() => handleLoadMore(index)} />
-                  )}
+                </>
+              ) : (
+                <>
+                  <div style={{ height: 1, background: BRD, margin: "6px 14px" }} />
+                  <div style={{ padding: "6px 8px 4px" }}>
+                    <p style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, letterSpacing: ".16em", textTransform: "uppercase", color: GOLD, padding: "4px 6px 8px" }}>Saved</p>
+                    {savedProducts.length === 0 ? (
+                      <p style={{ fontFamily: SANS, fontSize: 11, color: MID, padding: "4px 6px", opacity: 0.6 }}>Nothing saved yet</p>
+                    ) : (
+                      savedProducts.map(p => (
+                        <div key={p.id} className="from-hi" onClick={() => { setSelected(p); setSidebar(false) }}
+                          style={{ gap: 8, alignItems: 'center' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: '#e6ddd0' }}>
+                            {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 500, color: DARK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                            <div style={{ fontSize: 10, color: GOLD }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
 
-                  {message.loadingMore && (
-                    <div className="flex justify-center items-center py-4 w-full">
-                      <div className="flex gap-[5px] p-[12px_18px] bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[18px] w-fit">
-                        {[0, 200, 400].map(delay => (
-                          <div
-                            key={delay}
-                            className="w-[5px] h-[5px] rounded-full bg-[var(--ink3)] animate-bounce"
-                            style={{ animationDelay: `${delay}ms` }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {message.suggestions && message.suggestions.length > 0 && index === messages.length - 1 && !loading && (
-                    <div className="flex flex-wrap gap-2 mt-2 fade-in">
-                      {message.suggestions.map((sug, i) => (
+            <div style={{ padding: "12px 16px", borderTop: `1px solid ${BRD}` }}>
+              <p style={{ fontFamily: SANS, fontSize: 10, color: GOLD, letterSpacing: ".06em" }}>
+                {buyerContext.country} · {buyerContext.currency}
+              </p>
+            </div>
+          </div>
+
+          {/* Nav bar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "clamp(14px,4vw,20px) clamp(16px,5vw,20px) clamp(8px,2.5vw,12px)", flexShrink: 0 }}>
+            <div style={{ cursor: "pointer", userSelect: "none" }} onClick={() => setSidebar(true)}>
+              <FromLogo size={20} color={DARK} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {hasConversation && (
+                <button
+                  onClick={resetConversation}
+                  style={{ fontFamily: SANS, fontSize: 10, color: MID, background: 'none', border: 'none', letterSpacing: '.06em' }}
+                >
+                  New search
+                </button>
+              )}
+              <button
+                onClick={() => setSidebar(true)}
+                style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={DARK} strokeWidth="1.7">
+                  <line x1="4" y1="8" x2="14" y2="8" />
+                  <line x1="4" y1="14" x2="20" y2="14" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="from-bscroll">
+
+            {/* Home greeting */}
+            {showHome && (
+              <div style={{ padding: "0 clamp(16px,5vw,22px) clamp(20px,5vw,28px)", opacity: loaded ? 1 : 0, transform: loaded ? "translateY(0)" : "translateY(10px)", transition: "opacity .55s,transform .55s" }}>
+                <div style={{ paddingTop: "clamp(10px,3vw,18px)" }}>
+                  <div style={{ fontFamily: SERIF, fontSize: "clamp(28px,8vw,42px)", fontWeight: 300, lineHeight: 1.15, letterSpacing: "-.015em", marginBottom: 6 }}>
+                    <span style={{ color: DARK }}>Hello, </span>
+                    {isEditingName ? (
+                      <input
+                        ref={nameRef}
+                        value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
+                        onBlur={saveName}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') saveName()
+                          if (e.key === 'Escape') { setNameInput(''); setIsEditing(false) }
+                        }}
+                        maxLength={22}
+                        placeholder="your name"
+                        style={{ fontFamily: SERIF, fontSize: "clamp(28px,8vw,42px)", fontWeight: 400, fontStyle: "italic", color: nameInput.length > 0 ? CHOC : GOLD, background: "transparent", border: "none", borderBottom: `1px solid ${nameInput.length > 0 ? CHOC : GOLD}`, paddingBottom: 1, width: "clamp(110px,45vw,200px)", letterSpacing: "-.015em", transition: "color .25s,border-color .25s" }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => { setNameInput(userName); setIsEditing(true) }}
+                        style={{ fontStyle: "italic", fontWeight: 400, cursor: "pointer", color: nameClr, borderBottom: `1px dashed ${nameClr}`, paddingBottom: 1, transition: "color .3s,border-color .3s" }}
+                      >
+                        {dispName}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontFamily: SANS, fontSize: "clamp(8px,1.8vw,10px)", letterSpacing: ".2em", textTransform: "uppercase", color: MID, opacity: .4 }}>
+                    Shop at the speed of thought
+                  </p>
+                </div>
+
+                {/* Recent search chips */}
+                {searchHistory.length > 0 && (
+                  <div style={{ marginTop: 28 }}>
+                    <p style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, letterSpacing: ".18em", textTransform: "uppercase", color: GOLD, marginBottom: 10 }}>Recent</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {searchHistory.slice(0, 5).map(h => (
                         <button
-                          key={i}
-                          type="button"
-                          onClick={() => sendMessage(sug)}
-                          className="bg-transparent border border-[var(--m-border)] rounded-[20px] px-[14px] py-[8px] text-[12px] text-[var(--ink2)] cursor-pointer hover:bg-[var(--m-green)] hover:text-white hover:border-[var(--m-green)] transition-all duration-200"
+                          key={h.id}
+                          onClick={() => doHistorySearch(h.query)}
+                          style={{ fontFamily: SANS, fontSize: 11, color: DARK, background: 'transparent', border: `1px solid ${BRD}`, borderRadius: 100, padding: '6px 14px', cursor: 'pointer', transition: 'background .15s', fontWeight: 300 }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(59,31,14,.05)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
                         >
-                          {sug}
+                          {h.query}
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Loading */}
+            {loading && (
+              <div style={{ display: "flex", gap: 5, justifyContent: "center", padding: "50px 0" }}>
+                {[0, .2, .4].map((d, i) => (
+                  <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: GOLD, animation: `from-bounce 1.2s ${d}s ease-in-out infinite` }} />
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {showEmpty && !loading && (
+              <div style={{ padding: "52px 20px", textAlign: "center" }}>
+                {lastAssistantText ? (
+                  <>
+                    <p style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 300, fontStyle: "italic", color: MID, lineHeight: 1.6 }}>{lastAssistantText}</p>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 300, fontStyle: "italic", color: MID }}>Nothing found</p>
+                    <span style={{ fontFamily: SANS, fontSize: 10, color: GOLD, letterSpacing: ".1em", display: "block", marginTop: 6 }}>Try a different search</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Product grid */}
+            {showGrid && !loading && (
+              <>
+                <div style={{ padding: "0 14px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontFamily: SANS, fontSize: 10, color: MID, opacity: .7 }}>{displayProducts.length} results</span>
+                  <button
+                    onClick={resetConversation}
+                    style={{ fontFamily: SANS, fontSize: 10, color: MID, background: "none", border: "none", textDecoration: "underline" }}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="from-grid">
+                  {displayProducts.map(p => (
+                    <div
+                      key={p.id}
+                      className="from-gi"
+                      onClick={() => setSelected(p)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => e.key === 'Enter' && setSelected(p)}
+                    >
+                      {p.image_url ? (
+                        <img src={p.image_url} alt="" loading="lazy" />
+                      ) : (
+                        <div className="from-no-img">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={MID} strokeWidth="1.5" opacity=".4">
+                            <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                      )}
+                      {/* Save toggle */}
+                      <button
+                        className="from-save-btn"
+                        style={{ position: 'absolute', top: 5, right: 5, zIndex: 2 }}
+                        onClick={e => { e.stopPropagation(); toggleSaved(p) }}
+                        title={savedIds.has(p.id) ? 'Remove from saved' : 'Save'}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill={savedIds.has(p.id) ? 'white' : 'none'} stroke="white" strokeWidth="2">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </button>
+                      <div className="from-pq">
+                        <div style={{ fontFamily: SERIF, fontSize: 11, color: "rgba(255,255,255,.93)", fontStyle: "italic" }}>
+                          {formatMoney(p.price, p.currency, p.base_currency, rates)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Load more */}
+                {lastProductMsg && !lastProductMsg.hasNoMore && lastProductMsgIndex >= 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0 8px' }}>
+                    {lastProductMsg.loadingMore ? (
+                      <div style={{ display: "flex", gap: 5 }}>
+                        {[0, .2, .4].map((d, i) => (
+                          <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: GOLD, animation: `from-bounce 1.2s ${d}s ease-in-out infinite` }} />
+                        ))}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => loadMoreProducts(lastProductMsgIndex)}
+                        style={{ fontFamily: SANS, fontSize: 10, color: MID, background: 'transparent', border: `1px solid ${BRD}`, borderRadius: 100, padding: '8px 20px', cursor: 'pointer', letterSpacing: '.08em' }}
+                      >
+                        Load more
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Input bar */}
+          <div style={{ padding: "clamp(8px,2vw,12px) clamp(12px,4vw,18px) clamp(10px,3vw,16px)", background: MILK, flexShrink: 0 }}>
+            <div className="from-ibar">
+              {uploadedImage ? (
+                <img
+                  src={uploadedImage}
+                  className="from-uthumb"
+                  alt="attached"
+                  title="Tap to remove"
+                  onClick={removeUpload}
+                />
+              ) : (
+                <button type="button" className="from-abtn" onClick={() => fileRef.current?.click()} title="Attach image">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={MID} strokeWidth="1.8">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="M21 15l-5-5L5 21" />
+                  </svg>
+                </button>
+              )}
+
+              <textarea
+                ref={taRef}
+                className="from-ta"
+                rows={1}
+                placeholder="Tell me what you're looking for"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={kd}
+                disabled={loading}
+              />
+
+              <button type="button" className={`from-sbtn ${!canSend ? "off" : ""}`} onClick={() => canSend && doSearch()}>
+                {loading ? (
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.3)', borderTopColor: 'white', animation: 'spin 0.8s linear infinite' }} />
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Sheet overlay */}
+          <div className={`from-sov2 ${selectedProduct ? "vis" : ""}`} onClick={() => setSelected(null)} />
+
+          {/* Product sheet */}
+          <div
+            className="from-sheet"
+            style={{
+              maxHeight: "92%",
+              transform: selectedProduct ? `translateY(${sheetY}px)` : "translateY(100%)",
+              transition: isDragging ? "none" : "transform .42s cubic-bezier(.32,.72,0,1)",
+              willChange: "transform",
+            }}
+          >
+            {selectedProduct && (
+              <>
+                <div
+                  className="from-dh"
+                  onPointerDown={onHandleDown}
+                  onPointerMove={onHandleMove}
+                  onPointerUp={onHandleUp}
+                  onPointerLeave={onHandleUp}
+                >
+                  <div className="from-dp" />
+                </div>
+
+                <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
+                  {/* Image carousel */}
+                  <div style={{ padding: "4px 16px 0" }}>
+                    <div style={{ position: "relative", overflow: "hidden", borderRadius: 14 }}>
+                      <div style={{ display: "flex", transition: isDragging ? "none" : "transform .35s cubic-bezier(.32,.72,0,1)", transform: `translateX(-${activeImg * 100}%)` }}>
+                        {sheetImages.length > 0 ? sheetImages.map((img, i) => (
+                          <div key={i} style={{ width: "100%", flexShrink: 0 }}>
+                            <img src={img} alt="" style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
+                          </div>
+                        )) : (
+                          <div style={{ width: "100%", aspectRatio: "4/5", background: "#e6ddd0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={MID} strokeWidth="1.5" opacity=".4">
+                              <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      {sheetImages.length > 1 && (
+                        <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
+                          {sheetImages.map((_, i) => (
+                            <div
+                              key={i}
+                              onClick={e => { e.stopPropagation(); setActiveImg(i) }}
+                              style={{ width: 5, height: 5, borderRadius: "50%", background: i === activeImg ? "white" : "rgba(255,255,255,.42)", cursor: "pointer", transform: i === activeImg ? "scale(1.3)" : "scale(1)", transition: "all .2s" }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* Save button on sheet */}
+                      <button
+                        onClick={() => toggleSaved(selectedProduct)}
+                        style={{ position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: '50%', background: 'rgba(253,252,250,0.88)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(8px)' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? CHOC : 'none'} stroke={CHOC} strokeWidth="2">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Product header */}
+                  <div style={{ padding: "14px 20px 2px" }}>
+                    <p style={{ fontFamily: SERIF, fontSize: 11, fontWeight: 300, fontStyle: "italic", color: GOLD }}>From: {selectedProduct.vendor}</p>
+                  </div>
+                  <div style={{ padding: "2px 20px 12px" }}>
+                    <h2 style={{ fontFamily: SERIF, fontSize: "clamp(22px,6vw,30px)", fontWeight: 300, color: DARK, lineHeight: 1.1, letterSpacing: "-.01em", marginBottom: 4 }}>
+                      {selectedProduct.title}
+                    </h2>
+                    <p style={{ fontFamily: SERIF, fontSize: "clamp(16px,4.5vw,21px)", fontWeight: 400, fontStyle: "italic", color: DARK }}>
+                      {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, rates)}
+                    </p>
+                  </div>
+
+                  {sheetDesc && (
+                    <InfoSection label="About">
+                      <p style={{ fontFamily: SANS, fontSize: "clamp(11px,3vw,13px)", color: MID, lineHeight: 1.72, fontWeight: 300 }}>{sheetDesc}</p>
+                    </InfoSection>
+                  )}
+
+                  {sheetMaterial && (
+                    <InfoSection label="Material">
+                      <p style={{ fontFamily: SANS, fontSize: "clamp(11px,3vw,13px)", color: DARK, lineHeight: 1.65, fontWeight: 300 }}>{sheetMaterial}</p>
+                    </InfoSection>
+                  )}
+
+                  {sheetColor && (
+                    <InfoSection label="Colour">
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: 12, color: DARK, fontWeight: 300 }}>
+                        <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#c8b89a", border: `1px solid ${BRD}` }} />
+                        {sheetColor}
+                      </div>
+                    </InfoSection>
+                  )}
+
+                  {sheetSizes.length > 0 && (
+                    <InfoSection label="Size">
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {sheetSizes.map(s => (
+                          <button
+                            key={s}
+                            className={`from-szb ${selectedSize === s ? "sel" : ""}`}
+                            onClick={() => setSize(selectedSize === s ? null : s)}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </InfoSection>
+                  )}
+
+                  {selectedProduct.tags && selectedProduct.tags.length > 0 && (
+                    <InfoSection label="Details">
+                      <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {selectedProduct.tags.slice(0, 6).map((tag, i) => (
+                          <li key={i} style={{ fontFamily: SANS, fontSize: "clamp(11px,2.8vw,12px)", color: DARK, letterSpacing: ".01em", display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
+                            <div style={{ width: 3, height: 3, borderRadius: "50%", background: GOLD, flexShrink: 0, marginTop: 5 }} />
+                            {tag}
+                          </li>
+                        ))}
+                      </ul>
+                    </InfoSection>
+                  )}
+
+                  <InfoSection label="Store">
+                    <p style={{ fontFamily: SANS, fontSize: "clamp(11px,3vw,13px)", color: MID, lineHeight: 1.7, fontWeight: 300 }}>
+                      {selectedProduct.in_stock ? '✓ In stock' : '✗ Out of stock'} — ships from{' '}
+                      {(() => { try { return new URL(selectedProduct.store_url).hostname.replace('www.', '') } catch { return selectedProduct.store_url } })()}
+                    </p>
+                  </InfoSection>
+
+                  <div style={{ height: 10 }} />
+                </div>
+
+                {/* Checkout CTA */}
+                <div style={{ padding: "clamp(10px,3vw,16px) 20px", borderTop: `1px solid ${BRD}`, background: "rgba(253,252,250,0.94)", backdropFilter: "blur(20px)", flexShrink: 0 }}>
+                  {sheetSizes.length > 0 && !selectedSize ? (
+                    <button className="from-ckb warn" disabled>Select a size</button>
+                  ) : (
+                    <a
+                      href={checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="from-ckb"
+                    >
+                      Checkout
+                    </a>
                   )}
                 </div>
-              ) : (
-                message.suggestions && message.suggestions.length > 0 && index === messages.length - 1 && !loading && (
-                  <div className="flex flex-wrap gap-2 mt-2 fade-in">
-                    {message.suggestions.map((sug, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => sendMessage(sug)}
-                        className="bg-transparent border border-[var(--m-border)] rounded-[20px] px-[14px] py-[8px] text-[12px] text-[var(--ink2)] cursor-pointer hover:bg-[var(--m-green)] hover:text-white hover:border-[var(--m-green)] transition-all duration-200"
-                      >
-                        {sug}
-                      </button>
-                    ))}
-                  </div>
-                )
-              )}
-            </div>
-          ))}
-
-          {loading && (
-            <div className="flex gap-[5px] p-[12px_18px] bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[18px_18px_18px_4px] w-fit">
-              {[0, 200, 400].map(delay => (
-                <div
-                  key={delay}
-                  className="w-[5px] h-[5px] rounded-full bg-[var(--ink3)] animate-bounce"
-                  style={{ animationDelay: `${delay}ms` }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <footer className="flex-shrink-0 border-t border-[var(--m-border)] p-[8px_10px_18px] md:p-[14px_28px_20px] bg-[rgba(255,255,255,0.85)] md:bg-[var(--bg)] backdrop-blur-[12px] md:backdrop-blur-none pb-[max(16px,env(safe-area-inset-bottom))] md:pb-[20px]">
-          <div className="flex items-center gap-2 md:gap-3 bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[24px] p-[8px_8px_8px_14px] md:p-[10px_10px_10px_20px] shadow-[0_4px_12px_rgba(0,0,0,0.03)] w-full max-w-[900px] mx-auto">
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={event => setInput(event.target.value)}
-              onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => event.key === 'Enter' && !event.shiftKey && sendMessage()}
-              placeholder={isMobile ? "Search products..." : "Search by product, material, budget, or intended use"}
-              className="flex-1 min-w-0 border-none bg-transparent text-[16px] md:text-[14px] text-[var(--ink)] outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => sendMessage()}
-              disabled={loading || !input.trim()}
-              className={`flex-shrink-0 flex items-center justify-center w-[48px] h-[48px] md:w-[42px] md:h-[42px] rounded-[18px] border-none transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                loading || !input.trim()
-                  ? 'bg-[var(--m-border)] cursor-default shadow-none'
-                  : 'bg-[var(--m-green)] cursor-pointer shadow-[0_4px_10px_rgba(90,154,90,0.3)]'
-              }`}
-            >
-              {loading ? (
-                <div className="w-[14px] h-[14px] rounded-full border-[1.5px] border-[rgba(255,255,255,0.3)] border-t-white animate-spin" />
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 14 14" fill="none">
-                  <path d="M1 7h12M7 1l6 6-6 6" stroke={input.trim() ? 'white' : 'rgba(255,255,255,0.5)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </footer>
-      </>
-    )
-  }
-
-  function renderHistoryView() {
-    return (
-      <div className="flex-1 overflow-y-auto p-[20px_24px] md:p-[32px_36px]">
-        <div className="mb-[18px] md:mb-[24px]">
-          <div className="font-[var(--serif)] text-[28px] md:text-[34px] leading-[1.08] mb-[6px]">Search history</div>
-          <p className="text-[13px] text-[var(--ink3)] leading-[1.7]">
-            Re-run recent searches and continue refining them in the chat.
-          </p>
-        </div>
-
-        {searchHistory.length === 0 ? (
-          <div className="bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[16px] p-[32px_28px] text-[var(--ink3)] text-[13px] leading-[1.8]">
-            No searches yet. Your recent queries will appear here after you run them.
-          </div>
-        ) : (
-          <div className="grid gap-[12px]">
-            {searchHistory.map(entry => (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => sendMessage(entry.query)}
-                className="text-left bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[16px] p-[18px_18px_16px] cursor-pointer hover:bg-[rgba(0,0,0,0.02)] transition-colors"
-              >
-                <div className="flex justify-between gap-[16px] mb-[6px] items-start">
-                  <div className="text-[14px] font-medium text-[var(--ink)] min-w-0">{entry.query}</div>
-                  <div className="text-[11px] text-[var(--ink3)] whitespace-nowrap shrink-0">{formatTime(entry.createdAt)}</div>
-                </div>
-                <div className="text-[12px] text-[var(--ink3)]">
-                  {entry.resultCount} result{entry.resultCount === 1 ? '' : 's'} returned
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  function renderSavedView() {
-    return (
-      <div className="flex-1 overflow-y-auto p-[20px_24px] md:p-[32px_36px]">
-        <div className="flex justify-between items-end gap-[16px] mb-[18px] md:mb-[24px]">
-          <div>
-            <div className="font-[var(--serif)] text-[28px] md:text-[34px] leading-[1.08] mb-[6px]">Saved products</div>
-            <p className="text-[13px] text-[var(--ink3)] leading-[1.7]">
-              Keep promising products here while you compare stores and decide what to open next.
-            </p>
-          </div>
-          {savedProducts.length > 0 && (
-            <button
-              type="button"
-              onClick={() => clearSavedProducts()}
-              className="border border-[var(--m-border)] bg-transparent rounded-[30px] p-[8px_16px] text-[12px] text-[var(--ink)] cursor-pointer hover:bg-[rgba(0,0,0,0.02)] transition-colors"
-            >
-              Clear saved
-            </button>
-          )}
-        </div>
-
-        {savedProducts.length === 0 ? (
-          <div className="bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[16px] p-[32px_28px] text-[var(--ink3)] text-[13px] leading-[1.8]">
-            No saved products yet. Use the save action on any search result to keep it here.
-          </div>
-        ) : (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] gap-[12px]">
-            {savedProducts.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                rates={rates}
-                saved
-                onToggleSave={toggleSaved}
-                onClick={() => setSelectedProduct(product)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex h-[100dvh] max-w-full bg-[var(--bg)] overflow-hidden">
-      {/* Mobile Drawer Overlay */}
-      {isMobile && isSidebarOpen && (
-        <button
-          type="button"
-          onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 border-none outline-none cursor-pointer"
-          style={{ zIndex: 900, cursor: 'pointer', backgroundColor: 'rgba(0, 0, 0, 0.35)' }}
-        />
-      )}
-
-      <aside
-        className={`bg-[var(--m-green)] flex flex-col shrink-0 gap-[8px] h-[100dvh] top-0 py-[22px] transition-transform duration-300 ease-in-out ${
-          isMobile
-            ? 'fixed w-[280px] items-stretch left-0'
-            : 'relative w-[72px] items-center'
-        }`}
-        style={{
-          zIndex: 1000,
-          transform: isMobile
-            ? (isSidebarOpen ? 'translateX(0)' : 'translateX(-110%)')
-            : 'none',
-          boxShadow: isMobile && isSidebarOpen ? '20px 0 50px rgba(0,0,0,0.15)' : 'none'
-        }}
-      >
-        <div className={`mb-[24px] flex items-center ${isMobile ? 'px-[24px] justify-between' : 'justify-center'}`}>
-          <div className="flex items-center gap-[10px]">
-            <img src="/logo.png" alt="From Logo" className="w-[28px] h-[28px] object-contain" />
-            {isMobile && <span className="font-[var(--serif)] text-[18px] text-[var(--bg-white)]">From</span>}
-          </div>
-          {isMobile && (
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen(false)}
-              className="bg-transparent border-none text-[var(--bg-white)] cursor-pointer p-[12px] -mr-[12px]"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        {[
-          { id: 'discover', label: 'Discover', icon: <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l7-7 7 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9z" /><path d="M8 19v-7h4v7" /></svg> },
-          { id: 'history', label: 'History', icon: <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="10" cy="10" r="8" /><path d="M10 6v4l3 2" /></svg> },
-          { id: 'saved', label: 'Saved', icon: <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 3.5A1.5 1.5 0 0 1 6.5 2h7A1.5 1.5 0 0 1 15 3.5V18l-5-3-5 3V3.5z" /></svg> },
-        ].map(item => {
-          const isActive = activeView === item.id
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setActiveView(item.id as View)
-                setIsSidebarOpen(false)
-              }}
-              className={`h-[44px] rounded-[14px] flex items-center gap-[12px] cursor-pointer border-none transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:opacity-100 ${
-                isMobile ? 'w-auto justify-start px-[24px] mx-[12px]' : 'w-[44px] justify-center px-0 mx-0'
-              } ${
-                isActive ? 'text-[var(--m-green)] bg-[var(--bg-white)] opacity-100' : 'text-[var(--bg-white)] bg-transparent opacity-70'
-              }`}
-            >
-              <span className="w-[20px] h-[20px] flex shrink-0">{item.icon}</span>
-              {isMobile && <span className="text-[15px] font-medium">{item.label}</span>}
-            </button>
-          )
-        })}
-
-        <div className={`mt-auto flex flex-col gap-[20px] ${isMobile ? 'px-[24px] items-start' : 'px-0 items-center'}`}>
-          <div className={isMobile ? 'text-left' : 'text-center'}>
-            <div className="text-[10px] tracking-[0.1em] text-[rgba(255,255,255,0.5)] uppercase mb-[4px]">Region</div>
-            <div className="text-[12px] font-semibold text-[var(--bg-white)] flex items-center gap-[6px]">
-              <span className="w-[6px] h-[6px] rounded-full bg-[#6edba8]" />
-              {buyerContext.country}
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <main className="flex-1 flex flex-col relative min-w-0">
-        {isMobile && (
-          <header className="h-[56px] flex items-center px-[16px] border-b border-[var(--m-border)] bg-[var(--bg)] shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen(true)}
-              className="bg-transparent border-none text-[var(--ink)] p-[12px] -ml-[12px] cursor-pointer"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 12h18M3 6h18M3 18h18" />
-              </svg>
-            </button>
-            <div className="ml-[8px] font-[var(--serif)] text-[17px] font-medium">From</div>
-            {hasConversation && (
-              <button
-                type="button"
-                onClick={resetConversation}
-                className="ml-auto bg-transparent border-none text-[var(--m-green)] text-[13px] font-medium cursor-pointer"
-              >
-                New search
-              </button>
+              </>
             )}
-          </header>
-        )}
+          </div>
 
-        {!isMobile && hasConversation && (
-          <header className="absolute top-0 left-0 right-0 h-[64px] flex items-center px-[32px] z-[10] pointer-events-none">
-            <button
-              type="button"
-              onClick={resetConversation}
-              className="pointer-events-auto ml-auto bg-[var(--bg-card)] border border-[var(--m-border)] rounded-[30px] p-[8px_20px] text-[12px] font-medium text-[var(--ink2)] cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:bg-[rgba(0,0,0,0.02)] transition-colors"
-            >
-              New search
-            </button>
-          </header>
-        )}
+        </div>
+      </div>
 
-        {activeView === 'discover' && renderDiscoverView()}
-        {activeView === 'history' && renderHistoryView()}
-        {activeView === 'saved' && renderSavedView()}
-
-        {selectedProduct && (
-          <ProductDrawer
-            product={selectedProduct}
-            rates={rates}
-            onClose={() => setSelectedProduct(null)}
-          />
-        )}
-      </main>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
