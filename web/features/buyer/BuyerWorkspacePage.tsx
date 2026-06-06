@@ -13,11 +13,12 @@ const CHOC  = "#3b1f0e"
 const DARK  = "#1e1008"
 const MID   = "#6b4c38"
 const GOLD  = "#a87840"
+const LOGO  = "#6b1a1a"   // maroon — matches Tan Meringue brand colour
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const BRD   = "rgba(30,16,8,0.07)"
 
-// ── FROM wordmark (sidebar only) ──────────────────────────────────────────────
+// ── FROM wordmark ─────────────────────────────────────────────────────────────
 function FromLogo({ size = 60, color = "#1e1008" }: { size?: number; color?: string }) {
   return (
     <svg viewBox="0 0 220 58" width={size * (220 / 58)} height={size} fill={color}
@@ -416,20 +417,17 @@ export default function FromApp({
             </div>
           </div>
 
-          {/* ── Nav bar: hamburger left | sparkle right ── */}
+          {/* ── Nav bar: FROM logo left | hamburger right ── */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "clamp(14px,4vw,20px) clamp(16px,5vw,22px) clamp(6px,2vw,10px)", flexShrink: 0 }}>
-            {/* Hamburger */}
-            <button onClick={() => setSidebar(true)} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: "transparent", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: 5, padding: "8px 6px" }}>
+            {/* FROM wordmark — Tan Meringue style, maroon */}
+            <div style={{ cursor: "default", userSelect: "none" }}>
+              <FromLogo size={28} color={LOGO} />
+            </div>
+
+            {/* Hamburger — opens sidebar */}
+            <button onClick={() => setSidebar(true)} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: "transparent", display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 5, padding: "8px 6px", cursor: "pointer" }}>
               <span style={{ display: "block", width: 18, height: 1.5, background: DARK, borderRadius: 1 }} />
               <span style={{ display: "block", width: 13, height: 1.5, background: DARK, borderRadius: 1 }} />
-            </button>
-
-            {/* Sparkle / AI icon */}
-            <button onClick={() => setSidebar(true)} style={{ width: 34, height: 34, borderRadius: "50%", border: `1px solid ${BRD}`, background: "rgba(59,31,14,.03)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={DARK} strokeWidth="1.6">
-                <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z"/>
-                <path d="M19 16l.75 2.25L22 19l-2.25.75L19 22l-.75-2.25L16 19l2.25-.75L19 16Z"/>
-              </svg>
             </button>
           </div>
 
