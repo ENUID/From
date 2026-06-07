@@ -594,13 +594,13 @@ export default function FromApp({
             {!hasConversation && <div className={`fr-greet${loaded ? ' in' : ''}`}>
               {(() => {
                 const greetName = isEditingName ? (nameInput || "your name") : (hasName ? userName : "your name")
-                const HELLO_PX = 62
-                // Only the name shrinks; "Hello, " stays fixed at HELLO_PX
-                const namePx = Math.min(HELLO_PX, Math.max(22, Math.floor(160 / (Math.max(1, greetName.length) * 0.52))))
+                const HELLO_PX = 72
+                // Only the name shrinks; "Hello, " is locked at HELLO_PX no matter what
+                const namePx = Math.min(HELLO_PX, Math.max(20, Math.floor(150 / (Math.max(1, greetName.length) * 0.52))))
                 return (
                 <div style={{ fontFamily: SERIF, lineHeight: 1.08, letterSpacing: "-.02em", marginBottom: 10,
                   display: "flex", alignItems: "baseline", flexWrap: "nowrap", overflow: "hidden" }}>
-                  <span style={{ fontWeight: 300, color: INK, fontSize: HELLO_PX, flexShrink: 0 }}>Hello,&nbsp;</span>
+                  <span style={{ fontWeight: 300, color: INK, fontSize: HELLO_PX, flexShrink: 0, whiteSpace: "nowrap" }}>Hello,&nbsp;</span>
                   {isEditingName ? (
                     <input ref={nameRef} value={nameInput}
                       onChange={e => setNameInput(e.target.value)}
@@ -611,7 +611,7 @@ export default function FromApp({
                         background: "transparent", border: "none",
                         borderBottom: `1.5px dashed ${INK}`,
                         paddingBottom: 1, letterSpacing: "-.02em", outline: "none",
-                        width: `${Math.max(4, (nameInput.length || 9)) * 0.52}em`,
+                        width: `${Math.max(3, (nameInput.length || 8)) * 0.52}em`,
                         minWidth: 0, flexShrink: 1 }}
                     />
                   ) : (
