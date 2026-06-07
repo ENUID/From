@@ -165,17 +165,27 @@ function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: str
   )
 }
 
-// ── Sheet info divider row ────────────────────────────────────────────────────
-function InfoSection({ label, children }: { label: string; children: React.ReactNode }) {
+// ── Collapsible accordion row (H&M editorial style) ───────────────────────────
+function Accordion({ label, children, defaultOpen = false }: { label: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
-    <>
-      <div style={{ height: 1, background: BRD, margin: "0 20px" }} />
-      <div style={{ padding: "13px 20px" }}>
-        <p style={{ fontFamily: SANS, fontSize: 9, fontWeight: 600, letterSpacing: ".18em",
-          textTransform: "uppercase", color: INK3, marginBottom: 9 }}>{label}</p>
-        {children}
+    <div style={{ borderTop: `1px solid ${BRD}` }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "17px 0", background: "transparent", border: "none", cursor: "pointer", textAlign: "left",
+      }}>
+        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: INK }}>{label}</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round">
+          <line x1="5" y1="12" x2="19" y2="12" />
+          {!open && <line x1="12" y1="5" x2="12" y2="19" />}
+        </svg>
+      </button>
+      <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .28s cubic-bezier(.32,.72,0,1)" }}>
+        <div style={{ overflow: "hidden" }}>
+          <div style={{ paddingBottom: 18 }}>{children}</div>
+        </div>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -202,6 +212,20 @@ function extractMaterial(p: Product): string {
 }
 function getProductSizes(p: Product): string[] {
   return p.options?.find(o => o.name.toLowerCase().includes('size'))?.values || []
+}
+function getProductColors(p: Product): string[] {
+  return p.options?.find(o => /colou?r/i.test(o.name))?.values || []
+}
+// Map each size value → whether any variant carrying it is available.
+function getSizeAvailability(p: Product): Record<string, boolean> {
+  const map: Record<string, boolean> = {}
+  const sizeOpt = p.options?.find(o => o.name.toLowerCase().includes('size'))
+  if (!sizeOpt) return map
+  for (const val of sizeOpt.values) {
+    const v = p.variants?.find(v => v.options.some(o => o.label === val))
+    map[val] = v ? v.availability : true
+  }
+  return map
 }
 function getCheckoutUrl(p: Product, size: string | null): string {
   const v = size ? p.variants?.find(v => v.options.some(o => o.label === size)) : p.variants?.[0]
@@ -231,6 +255,7 @@ export default function FromApp({
   const [nameInput, setNameInput]     = useState("")
   const [selectedProduct, setSelected]= useState<Product | null>(null)
   const [selectedSize, setSize]       = useState<string | null>(null)
+  const [selectedColor, setColor]     = useState<string | null>(null)
   const [activeImg, setActiveImg]     = useState(0)
   const [sheetY, setSheetY]           = useState(0)
   const [sheetSnap, setSheetSnap]     = useState<'full'|'half'>('full')
@@ -265,6 +290,7 @@ export default function FromApp({
   const taRef         = useRef<HTMLTextAreaElement>(null)
   const fileRef       = useRef<HTMLInputElement>(null)
   const dragHandleRef = useRef<HTMLDivElement>(null)
+  const similarRef    = useRef<HTMLDivElement>(null)
   const dragStartY    = useRef(0)
   const dragStartSnap = useRef<'full'|'half'>('full')
   const dragVel       = useRef(0)
@@ -311,7 +337,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
-  useEffect(() => { if (selectedProduct) { setSize(null); setActiveImg(0); setSheetY(0); setSheetSnap('full') } }, [selectedProduct])
+  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full') } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"
@@ -393,7 +419,13 @@ export default function FromApp({
   const sheetDesc     = selectedProduct ? getDescriptionText(selectedProduct) : ''
   const sheetMaterial = selectedProduct ? extractMaterial(selectedProduct) : ''
   const sheetSizes    = selectedProduct ? getProductSizes(selectedProduct) : []
+  const sheetColors   = selectedProduct ? getProductColors(selectedProduct) : []
+  const sizeAvail     = selectedProduct ? getSizeAvailability(selectedProduct) : {}
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize) : '#'
+  const sheetStoreHost= selectedProduct ? (() => { try { return new URL(selectedProduct.store_url).hostname.replace('www.', '') } catch { return '' } })() : ''
+  const similarItems  = selectedProduct
+    ? (searchProducts.length ? searchProducts : exploreCache).filter(p => p.id !== selectedProduct.id).slice(0, 12)
+    : []
 
   return (
     <div style={{ fontFamily: SANS, background: "#ffffff", height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -555,29 +587,22 @@ export default function FromApp({
           cursor:ns-resize;touch-action:none;user-select:none;}
         .fr-drag-pill{width:34px;height:4px;background:rgba(0,0,0,.14);border-radius:2px;}
 
-        /* Sizes */
-        .fr-sz{font-family:'DM Sans',sans-serif;font-size:13px;color:${INK3};
-          background:transparent;border:none;border-bottom:2px solid transparent;
-          padding:6px 4px;cursor:pointer;transition:all .15s;min-width:36px;text-align:center;}
-        .fr-sz:hover{color:${INK};}
-        .fr-sz.on{color:${INK};border-bottom-color:${INK};font-weight:500;}
+        /* Sizes — boxed grid (H&M editorial) */
+        .fr-szbox{font-family:'DM Sans',sans-serif;font-size:13px;color:${INK};
+          background:#fff;border:1px solid ${BRD};padding:14px 0;cursor:pointer;
+          text-align:center;transition:border-color .15s;position:relative;}
+        .fr-szbox:hover{border-color:${INK3};z-index:1;}
+        .fr-szbox.on{border:1.5px solid ${INK};z-index:2;}
+        .fr-szbox.dis{color:${INK3};text-decoration:line-through;cursor:default;opacity:.45;}
+        .fr-szbox.dis:hover{border-color:${BRD};}
 
-        /* CTAs */
-        .fr-atc{flex:1;padding:16px;border:none;font-family:'DM Sans',sans-serif;font-size:11px;
-          font-weight:500;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;
-          background:${INK};color:#fff;transition:background .18s;
-          text-decoration:none;display:flex;align-items:center;justify-content:center;}
-        .fr-atc:hover{background:#222;}
-        .fr-atc.warn{background:${INK3};cursor:default;pointer-events:none;}
-        .fr-hrt{width:54px;flex-shrink:0;padding:16px;border:none;
-          border-left:1px solid rgba(255,255,255,.1);background:${INK};color:#fff;
-          cursor:pointer;transition:background .18s;display:flex;align-items:center;justify-content:center;}
-        .fr-hrt:hover{background:#222;}
-        .fr-bin{width:100%;padding:16px;border:none;border-top:1px solid rgba(255,255,255,.08);
-          font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:.12em;
-          text-transform:uppercase;cursor:pointer;background:${INK};color:#fff;
-          transition:background .18s;text-decoration:none;display:block;text-align:center;}
-        .fr-bin:hover{background:#222;}
+        /* ADD button — full width */
+        .fr-add{display:block;width:100%;padding:17px;border:none;cursor:pointer;
+          font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.14em;
+          text-transform:uppercase;text-align:center;text-decoration:none;
+          background:${INK};color:#fff;transition:background .18s;}
+        .fr-add:hover{background:#3d1c0c;}
+        .fr-add.warn{background:#fff;color:${INK3};border:1px solid ${BRD};cursor:default;pointer-events:none;}
 
         /* Results bar */
         .fr-results-bar{display:flex;justify-content:space-between;align-items:center;
@@ -1178,80 +1203,153 @@ export default function FromApp({
                     </div>
                   )}
 
-                  <div style={{ padding: "16px 20px 0" }}>
-                    <h2 style={{ fontFamily: SANS, fontSize: "clamp(16px,4.5vw,19px)", fontWeight: 700, color: INK, lineHeight: 1.2, marginBottom: 5 }}>
-                      {selectedProduct.title}
-                    </h2>
-                    <p style={{ fontFamily: SANS, fontSize: "clamp(14px,3.8vw,16px)", color: INK, fontWeight: 400 }}>
+                  {/* Title + save + price */}
+                  <div style={{ padding: "18px 20px 0" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                      <h2 style={{ fontFamily: SANS, fontSize: "clamp(14px,4vw,16px)", fontWeight: 500, color: INK, lineHeight: 1.3, letterSpacing: ".01em", textTransform: "uppercase", flex: 1 }}>
+                        {selectedProduct.title}
+                      </h2>
+                      <button onClick={() => toggleSaved(selectedProduct)} aria-label="Save"
+                        style={{ background: "transparent", border: "none", padding: 2, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : "none"} stroke={INK} strokeWidth="1.5">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <p style={{ fontFamily: SANS, fontSize: "clamp(15px,4vw,17px)", color: INK, fontWeight: 700, marginTop: 8 }}>
                       {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, rates)}
                     </p>
+                    <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Inclusive of all taxes</p>
                   </div>
 
-                  {sheetDesc && (
-                    <div style={{ padding: "12px 20px 0" }}>
-                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, lineHeight: 1.7, fontWeight: 300 }}>{sheetDesc}</p>
+                  {/* Colour */}
+                  {sheetColors.length > 0 && (
+                    <div style={{ padding: "18px 20px 0" }}>
+                      <p style={{ fontFamily: SANS, fontSize: 12, marginBottom: 10, letterSpacing: ".02em" }}>
+                        <span style={{ color: INK3 }}>Colour: </span><span style={{ color: INK }}>{selectedColor || sheetColors[0]}</span>
+                      </p>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {sheetColors.map(c => {
+                          const on = (selectedColor || sheetColors[0]) === c
+                          return (
+                            <button key={c} onClick={() => setColor(c)}
+                              style={{ fontFamily: SANS, fontSize: 12, color: on ? INK : INK3, background: "#fff",
+                                border: `1px solid ${on ? INK : BRD}`, padding: "9px 14px", cursor: "pointer", transition: "border-color .15s" }}>
+                              {c}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
 
+                  {/* Stock + view similar */}
+                  <div style={{ padding: "18px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: SANS, fontSize: 12, color: INK2 }}>
+                      <span style={{ width: 7, height: 7, background: selectedProduct.in_stock ? "#3d5c3a" : "#c0392b", display: "inline-block" }} />
+                      {selectedProduct.in_stock ? "In stock" : "Out of stock"}
+                    </span>
+                    {similarItems.length > 0 && (
+                      <button onClick={() => similarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                        style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, background: "transparent", border: "none", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>
+                        View similar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Sizes — boxed grid */}
                   {sheetSizes.length > 0 && (
                     <div style={{ padding: "14px 20px 0" }}>
-                      <div style={{ height: 1, background: BRD, marginBottom: 12 }} />
-                      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", borderBottom: `1px solid ${BRD}`, paddingBottom: 2 }}>
-                        {sheetSizes.map(s => (
-                          <button key={s} className={`fr-sz${selectedSize === s ? " on" : ""}`} onClick={() => setSize(selectedSize === s ? null : s)}>{s}</button>
+                      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
+                        {sheetSizes.map((s, i) => {
+                          const avail = sizeAvail[s] !== false
+                          const on = selectedSize === s
+                          return (
+                            <button key={s} disabled={!avail} onClick={() => avail && setSize(on ? null : s)}
+                              className={`fr-szbox${on ? " on" : ""}${avail ? "" : " dis"}`}
+                              style={{ marginLeft: i % 6 === 0 ? 0 : -1 }}>
+                              {s}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ADD button */}
+                  <div style={{ padding: "16px 20px 0" }}>
+                    <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
+                      target="_blank" rel="noopener noreferrer"
+                      className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
+                      onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
+                      {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Add to bag"}
+                    </a>
+                  </div>
+
+                  {/* Sold by / visit store */}
+                  <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontFamily: SANS, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: INK3 }}>
+                      Sold by {sheetStoreHost || "store"}
+                    </span>
+                    <a href={selectedProduct.store_url} target="_blank" rel="noopener noreferrer"
+                      style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, textDecoration: "underline", textUnderlineOffset: 3 }}>
+                      Visit store
+                    </a>
+                  </div>
+
+                  {/* Accordions */}
+                  <div key={selectedProduct.id} style={{ padding: "22px 20px 0" }}>
+                    {sheetDesc && (
+                      <Accordion label="Description & Fit" defaultOpen>
+                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: "pre-line" }}>{sheetDesc}</p>
+                      </Accordion>
+                    )}
+                    {sheetMaterial && (
+                      <Accordion label="Materials">
+                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>{sheetMaterial}</p>
+                      </Accordion>
+                    )}
+                    {selectedProduct.tags && selectedProduct.tags.length > 0 && (
+                      <Accordion label="Details">
+                        <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                          {selectedProduct.tags.slice(0, 8).map((tag, i) => (
+                            <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
+                              <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 6 }} />
+                              {tag}
+                            </li>
+                          ))}
+                        </ul>
+                      </Accordion>
+                    )}
+                    <Accordion label="Delivery & Returns">
+                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
+                        Shipping, payment and returns are handled directly by {sheetStoreHost || "the store"}. Delivery times and return windows vary — see their policies at checkout.
+                      </p>
+                    </Accordion>
+                  </div>
+
+                  {/* Similar items */}
+                  {similarItems.length > 0 && (
+                    <div ref={similarRef} style={{ padding: "26px 0 0" }}>
+                      <div style={{ padding: "0 20px", marginBottom: 14 }}>
+                        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: INK }}>Similar items</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", padding: "0 20px 4px" }}>
+                        {similarItems.map(p => (
+                          <button key={p.id} onClick={() => setSelected(p)}
+                            style={{ flexShrink: 0, width: 120, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
+                            <div style={{ width: 120, aspectRatio: "3/4", overflow: "hidden", background: "#ede8e3", marginBottom: 7 }}>
+                              {p.image_url && <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+                            </div>
+                            <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK2, fontWeight: 600, marginTop: 3 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
+                          </button>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {sheetMaterial && <InfoSection label="Material"><p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300 }}>{sheetMaterial}</p></InfoSection>}
-
-                  {selectedProduct.tags && selectedProduct.tags.length > 0 && (
-                    <InfoSection label="Details">
-                      <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
-                        {selectedProduct.tags.slice(0, 6).map((tag, i) => (
-                          <li key={i} style={{ fontFamily: SANS, fontSize: 12, color: INK2, display: "flex", alignItems: "flex-start", gap: 8, fontWeight: 300, lineHeight: 1.5 }}>
-                            <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 5 }} />
-                            {tag}
-                          </li>
-                        ))}
-                      </ul>
-                    </InfoSection>
-                  )}
-
-                  <InfoSection label="Store">
-                    <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300 }}>
-                      {selectedProduct.in_stock ? '✓ In stock' : '✗ Out of stock'}
-                      {' — '}
-                      {(() => { try { return new URL(selectedProduct.store_url).hostname.replace('www.', '') } catch { return '' } })()}
-                    </p>
-                  </InfoSection>
-
-                  <div style={{ height: 16 }} />
-
-                  {/* Buy buttons — scroll with content, not fixed */}
-                  <div style={{ borderTop: `0.5px solid rgba(0,0,0,.08)`, margin: '0 0', overflow: "hidden" }}>
-                    <div style={{ display: "flex" }}>
-                      <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                        target="_blank" rel="noopener noreferrer"
-                        className={`fr-atc${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
-                        onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
-                        {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Add to Cart"}
-                      </a>
-                      <button className="fr-hrt" onClick={() => toggleSaved(selectedProduct)}>
-                        <svg width="18" height="18" viewBox="0 0 24 24"
-                          fill={savedIds.has(selectedProduct.id) ? '#fff' : "none"} stroke="#fff" strokeWidth="1.8">
-                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                        </svg>
-                      </button>
-                    </div>
-                    <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                      target="_blank" rel="noopener noreferrer" className="fr-bin"
-                      onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}
-                      style={{ opacity: sheetSizes.length > 0 && !selectedSize ? .5 : 1 }}>
-                      Buy It Now
-                    </a>
-                  </div>
+                  <div style={{ height: 28 }} />
                 </div>
               </>
             )}
