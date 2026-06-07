@@ -419,7 +419,8 @@ export default function FromApp({
           transition:background .34s;border-radius:inherit;}
         .fr-ov.open{background:rgba(44,18,6,.18);pointer-events:all;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
         .fr-hi{display:flex;align-items:center;gap:14px;padding:13px 18px;cursor:pointer;border-radius:12px;
-          transition:background .12s;font-family:'DM Sans',sans-serif;font-size:14px;color:${INK};font-weight:300;}
+          transition:background .12s;font-family:'DM Sans',sans-serif;font-size:14px;color:${INK};font-weight:300;
+          -webkit-touch-callout:none;touch-action:pan-y;}
         .fr-hi:hover{background:rgba(44,18,6,.05);}
         .fr-hi.on{background:rgba(44,18,6,.07);font-weight:400;}
 
@@ -604,6 +605,8 @@ export default function FromApp({
                       ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
                       : searchHistory.slice(0, 10).map(h => (
                           <div key={h.id} className="fr-hi"
+                            style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                            onContextMenu={e => e.preventDefault()}
                             onClick={() => {
                               if (wasLongPress.current) { wasLongPress.current = false; return }
                               sendMessage(h.query); setSidebar(false)
@@ -613,7 +616,6 @@ export default function FromApp({
                               const { clientX, clientY } = e
                               longPressTimer.current = setTimeout(() => {
                                 wasLongPress.current = true
-                                // Position menu: prefer below the item, flip if near bottom
                                 const y = clientY + 8 + 160 > window.innerHeight ? clientY - 168 : clientY + 8
                                 setCtxMenu({ id: h.id, query: h.query, x: Math.min(clientX, window.innerWidth - 220), y })
                               }, 550)
@@ -633,7 +635,8 @@ export default function FromApp({
                                     if (e.key === 'Escape') setRenameId(null)
                                   }}
                                   style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
-                                    fontFamily: SANS, fontSize: 13, color: INK, outline: 'none', padding: '1px 0', minWidth: 0 }}
+                                    fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
+                                    transform: 'scale(0.8125)', transformOrigin: 'left center' }}
                                 />
                               : <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.query}</span>
                             }
