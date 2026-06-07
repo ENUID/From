@@ -290,12 +290,12 @@ export default function FromApp({
         .fr-cell:nth-child(n+10){animation-delay:.36s}
 
         /* ── Sidebar ── */
-        .fr-sb{position:absolute;top:0;left:0;bottom:0;width:min(270px,82%);z-index:200;
+        .fr-sb{position:absolute;top:0;left:0;bottom:0;width:min(290px,86%);z-index:200;
           transform:translateX(-100%);transition:transform .34s cubic-bezier(.32,.72,0,1);
           display:flex;flex-direction:column;
-          background:rgba(248,248,248,0.92);
-          backdrop-filter:blur(32px) saturate(180%);
-          -webkit-backdrop-filter:blur(32px) saturate(180%);
+          background:rgba(248,248,248,0.94);
+          backdrop-filter:blur(36px) saturate(180%);
+          -webkit-backdrop-filter:blur(36px) saturate(180%);
           border-right:0.5px solid rgba(255,255,255,0.6);
           box-shadow:8px 0 48px rgba(0,0,0,.14),inset -0.5px 0 0 rgba(0,0,0,.06);
           border-radius:inherit;}
@@ -303,10 +303,10 @@ export default function FromApp({
         .fr-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:199;pointer-events:none;
           transition:background .34s;border-radius:inherit;}
         .fr-ov.open{background:rgba(0,0,0,.22);pointer-events:all;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
-        .fr-hi{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-radius:8px;
-          transition:background .12s;font-family:'DM Sans',sans-serif;font-size:12px;color:${INK};font-weight:300;}
+        .fr-hi{display:flex;align-items:center;gap:14px;padding:13px 18px;cursor:pointer;border-radius:12px;
+          transition:background .12s;font-family:'DM Sans',sans-serif;font-size:14px;color:${INK};font-weight:300;}
         .fr-hi:hover{background:rgba(0,0,0,.05);}
-        .fr-hi.on{background:rgba(0,0,0,.07);font-weight:500;}
+        .fr-hi.on{background:rgba(0,0,0,.07);font-weight:400;}
 
         /* ── Liquid glass search bar ── */
         .fr-bar{
@@ -440,11 +440,35 @@ export default function FromApp({
 
           {/* ── Sidebar ── */}
           <div className={`fr-sb ${sidebarOpen ? "open" : ""}`}>
-            <div style={{ padding: "clamp(22px,5vw,30px) 22px 18px", borderBottom: `1px solid rgba(0,0,0,.07)` }}>
-              <FromLogo size={26} color={INK} />
+
+            {/* Header: From logo + profile avatar */}
+            <div style={{
+              padding: "clamp(22px,5vw,30px) 20px 16px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              flexShrink: 0,
+            }}>
+              <FromLogo size={24} color={INK} />
+              <div style={{
+                width: 36, height: 36, borderRadius: "50%",
+                background: "rgba(0,0,0,0.08)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexShrink: 0, userSelect: "none",
+              }}>
+                {hasName ? (
+                  <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK }}>
+                    {userName.charAt(0).toUpperCase()}
+                  </span>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.7" strokeLinecap="round">
+                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                  </svg>
+                )}
+              </div>
             </div>
+
+            {/* Nav items */}
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
-              <div style={{ padding: "10px 10px 4px" }}>
+              <div style={{ padding: "4px 12px 8px" }}>
                 {([["Explore","compass"],["Saved","bookmark"],["Brands","grid"],["Settings","settings"]] as [string,string][]).map(([l, ic]) => (
                   <div key={l} className={`fr-hi${sidebarView === 'saved' && l === 'Saved' ? ' on' : ''}`}
                     onClick={() => {
@@ -452,29 +476,33 @@ export default function FromApp({
                       else if (l === 'Saved') setSidebarView('saved')
                       else setSidebar(false)
                     }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                       {ic==="compass"  && <><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></>}
                       {ic==="bookmark" && <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>}
-                      {ic==="grid"     && <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>}
+                      {ic==="grid"     && <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></>}
                       {ic==="settings" && <><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></>}
                     </svg>
                     {l}
                     {l === 'Saved' && savedProducts.length > 0 && (
-                      <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 600, color: INK }}>{savedProducts.length}</span>
+                      <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
+                        {savedProducts.length}
+                      </span>
                     )}
                   </div>
                 ))}
               </div>
-              <div style={{ height: 1, background: BRD, margin: "4px 16px" }} />
-              <div style={{ padding: "4px 10px" }}>
+
+              <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 20px 10px" }} />
+
+              <div style={{ padding: "0 12px" }}>
                 {sidebarView === 'nav' ? (
                   <>
-                    <p style={{ fontFamily: SANS, fontSize: 9, fontWeight: 600, letterSpacing: ".16em", textTransform: "uppercase", color: INK3, padding: "6px 6px 8px" }}>Recent</p>
+                    <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
                     {searchHistory.length === 0
-                      ? <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, padding: "4px 6px", opacity: .55 }}>No recent searches</p>
+                      ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
                       : searchHistory.slice(0, 10).map(h => (
                           <div key={h.id} className="fr-hi" onClick={() => { sendMessage(h.query); setSidebar(false) }}>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.query}</span>
                           </div>
                         ))
@@ -482,17 +510,17 @@ export default function FromApp({
                   </>
                 ) : (
                   <>
-                    <p style={{ fontFamily: SANS, fontSize: 9, fontWeight: 600, letterSpacing: ".16em", textTransform: "uppercase", color: INK3, padding: "6px 6px 8px" }}>Saved</p>
+                    <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Saved</p>
                     {savedProducts.length === 0
-                      ? <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, padding: "4px 6px", opacity: .55 }}>Nothing saved yet</p>
+                      ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>Nothing saved yet</p>
                       : savedProducts.map(p => (
-                          <div key={p.id} className="fr-hi" onClick={() => { setSelected(p); setSidebar(false) }} style={{ gap: 8 }}>
-                            <div style={{ width: 32, height: 40, borderRadius: 5, overflow: 'hidden', flexShrink: 0, background: '#e8e8e8' }}>
+                          <div key={p.id} className="fr-hi" onClick={() => { setSelected(p); setSidebar(false) }} style={{ gap: 10 }}>
+                            <div style={{ width: 34, height: 42, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: '#e8e8e8' }}>
                               {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                             </div>
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 11, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                              <div style={{ fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
+                              <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                              <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 2 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
                             </div>
                           </div>
                         ))
@@ -501,9 +529,29 @@ export default function FromApp({
                 )}
               </div>
             </div>
-            <div style={{ padding: "12px 20px", borderTop: `1px solid rgba(0,0,0,.07)` }}>
-              <p style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: ".06em" }}>{buyerContext.country} · {buyerContext.currency}</p>
+
+            {/* Footer: New chat pill + locale */}
+            <div style={{ padding: "14px 18px 24px", flexShrink: 0 }}>
+              <button
+                onClick={() => { resetConversation(); setSidebarView('nav'); setSidebar(false) }}
+                style={{
+                  width: "100%", padding: "14px 20px", borderRadius: 100,
+                  background: INK, border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  fontFamily: SANS, fontSize: 14, fontWeight: 400, color: "#fff",
+                  letterSpacing: ".01em", transition: "opacity .15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = ".8")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                New chat
+              </button>
+              <p style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: ".06em", textAlign: "center", marginTop: 10, opacity: .4 }}>
+                {buyerContext.country} · {buyerContext.currency}
+              </p>
             </div>
+
           </div>
 
           {/* ── Nav bar — glass, hamburger top-left ── */}
