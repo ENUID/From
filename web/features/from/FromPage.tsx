@@ -675,13 +675,22 @@ export default function FromApp({
         .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:120px;}
         .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
-        /* ── Search bar wrap — full-width glass so no white edges show ── */
+        /* ── Search bar wrap ── */
         .fr-bar-wrap{
           position:absolute;bottom:0;left:0;right:0;
           padding:12px clamp(12px,4vw,18px) max(12px,env(safe-area-inset-bottom));
           background:rgba(255,255,255,0.5);
           backdrop-filter:blur(28px) saturate(160%);
           -webkit-backdrop-filter:blur(28px) saturate(160%);
+        }
+        /* On tablet/desktop the wrap is transparent — products show through,
+           only the pill itself floats on top */
+        @media(min-width:768px){
+          .fr-bar-wrap{
+            background:transparent;
+            backdrop-filter:none;
+            -webkit-backdrop-filter:none;
+          }
         }
 
         /* ── Greeting ── */
