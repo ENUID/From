@@ -194,7 +194,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     }
   }
 
-  async function sendMessage(text?: string) {
+  async function sendMessage(text?: string, opts?: { skipHistory?: boolean }) {
     const messageText = text ?? input.trim()
     if (!messageText || loading) return
 
@@ -222,7 +222,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
         ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
         : []
 
-      rememberSearch(messageText, products.length)
+      if (!opts?.skipHistory) rememberSearch(messageText, products.length)
       setMessages(previous => [
         ...previous,
         {

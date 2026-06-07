@@ -641,7 +641,7 @@ export default function FromApp({
                   const saved = savedProducts.slice(0, 2).map(p => p.title)
                   const hints = [...terms, ...saved].filter(Boolean)
                   if (hints.length > 0) {
-                    sendMessage(`Show me a curated selection of products based on: ${hints.join(', ')}. Return products only.`)
+                    sendMessage(`Show me a curated selection of products based on: ${hints.join(', ')}. Return products only.`, { skipHistory: true })
                   }
                   // If no hints, just show cache or "build history" message — no pointless query
                 }}>
@@ -755,7 +755,7 @@ export default function FromApp({
             </div>
 
             {/* Footer: New chat pill + locale */}
-            <div style={{ padding: "14px 18px 24px", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+            <div style={{ padding: "14px 18px 24px", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", background: "transparent" }}>
               <button
                 onClick={() => { resetConversation(); setSidebarView('nav'); setSidebar(false) }}
                 style={{
