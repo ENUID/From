@@ -529,7 +529,7 @@ export default function FromApp({
 
         @keyframes fr-bounce{0%,100%{transform:translateY(0);opacity:.2;}50%{transform:translateY(-6px);opacity:1;}}
         @keyframes spin{to{transform:rotate(360deg);}}
-        @keyframes ctxIn{0%{opacity:0;transform:scale(0.72);}60%{opacity:1;transform:scale(1.03);}100%{opacity:1;transform:scale(1);}}
+        @keyframes ctxIn{0%{opacity:0;transform:scale(0.60);}55%{opacity:1;transform:scale(1.04);}80%{transform:scale(0.98);}100%{opacity:1;transform:scale(1);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
@@ -884,78 +884,90 @@ export default function FromApp({
           {/* ── Sheet overlay ── */}
           <div className={`fr-sheet-ov ${selectedProduct ? "vis" : ""}`} onClick={() => setSelected(null)} />
 
-          {/* ── History long-press context menu — device Liquid Glass ── */}
+          {/* ── History long-press context menu — Apple Liquid Glass ── */}
           {ctxMenu && (
             <>
-              {/* Full-screen dim + blur — exactly like iOS context menu backdrop */}
-              <div
-                onClick={() => setCtxMenu(null)}
-                style={{
-                  position: 'fixed', inset: 0, zIndex: 9000,
-                  background: 'rgba(0,0,0,0.28)',
-                  backdropFilter: 'blur(10px) saturate(120%)',
-                  WebkitBackdropFilter: 'blur(10px) saturate(120%)',
-                  animation: 'fadeIn 0.2s ease',
-                }}
-              />
-              {/* Menu panel */}
+              {/* Dismiss — barely-there backdrop, Liquid Glass floats above content */}
+              <div onClick={() => setCtxMenu(null)}
+                style={{ position: 'fixed', inset: 0, zIndex: 9000,
+                  background: 'rgba(0,0,0,0.08)',
+                  backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
+                  animation: 'fadeIn 0.15s ease' }} />
+
+              {/* Outer glow ring — simulates the refracted halo around real glass */}
               <div style={{
                 position: 'fixed',
-                left: ctxMenu.x,
-                top: ctxMenu.y,
+                left: ctxMenu.x - 3, top: ctxMenu.y - 3,
                 zIndex: 9001,
-                width: 250,
-                borderRadius: 14,
-                overflow: 'hidden',
-                background: 'rgba(255,255,255,0.86)',
-                backdropFilter: 'blur(60px) saturate(200%)',
-                WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-                boxShadow: '0 24px 64px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.12), inset 0 0.5px 0 rgba(255,255,255,1), inset 0 -0.5px 0 rgba(0,0,0,0.04)',
-                border: '0.5px solid rgba(255,255,255,0.75)',
-                animation: 'ctxIn 0.26s cubic-bezier(0.34,1.4,0.64,1)',
+                width: 256, borderRadius: 18,
+                padding: 3,
+                background: 'linear-gradient(145deg, rgba(255,255,255,0.70) 0%, rgba(255,255,255,0.15) 40%, rgba(255,255,255,0.55) 100%)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.22), 0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)',
+                animation: 'ctxIn 0.28s cubic-bezier(0.34,1.36,0.64,1)',
                 transformOrigin: 'top left',
               }}>
-                {/* Rename */}
-                <div
-                  onClick={() => { setRenameId(ctxMenu.id); setRenameVal(ctxMenu.query); setCtxMenu(null) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    padding: '14px 18px', cursor: 'pointer',
-                    fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif',
-                    fontSize: 17, fontWeight: 400, color: '#1C1C1E',
-                  }}
-                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.08)')}
-                  onPointerUp={e => (e.currentTarget.style.background = 'transparent')}
-                  onPointerLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                  <span>Rename</span>
-                </div>
-                {/* Separator — iOS-style inset line */}
-                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.18)', margin: '0 18px' }} />
-                {/* Delete */}
-                <div
-                  onClick={() => { deleteHistoryEntry(ctxMenu.id); setCtxMenu(null) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    padding: '14px 18px', cursor: 'pointer',
-                    fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif',
-                    fontSize: 17, fontWeight: 400, color: '#FF3B30',
-                  }}
-                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.08)')}
-                  onPointerUp={e => (e.currentTarget.style.background = 'transparent')}
-                  onPointerLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                  </svg>
-                  <span>Delete</span>
+                {/* Inner glass panel — very transparent, real-glass feel */}
+                <div style={{
+                  borderRadius: 15, overflow: 'hidden', position: 'relative',
+                  background: 'linear-gradient(170deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.28) 100%)',
+                  backdropFilter: 'blur(48px) brightness(1.08) saturate(160%)',
+                  WebkitBackdropFilter: 'blur(48px) brightness(1.08) saturate(160%)',
+                  boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(255,255,255,0.30), inset 1px 0 rgba(255,255,255,0.40), inset -1px 0 rgba(255,255,255,0.40)',
+                }}>
+                  {/* Specular light sweep — top-left to mid, simulates curved glass surface */}
+                  <div style={{
+                    position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 15, zIndex: 0,
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 35%, transparent 60%)',
+                  }} />
+
+                  {/* Rename row */}
+                  <div
+                    onClick={() => { setRenameId(ctxMenu.id); setRenameVal(ctxMenu.query); setCtxMenu(null) }}
+                    style={{
+                      position: 'relative', zIndex: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '15px 18px', cursor: 'pointer', gap: 12,
+                      fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif',
+                      fontSize: 17, fontWeight: 400, letterSpacing: '-0.01em', color: '#1C1C1E',
+                      transition: 'background 0.08s',
+                    }}
+                    onPointerDown={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.55)')}
+                    onPointerUp={e => (e.currentTarget.style.background = 'transparent')}
+                    onPointerLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span>Rename</span>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.7)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </div>
+
+                  {/* Separator — hairline, full bleed */}
+                  <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.20)', position: 'relative', zIndex: 1 }} />
+
+                  {/* Delete row */}
+                  <div
+                    onClick={() => { deleteHistoryEntry(ctxMenu.id); setCtxMenu(null) }}
+                    style={{
+                      position: 'relative', zIndex: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '15px 18px', cursor: 'pointer', gap: 12,
+                      fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif',
+                      fontSize: 17, fontWeight: 400, letterSpacing: '-0.01em', color: '#FF3B30',
+                      transition: 'background 0.08s',
+                    }}
+                    onPointerDown={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.12)')}
+                    onPointerUp={e => (e.currentTarget.style.background = 'transparent')}
+                    onPointerLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span>Delete</span>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }}>
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                      <path d="M10 11v6M14 11v6"/>
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    </svg>
+                  </div>
                 </div>
               </div>
             </>
