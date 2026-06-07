@@ -569,23 +569,25 @@ export default function FromApp({
 
           </div>
 
-          {/* ── Hamburger — floating overlay top-left ── */}
-          <button onClick={() => setSidebar(true)} style={{
-            position: "absolute", top: "8px", left: "8px",
-            zIndex: 50, width: 36, height: 36, borderRadius: "50%", border: "none",
-            background: "rgba(255,255,255,0.72)",
-            backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
-            boxShadow: "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)",
-            display: "flex", flexDirection: "column", alignItems: "flex-start",
-            justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
-            transition: "box-shadow .15s, transform .1s",
-          }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,1)"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
-          >
-            <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
-            <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
-          </button>
+          {/* ── Hamburger + FROM wordmark — floating overlay top-left ── */}
+          <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 50, display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setSidebar(true)} style={{
+              width: 36, height: 36, borderRadius: "50%", border: "none",
+              background: "rgba(255,255,255,0.72)",
+              backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
+              boxShadow: "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)",
+              display: "flex", flexDirection: "column", alignItems: "flex-start",
+              justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
+              transition: "box-shadow .15s, transform .1s", flexShrink: 0,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,1)"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
+            >
+              <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
+              <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
+            </button>
+            <FromLogo size={22} color={INK} />
+          </div>
 
           {/* ── Body ── */}
           <div className={`fr-body${hasConversation ? '' : ' home'}`}>
