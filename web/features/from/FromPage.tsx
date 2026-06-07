@@ -269,8 +269,14 @@ export default function FromApp({
         .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:120px;}
         .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
-        /* ── Search bar — floats over content with blur ── */
-        .fr-bar-wrap{position:absolute;bottom:0;left:0;right:0;padding:6px clamp(12px,4vw,18px) max(10px,env(safe-area-inset-bottom));}
+        /* ── Search bar wrap — full-width glass so no white edges show ── */
+        .fr-bar-wrap{
+          position:absolute;bottom:0;left:0;right:0;
+          padding:12px clamp(12px,4vw,18px) max(12px,env(safe-area-inset-bottom));
+          background:rgba(255,255,255,0.5);
+          backdrop-filter:blur(28px) saturate(160%);
+          -webkit-backdrop-filter:blur(28px) saturate(160%);
+        }
 
         /* ── Greeting ── */
         .fr-greet{padding:0 clamp(16px,5vw,24px) clamp(16px,4vw,24px);
@@ -312,20 +318,18 @@ export default function FromApp({
         .fr-hi:hover{background:rgba(44,18,6,.05);}
         .fr-hi.on{background:rgba(44,18,6,.07);font-weight:400;}
 
-        /* ── Search bar — frosted glass ── */
+        /* ── Search bar pill ── */
         .fr-bar{
           position:relative;overflow:hidden;
           display:flex;flex-direction:column;gap:10px;
           border-radius:24px;border:none;
           padding:18px 18px 10px 12px;
           will-change:transform;
-          background:rgba(255,255,255,0.72);
-          backdrop-filter:blur(24px) saturate(180%);
-          -webkit-backdrop-filter:blur(24px) saturate(180%);
+          background:rgba(255,255,255,0.82);
           box-shadow:
             0 8px 32px rgba(44,18,6,.10),
             0 2px 8px rgba(44,18,6,.06),
-            inset 0 1.5px 0 rgba(255,255,255,.95),
+            inset 0 1.5px 0 rgba(255,255,255,.98),
             inset 0 -0.5px 0 rgba(44,18,6,.04);
         }
 
