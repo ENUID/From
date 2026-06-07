@@ -441,16 +441,23 @@ export default function FromApp({
           {/* ── Sidebar ── */}
           <div className={`fr-sb ${sidebarOpen ? "open" : ""}`}>
 
-            {/* Header: From logo + profile avatar */}
+            {/* Header: From logo row */}
             <div style={{
-              padding: "clamp(22px,5vw,30px) 20px 16px",
+              padding: "clamp(22px,5vw,30px) 20px 8px",
               display: "flex", alignItems: "center", justifyContent: "space-between",
               flexShrink: 0,
             }}>
               <FromLogo size={24} color={INK} />
+            </div>
+
+            {/* Profile avatar — glass elevated, right-aligned, below logo */}
+            <div style={{ padding: "0 20px 18px", display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
               <div style={{
-                width: 36, height: 36, borderRadius: "50%",
-                background: "rgba(0,0,0,0.08)",
+                width: 40, height: 40, borderRadius: "50%",
+                background: "rgba(255,255,255,0.72)",
+                backdropFilter: "blur(12px) saturate(160%)",
+                WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
+                boxShadow: "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", flexShrink: 0, userSelect: "none",
               }}>
@@ -459,7 +466,7 @@ export default function FromApp({
                     {userName.charAt(0).toUpperCase()}
                   </span>
                 ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.7" strokeLinecap="round">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.7" strokeLinecap="round">
                     <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                   </svg>
                 )}
