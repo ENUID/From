@@ -379,6 +379,7 @@ export default function FromApp({
   const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number } | null>(null)
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
+  const [isWide, setIsWide]             = useState(false)
 
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
@@ -431,6 +432,12 @@ export default function FromApp({
   loadMoreRef.current = loadMoreProducts
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
+  useEffect(() => {
+    const check = () => setIsWide(window.innerWidth >= 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   // Prevent pull-to-refresh when dragging the sheet handle.
   // React touch listeners are passive by default, so we must attach directly.
@@ -476,7 +483,7 @@ export default function FromApp({
           loadMoreRef.current(lastProductMsgIndex)
         }
       },
-      { rootMargin: '300px', threshold: 0 }
+      { rootMargin: '800px', threshold: 0 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
@@ -769,7 +776,7 @@ export default function FromApp({
           transition:background .2s,box-shadow .2s;
         }
 
-        /* Bottom sheet */
+        /* Bottom sheet — phone */
         .fr-sheet{
           position:absolute;bottom:0;left:0;right:0;border-radius:24px 24px 0 0;
           display:flex;flex-direction:column;z-index:101;
@@ -779,15 +786,25 @@ export default function FromApp({
             0 -1px 0 rgba(44,18,6,.05),
             0 -24px 64px rgba(44,18,6,.10);
         }
-        /* On tablet/laptop the sheet becomes a centred panel rather than a full-width slab */
+        /* On tablet/desktop the sheet becomes a centred floating card */
         @media(min-width:768px){
-          .fr-sheet{left:0;right:0;margin-left:auto;margin-right:auto;max-width:560px;
-            border-radius:24px 24px 0 0;}
+          .fr-sheet{
+            top:50%;left:50%;
+            right:auto;bottom:auto;
+            width:min(600px,86vw);
+            border-radius:28px;
+            border:0.5px solid rgba(44,18,6,.07);
+            box-shadow:
+              0 0 0 0.5px rgba(44,18,6,.04),
+              0 8px 40px rgba(44,18,6,.14),
+              0 32px 80px rgba(44,18,6,.10);
+          }
+          .fr-drag{display:none;}
         }
         .fr-sheet-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:100;
           pointer-events:none;transition:background .36s;border-radius:inherit;}
-        .fr-sheet-ov.vis{background:rgba(44,18,6,.22);pointer-events:all;
-          backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
+        .fr-sheet-ov.vis{background:rgba(44,18,6,.28);pointer-events:all;
+          backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
         .fr-drag{padding:10px 0 6px;display:flex;justify-content:center;flex-shrink:0;
           cursor:ns-resize;touch-action:none;user-select:none;}
         .fr-drag-pill{width:34px;height:4px;background:rgba(0,0,0,.14);border-radius:2px;}
@@ -1372,7 +1389,18 @@ export default function FromApp({
           )}
 
           {/* ── Product sheet — liquid glass ── */}
-          <div className="fr-sheet" style={{
+          <div className="fr-sheet" style={isWide ? {
+            // Desktop / tablet — centred floating card, scale + fade
+            maxHeight: "88vh",
+            transform: selectedProduct
+              ? "translate(-50%, -50%) scale(1)"
+              : "translate(-50%, -50%) scale(0.96)",
+            opacity: selectedProduct ? 1 : 0,
+            pointerEvents: selectedProduct ? "auto" : "none",
+            transition: "transform .34s cubic-bezier(.32,.72,0,1), opacity .28s ease",
+            willChange: "transform, opacity",
+          } : {
+            // Phone — slide up from bottom
             maxHeight: "92%",
             transform: selectedProduct
               ? `translateY(${isDragging ? sheetY : (sheetSnap === 'half' ? window.innerHeight * 0.44 : 0)}px)`
