@@ -8,12 +8,12 @@ import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
-const INK   = "#2C1206"   // dark chocolate
-const INK2  = "#4A2010"   // medium chocolate
-const INK3  = "#9B7060"   // warm mocha
+const INK   = "#2C1206"   // dark brown
+const INK2  = "#4A2010"   // medium brown
+const INK3  = "#9B7060"   // warm muted brown
 const BRD   = "rgba(44,18,6,0.08)"
-const BG    = "#F2EAE0"   // off-white warm cream
-const BG2   = "#EDE3D6"   // slightly deeper cream
+const BG    = "#FFFFFF"   // pure white
+const BG2   = "#F7F4F2"   // very light warm white
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
@@ -235,7 +235,7 @@ export default function FromApp({
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize) : '#'
 
   return (
-    <div style={{ fontFamily: SANS, background: BG, minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ fontFamily: SANS, background: "#ffffff", minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
 
       {/* ── SVG filter for glass edge refraction ── */}
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -249,21 +249,21 @@ export default function FromApp({
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
-        html,body{margin:0;padding:0;background:${BG};min-height:100%;width:100%;}
+        html,body{margin:0;padding:0;background:#fff;min-height:100%;width:100%;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
         ::-webkit-scrollbar{display:none;}
 
         /* ── Outer wrapper & shell ── */
         .fr-wrap{display:flex;align-items:flex-start;justify-content:center;height:100dvh;width:100%;
-          background:linear-gradient(145deg,${BG} 0%,${BG2} 100%);}
+          background:#ffffff;}
         .fr-shell{width:100%;height:100dvh;position:relative;display:flex;flex-direction:column;
           overflow:hidden;
-          background:linear-gradient(160deg,#FBF7F2 0%,#F5EDE2 55%,#F8F3EC 100%);}
+          background:#ffffff;}
         @media(min-width:768px){
-          .fr-wrap{align-items:center;padding:32px 16px;height:auto;min-height:100dvh;}
+          .fr-wrap{align-items:center;padding:32px 16px;height:auto;min-height:100dvh;background:#f2ede8;}
           .fr-shell{width:min(420px,100%);height:min(870px,calc(100dvh - 64px));
             border-radius:42px;
-            box-shadow:0 50px 100px rgba(44,18,6,.18),0 2px 0 rgba(255,248,240,.9) inset,inset 0 0 0 1px rgba(44,18,6,.06);}
+            box-shadow:0 50px 100px rgba(44,18,6,.16),0 2px 0 rgba(255,255,255,.9) inset,inset 0 0 0 1px rgba(44,18,6,.06);}
         }
         @media(min-width:1200px){
           .fr-shell{width:390px;height:min(844px,calc(100dvh - 80px));border-radius:48px;}
@@ -280,7 +280,7 @@ export default function FromApp({
 
         /* ── Grid ── */
         .fr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;width:100%;flex-shrink:0;}
-        .fr-cell{aspect-ratio:1/1;position:relative;overflow:hidden;cursor:pointer;background:#E8DDD2;}
+        .fr-cell{aspect-ratio:1/1;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,filter .25s;}
         .fr-cell:hover img{transform:scale(1.04);filter:brightness(.88);}
         .fr-cell .fr-save{position:absolute;top:6px;right:6px;z-index:2;background:none;border:none;
