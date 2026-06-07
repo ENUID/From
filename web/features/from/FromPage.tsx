@@ -773,7 +773,7 @@ export default function FromApp({
         @media(min-width:820px){.fr-grid{grid-template-columns:repeat(4,1fr);}}
         @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
         .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;}
-        .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;}
+        .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;-webkit-touch-callout:none;pointer-events:none;user-select:none;-webkit-user-select:none;}
         .fr-cell:hover img{transform:scale(1.03);}
         .fr-cell{opacity:0;animation:fr-fi .35s ease forwards;}
         @keyframes fr-fi{to{opacity:1;}}
@@ -1265,7 +1265,7 @@ export default function FromApp({
                               background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
                               animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
                           </div>
-                          <img src={p.image_url} alt="" loading="lazy"
+                          <img src={p.image_url} alt="" loading="lazy" draggable={false}
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />
@@ -1314,7 +1314,7 @@ export default function FromApp({
                               background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
                               animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
                           </div>
-                          <img src={p.image_url} alt=""
+                          <img src={p.image_url} alt="" draggable={false}
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />
