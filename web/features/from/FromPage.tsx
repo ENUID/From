@@ -819,8 +819,8 @@ export default function FromApp({
           {/* ── Body ── */}
           <div className={`fr-body${hasConversation ? '' : ' home'}`}>
 
-            {/* Greeting — home screen only */}
-            {!hasConversation && <div className={`fr-greet${loaded ? ' in' : ''}`}>
+            {/* Greeting — home screen only, not on Explore */}
+            {!hasConversation && !showExplore && <div className={`fr-greet${loaded ? ' in' : ''}`}>
               {(() => {
                 const greetName = isEditingName ? (nameInput || "your name") : (hasName ? userName : "your name")
                 const HELLO_PX = 72
