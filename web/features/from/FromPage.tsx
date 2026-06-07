@@ -396,22 +396,16 @@ export default function FromApp({
         .fr-greet.in{opacity:1;transform:translateY(0);}
 
         /* ── Grid ── */
-        .fr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;width:100%;flex-shrink:0;}
-        .fr-cell{aspect-ratio:1/1;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;}
-        .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,filter .25s;}
-        .fr-cell:hover img{transform:scale(1.04);filter:brightness(.88);}
-        .fr-cell .fr-save{position:absolute;top:6px;right:6px;z-index:2;background:none;border:none;
-          cursor:pointer;padding:4px;display:flex;opacity:0;transition:opacity .2s;}
-        .fr-cell:hover .fr-save{opacity:1;}
-        .fr-cell .fr-price{position:absolute;bottom:0;left:0;right:0;padding:18px 7px 7px;
-          background:linear-gradient(transparent,rgba(0,0,0,.45));opacity:0;transition:opacity .2s;}
-        .fr-cell:hover .fr-price{opacity:1;}
+        .fr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;width:100%;flex-shrink:0;}
+        .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;}
+        .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s;}
+        .fr-cell:hover img{transform:scale(1.03);}
         .fr-cell{opacity:0;animation:fr-fi .35s ease forwards;}
         @keyframes fr-fi{to{opacity:1;}}
-        .fr-cell:nth-child(1){animation-delay:.00s}.fr-cell:nth-child(2){animation-delay:.04s}.fr-cell:nth-child(3){animation-delay:.08s}
-        .fr-cell:nth-child(4){animation-delay:.12s}.fr-cell:nth-child(5){animation-delay:.16s}.fr-cell:nth-child(6){animation-delay:.20s}
-        .fr-cell:nth-child(7){animation-delay:.24s}.fr-cell:nth-child(8){animation-delay:.28s}.fr-cell:nth-child(9){animation-delay:.32s}
-        .fr-cell:nth-child(n+10){animation-delay:.36s}
+        .fr-cell:nth-child(1){animation-delay:.00s}.fr-cell:nth-child(2){animation-delay:.05s}
+        .fr-cell:nth-child(3){animation-delay:.10s}.fr-cell:nth-child(4){animation-delay:.15s}
+        .fr-cell:nth-child(5){animation-delay:.20s}.fr-cell:nth-child(6){animation-delay:.25s}
+        .fr-cell:nth-child(n+7){animation-delay:.30s}
 
         /* ── Sidebar ── */
         .fr-sb{position:absolute;top:0;left:0;bottom:0;width:min(290px,86%);z-index:200;
