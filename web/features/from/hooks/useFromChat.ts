@@ -165,6 +165,14 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     setSearchHistory(previous => [entry, ...previous.filter(item => item.query !== query)].slice(0, 20))
   }
 
+  function deleteHistoryEntry(id: string) {
+    setSearchHistory(prev => prev.filter(item => item.id !== id))
+  }
+
+  function renameHistoryEntry(id: string, newQuery: string) {
+    setSearchHistory(prev => prev.map(item => item.id === id ? { ...item, query: newQuery } : item))
+  }
+
   function toggleSaved(product: Product) {
     if (userEmail) {
       toggleConvexSaved({ userEmail, product })
@@ -348,5 +356,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     clearSavedProducts,
     sendMessage,
     loadMoreProducts,
+    deleteHistoryEntry,
+    renameHistoryEntry,
   }
 }

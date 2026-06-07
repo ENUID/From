@@ -219,6 +219,7 @@ export default function FromApp({
     messages, input, setInput, loading, hasConversation,
     savedIds, savedProducts, searchHistory, shopperContext, rates,
     sendMessage, toggleSaved, resetConversation, loadMoreProducts,
+    deleteHistoryEntry, renameHistoryEntry,
   } = useFromChat(initialShopperContext, initialRates)
 
   // ── UI state ────────────────────────────────────────────────────────────────
@@ -239,6 +240,9 @@ export default function FromApp({
   const [uploadName, setUploadName]     = useState("")
   const [loaded, setLoaded]             = useState(false)
   const [logoIdx, setLogoIdx] = useState(0)
+  const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number } | null>(null)
+  const [renameId, setRenameId]         = useState<string | null>(null)
+  const [renameVal, setRenameVal]       = useState("")
 
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
@@ -252,10 +256,13 @@ export default function FromApp({
   // Specular light position tracking
   const light = useLight(barRef)
 
-  const nameRef    = useRef<HTMLInputElement>(null)
-  const taRef      = useRef<HTMLTextAreaElement>(null)
-  const fileRef    = useRef<HTMLInputElement>(null)
-  const dragStartY = useRef(0)
+  const nameRef       = useRef<HTMLInputElement>(null)
+  const renameRef     = useRef<HTMLInputElement>(null)
+  const taRef         = useRef<HTMLTextAreaElement>(null)
+  const fileRef       = useRef<HTMLInputElement>(null)
+  const dragStartY    = useRef(0)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wasLongPress   = useRef(false)
 
 
   // Search results
@@ -274,6 +281,7 @@ export default function FromApp({
     return () => clearInterval(id)
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
+  useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
   useEffect(() => { if (selectedProduct) { setSize(null); setActiveImg(0); setSheetY(0) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
@@ -520,6 +528,7 @@ export default function FromApp({
 
         @keyframes fr-bounce{0%,100%{transform:translateY(0);opacity:.2;}50%{transform:translateY(-6px);opacity:1;}}
         @keyframes spin{to{transform:rotate(360deg);}}
+        @keyframes ctxIn{from{opacity:0;transform:scale(0.88);}to{opacity:1;transform:scale(1);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
@@ -594,9 +603,40 @@ export default function FromApp({
                     {searchHistory.length === 0
                       ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
                       : searchHistory.slice(0, 10).map(h => (
-                          <div key={h.id} className="fr-hi" onClick={() => { sendMessage(h.query); setSidebar(false) }}>
+                          <div key={h.id} className="fr-hi"
+                            onClick={() => {
+                              if (wasLongPress.current) { wasLongPress.current = false; return }
+                              sendMessage(h.query); setSidebar(false)
+                            }}
+                            onPointerDown={e => {
+                              wasLongPress.current = false
+                              const { clientX, clientY } = e
+                              longPressTimer.current = setTimeout(() => {
+                                wasLongPress.current = true
+                                // Position menu: prefer below the item, flip if near bottom
+                                const y = clientY + 8 + 160 > window.innerHeight ? clientY - 168 : clientY + 8
+                                setCtxMenu({ id: h.id, query: h.query, x: Math.min(clientX, window.innerWidth - 220), y })
+                              }, 550)
+                            }}
+                            onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                            onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                          >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.query}</span>
+                            {renameId === h.id
+                              ? <input ref={renameRef} value={renameVal}
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={e => setRenameVal(e.target.value)}
+                                  onBlur={() => { if (renameVal.trim()) renameHistoryEntry(h.id, renameVal.trim()); setRenameId(null) }}
+                                  onKeyDown={e => {
+                                    e.stopPropagation()
+                                    if (e.key === 'Enter') { if (renameVal.trim()) renameHistoryEntry(h.id, renameVal.trim()); setRenameId(null) }
+                                    if (e.key === 'Escape') setRenameId(null)
+                                  }}
+                                  style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
+                                    fontFamily: SANS, fontSize: 13, color: INK, outline: 'none', padding: '1px 0', minWidth: 0 }}
+                                />
+                              : <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.query}</span>
+                            }
                           </div>
                         ))
                     }
@@ -840,6 +880,77 @@ export default function FromApp({
 
           {/* ── Sheet overlay ── */}
           <div className={`fr-sheet-ov ${selectedProduct ? "vis" : ""}`} onClick={() => setSelected(null)} />
+
+          {/* ── History long-press context menu (Liquid Glass) ── */}
+          {ctxMenu && (
+            <>
+              {/* Dismiss backdrop */}
+              <div onClick={() => setCtxMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
+              <div style={{
+                position: 'fixed',
+                left: ctxMenu.x,
+                top: ctxMenu.y,
+                zIndex: 9001,
+                minWidth: 210,
+                borderRadius: 16,
+                overflow: 'hidden',
+                background: 'rgba(250,250,252,0.78)',
+                backdropFilter: 'blur(48px) saturate(200%)',
+                WebkitBackdropFilter: 'blur(48px) saturate(200%)',
+                boxShadow: '0 16px 48px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.90)',
+                border: '0.5px solid rgba(255,255,255,0.60)',
+                animation: 'ctxIn 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+              }}>
+                {/* Rename row */}
+                <div
+                  onClick={() => {
+                    setRenameId(ctxMenu.id)
+                    setRenameVal(ctxMenu.query)
+                    setCtxMenu(null)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '15px 18px', cursor: 'pointer', gap: 10,
+                    fontFamily: SANS, fontSize: 16, fontWeight: 400, color: '#1C1C1E',
+                    transition: 'background .12s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span>Rename</span>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .5 }}>
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </div>
+                {/* Separator */}
+                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.18)', margin: '0 1px' }} />
+                {/* Delete row */}
+                <div
+                  onClick={() => {
+                    deleteHistoryEntry(ctxMenu.id)
+                    setCtxMenu(null)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '15px 18px', cursor: 'pointer', gap: 10,
+                    fontFamily: SANS, fontSize: 16, fontWeight: 400, color: '#FF3B30',
+                    transition: 'background .12s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span>Delete</span>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .7 }}>
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* ── Product sheet — liquid glass ── */}
           <div className="fr-sheet" style={{
