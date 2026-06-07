@@ -239,6 +239,10 @@ export default function FromApp({
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
   const [loaded, setLoaded]             = useState(false)
+  const [showExplore, setShowExplore]   = useState(false)
+  const [exploreCache, setExploreCache] = useState<Product[]>(() => {
+    try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
+  })
   const [logoIdx, setLogoIdx] = useState(0)
   const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number } | null>(null)
   const [renameId, setRenameId]         = useState<string | null>(null)
@@ -279,6 +283,15 @@ export default function FromApp({
   const hasName   = userName.length > 0
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
+
+  // Persist explore results so they survive page refresh
+  useEffect(() => {
+    if (showExplore && searchProducts.length > 0) {
+      const toSave = searchProducts.slice(0, 20)
+      setExploreCache(toSave)
+      try { localStorage.setItem('from:explore', JSON.stringify(toSave)) } catch {}
+    }
+  }, [showExplore, searchProducts])
 
   useEffect(() => {
     const id = setInterval(() => setLogoIdx(i => (i + 1) % SHUFFLED_PALETTE.length), 11000)
@@ -337,6 +350,7 @@ export default function FromApp({
     if (!canSend || loading) return
     const names = uploadedImages.map(u => u.name).join(' ')
     const q = [input.trim(), names].filter(Boolean).join(' '); if (!q) return
+    setShowExplore(false)
     sendMessage(q); setUploaded([])
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -610,13 +624,14 @@ export default function FromApp({
                 <div className="fr-hi" onClick={() => {
                   setSidebarView('nav')
                   setSidebar(false)
+                  setShowExplore(true)
                   const terms = searchHistory.slice(0, 3).map(h => h.query)
                   const saved = savedProducts.slice(0, 2).map(p => p.title)
                   const hints = [...terms, ...saved].filter(Boolean)
-                  const query = hints.length > 0
-                    ? `Based on my interest in ${hints.join(', ')} — curate a personal selection of products I'd love from independent stores`
-                    : `Curate a personal selection of unique products from independent stores`
-                  sendMessage(query)
+                  if (hints.length > 0) {
+                    sendMessage(`Show me a curated selection of products based on: ${hints.join(', ')}. Return products only.`)
+                  }
+                  // If no hints, just show cache or "build history" message — no pointless query
                 }}>
                   {/* Sparkle / discovery icon */}
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -844,18 +859,32 @@ export default function FromApp({
             )}
 
             {/* Empty state */}
-            {showEmpty && !loading && (
+            {showEmpty && !loading && !showExplore && (
               <div style={{ padding: "48px 20px", textAlign: "center" }}>
-                {lastAssistantText
-                  ? <p style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 300, fontStyle: "italic", color: INK3, lineHeight: 1.65 }}>{lastAssistantText}</p>
-                  : <><p style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 300, fontStyle: "italic", color: INK3 }}>Nothing found</p>
-                      <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: ".1em", display: "block", marginTop: 6, opacity: .6 }}>Try a different search</span></>
-                }
+                <p style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 300, fontStyle: "italic", color: INK3 }}>Nothing found</p>
+                <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: ".1em", display: "block", marginTop: 6, opacity: .6 }}>Try a different search</span>
               </div>
             )}
 
+            {/* Explore — cached products while no live results, or "build history" nudge */}
+            {showExplore && !loading && searchProducts.length === 0 && (
+              exploreCache.length > 0
+                ? <div className="fr-grid">{exploreCache.map(p => (
+                    <div key={p.id} className="fr-cell" onClick={() => setSelected(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
+                      {p.image_url ? <img src={p.image_url} alt="" loading="lazy" />
+                        : <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </div>}
+                    </div>
+                  ))}</div>
+                : <div style={{ padding: "60px 28px", textAlign: "center" }}>
+                    <p style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 300, fontStyle: "italic", color: INK3, lineHeight: 1.5 }}>Search a few things first</p>
+                    <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: ".1em", display: "block", marginTop: 8, opacity: .5 }}>Explore personalises as you search</span>
+                  </div>
+            )}
+
             {/* Product grid */}
-            {hasConversation && !loading && searchProducts.length > 0 && (
+            {(hasConversation || showExplore) && !loading && searchProducts.length > 0 && (
               <>
                 <div className="fr-grid">
                   {searchProducts.map(p => (
@@ -894,19 +923,11 @@ export default function FromApp({
             >
               <div ref={barRef} className="fr-bar">
 
-                {/* Mouse-tracking specular hotspot */}
+                {/* Subtle top-edge highlight only */}
                 <div style={{
-                  position: 'absolute', inset: 0, borderRadius: 20, pointerEvents: 'none', zIndex: 0,
-                  background: `radial-gradient(ellipse 55% 40% at ${light.x * 100}% ${light.y * 100}%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.12) 40%, transparent 70%)`,
-                  transition: 'background 80ms linear',
-                }} />
-
-                {/* Top-edge prismatic shimmer */}
-                <div style={{
-                  position: 'absolute', top: 0, left: '8%', right: '8%', height: 1,
-                  borderRadius: '0 0 50% 50%', pointerEvents: 'none', zIndex: 0,
-                  background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.9) 30%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.9) 70%, transparent)',
-                  filter: 'blur(0.4px)',
+                  position: 'absolute', top: 0, left: '15%', right: '15%', height: 1,
+                  pointerEvents: 'none', zIndex: 0,
+                  background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.55) 40%, rgba(255,255,255,0.65) 50%, rgba(255,255,255,0.55) 60%, transparent)',
                 }} />
 
                 {/* Content — sits above overlays */}
