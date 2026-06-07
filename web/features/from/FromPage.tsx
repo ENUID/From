@@ -668,7 +668,7 @@ export default function FromApp({
           </div>
 
           {/* ── Search bar — liquid glass ── */}
-          <div style={{ padding: "6px clamp(12px,4vw,18px) clamp(6px,2vw,10px)", flexShrink: 0,
+          <div style={{ padding: "6px clamp(12px,4vw,18px) clamp(22px,5vw,32px)", flexShrink: 0,
             background: "rgba(240,240,240,0.5)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" as any }}>
 
             {/* Spring-animated wrapper */}
