@@ -264,7 +264,7 @@ export default function FromApp({
 
         /* ── Body ── */
         .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;}
-        .fr-body.home{justify-content:flex-start;padding-top:clamp(28px,9vh,56px);}
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(52px,14vh,88px);}
 
         /* ── Greeting ── */
         .fr-greet{padding:0 clamp(16px,5vw,24px) clamp(16px,4vw,24px);
@@ -539,7 +539,7 @@ export default function FromApp({
 
             {/* Greeting */}
             <div className={`fr-greet${loaded ? ' in' : ''}`}>
-              <div style={{ fontFamily: SERIF, fontSize: "clamp(28px,8vw,42px)", lineHeight: 1.12, letterSpacing: "-.015em", marginBottom: 6 }}>
+              <div style={{ fontFamily: SERIF, fontSize: "clamp(34px,9.5vw,52px)", lineHeight: 1.12, letterSpacing: "-.015em", marginBottom: 6 }}>
                 <span style={{ fontWeight: 300, color: INK }}>Hello, </span>
                 {isEditingName ? (
                   <input ref={nameRef} value={nameInput}
@@ -547,7 +547,7 @@ export default function FromApp({
                     onBlur={saveName}
                     onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameInput(''); setIsEditing(false) } }}
                     maxLength={22} placeholder="your name"
-                    style={{ fontFamily: SERIF, fontSize: "clamp(28px,8vw,42px)", fontWeight: 400, fontStyle: "italic", color: INK, background: "transparent", border: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, width: "clamp(120px,48vw,210px)", letterSpacing: "-.015em", outline: "none" }}
+                    style={{ fontFamily: SERIF, fontSize: "clamp(34px,9.5vw,52px)", fontWeight: 400, fontStyle: "italic", color: INK, background: "transparent", border: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, width: "clamp(140px,52vw,240px)", letterSpacing: "-.015em", outline: "none" }}
                   />
                 ) : (
                   <span onClick={() => { setNameInput(userName); setIsEditing(true) }}
