@@ -1,5 +1,5 @@
 import { getExchangeRates } from '../exchangeRates';
-import { UCP_REGISTRY, detectBrandsInQuery } from '../stores';
+import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES } from '../stores';
 import { groqChat } from '../groq';
 
 
@@ -14,6 +14,7 @@ export type UcpProduct = {
   in_stock: boolean;
   tags: string[];
   description?: string;
+  description_html?: string;
   options?: { name: string; values: string[] }[];
   media?: Array<{ type: string; url: string; alt?: string }>;
   variants?: Array<{
@@ -637,6 +638,24 @@ function searchableProductText(product: UcpProduct) {
     .toLowerCase();
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripBrandsFromQuery(query: string, domains: string[]): string {
+  if (domains.length === 0) return query;
+  let cleaned = query;
+  for (const domain of domains) {
+    const displayName = BRAND_NAMES[domain];
+    if (!displayName || displayName.length < 3) continue;
+    const esc = escapeRegex(displayName);
+    cleaned = cleaned
+      .replace(new RegExp(`\\b(?:from|at|by|in)\\s+${esc}\\b`, 'gi'), ' ')
+      .replace(new RegExp(`\\b${esc}\\b`, 'gi'), ' ');
+  }
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
 function cleanBrandName(domain: string): string {
   if (!domain) return '';
   let cleaned = domain.toLowerCase().trim();
@@ -940,6 +959,9 @@ export class GlobalCatalogService {
           in_stock: variant.availability?.available ?? true,
           tags: p.tags || [],
           description: desc,
+          description_html: typeof p.description?.html === 'string' && p.description.html.trim()
+            ? p.description.html
+            : undefined,
           options: parsedOptions && parsedOptions.length > 0 ? parsedOptions : undefined,
           variants: parsedVariants,
           media: parsedMedia
@@ -985,6 +1007,12 @@ export class GlobalCatalogService {
     if (isBrandSearch) {
       console.log(`[GlobalCatalog] Brand search detected — restricting to: [${allowedDomains.join(', ')}]`);
     }
+
+    // Strip brand names from the query sent to individual stores so "shirts from Taylor Stitch"
+    // becomes just "shirts" when querying the store's own catalog endpoint.
+    const storeQuery = isBrandSearch
+      ? (stripBrandsFromQuery(cleanedQuery, detectedBrands) || cleanedQuery)
+      : cleanedQuery;
 
     const fetchChunkedFromCatalog = async (q: string): Promise<any[]> => {
       // Dynamically size chunks based on query complexity.
@@ -1114,7 +1142,7 @@ export class GlobalCatalogService {
       chunks.push(domainsToQuery.slice(i, i + CHUNK_SIZE));
     }
 
-    const queryParts = splitCatalogQuery(cleanedQuery).slice(0, 2);
+    const queryParts = splitCatalogQuery(storeQuery).slice(0, 2);
     const queryLang = detectQueryLanguage(queryParts[0]);
 
     // Helper to query a single domain
@@ -1387,7 +1415,7 @@ export class GlobalCatalogService {
       }
     } else {
       console.log(`[GlobalCatalog] No targeted match. Falling back to Global Catalog MCP.`);
-      const rawFallback = await fetchChunkedFromCatalog(cleanedQuery);
+      const rawFallback = await fetchChunkedFromCatalog(storeQuery);
       const { parsed: parsedFallback } = parseRawProducts(rawFallback);
       if (parsedFallback.length > 0) {
         const cachedState = searchCache.get(cacheKey);

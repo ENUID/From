@@ -235,11 +235,63 @@ function getDescriptionText(p: Product): string {
     .replace(/<\/div>/gi, '\n').replace(/<\/li>/gi, '\n')
     .replace(/<[^>]*>/g, '').trim()
 }
+
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+    .replace(/<embed[^>]*>/gi, '')
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '')
+    .replace(/href\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '')
+}
+
+const SIZE_TABLE_KWS = /\b(size|chest|waist|hip|inseam|sleeve|shoulder|length|neck|bust|height|weight|measurements?)\b/i
+
+function extractSizeTables(html: string): string | null {
+  const tables: string[] = []
+  const re = /<table[\s\S]*?<\/table>/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(html)) !== null) {
+    if (SIZE_TABLE_KWS.test(m[0])) tables.push(m[0])
+  }
+  return tables.length > 0 ? tables.join('') : null
+}
+
+function stripSizeTables(html: string): string {
+  return html
+    .replace(/<table[\s\S]*?<\/table>/gi, t => SIZE_TABLE_KWS.test(t) ? '' : t)
+    .replace(/\n{3,}/g, '\n\n').trim()
+}
+
+const MATERIAL_KW = /material|fabric|composition|fiber|blend|cotton|linen|wool|silk|leather|polyester|nylon|viscose|cashmere|denim|hemp|spandex|lyocell|tencel|modal|bamboo|rayon|acrylic|elastane/i
+const CARE_KW = /\b(care|wash|dry|iron|clean|bleach|tumble|hand.?wash|machine|delicate)\b/i
+
 function extractMaterial(p: Product): string {
-  const t = p.tags?.find(t => t?.toLowerCase().includes('material') || t?.toLowerCase().includes('fabric'))
-  if (t) return t.split('=>').pop()?.trim() || ''
-  const m = getDescriptionText(p).match(/(cotton|linen|wool|silk|hemp|polyester|leather|canvas|cashmere|denim|viscose|nylon|spandex)/i)
-  return m?.[0] || ''
+  const matTag = p.tags?.find(t => MATERIAL_KW.test(t))
+  if (matTag) {
+    const v = matTag.split('=>').pop()?.trim()
+    if (v) return v
+  }
+  const descText = p.description_html
+    ? p.description_html.replace(/<[^>]*>/g, ' ')
+    : getDescriptionText(p)
+  const m = descText.match(/\d+%?\s*(?:cotton|linen|wool|silk|hemp|polyester|nylon|viscose|cashmere|denim|spandex|lyocell|tencel|modal|bamboo|rayon|acrylic|elastane)/i)
+  if (m) return m[0]
+  const single = descText.match(/\b(?:cotton|linen|wool|silk|hemp|polyester|leather|canvas|cashmere|denim|viscose|nylon|spandex)\b/i)
+  return single?.[0] || ''
+}
+
+function extractCareTags(p: Product): string[] {
+  return p.tags?.filter(t => CARE_KW.test(t)).map(t => t.split('=>').pop()?.trim() || t) || []
+}
+
+function extractDetailTags(p: Product): string[] {
+  return (p.tags || []).filter(t => {
+    const lower = t.toLowerCase()
+    return t.length > 2 && t.length < 80 && !MATERIAL_KW.test(t) && !CARE_KW.test(t) && !lower.includes('=>')
+  })
 }
 function getProductSizes(p: Product): string[] {
   return p.options?.find(o => o.name.toLowerCase().includes('size'))?.values || []
@@ -514,13 +566,22 @@ export default function FromApp({
   }
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
 
-  const sheetImages   = selectedProduct ? getProductImages(selectedProduct) : []
-  const sheetDesc     = selectedProduct ? getDescriptionText(selectedProduct) : ''
-  const sheetMaterial = selectedProduct ? extractMaterial(selectedProduct) : ''
-  const sheetSizes    = selectedProduct ? getProductSizes(selectedProduct) : []
-  const sheetColors   = selectedProduct ? getProductColors(selectedProduct) : []
-  const sizeAvail     = selectedProduct ? getSizeAvailability(selectedProduct) : {}
-  const colorAvail    = selectedProduct ? getColorAvailability(selectedProduct) : {}
+  const sheetImages    = selectedProduct ? getProductImages(selectedProduct) : []
+  const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
+  const sheetDescRaw   = selectedProduct?.description_html
+    ? sanitizeHtml(selectedProduct.description_html)
+    : null
+  const sheetSizeTable = sheetDescRaw ? extractSizeTables(sheetDescRaw) : null
+  const sheetDescHtml  = sheetDescRaw
+    ? (sheetSizeTable ? stripSizeTables(sheetDescRaw) : sheetDescRaw)
+    : null
+  const sheetMaterial  = selectedProduct ? extractMaterial(selectedProduct) : ''
+  const sheetCareTags  = selectedProduct ? extractCareTags(selectedProduct) : []
+  const sheetDetailTags= selectedProduct ? extractDetailTags(selectedProduct) : []
+  const sheetSizes     = selectedProduct ? getProductSizes(selectedProduct) : []
+  const sheetColors    = selectedProduct ? getProductColors(selectedProduct) : []
+  const sizeAvail      = selectedProduct ? getSizeAvailability(selectedProduct) : {}
+  const colorAvail     = selectedProduct ? getColorAvailability(selectedProduct) : {}
   const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
   const sheetStoreHost= selectedProduct ? (() => { try { return new URL(selectedProduct.store_url).hostname.replace('www.', '') } catch { return '' } })() : ''
@@ -706,6 +767,22 @@ export default function FromApp({
         .fr-szbox.on{border:1.5px solid ${INK};z-index:2;}
         .fr-szbox.dis{color:${INK3};text-decoration:line-through;cursor:default;opacity:.45;}
         .fr-szbox.dis:hover{border-color:${BRD};}
+
+        /* HTML description rendering */
+        .fr-html{font-family:'DM Sans',sans-serif;font-size:13px;color:${INK2};line-height:1.7;font-weight:300;}
+        .fr-html p{margin-bottom:10px;}.fr-html p:last-child{margin-bottom:0;}
+        .fr-html ul,.fr-html ol{padding-left:18px;margin-bottom:10px;}
+        .fr-html li{margin-bottom:5px;}
+        .fr-html h1,.fr-html h2,.fr-html h3,.fr-html h4{font-size:12px;font-weight:600;color:${INK};margin-bottom:8px;margin-top:12px;letter-spacing:.05em;text-transform:uppercase;}
+        .fr-html b,.fr-html strong{font-weight:500;color:${INK};}
+        .fr-html em,.fr-html i{font-style:italic;}
+        .fr-html table{width:100%;border-collapse:collapse;font-size:12px;}
+        .fr-html th{background:rgba(44,18,6,0.05);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:${INK};}
+        .fr-html th,.fr-html td{padding:9px 12px;border:1px solid rgba(44,18,6,0.10);text-align:left;vertical-align:middle;}
+        .fr-html tr:nth-child(even) td{background:rgba(44,18,6,0.025);}
+        /* Size guide table wrapper */
+        .fr-size-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px;border:1px solid rgba(44,18,6,0.08);}
+        .fr-size-wrap table{min-width:100%;white-space:nowrap;}
 
         /* ADD button — full width */
         .fr-add{display:block;width:100%;padding:17px;border:none;cursor:pointer;
@@ -1428,20 +1505,52 @@ export default function FromApp({
 
                   {/* Accordions */}
                   <div key={selectedProduct.id} style={{ padding: "22px 20px 0" }}>
-                    {sheetDesc && (
+
+                    {/* Description & Fit */}
+                    {(sheetDescHtml || sheetDesc) && (
                       <Accordion label="Description & Fit" defaultOpen>
-                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: "pre-line" }}>{sheetDesc}</p>
+                        {sheetDescHtml ? (
+                          <div className="fr-html" dangerouslySetInnerHTML={{ __html: sheetDescHtml }} />
+                        ) : (
+                          <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: "pre-line" }}>{sheetDesc}</p>
+                        )}
                       </Accordion>
                     )}
-                    {sheetMaterial && (
-                      <Accordion label="Materials">
-                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>{sheetMaterial}</p>
+
+                    {/* Size Guide — only when a size chart table is found in the product HTML */}
+                    {sheetSizeTable && (
+                      <Accordion label="Size Guide">
+                        <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: ".03em" }}>Measurements may vary slightly. When in doubt, size up.</p>
+                        <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
                       </Accordion>
                     )}
-                    {selectedProduct.tags && selectedProduct.tags.length > 0 && (
-                      <Accordion label="Details">
-                        <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
-                          {selectedProduct.tags.slice(0, 8).map((tag, i) => (
+
+                    {/* Materials & Care */}
+                    {(sheetMaterial || sheetCareTags.length > 0) && (
+                      <Accordion label="Materials & Care">
+                        {sheetMaterial && (
+                          <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
+                            {sheetMaterial}
+                          </p>
+                        )}
+                        {sheetCareTags.length > 0 && (
+                          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
+                            {sheetCareTags.map((tag, i) => (
+                              <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
+                                <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 6 }} />
+                                {tag}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </Accordion>
+                    )}
+
+                    {/* Product Details */}
+                    {sheetDetailTags.length > 0 && (
+                      <Accordion label="Product Details">
+                        <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
+                          {sheetDetailTags.slice(0, 12).map((tag, i) => (
                             <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
                               <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 6 }} />
                               {tag}
@@ -1450,6 +1559,7 @@ export default function FromApp({
                         </ul>
                       </Accordion>
                     )}
+
                     <Accordion label="Delivery & Returns">
                       <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
                         Shipping, payment and returns are handled directly by {sheetBrandName || "the store"}. Delivery times and return windows vary — see their policies at checkout.

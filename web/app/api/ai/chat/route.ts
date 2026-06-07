@@ -479,7 +479,7 @@ export async function POST(req: NextRequest) {
         const p = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === d);
         return p ? brandDisplayName(p) : d;
       }).join(', ');
-      dynamicSystemPrompt += `\n\nBRAND SEARCH: The user is explicitly asking about: ${brandNames}. Search within those brand(s) only.`;
+      dynamicSystemPrompt += `\n\nBRAND SEARCH: The user is explicitly asking about ${brandNames}. Search ONLY within those brand(s). IMPORTANT: When generating the searchQuery parameter, strip the brand name from it — e.g. "shirts from Taylor Stitch" → searchQuery: "shirts". The searchQuery must describe only the product type, material, or style, never the brand name itself.`;
     }
 
 

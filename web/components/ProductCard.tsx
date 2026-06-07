@@ -17,6 +17,7 @@ export interface Product {
   in_stock: boolean
   image_url?: string
   description?: string
+  description_html?: string
   product_type?: string
   options?: { name: string; values: string[] }[]
   variants?: Array<{
