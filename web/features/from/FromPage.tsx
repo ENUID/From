@@ -618,20 +618,18 @@ export default function FromApp({
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
         ::-webkit-scrollbar{display:none;}
 
-        /* ── Outer wrapper & shell ── */
-        .fr-wrap{display:flex;align-items:flex-start;justify-content:center;height:100dvh;width:100%;
+        /* ── Outer wrapper & shell ──
+           The app fills the whole device — phone, tablet or laptop — rather than a
+           fixed phone-width strip. Only on very large monitors do we cap the width
+           and centre it so the layout never stretches absurdly wide. */
+        .fr-wrap{display:flex;align-items:stretch;justify-content:center;height:100dvh;width:100%;
           background:#ffffff;}
-        .fr-shell{width:100%;height:100dvh;position:relative;display:flex;flex-direction:column;
+        .fr-shell{width:100%;max-width:1600px;height:100dvh;position:relative;display:flex;flex-direction:column;
           overflow:hidden;overscroll-behavior:none;
           background:#ffffff;}
-        @media(min-width:768px){
-          .fr-wrap{align-items:center;padding:32px 16px;height:auto;min-height:100dvh;background:#f2ede8;}
-          .fr-shell{width:min(420px,100%);height:min(870px,calc(100dvh - 64px));
-            border-radius:42px;
-            box-shadow:0 50px 100px rgba(44,18,6,.16),0 2px 0 rgba(255,255,255,.9) inset,inset 0 0 0 1px rgba(44,18,6,.06);}
-        }
-        @media(min-width:1200px){
-          .fr-shell{width:390px;height:min(844px,calc(100dvh - 80px));border-radius:48px;}
+        @media(min-width:1601px){
+          .fr-wrap{background:#f2ede8;}
+          .fr-shell{box-shadow:0 0 0 1px rgba(44,18,6,.06);}
         }
 
         /* ── Header ── */
@@ -658,8 +656,12 @@ export default function FromApp({
           opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s;}
         .fr-greet.in{opacity:1;transform:translateY(0);}
 
-        /* ── Grid ── */
+        /* ── Grid — column count scales with viewport width ── */
         .fr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;width:100%;flex-shrink:0;}
+        @media(min-width:600px){.fr-grid{grid-template-columns:repeat(3,1fr);}}
+        @media(min-width:820px){.fr-grid{grid-template-columns:repeat(4,1fr);}}
+        @media(min-width:1100px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
+        @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(6,1fr);}}
         .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;}
         .fr-cell:hover img{transform:scale(1.03);}
@@ -692,6 +694,7 @@ export default function FromApp({
         .fr-bar{
           position:relative;overflow:hidden;
           display:flex;flex-direction:column;gap:10px;
+          width:100%;max-width:720px;margin:0 auto;
           border-radius:24px;border:none;
           padding:18px 18px 10px 12px;
           will-change:transform;
@@ -750,6 +753,11 @@ export default function FromApp({
           box-shadow:
             0 -1px 0 rgba(44,18,6,.05),
             0 -24px 64px rgba(44,18,6,.10);
+        }
+        /* On tablet/laptop the sheet becomes a centred panel rather than a full-width slab */
+        @media(min-width:768px){
+          .fr-sheet{left:0;right:0;margin-left:auto;margin-right:auto;max-width:560px;
+            border-radius:24px 24px 0 0;}
         }
         .fr-sheet-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:100;
           pointer-events:none;transition:background .36s;border-radius:inherit;}
