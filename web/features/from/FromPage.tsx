@@ -862,7 +862,7 @@ export default function FromApp({
                     <div style={{
                       position: 'absolute', top: 0, bottom: 0,
                       width: '60%',
-                      background: 'linear-gradient(90deg, #e8e4de 0%, #f0ece6 35%, #f7f4f0 50%, #f0ece6 65%, #e8e4de 100%)',
+                      background: 'linear-gradient(90deg, #e8e4de 0%, #edeae5 35%, #f0ece7 50%, #edeae5 65%, #e8e4de 100%)',
                       animation: `sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,
                       willChange: 'transform',
                     }} />
