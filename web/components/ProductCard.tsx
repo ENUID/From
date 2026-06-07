@@ -25,9 +25,9 @@ export interface Product {
     price: number
     availability: boolean
     options: Array<{ name: string; label: string }>
-    media?: Array<{ url: string }>
+    media?: Array<{ url: string; alt?: string }>
   }>
-  media?: Array<{ type: string; url: string }>
+  media?: Array<{ type: string; url: string; alt?: string }>
 }
 
 interface Props {

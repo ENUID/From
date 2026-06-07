@@ -15,14 +15,14 @@ export type UcpProduct = {
   tags: string[];
   description?: string;
   options?: { name: string; values: string[] }[];
-  media?: Array<{ type: string; url: string }>;
+  media?: Array<{ type: string; url: string; alt?: string }>;
   variants?: Array<{
     id: string;
     title: string;
     price: number;
     availability: boolean;
     options: Array<{ name: string; label: string }>;
-    media?: Array<{ url: string }>;
+    media?: Array<{ url: string; alt?: string }>;
   }>;
   trust_score?: number;
 }
@@ -914,14 +914,16 @@ export class GlobalCatalogService {
             options: v.options || [],
             media: (v.media || []).map((m: any) => ({
               ...m,
-              url: normalizeImageUrl(m.url)
+              url: normalizeImageUrl(m.url),
+              alt: m.alt ?? m.altText ?? m.alt_text ?? ''
             }))
           };
         });
 
         const parsedMedia = (p.media || []).map((m: any) => ({
           ...m,
-          url: normalizeImageUrl(m.url)
+          url: normalizeImageUrl(m.url),
+          alt: m.alt ?? m.altText ?? m.alt_text ?? ''
         }));
         const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
 

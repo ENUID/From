@@ -190,12 +190,42 @@ function Accordion({ label, children, defaultOpen = false }: { label: string; ch
 }
 
 // ── Product helpers ───────────────────────────────────────────────────────────
+// Signals that an image shows a person/model wearing the item.
+const MODEL_HINTS = /(model|wearing|worn|lifestyle|on[-_ ]?body|onbody|outfit|\blook\b|\bfit\b|person|portrait|editorial|campaign|street|styled?)/i
+// Signals that an image is a product-only / flat / studio shot.
+const FLAT_HINTS  = /(flat[-_ ]?lay|flatlay|pack[-_ ]?shot|packshot|still[-_ ]?life|product[-_ ]?(shot|only)|ghost|mannequin|swatch|fabric|\bdetail\b|close[-_ ]?up|closeup|back[-_ ]?view|folded|hanger|cut[-_ ]?out|cutout|\blabel\b|white[-_ ]?bg|on[-_ ]?white)/i
+
+// Collect every product image (full gallery), drop video/3d media, and order
+// model/lifestyle shots first. Returns a de-duplicated list of image URLs.
 function getProductImages(p: Product): string[] {
-  const list: string[] = []
-  if (p.image_url) list.push(p.image_url)
-  p.media?.forEach(m => { if (m.url && !list.includes(m.url)) list.push(m.url) })
-  p.variants?.forEach(v => { v.media?.forEach(m => { if (m.url && !list.includes(m.url)) list.push(m.url) }) })
-  return list
+  type Img = { url: string; alt: string; idx: number }
+  const seen = new Set<string>()
+  const imgs: Img[] = []
+  const push = (url?: string, alt?: string, type?: string) => {
+    if (!url || seen.has(url)) return
+    if (type && !/image|photo/i.test(type)) return   // skip video / model_3d / external_video
+    seen.add(url)
+    imgs.push({ url, alt: alt || '', idx: imgs.length })
+  }
+  // Full product gallery first, then variant-specific media, then the thumbnail fallback.
+  p.media?.forEach(m => push(m.url, (m as { alt?: string }).alt, m.type))
+  p.variants?.forEach(v => v.media?.forEach(m => push(m.url, (m as { alt?: string }).alt)))
+  if (p.image_url) push(p.image_url)
+
+  const score = (im: Img) => {
+    const hay = `${im.alt} ${im.url}`
+    let s = 0
+    if (MODEL_HINTS.test(hay)) s += 2
+    if (FLAT_HINTS.test(hay))  s -= 2
+    return s
+  }
+  const ranked = imgs.map(im => ({ im, s: score(im) }))
+  // Prefer model shots: drop the ones we can confidently tell are product-only,
+  // but never empty the gallery — fall back to all images if filtering leaves none.
+  const modelFirst = ranked.filter(r => r.s >= 0)
+  const base = modelFirst.length > 0 ? modelFirst : ranked
+  base.sort((a, b) => b.s - a.s || a.im.idx - b.im.idx)
+  return base.map(r => r.im.url)
 }
 function getDescriptionText(p: Product): string {
   if (!p.description) return ''
@@ -291,6 +321,13 @@ export default function FromApp({
   const fileRef       = useRef<HTMLInputElement>(null)
   const dragHandleRef = useRef<HTMLDivElement>(null)
   const similarRef    = useRef<HTMLDivElement>(null)
+
+  // Image carousel horizontal swipe
+  const [imgDX, setImgDX]   = useState(0)
+  const imgStartX = useRef(0)
+  const imgStartY = useRef(0)
+  const imgActive = useRef(false)
+  const imgLockH  = useRef<null | boolean>(null)
   const dragStartY    = useRef(0)
   const dragStartSnap = useRef<'full'|'half'>('full')
   const dragVel       = useRef(0)
@@ -382,6 +419,43 @@ export default function FromApp({
       else if (fastUp || sheetY < vh * 0.25){ setSheetSnap('full'); setSheetY(0) }
       else                                  { setSheetSnap('half'); setSheetY(halfY) }
     }
+  }
+
+  // ── Image carousel swipe (horizontal) ──
+  const onImgDown = (e: React.PointerEvent) => {
+    imgStartX.current = e.clientX
+    imgStartY.current = e.clientY
+    imgActive.current = true
+    imgLockH.current = null
+    setImgDX(0)
+  }
+  const onImgMove = (e: React.PointerEvent, count: number) => {
+    if (!imgActive.current) return
+    const dx = e.clientX - imgStartX.current
+    const dy = e.clientY - imgStartY.current
+    if (imgLockH.current === null) {
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        imgLockH.current = Math.abs(dx) > Math.abs(dy)
+        if (imgLockH.current) { try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch {} }
+      }
+    }
+    if (imgLockH.current) {
+      let d = dx
+      // rubber-band resistance at the ends
+      if ((activeImg === 0 && d > 0) || (activeImg >= count - 1 && d < 0)) d *= 0.35
+      setImgDX(d)
+    }
+  }
+  const onImgUp = (count: number) => {
+    if (!imgActive.current) return
+    imgActive.current = false
+    if (imgLockH.current) {
+      const threshold = 48
+      if (imgDX < -threshold && activeImg < count - 1) setActiveImg(activeImg + 1)
+      else if (imgDX > threshold && activeImg > 0)     setActiveImg(activeImg - 1)
+    }
+    imgLockH.current = null
+    setImgDX(0)
   }
 
   const doSearch = () => {
@@ -1168,12 +1242,17 @@ export default function FromApp({
                 </div>
 
                 <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", paddingBottom: 24 }}>
-                  <div style={{ padding: "0 16px" }}>
-                    <div style={{ position: "relative", overflow: "hidden", borderRadius: 14 }}>
-                      <div style={{ display: "flex", transition: isDragging ? "none" : "transform .32s cubic-bezier(.32,.72,0,1)", transform: `translateX(-${activeImg * 100}%)` }}>
+                  <div>
+                    <div style={{ position: "relative", overflow: "hidden", touchAction: "pan-y" }}
+                      onPointerDown={sheetImages.length > 1 ? onImgDown : undefined}
+                      onPointerMove={sheetImages.length > 1 ? (e => onImgMove(e, sheetImages.length)) : undefined}
+                      onPointerUp={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
+                      onPointerCancel={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
+                    >
+                      <div style={{ display: "flex", transition: (imgActive.current && imgLockH.current) ? "none" : "transform .32s cubic-bezier(.32,.72,0,1)", transform: `translateX(calc(-${activeImg * 100}% + ${imgDX}px))` }}>
                         {sheetImages.length > 0 ? sheetImages.map((img, i) => (
                           <div key={i} style={{ width: "100%", flexShrink: 0 }}>
-                            <img src={img} alt="" style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
+                            <img src={img} alt="" draggable={false} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block", userSelect: "none", pointerEvents: "none" }} />
                           </div>
                         )) : (
                           <div style={{ width: "100%", aspectRatio: "4/5", background: "#ebebeb", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1193,10 +1272,10 @@ export default function FromApp({
                   </div>
 
                   {sheetImages.length > 1 && (
-                    <div style={{ padding: "12px 16px 0", display: "flex", gap: 6 }}>
-                      {sheetImages.slice(0, 5).map((img, i) => (
+                    <div style={{ padding: "10px 16px 0", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+                      {sheetImages.map((img, i) => (
                         <button key={i} onClick={() => setActiveImg(i)}
-                          style={{ width: 46, height: 58, borderRadius: 6, overflow: "hidden", padding: 0, border: `2px solid ${i === activeImg ? INK : 'transparent'}`, cursor: "pointer", background: "#ebebeb", flexShrink: 0, transition: "border-color .15s" }}>
+                          style={{ width: 46, height: 58, overflow: "hidden", padding: 0, border: `1.5px solid ${i === activeImg ? INK : 'transparent'}`, cursor: "pointer", background: "#ebebeb", flexShrink: 0, transition: "border-color .15s" }}>
                           <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                         </button>
                       ))}
