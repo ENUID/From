@@ -264,7 +264,7 @@ export default function FromApp({
 
         /* ── Body ── */
         .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:110px;}
-        .fr-body.home{justify-content:flex-start;padding-top:clamp(16px,4vh,32px);}
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
         /* ── Search bar floats over content ── */
         .fr-bar-wrap{position:absolute;bottom:0;left:0;right:0;padding:0 clamp(12px,4vw,18px) 10px;z-index:50;}
