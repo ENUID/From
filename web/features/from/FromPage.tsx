@@ -679,12 +679,14 @@ export default function FromApp({
           opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s;}
         .fr-greet.in{opacity:1;transform:translateY(0);}
 
-        /* ── Grid — column count scales with viewport width ── */
+        /* ── Grid — 2 col mobile → 3 col large phone/small tablet → 4 col iPad & up
+           4 columns is the industry standard for fashion e-commerce on desktop
+           (Net-a-Porter, SSENSE, Farfetch all cap at 4 — gives images room to breathe).
+           Only very wide monitors (1500px+) step up to 5. */
         .fr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;width:100%;flex-shrink:0;}
         @media(min-width:600px){.fr-grid{grid-template-columns:repeat(3,1fr);}}
         @media(min-width:820px){.fr-grid{grid-template-columns:repeat(4,1fr);}}
-        @media(min-width:1100px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
-        @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(6,1fr);}}
+        @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
         .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;}
         .fr-cell:hover img{transform:scale(1.03);}
