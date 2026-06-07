@@ -340,7 +340,7 @@ export default function FromApp({
   // Search results
   const lastProductMsg      = [...messages].reverse().find(m => m.role === 'assistant' && m.products?.length)
   const lastProductMsgIndex = lastProductMsg ? messages.lastIndexOf(lastProductMsg as any) : -1
-  const searchProducts: Product[] = lastProductMsg?.products || []
+  const searchProducts: Product[] = (lastProductMsg?.products || []).filter((p: Product) => p.in_stock)
   const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
   const showEmpty = hasConversation && searchProducts.length === 0 && !loading
   const canSend   = input.trim().length > 0 || uploadedImages.length > 0
@@ -362,7 +362,7 @@ export default function FromApp({
   // Persist explore results so they survive page refresh
   useEffect(() => {
     if (showExplore && searchProducts.length > 0) {
-      const toSave = searchProducts.slice(0, 20)
+      const toSave = searchProducts.filter(p => p.in_stock).slice(0, 20)
       setExploreCache(toSave)
       try { localStorage.setItem('from:explore', JSON.stringify(toSave)) } catch {}
     }
@@ -995,7 +995,7 @@ export default function FromApp({
             {/* Explore — cached products while no live results, or "build history" nudge */}
             {showExplore && !loading && searchProducts.length === 0 && (
               exploreCache.length > 0
-                ? <div className="fr-grid">{exploreCache.map(p => (
+                ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => (
                     <div key={p.id} className="fr-cell" onClick={() => setSelected(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
                         <>
