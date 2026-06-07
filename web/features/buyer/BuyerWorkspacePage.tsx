@@ -564,7 +564,7 @@ export default function FromApp({
           {/* ── Nav bar — glass, hamburger top-left ── */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "flex-start",
-            padding: "clamp(14px,4vw,20px) clamp(16px,5vw,22px) clamp(6px,2vw,10px)",
+            padding: "clamp(22px,6vw,30px) clamp(16px,5vw,22px) clamp(6px,2vw,10px)",
             flexShrink: 0, position: "sticky", top: 0, zIndex: 50,
             background: "rgba(249,249,249,0.75)",
             backdropFilter: "blur(20px) saturate(160%)",
@@ -684,7 +684,7 @@ export default function FromApp({
           </div>
 
           {/* ── Search bar — liquid glass ── */}
-          <div style={{ padding: "8px clamp(12px,4vw,18px) clamp(16px,4vw,24px)", flexShrink: 0,
+          <div style={{ padding: "8px clamp(12px,4vw,18px) clamp(8px,2vw,14px)", flexShrink: 0,
             background: "rgba(240,240,240,0.5)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" as any }}>
 
             {/* Spring-animated wrapper */}
