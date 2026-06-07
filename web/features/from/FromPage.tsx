@@ -887,12 +887,9 @@ export default function FromApp({
           {/* ── History long-press context menu — Apple Liquid Glass ── */}
           {ctxMenu && (
             <>
-              {/* Dismiss — barely-there backdrop, Liquid Glass floats above content */}
+              {/* Dismiss — invisible tap target, no blur or dim on background */}
               <div onClick={() => setCtxMenu(null)}
-                style={{ position: 'fixed', inset: 0, zIndex: 9000,
-                  background: 'rgba(0,0,0,0.08)',
-                  backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
-                  animation: 'fadeIn 0.15s ease' }} />
+                style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
 
               {/* Outer glow ring — simulates the refracted halo around real glass */}
               <div style={{
