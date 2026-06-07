@@ -142,7 +142,9 @@ export default function FromApp({
   const [uploadName, setUploadName]     = useState("")
   const [loaded, setLoaded]             = useState(false)
   const [attachMenuOpen, setAttachMenu] = useState(false)
+  const [menuPos, setMenuPos] = useState({ bottom: 100, left: 20 })
   const attachMenuRef = useRef<HTMLDivElement>(null)
+  const paperclipRef  = useRef<HTMLButtonElement>(null)
 
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
@@ -592,29 +594,32 @@ export default function FromApp({
             {!hasConversation && <div className={`fr-greet${loaded ? ' in' : ''}`}>
               {(() => {
                 const greetName = isEditingName ? (nameInput || "your name") : (hasName ? userName : "your name")
-                const totalChars = 7 + greetName.length
-                const px = Math.min(72, Math.max(26, Math.floor(290 / (totalChars * 0.48))))
+                const HELLO_PX = 62
+                // Only the name shrinks; "Hello, " stays fixed at HELLO_PX
+                const namePx = Math.min(HELLO_PX, Math.max(22, Math.floor(160 / (Math.max(1, greetName.length) * 0.52))))
                 return (
-                <div style={{ fontFamily: SERIF, fontSize: px, lineHeight: 1.08, letterSpacing: "-.02em", marginBottom: 10, whiteSpace: "nowrap" }}>
-                  <span style={{ fontWeight: 300, color: INK }}>Hello, </span>
+                <div style={{ fontFamily: SERIF, lineHeight: 1.08, letterSpacing: "-.02em", marginBottom: 10,
+                  display: "flex", alignItems: "baseline", flexWrap: "nowrap", overflow: "hidden" }}>
+                  <span style={{ fontWeight: 300, color: INK, fontSize: HELLO_PX, flexShrink: 0 }}>Hello,&nbsp;</span>
                   {isEditingName ? (
                     <input ref={nameRef} value={nameInput}
                       onChange={e => setNameInput(e.target.value)}
                       onBlur={saveName}
                       onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameInput(''); setIsEditing(false) } }}
                       maxLength={22} placeholder="your name"
-                      style={{ fontFamily: SERIF, fontSize: px, fontWeight: 400, fontStyle: "italic", color: INK,
+                      style={{ fontFamily: SERIF, fontSize: namePx, fontWeight: 400, fontStyle: "italic", color: INK,
                         background: "transparent", border: "none",
                         borderBottom: `1.5px dashed ${INK}`,
                         paddingBottom: 1, letterSpacing: "-.02em", outline: "none",
-                        width: `${Math.max(4, (nameInput.length || 9)) * 0.52}em` }}
+                        width: `${Math.max(4, (nameInput.length || 9)) * 0.52}em`,
+                        minWidth: 0, flexShrink: 1 }}
                     />
                   ) : (
                     <span onClick={() => { setNameInput(userName); setIsEditing(true) }}
-                      style={{ fontFamily: SERIF, fontWeight: 400, fontStyle: "italic", cursor: "pointer",
+                      style={{ fontFamily: SERIF, fontSize: namePx, fontWeight: 400, fontStyle: "italic", cursor: "pointer",
                         color: hasName ? INK : INK3,
                         borderBottom: `1.5px dashed ${hasName ? INK : 'rgba(0,0,0,.3)'}`,
-                        paddingBottom: 1 }}>
+                        paddingBottom: 1, minWidth: 0, flexShrink: 1 }}>
                       {hasName ? userName : "your name"}
                     </span>
                   )}
@@ -690,11 +695,11 @@ export default function FromApp({
           {/* ── Search bar — liquid glass ── */}
           <div style={{ padding: "6px clamp(12px,4vw,18px) 6px", flexShrink: 0, position: 'relative' }}>
 
-            {/* Attach menu — rendered here to escape fr-bar's overflow:hidden */}
+            {/* Attach menu — fixed position to escape all overflow:hidden ancestors */}
             {attachMenuOpen && (
               <div ref={attachMenuRef} style={{
-                position: 'absolute', bottom: 'calc(100% + 4px)', left: 'clamp(12px,4vw,18px)',
-                zIndex: 300, minWidth: 210,
+                position: 'fixed', bottom: menuPos.bottom, left: menuPos.left,
+                zIndex: 9999, minWidth: 210,
                 background: 'rgba(210,228,255,0.82)',
                 backdropFilter: 'blur(28px) saturate(180%)',
                 WebkitBackdropFilter: 'blur(28px) saturate(180%)',
@@ -804,8 +809,14 @@ export default function FromApp({
 
                     {/* Paperclip — opens attach menu */}
                     <div ref={attachWrap}>
-                      <button type="button" className="fr-icon-btn"
-                        onClick={() => setAttachMenu(v => !v)}
+                      <button type="button" ref={paperclipRef} className="fr-icon-btn"
+                        onClick={() => {
+                          if (!attachMenuOpen && paperclipRef.current) {
+                            const r = paperclipRef.current.getBoundingClientRect()
+                            setMenuPos({ bottom: window.innerHeight - r.top + 10, left: r.left })
+                          }
+                          setAttachMenu(v => !v)
+                        }}
                         style={{ transform: attachMenuOpen ? 'scale(0.93)' : undefined }}
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
