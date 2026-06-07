@@ -233,6 +233,7 @@ export default function FromApp({
   const [selectedSize, setSize]       = useState<string | null>(null)
   const [activeImg, setActiveImg]     = useState(0)
   const [sheetY, setSheetY]           = useState(0)
+  const [sheetSnap, setSheetSnap]     = useState<'full'|'half'>('full')
   const [isDragging, setIsDragging]   = useState(false)
   const [sidebarOpen, setSidebar]     = useState(false)
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved'>('nav')
@@ -260,6 +261,10 @@ export default function FromApp({
   const taRef         = useRef<HTMLTextAreaElement>(null)
   const fileRef       = useRef<HTMLInputElement>(null)
   const dragStartY    = useRef(0)
+  const dragStartSnap = useRef<'full'|'half'>('full')
+  const dragVel       = useRef(0)
+  const dragLastY     = useRef(0)
+  const dragLastT     = useRef(0)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasLongPress   = useRef(false)
 
@@ -281,7 +286,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
-  useEffect(() => { if (selectedProduct) { setSize(null); setActiveImg(0); setSheetY(0) } }, [selectedProduct])
+  useEffect(() => { if (selectedProduct) { setSize(null); setActiveImg(0); setSheetY(0); setSheetSnap('full') } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"
@@ -292,12 +297,40 @@ export default function FromApp({
   const onHandleDown = (e: React.PointerEvent) => {
     e.preventDefault();
     (e.currentTarget as Element).setPointerCapture(e.pointerId)
-    dragStartY.current = e.clientY - sheetY; setIsDragging(true)
+    const halfY = window.innerHeight * 0.44
+    dragStartY.current  = e.clientY - (sheetSnap === 'half' ? halfY : 0)
+    dragStartSnap.current = sheetSnap
+    dragLastY.current = e.clientY
+    dragLastT.current = Date.now()
+    dragVel.current = 0
+    setIsDragging(true)
   }
-  const onHandleMove = (e: React.PointerEvent) => { if (isDragging) setSheetY(Math.max(0, e.clientY - dragStartY.current)) }
-  const onHandleUp   = () => {
+  const onHandleMove = (e: React.PointerEvent) => {
+    if (!isDragging) return
+    const now = Date.now(); const dt = now - dragLastT.current
+    if (dt > 0) dragVel.current = (e.clientY - dragLastY.current) / dt
+    dragLastY.current = e.clientY; dragLastT.current = now
+    setSheetY(Math.max(0, e.clientY - dragStartY.current))
+  }
+  const onHandleUp = () => {
     if (!isDragging) return; setIsDragging(false)
-    if (sheetY > 100) { setSelected(null); setSheetY(0) } else setSheetY(0)
+    const vh = window.innerHeight
+    const halfY = vh * 0.44
+    const vel = dragVel.current        // px/ms, positive = downward
+    const fastDown = vel > 0.5
+    const fastUp   = vel < -0.5
+
+    if (dragStartSnap.current === 'full') {
+      // from full: fast flick or dragged past 20% → go half; even further or second flick → close
+      if (fastDown || sheetY > vh * 0.55) { setSelected(null); setSheetY(0) }
+      else if (sheetY > vh * 0.18)        { setSheetSnap('half'); setSheetY(halfY) }
+      else                                { setSheetSnap('full'); setSheetY(0) }
+    } else {
+      // from half: flick/drag down → close, flick/drag up → full
+      if (fastDown || sheetY > vh * 0.65) { setSelected(null); setSheetY(0) }
+      else if (fastUp || sheetY < vh * 0.25){ setSheetSnap('full'); setSheetY(0) }
+      else                                  { setSheetSnap('half'); setSheetY(halfY) }
+    }
   }
 
   const doSearch = () => {
@@ -1024,8 +1057,10 @@ export default function FromApp({
           {/* ── Product sheet — liquid glass ── */}
           <div className="fr-sheet" style={{
             maxHeight: "92%",
-            transform: selectedProduct ? `translateY(${sheetY}px)` : "translateY(100%)",
-            transition: isDragging ? "none" : "transform .4s cubic-bezier(.32,.72,0,1)",
+            transform: selectedProduct
+              ? `translateY(${isDragging ? sheetY : (sheetSnap === 'half' ? window.innerHeight * 0.44 : 0)}px)`
+              : "translateY(100%)",
+            transition: isDragging ? "none" : "transform .42s cubic-bezier(.32,.72,0,1)",
             willChange: "transform",
           }}>
             {selectedProduct && (
@@ -1034,7 +1069,7 @@ export default function FromApp({
                   <div className="fr-drag-pill" />
                 </div>
 
-                <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
+                <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", paddingBottom: 24 }}>
                   <div style={{ padding: "0 16px" }}>
                     <div style={{ position: "relative", overflow: "hidden", borderRadius: 14 }}>
                       <div style={{ display: "flex", transition: isDragging ? "none" : "transform .32s cubic-bezier(.32,.72,0,1)", transform: `translateX(-${activeImg * 100}%)` }}>
@@ -1119,30 +1154,31 @@ export default function FromApp({
                     </p>
                   </InfoSection>
 
-                  <div style={{ height: 8 }} />
-                </div>
+                  <div style={{ height: 16 }} />
 
-                <div style={{ borderTop: `0.5px solid rgba(0,0,0,.08)`, flexShrink: 0, overflow: "hidden" }}>
-                  <div style={{ display: "flex" }}>
+                  {/* Buy buttons — scroll with content, not fixed */}
+                  <div style={{ borderTop: `0.5px solid rgba(0,0,0,.08)`, margin: '0 0', overflow: "hidden" }}>
+                    <div style={{ display: "flex" }}>
+                      <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
+                        target="_blank" rel="noopener noreferrer"
+                        className={`fr-atc${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
+                        onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
+                        {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Add to Cart"}
+                      </a>
+                      <button className="fr-hrt" onClick={() => toggleSaved(selectedProduct)}>
+                        <svg width="18" height="18" viewBox="0 0 24 24"
+                          fill={savedIds.has(selectedProduct.id) ? '#fff' : "none"} stroke="#fff" strokeWidth="1.8">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                        </svg>
+                      </button>
+                    </div>
                     <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                      target="_blank" rel="noopener noreferrer"
-                      className={`fr-atc${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
-                      onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
-                      {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Add to Cart"}
+                      target="_blank" rel="noopener noreferrer" className="fr-bin"
+                      onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}
+                      style={{ opacity: sheetSizes.length > 0 && !selectedSize ? .5 : 1 }}>
+                      Buy It Now
                     </a>
-                    <button className="fr-hrt" onClick={() => toggleSaved(selectedProduct)}>
-                      <svg width="18" height="18" viewBox="0 0 24 24"
-                        fill={savedIds.has(selectedProduct.id) ? '#fff' : "none"} stroke="#fff" strokeWidth="1.8">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                      </svg>
-                    </button>
                   </div>
-                  <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                    target="_blank" rel="noopener noreferrer" className="fr-bin"
-                    onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}
-                    style={{ opacity: sheetSizes.length > 0 && !selectedSize ? .5 : 1 }}>
-                    Buy It Now
-                  </a>
                 </div>
               </>
             )}
