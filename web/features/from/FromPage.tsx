@@ -794,7 +794,9 @@ export default function FromApp({
               <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
               <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
             </button>
-            <FromLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
+            <div onClick={() => { resetConversation(); setShowExplore(false) }} style={{ cursor: 'pointer' }}>
+              <FromLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
+            </div>
           </div>
 
           {/* ── Content (body + floating bar share this space) ── */}
