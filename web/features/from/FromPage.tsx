@@ -942,8 +942,8 @@ export default function FromApp({
                 position: 'fixed',
                 left: ctxMenu.x, top: ctxMenu.y,
                 zIndex: 9001,
-                width: 138,
-                borderRadius: 11,
+                width: 160,
+                borderRadius: 12,
                 overflow: 'hidden',
                 background: 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(245,245,248,0.94) 100%)',
                 boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
@@ -958,14 +958,14 @@ export default function FromApp({
                 {/* Rename */}
                 <div onClick={() => { setRenameId(ctxMenu.id); setRenameVal(ctxMenu.query); setCtxMenu(null) }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', padding: '9px 12px', cursor: 'pointer', gap: 6,
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
                     fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
-                    fontSize: 13, fontWeight: 400, color: '#1C1C1E' }}
+                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Rename</span>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                   </svg>
@@ -976,14 +976,14 @@ export default function FromApp({
                 {/* Delete */}
                 <div onClick={() => { deleteHistoryEntry(ctxMenu.id); setCtxMenu(null) }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', padding: '9px 12px', cursor: 'pointer', gap: 6,
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
                     fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
-                    fontSize: 13, fontWeight: 400, color: '#FF3B30' }}
+                    fontSize: 14, fontWeight: 400, color: '#FF3B30' }}
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.08)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Delete</span>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3 6 5 6 21 6"/>
                     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                     <path d="M10 11v6M14 11v6"/>
