@@ -869,18 +869,6 @@ export default function FromApp({
                           </button>
                         </div>
                       ))}
-                      {/* Add more button — shown when < 11 images */}
-                      {uploadedImages.length < 11 && (
-                        <div onClick={() => fileRef.current?.click()} style={{
-                          width: 72, height: 72, borderRadius: 10, flexShrink: 0,
-                          border: '1.5px dashed rgba(44,18,6,0.2)', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round">
-                            <path d="M12 5v14M5 12h14"/>
-                          </svg>
-                        </div>
-                      )}
                     </div>
                   )}
 
