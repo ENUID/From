@@ -577,26 +577,55 @@ export default function FromApp({
             {/* Nav items */}
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
               <div style={{ padding: "4px 12px 8px" }}>
-                {([["Explore","compass"],["Saved","bookmark"],["Brands","grid"]] as [string,string][]).map(([l, ic]) => (
-                  <div key={l} className={`fr-hi${sidebarView === 'saved' && l === 'Saved' ? ' on' : ''}`}
-                    onClick={() => {
-                      if (l === 'Explore') { setSidebarView('nav'); resetConversation(); setSidebar(false) }
-                      else if (l === 'Saved') setSidebarView('saved')
-                      else setSidebar(false)
-                    }}>
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                      {ic==="compass"  && <><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></>}
-                      {ic==="bookmark" && <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>}
-                      {ic==="grid"     && <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></>}
-                    </svg>
-                    {l}
-                    {l === 'Saved' && savedProducts.length > 0 && (
-                      <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
-                        {savedProducts.length}
-                      </span>
-                    )}
-                  </div>
-                ))}
+
+                {/* Explore — personalised feed from history/saves */}
+                <div className="fr-hi" onClick={() => {
+                  setSidebarView('nav')
+                  setSidebar(false)
+                  const terms = searchHistory.slice(0, 3).map(h => h.query)
+                  const saved = savedProducts.slice(0, 2).map(p => p.title)
+                  const hints = [...terms, ...saved].filter(Boolean)
+                  const query = hints.length > 0
+                    ? `Based on my interest in ${hints.join(', ')} — curate a personal selection of products I'd love from independent stores`
+                    : `Curate a personal selection of unique products from independent stores`
+                  sendMessage(query)
+                }}>
+                  {/* Sparkle / discovery icon */}
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
+                    <path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8z"/>
+                    <path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5z"/>
+                  </svg>
+                  Explore
+                </div>
+
+                {/* Bag (saved products) */}
+                <div className={`fr-hi${sidebarView === 'saved' ? ' on' : ''}`} onClick={() => setSidebarView('saved')}>
+                  {/* Shopping bag icon */}
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <path d="M16 10a4 4 0 0 1-8 0"/>
+                  </svg>
+                  Bag
+                  {savedProducts.length > 0 && (
+                    <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
+                      {savedProducts.length}
+                    </span>
+                  )}
+                </div>
+
+                {/* Collections */}
+                <div className="fr-hi" onClick={() => setSidebar(false)}>
+                  {/* Stacked layers icon */}
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                  </svg>
+                  Collections
+                </div>
+
               </div>
 
               <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 20px 10px" }} />
@@ -650,7 +679,7 @@ export default function FromApp({
                   </>
                 ) : (
                   <>
-                    <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Saved</p>
+                    <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Bag</p>
                     {savedProducts.length === 0
                       ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>Nothing saved yet</p>
                       : savedProducts.map(p => (
