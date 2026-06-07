@@ -246,20 +246,19 @@ export default function FromApp({
         ::-webkit-scrollbar{display:none;}
 
         /* ── Outer wrapper & shell ── */
-        .fr-wrap{display:flex;align-items:flex-start;justify-content:center;min-height:100vh;width:100%;
+        .fr-wrap{display:flex;align-items:flex-start;justify-content:center;height:100dvh;width:100%;
           background:linear-gradient(145deg,#e8e8e8 0%,#d8d8d8 100%);}
-        .fr-shell{width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;
+        .fr-shell{width:100%;height:100dvh;position:relative;display:flex;flex-direction:column;
           overflow:hidden;
-          /* Subtle gradient — glass blurs this, giving depth even on "white" screens */
           background:linear-gradient(160deg,#f9f9f9 0%,#f0f0f0 55%,#f5f5f5 100%);}
         @media(min-width:768px){
-          .fr-wrap{align-items:center;padding:32px 16px;}
-          .fr-shell{width:min(420px,100%);min-height:0;height:min(870px,calc(100vh - 64px));
+          .fr-wrap{align-items:center;padding:32px 16px;height:auto;min-height:100dvh;}
+          .fr-shell{width:min(420px,100%);height:min(870px,calc(100dvh - 64px));
             border-radius:42px;
             box-shadow:0 50px 100px rgba(0,0,0,.22),0 2px 0 rgba(255,255,255,.9) inset,inset 0 0 0 1px rgba(0,0,0,.06);}
         }
         @media(min-width:1200px){
-          .fr-shell{width:390px;height:min(844px,calc(100vh - 80px));border-radius:48px;}
+          .fr-shell{width:390px;height:min(844px,calc(100dvh - 80px));border-radius:48px;}
         }
 
         /* ── Body ── */
@@ -441,19 +440,15 @@ export default function FromApp({
           {/* ── Sidebar ── */}
           <div className={`fr-sb ${sidebarOpen ? "open" : ""}`}>
 
-            {/* Header: From logo row */}
+            {/* Header: From logo + profile avatar on same row */}
             <div style={{
-              padding: "clamp(22px,5vw,30px) 20px 8px",
+              padding: "clamp(22px,5vw,30px) 20px 16px",
               display: "flex", alignItems: "center", justifyContent: "space-between",
               flexShrink: 0,
             }}>
               <FromLogo size={24} color={INK} />
-            </div>
-
-            {/* Profile avatar — glass elevated, right-aligned, below logo */}
-            <div style={{ padding: "0 20px 18px", display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
               <div style={{
-                width: 40, height: 40, borderRadius: "50%",
+                width: 38, height: 38, borderRadius: "50%",
                 background: "rgba(255,255,255,0.72)",
                 backdropFilter: "blur(12px) saturate(160%)",
                 WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
@@ -476,7 +471,7 @@ export default function FromApp({
             {/* Nav items */}
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
               <div style={{ padding: "4px 12px 8px" }}>
-                {([["Explore","compass"],["Saved","bookmark"],["Brands","grid"],["Settings","settings"]] as [string,string][]).map(([l, ic]) => (
+                {([["Explore","compass"],["Saved","bookmark"],["Brands","grid"]] as [string,string][]).map(([l, ic]) => (
                   <div key={l} className={`fr-hi${sidebarView === 'saved' && l === 'Saved' ? ' on' : ''}`}
                     onClick={() => {
                       if (l === 'Explore') { setSidebarView('nav'); resetConversation(); setSidebar(false) }
@@ -487,7 +482,6 @@ export default function FromApp({
                       {ic==="compass"  && <><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></>}
                       {ic==="bookmark" && <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>}
                       {ic==="grid"     && <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></>}
-                      {ic==="settings" && <><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></>}
                     </svg>
                     {l}
                     {l === 'Saved' && savedProducts.length > 0 && (
