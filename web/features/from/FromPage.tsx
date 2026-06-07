@@ -1366,14 +1366,14 @@ export default function FromApp({
                       target="_blank" rel="noopener noreferrer"
                       className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
                       onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
-                      {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Add to bag"}
+                      {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Go to Checkout"}
                     </a>
                   </div>
 
                   {/* Sold by / visit store */}
                   <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span style={{ fontFamily: SANS, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: INK3 }}>
-                      Sold by {sheetStoreHost || "store"}
+                      From {sheetStoreHost || "store"}
                     </span>
                     <a href={selectedProduct.store_url} target="_blank" rel="noopener noreferrer"
                       style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, textDecoration: "underline", textUnderlineOffset: 3 }}>
