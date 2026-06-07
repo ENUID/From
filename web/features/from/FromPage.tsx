@@ -236,8 +236,7 @@ export default function FromApp({
   const [isDragging, setIsDragging]   = useState(false)
   const [sidebarOpen, setSidebar]     = useState(false)
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved'>('nav')
-  const [uploadedImage, setUploaded]    = useState<string | null>(null)
-  const [uploadName, setUploadName]     = useState("")
+  const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
   const [loaded, setLoaded]             = useState(false)
   const [logoIdx, setLogoIdx] = useState(0)
   const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number } | null>(null)
@@ -271,7 +270,7 @@ export default function FromApp({
   const searchProducts: Product[] = lastProductMsg?.products || []
   const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
   const showEmpty = hasConversation && searchProducts.length === 0 && !loading
-  const canSend   = input.trim().length > 0 || !!uploadedImage
+  const canSend   = input.trim().length > 0 || uploadedImages.length > 0
   const hasName   = userName.length > 0
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
@@ -303,18 +302,26 @@ export default function FromApp({
 
   const doSearch = () => {
     if (!canSend || loading) return
-    const q = [input.trim(), uploadName].filter(Boolean).join(' '); if (!q) return
-    sendMessage(q); setUploaded(null); setUploadName('')
+    const names = uploadedImages.map(u => u.name).join(' ')
+    const q = [input.trim(), names].filter(Boolean).join(' '); if (!q) return
+    sendMessage(q); setUploaded([])
     if (fileRef.current) fileRef.current.value = ''
   }
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => setUploaded(ev.target?.result as string)
-    reader.readAsDataURL(file)
-    setUploadName(file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').toLowerCase())
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    files.slice(0, 11 - uploadedImages.length).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = ev => {
+        const url = ev.target?.result as string
+        const name = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').toLowerCase()
+        setUploaded(prev => prev.length < 11 ? [...prev, { url, name }] : prev)
+      }
+      reader.readAsDataURL(file)
+    })
+    if (fileRef.current) fileRef.current.value = ''
   }
-  const removeUpload = () => { setUploaded(null); setUploadName(''); if (fileRef.current) fileRef.current.value = '' }
+  const removeUpload = (idx: number) => setUploaded(prev => prev.filter((_, i) => i !== idx))
   const saveName = () => {
     const n = nameInput.trim()
     setUserName(n)
@@ -523,9 +530,6 @@ export default function FromApp({
         .fr-results-bar{display:flex;justify-content:space-between;align-items:center;
           padding:10px 14px 6px;font-family:'DM Sans',sans-serif;font-size:10px;color:${INK3};}
 
-        /* Upload thumb */
-        .fr-uth{width:34px;height:34px;border-radius:10px;object-fit:cover;
-          border:1px solid rgba(0,0,0,.1);flex-shrink:0;cursor:pointer;margin-bottom:1px;}
 
         @keyframes fr-bounce{0%,100%{transform:translateY(0);opacity:.2;}50%{transform:translateY(-6px);opacity:1;}}
         @keyframes spin{to{transform:rotate(360deg);}}
@@ -533,7 +537,7 @@ export default function FromApp({
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
-      <input ref={fileRef} type="file" accept="image/*,*/*" style={{ display:"none" }} onChange={handleFile} />
+      <input ref={fileRef} type="file" accept="image/*,*/*" multiple style={{ display:"none" }} onChange={handleFile} />
 
       <div className="fr-wrap">
         <div className="fr-shell">
@@ -835,11 +839,53 @@ export default function FromApp({
 
                 {/* Content — sits above overlays */}
                 <div style={{ position: 'relative', zIndex: 1 }}>
+
+                  {/* Image strip — appears above search bar when images attached */}
+                  {uploadedImages.length > 0 && (
+                    <div style={{
+                      display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 12px 0',
+                      scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+                    }}>
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
+                          <img src={img.url} alt="" style={{
+                            width: 72, height: 72, borderRadius: 10, objectFit: 'cover',
+                            display: 'block', border: '1px solid rgba(0,0,0,0.08)',
+                          }} />
+                          {/* Remove button */}
+                          <button
+                            type="button"
+                            onClick={() => removeUpload(idx)}
+                            style={{
+                              position: 'absolute', top: -6, right: -6,
+                              width: 20, height: 20, borderRadius: '50%',
+                              background: '#1E1A16', border: '1.5px solid #fff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', padding: 0,
+                            }}>
+                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                              <path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      {/* Add more button — shown when < 11 images */}
+                      {uploadedImages.length < 11 && (
+                        <div onClick={() => fileRef.current?.click()} style={{
+                          width: 72, height: 72, borderRadius: 10, flexShrink: 0,
+                          border: '1.5px dashed rgba(44,18,6,0.2)', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round">
+                            <path d="M12 5v14M5 12h14"/>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Row 1: input */}
                   <div className="fr-bar-top">
-                    {uploadedImage && (
-                      <img src={uploadedImage} className="fr-uth" alt="attached" title="Remove" onClick={removeUpload} />
-                    )}
                     <textarea ref={taRef} className="fr-ta" rows={1}
                       placeholder="What are you looking for?"
                       value={input} onChange={e => setInput(e.target.value)}
