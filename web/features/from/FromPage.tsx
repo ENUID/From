@@ -1415,25 +1415,31 @@ export default function FromApp({
           }}>
             {selectedProduct && (
               <>
-                <div ref={dragHandleRef} className="fr-drag" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerLeave={onHandleUp}>
-                  <div className="fr-drag-pill" />
-                </div>
+                {/* Drag handle — phone only; not needed on desktop (X button closes) */}
+                {!isWide && (
+                  <div ref={dragHandleRef} className="fr-drag" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerLeave={onHandleUp}>
+                    <div className="fr-drag-pill" />
+                  </div>
+                )}
+
+                {/* X close button — desktop only, floats in top-right corner of the sheet */}
+                {isWide && (
+                  <button onClick={() => setSelected(null)} aria-label="Close"
+                    style={{ position: 'absolute', top: 14, right: 14, zIndex: 20,
+                      width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                      background: 'rgba(44,18,6,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background .15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.14)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.07)')}>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                      <path d="M1 1l10 10M11 1L1 11" stroke={INK} strokeWidth="1.6" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                )}
 
                 {isWide ? (
                   /* ── Desktop / tablet: image left + details right ── */
-                  <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-                    {/* Close button — top-right corner */}
-                    <button onClick={() => setSelected(null)} aria-label="Close"
-                      style={{ position: 'absolute', top: 14, right: 14, zIndex: 10,
-                        width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                        background: 'rgba(44,18,6,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'background .15s' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.12)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.06)')}>
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path d="M1 1l10 10M11 1L1 11" stroke={INK} strokeWidth="1.6" strokeLinecap="round"/>
-                      </svg>
-                    </button>
+                  <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
                     {/* Left — full-height image, swipeable carousel */}
                     <div style={{ width: '48%', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#ede8e3' }}
