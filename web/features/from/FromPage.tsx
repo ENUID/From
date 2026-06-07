@@ -262,12 +262,15 @@ export default function FromApp({
         /* ── Header ── */
         .fr-header{display:flex;align-items:center;gap:10px;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
 
-        /* ── Body ── */
-        .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;}
-        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;}
+        /* ── Content area (body + floating bar share this space) ── */
+        .fr-content{flex:1;position:relative;overflow:hidden;}
 
-        /* ── Search bar — real flex child so it's always visible ── */
-        .fr-bar-wrap{flex-shrink:0;padding:6px clamp(12px,4vw,18px) max(10px,env(safe-area-inset-bottom));}
+        /* ── Body ── */
+        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:120px;}
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
+
+        /* ── Search bar — floats over content with blur ── */
+        .fr-bar-wrap{position:absolute;bottom:0;left:0;right:0;padding:6px clamp(12px,4vw,18px) max(10px,env(safe-area-inset-bottom));}
 
         /* ── Greeting ── */
         .fr-greet{padding:0 clamp(16px,5vw,24px) clamp(16px,4vw,24px);
@@ -309,19 +312,20 @@ export default function FromApp({
         .fr-hi:hover{background:rgba(44,18,6,.05);}
         .fr-hi.on{background:rgba(44,18,6,.07);font-weight:400;}
 
-        /* ── Search bar ── */
+        /* ── Search bar — frosted glass ── */
         .fr-bar{
           position:relative;overflow:hidden;
           display:flex;flex-direction:column;gap:10px;
           border-radius:24px;border:none;
           padding:18px 18px 10px 12px;
           will-change:transform;
-          background:#ffffff;
+          background:rgba(255,255,255,0.72);
+          backdrop-filter:blur(24px) saturate(180%);
+          -webkit-backdrop-filter:blur(24px) saturate(180%);
           box-shadow:
-            0 16px 48px rgba(44,18,6,.10),
-            0 4px 14px rgba(44,18,6,.06),
-            0 1px 3px rgba(44,18,6,.04),
-            inset 0 1.5px 0 rgba(255,255,255,.98),
+            0 8px 32px rgba(44,18,6,.10),
+            0 2px 8px rgba(44,18,6,.06),
+            inset 0 1.5px 0 rgba(255,255,255,.95),
             inset 0 -0.5px 0 rgba(44,18,6,.04);
         }
 
@@ -561,6 +565,9 @@ export default function FromApp({
             <FromLogo size={22} color={`hsl(${logoHue},85%,36%)`} />
           </div>
 
+          {/* ── Content (body + floating bar share this space) ── */}
+          <div className="fr-content">
+
           {/* ── Body ── */}
           <div className={`fr-body${hasConversation ? '' : ' home'}`}>
 
@@ -737,7 +744,8 @@ export default function FromApp({
 
               </div>
             </div>
-          </div>
+          </div>{/* end fr-bar-wrap */}
+          </div>{/* end fr-content */}
 
           {/* ── Sheet overlay ── */}
           <div className={`fr-sheet-ov ${selectedProduct ? "vis" : ""}`} onClick={() => setSelected(null)} />
