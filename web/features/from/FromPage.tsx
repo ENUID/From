@@ -66,7 +66,7 @@ function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: str
   return (
     <span style={{ fontFamily: SEASON, fontSize: size, fontWeight: 400, color,
       letterSpacing: '0.03em', lineHeight: 1, display: 'block', userSelect: 'none' }}>
-      From
+      FROM
     </span>
   )
 }
