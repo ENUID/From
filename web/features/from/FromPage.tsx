@@ -377,6 +377,7 @@ export default function FromApp({
   })
   const [logoIdx, setLogoIdx] = useState(0)
   const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number } | null>(null)
+  const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number } | null>(null)
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
@@ -416,6 +417,8 @@ export default function FromApp({
   const dragLastT     = useRef(0)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasLongPress   = useRef(false)
+  const productLongTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const productWasLong   = useRef(false)
 
 
   // Search results
@@ -706,7 +709,7 @@ export default function FromApp({
         @media(min-width:600px){.fr-grid{grid-template-columns:repeat(3,1fr);}}
         @media(min-width:820px){.fr-grid{grid-template-columns:repeat(4,1fr);}}
         @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
-        .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;}
+        .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;}
         .fr-cell:hover img{transform:scale(1.03);}
         .fr-cell{opacity:0;animation:fr-fi .35s ease forwards;}
@@ -1174,7 +1177,24 @@ export default function FromApp({
             {showExplore && !loading && searchProducts.length === 0 && (
               exploreCache.length > 0
                 ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => (
-                    <div key={p.id} className="fr-cell" onClick={() => setSelected(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
+                    <div key={p.id} className="fr-cell"
+                      role="button" tabIndex={0}
+                      onContextMenu={e => e.preventDefault()}
+                      onPointerDown={e => {
+                        productWasLong.current = false
+                        const { clientX, clientY } = e
+                        productLongTimer.current = setTimeout(() => {
+                          productWasLong.current = true
+                          const menuH = 152
+                          const y = clientY + 8 + menuH > window.innerHeight ? clientY - menuH - 4 : clientY + 8
+                          setProductCtxMenu({ product: p, x: Math.min(clientX, window.innerWidth - 200), y })
+                        }, 700)
+                      }}
+                      onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onPointerLeave={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onPointerCancel={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                      onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
                         <>
                           <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
@@ -1205,7 +1225,24 @@ export default function FromApp({
               <>
                 <div className="fr-grid">
                   {searchProducts.map(p => (
-                    <div key={p.id} className="fr-cell" onClick={() => setSelected(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
+                    <div key={p.id} className="fr-cell"
+                      role="button" tabIndex={0}
+                      onContextMenu={e => e.preventDefault()}
+                      onPointerDown={e => {
+                        productWasLong.current = false
+                        const { clientX, clientY } = e
+                        productLongTimer.current = setTimeout(() => {
+                          productWasLong.current = true
+                          const menuH = 152
+                          const y = clientY + 8 + menuH > window.innerHeight ? clientY - menuH - 4 : clientY + 8
+                          setProductCtxMenu({ product: p, x: Math.min(clientX, window.innerWidth - 200), y })
+                        }, 700)
+                      }}
+                      onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onPointerLeave={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onPointerCancel={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                      onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
                         <>
                           {/* Shimmer sits behind until image is opaque */}
@@ -1396,6 +1433,89 @@ export default function FromApp({
                     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                     <path d="M10 11v6M14 11v6"/>
                     <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Product card long-press context menu — Liquid Glass ── */}
+          {productCtxMenu && (
+            <>
+              <div onClick={() => setProductCtxMenu(null)}
+                style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
+              <div style={{
+                position: 'fixed',
+                left: productCtxMenu.x, top: productCtxMenu.y,
+                zIndex: 9001,
+                width: 190,
+                borderRadius: 12,
+                overflow: 'hidden',
+                background: 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(245,245,248,0.94) 100%)',
+                boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
+                border: '0.5px solid rgba(180,180,190,0.35)',
+                animation: 'ctxIn 0.22s cubic-bezier(0.34,1.36,0.64,1)',
+                transformOrigin: 'top left',
+              }}>
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+                  background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
+
+                {/* Ask about this */}
+                <div onClick={() => {
+                    setInput(`Tell me more about ${productCtxMenu.product.title} — `)
+                    setProductCtxMenu(null)
+                    setTimeout(() => { taRef.current?.focus(); taRef.current && (taRef.current.selectionStart = taRef.current.selectionEnd = taRef.current.value.length) }, 80)
+                  }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>Ask about this</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+
+                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
+
+                {/* Bag it / In your bag */}
+                <div onClick={() => {
+                    toggleSaved(productCtxMenu.product)
+                    setProductCtxMenu(null)
+                  }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>{savedIds.has(productCtxMenu.product.id) ? 'In your bag ✓' : 'Bag it!'}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill={savedIds.has(productCtxMenu.product.id) ? 'rgba(60,60,67,0.6)' : 'none'} stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+                  </svg>
+                </div>
+
+                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
+
+                {/* Find similar */}
+                <div onClick={() => {
+                    setProductCtxMenu(null)
+                    sendMessage(`Find products similar to ${productCtxMenu.product.title}`)
+                  }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>Find similar</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/>
                   </svg>
                 </div>
               </div>
