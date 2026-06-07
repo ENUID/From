@@ -8,10 +8,12 @@ import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
-const INK   = "#000000"
-const INK2  = "#1a1a1a"
-const INK3  = "#555555"
-const BRD   = "rgba(0,0,0,0.07)"
+const INK   = "#2C1206"   // dark chocolate
+const INK2  = "#4A2010"   // medium chocolate
+const INK3  = "#9B7060"   // warm mocha
+const BRD   = "rgba(44,18,6,0.08)"
+const BG    = "#F2EAE0"   // off-white warm cream
+const BG2   = "#EDE3D6"   // slightly deeper cream
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
@@ -233,7 +235,7 @@ export default function FromApp({
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize) : '#'
 
   return (
-    <div style={{ fontFamily: SANS, background: "#e8e8e8", minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ fontFamily: SANS, background: BG, minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
 
       {/* ── SVG filter for glass edge refraction ── */}
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -247,21 +249,21 @@ export default function FromApp({
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
-        html,body{margin:0;padding:0;background:#e8e8e8;min-height:100%;width:100%;}
+        html,body{margin:0;padding:0;background:${BG};min-height:100%;width:100%;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
         ::-webkit-scrollbar{display:none;}
 
         /* ── Outer wrapper & shell ── */
         .fr-wrap{display:flex;align-items:flex-start;justify-content:center;height:100dvh;width:100%;
-          background:linear-gradient(145deg,#e8e8e8 0%,#d8d8d8 100%);}
+          background:linear-gradient(145deg,${BG} 0%,${BG2} 100%);}
         .fr-shell{width:100%;height:100dvh;position:relative;display:flex;flex-direction:column;
           overflow:hidden;
-          background:linear-gradient(160deg,#f9f9f9 0%,#f0f0f0 55%,#f5f5f5 100%);}
+          background:linear-gradient(160deg,#FBF7F2 0%,#F5EDE2 55%,#F8F3EC 100%);}
         @media(min-width:768px){
           .fr-wrap{align-items:center;padding:32px 16px;height:auto;min-height:100dvh;}
           .fr-shell{width:min(420px,100%);height:min(870px,calc(100dvh - 64px));
             border-radius:42px;
-            box-shadow:0 50px 100px rgba(0,0,0,.22),0 2px 0 rgba(255,255,255,.9) inset,inset 0 0 0 1px rgba(0,0,0,.06);}
+            box-shadow:0 50px 100px rgba(44,18,6,.18),0 2px 0 rgba(255,248,240,.9) inset,inset 0 0 0 1px rgba(44,18,6,.06);}
         }
         @media(min-width:1200px){
           .fr-shell{width:390px;height:min(844px,calc(100dvh - 80px));border-radius:48px;}
@@ -278,7 +280,7 @@ export default function FromApp({
 
         /* ── Grid ── */
         .fr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;width:100%;flex-shrink:0;}
-        .fr-cell{aspect-ratio:1/1;position:relative;overflow:hidden;cursor:pointer;background:#e4e4e4;}
+        .fr-cell{aspect-ratio:1/1;position:relative;overflow:hidden;cursor:pointer;background:#E8DDD2;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,filter .25s;}
         .fr-cell:hover img{transform:scale(1.04);filter:brightness(.88);}
         .fr-cell .fr-save{position:absolute;top:6px;right:6px;z-index:2;background:none;border:none;
@@ -298,20 +300,20 @@ export default function FromApp({
         .fr-sb{position:absolute;top:0;left:0;bottom:0;width:min(290px,86%);z-index:200;
           transform:translateX(-100%);transition:transform .34s cubic-bezier(.32,.72,0,1);
           display:flex;flex-direction:column;
-          background:rgba(248,248,248,0.94);
+          background:rgba(251,246,239,0.96);
           backdrop-filter:blur(36px) saturate(180%);
           -webkit-backdrop-filter:blur(36px) saturate(180%);
-          border-right:0.5px solid rgba(255,255,255,0.6);
-          box-shadow:8px 0 48px rgba(0,0,0,.14),inset -0.5px 0 0 rgba(0,0,0,.06);
+          border-right:0.5px solid rgba(255,248,238,0.7);
+          box-shadow:8px 0 48px rgba(44,18,6,.12),inset -0.5px 0 0 rgba(44,18,6,.06);
           border-radius:inherit;}
         .fr-sb.open{transform:translateX(0);}
         .fr-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:199;pointer-events:none;
           transition:background .34s;border-radius:inherit;}
-        .fr-ov.open{background:rgba(0,0,0,.22);pointer-events:all;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
+        .fr-ov.open{background:rgba(44,18,6,.18);pointer-events:all;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
         .fr-hi{display:flex;align-items:center;gap:14px;padding:13px 18px;cursor:pointer;border-radius:12px;
           transition:background .12s;font-family:'DM Sans',sans-serif;font-size:14px;color:${INK};font-weight:300;}
-        .fr-hi:hover{background:rgba(0,0,0,.05);}
-        .fr-hi.on{background:rgba(0,0,0,.07);font-weight:400;}
+        .fr-hi:hover{background:rgba(44,18,6,.05);}
+        .fr-hi.on{background:rgba(44,18,6,.07);font-weight:400;}
 
         /* ── Liquid glass search bar ── */
         .fr-bar{
@@ -321,18 +323,17 @@ export default function FromApp({
           padding:18px 18px 10px 12px;
           will-change:transform;
 
-          /* Glass material */
-          background:rgba(255,255,255,0.62);
-          backdrop-filter:blur(28px) saturate(190%) brightness(1.04);
-          -webkit-backdrop-filter:blur(28px) saturate(190%) brightness(1.04);
+          /* Warm glass material */
+          background:rgba(255,248,240,0.68);
+          backdrop-filter:blur(28px) saturate(190%) brightness(1.03);
+          -webkit-backdrop-filter:blur(28px) saturate(190%) brightness(1.03);
 
-          /* Layered shadow: ambient depth + close shadow + inner top specular edge */
           box-shadow:
-            0 16px 48px rgba(0,0,0,.15),
-            0 4px 14px rgba(0,0,0,.09),
-            0 1px 3px rgba(0,0,0,.06),
-            inset 0 1.5px 0 rgba(255,255,255,.98),
-            inset 0 -0.5px 0 rgba(0,0,0,.05);
+            0 16px 48px rgba(44,18,6,.13),
+            0 4px 14px rgba(44,18,6,.08),
+            0 1px 3px rgba(44,18,6,.05),
+            inset 0 1.5px 0 rgba(255,252,248,.98),
+            inset 0 -0.5px 0 rgba(44,18,6,.05);
         }
 
         /* Textarea */
@@ -349,15 +350,15 @@ export default function FromApp({
           width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
           display:flex;align-items:center;justify-content:center;
           color:${INK2};
-          background:rgba(255,255,255,0.7);
+          background:rgba(255,248,238,0.75);
           backdrop-filter:blur(8px);
           -webkit-backdrop-filter:blur(8px);
-          box-shadow:0 2px 8px rgba(0,0,0,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -0.5px 0 rgba(0,0,0,.06);
+          box-shadow:0 2px 8px rgba(44,18,6,.10),inset 0 1px 0 rgba(255,252,248,.95),inset 0 -0.5px 0 rgba(44,18,6,.06);
           transition:background .15s,box-shadow .15s,transform .1s;
         }
         .fr-icon-btn:hover{
-          background:rgba(255,255,255,0.9);
-          box-shadow:0 3px 12px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,1),inset 0 -0.5px 0 rgba(0,0,0,.07);
+          background:rgba(255,248,238,0.95);
+          box-shadow:0 3px 12px rgba(44,18,6,.13),inset 0 1px 0 rgba(255,252,248,1),inset 0 -0.5px 0 rgba(44,18,6,.07);
           transform:translateY(-0.5px);
         }
         .fr-icon-btn:active{transform:scale(0.93);}
@@ -379,18 +380,18 @@ export default function FromApp({
         .fr-sheet{
           position:absolute;bottom:0;left:0;right:0;border-radius:24px 24px 0 0;
           display:flex;flex-direction:column;z-index:101;
-          background:rgba(250,250,250,0.88);
+          background:rgba(251,246,239,0.92);
           backdrop-filter:blur(36px) saturate(180%);
           -webkit-backdrop-filter:blur(36px) saturate(180%);
-          border-top:0.5px solid rgba(255,255,255,0.75);
+          border-top:0.5px solid rgba(255,248,238,0.8);
           box-shadow:
-            0 -1px 0 rgba(0,0,0,.06),
-            0 -24px 64px rgba(0,0,0,.14),
-            inset 0 1.5px 0 rgba(255,255,255,.95);
+            0 -1px 0 rgba(44,18,6,.06),
+            0 -24px 64px rgba(44,18,6,.12),
+            inset 0 1.5px 0 rgba(255,252,248,.95);
         }
         .fr-sheet-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:100;
           pointer-events:none;transition:background .36s;border-radius:inherit;}
-        .fr-sheet-ov.vis{background:rgba(0,0,0,.28);pointer-events:all;
+        .fr-sheet-ov.vis{background:rgba(44,18,6,.22);pointer-events:all;
           backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
         .fr-drag{padding:10px 0 6px;display:flex;justify-content:center;flex-shrink:0;
           cursor:ns-resize;touch-action:none;user-select:none;}
@@ -455,10 +456,10 @@ export default function FromApp({
               <FromLogo size={24} color={INK} />
               <div style={{
                 width: 38, height: 38, borderRadius: "50%",
-                background: "rgba(255,255,255,0.72)",
+                background: "rgba(255,248,238,0.78)",
                 backdropFilter: "blur(12px) saturate(160%)",
                 WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
-                boxShadow: "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)",
+                boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,252,248,.95)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", flexShrink: 0, userSelect: "none",
               }}>
@@ -565,15 +566,15 @@ export default function FromApp({
           <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 50, display: "flex", alignItems: "center", gap: 10 }}>
             <button onClick={() => setSidebar(true)} style={{
               width: 36, height: 36, borderRadius: "50%", border: "none",
-              background: "rgba(255,255,255,0.72)",
+              background: "rgba(255,248,238,0.78)",
               backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
-              boxShadow: "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)",
+              boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,252,248,.95)",
               display: "flex", flexDirection: "column", alignItems: "flex-start",
               justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
               transition: "box-shadow .15s, transform .1s", flexShrink: 0,
             }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,1)"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(44,18,6,.16), inset 0 1px 0 rgba(255,252,248,1)"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,252,248,.95)"; e.currentTarget.style.transform = "" }}
             >
               <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
               <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
@@ -676,7 +677,7 @@ export default function FromApp({
                   <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 8px' }}>
                     {lastProductMsg.loadingMore
                       ? <div style={{ display: "flex", gap: 4 }}>{[0,.2,.4].map((d,i) => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: INK, animation: `fr-bounce 1.2s ${d}s ease-in-out infinite` }}/>)}</div>
-                      : <button onClick={() => loadMoreProducts(lastProductMsgIndex)} style={{ fontFamily: SANS, fontSize: 10, color: INK3, background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '0.5px solid rgba(255,255,255,0.5)', borderRadius: 100, padding: '7px 20px', cursor: 'pointer', letterSpacing: '.08em', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>Load more</button>
+                      : <button onClick={() => loadMoreProducts(lastProductMsgIndex)} style={{ fontFamily: SANS, fontSize: 10, color: INK3, background: 'rgba(255,248,238,0.7)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '0.5px solid rgba(255,244,228,0.6)', borderRadius: 100, padding: '7px 20px', cursor: 'pointer', letterSpacing: '.08em', boxShadow: '0 2px 8px rgba(44,18,6,.07)' }}>Load more</button>
                     }
                   </div>
                 )}
@@ -694,12 +695,12 @@ export default function FromApp({
               <div ref={attachMenuRef} style={{
                 position: 'fixed', bottom: menuPos.bottom, left: menuPos.left,
                 zIndex: 9999, minWidth: 210,
-                background: 'rgba(210,228,255,0.82)',
+                background: 'rgba(251,244,234,0.92)',
                 backdropFilter: 'blur(28px) saturate(180%)',
                 WebkitBackdropFilter: 'blur(28px) saturate(180%)',
                 borderRadius: 18,
-                border: '0.5px solid rgba(255,255,255,0.7)',
-                boxShadow: '0 12px 40px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.9)',
+                border: '0.5px solid rgba(255,248,238,0.8)',
+                boxShadow: '0 12px 40px rgba(44,18,6,.12), inset 0 1px 0 rgba(255,252,248,.9)',
                 padding: '6px',
                 overflow: 'hidden',
               }}>
@@ -718,14 +719,14 @@ export default function FromApp({
                       fontFamily: SANS, fontSize: 14.5, color: INK, fontWeight: 400,
                       transition: 'background .1s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.35)')}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,244,232,0.5)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
                     <span style={{
                       width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                      background: 'rgba(255,255,255,0.55)',
+                      background: 'rgba(255,248,238,0.65)',
                       backdropFilter: 'blur(8px)',
-                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,.9)',
+                      boxShadow: 'inset 0 1px 0 rgba(255,252,248,.9)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       {opt.icon === 'gallery' && (
@@ -773,7 +774,7 @@ export default function FromApp({
                 {/* Mouse-tracking specular hotspot */}
                 <div style={{
                   position: 'absolute', inset: 0, borderRadius: 20, pointerEvents: 'none', zIndex: 0,
-                  background: `radial-gradient(ellipse 55% 40% at ${light.x * 100}% ${light.y * 100}%, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.18) 40%, transparent 70%)`,
+                  background: `radial-gradient(ellipse 55% 40% at ${light.x * 100}% ${light.y * 100}%, rgba(255,248,235,0.55) 0%, rgba(255,244,228,0.18) 40%, transparent 70%)`,
                   transition: 'background 80ms linear',
                 }} />
 
