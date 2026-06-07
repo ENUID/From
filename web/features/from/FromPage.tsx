@@ -650,16 +650,6 @@ export default function FromApp({
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
                           </div>
                       }
-                      <button className="fr-save" onClick={e => { e.stopPropagation(); toggleSaved(p) }}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill={savedIds.has(p.id) ? 'white' : 'none'} stroke="white" strokeWidth="2">
-                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-                        </svg>
-                      </button>
-                      <div className="fr-price">
-                        <span style={{ fontFamily: SERIF, fontSize: 11, color: "rgba(255,255,255,.92)", fontStyle: "italic" }}>
-                          {formatMoney(p.price, p.currency, p.base_currency, rates)}
-                        </span>
-                      </div>
                     </div>
                   ))}
                 </div>
