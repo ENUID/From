@@ -131,7 +131,10 @@ export default function FromApp({
   } = useFromChat(initialShopperContext, initialRates)
 
   // ── UI state ────────────────────────────────────────────────────────────────
-  const [userName, setUserName]       = useState("")
+  const [userName, setUserName]       = useState(() => {
+    if (typeof window === 'undefined') return ""
+    return localStorage.getItem('from_user_name') || ""
+  })
   const [isEditingName, setIsEditing] = useState(false)
   const [nameInput, setNameInput]     = useState("")
   const [selectedProduct, setSelected]= useState<Product | null>(null)
@@ -215,7 +218,12 @@ export default function FromApp({
     setUploadName(file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').toLowerCase())
   }
   const removeUpload = () => { setUploaded(null); setUploadName(''); if (fileRef.current) fileRef.current.value = '' }
-  const saveName = () => { setUserName(nameInput.trim()); setIsEditing(false) }
+  const saveName = () => {
+    const n = nameInput.trim()
+    setUserName(n)
+    localStorage.setItem('from_user_name', n)
+    setIsEditing(false)
+  }
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
 
   const sheetImages   = selectedProduct ? getProductImages(selectedProduct) : []
