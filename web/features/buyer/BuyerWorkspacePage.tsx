@@ -516,7 +516,7 @@ export default function FromApp({
             WebkitBackdropFilter: "blur(20px) saturate(160%)" as any,
             boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
           }}>
-            {/* Hamburger top-left — 2.5 lines (full, full, half) */}
+            {/* Hamburger top-left — 1.75 lines (full + 3/4) */}
             <button onClick={() => setSidebar(true)} style={{
               width: 36, height: 36, borderRadius: "50%", border: "none",
               background: "rgba(255,255,255,0.65)",
@@ -530,8 +530,7 @@ export default function FromApp({
               onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
             >
               <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
-              <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
-              <span style={{ display: "block", width: 9,  height: 1.5, background: INK, borderRadius: 1 }} />
+              <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
             </button>
           </div>
 
