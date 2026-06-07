@@ -1411,7 +1411,7 @@ export default function FromApp({
                       target="_blank" rel="noopener noreferrer"
                       className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
                       onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
-                      {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Go to Checkout"}
+                      {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Checkout"}
                     </a>
                   </div>
 
