@@ -2101,6 +2101,153 @@ export function brandDisplayName(p: StoreProfile): string {
   return p.name || BRAND_NAMES[p.domain] || cleanBrandToken(p.domain);
 }
 
+// ── Category taxonomy ───────────────────────────────────────────────────────────
+// Brands are tagged with flat top-level categories (top, bottom, dress, …). This
+// taxonomy expands each one into the subcategories and sub-sub item types it covers,
+// so the AI understands the full structure of what each brand can sell and can map a
+// user's request ("oxford shirt", "selvedge denim", "chelsea boots") to the right
+// brands and a clean, specific searchQuery.
+export const CATEGORY_TAXONOMY: Record<string, { label: string; subcategories: Record<string, string[]> }> = {
+  top: {
+    label: "Tops",
+    subcategories: {
+      "shirts": ["oxford shirt", "linen shirt", "flannel", "button-down", "overshirt", "camp collar shirt"],
+      "t-shirts & tees": ["crew neck tee", "v-neck tee", "graphic tee", "pocket tee", "long-sleeve tee", "ringer tee"],
+      "polos & henleys": ["polo", "henley", "rugby shirt"],
+      "blouses & tops": ["blouse", "tank top", "camisole", "crop top", "bodysuit", "tube top"],
+      "knitwear": ["sweater", "jumper", "turtleneck", "cardigan", "knit polo"],
+    },
+  },
+  bottom: {
+    label: "Bottoms",
+    subcategories: {
+      "trousers & pants": ["chinos", "dress pants", "cargo pants", "wide-leg trousers", "pleated trousers"],
+      "jeans & denim": ["slim jeans", "straight jeans", "wide jeans", "selvedge denim", "baggy jeans"],
+      "shorts": ["chino shorts", "denim shorts", "athletic shorts", "linen shorts"],
+      "skirts": ["mini skirt", "midi skirt", "maxi skirt", "pleated skirt", "denim skirt"],
+      "activewear bottoms": ["leggings", "joggers", "sweatpants", "track pants", "bike shorts"],
+    },
+  },
+  dress: {
+    label: "Dresses & One-Pieces",
+    subcategories: {
+      "dresses": ["mini dress", "midi dress", "maxi dress", "slip dress", "shirt dress", "wrap dress"],
+      "jumpsuits & rompers": ["jumpsuit", "romper", "playsuit"],
+      "ethnic & occasion": ["gown", "kurta", "saree", "lehenga", "co-ord set"],
+    },
+  },
+  outerwear: {
+    label: "Outerwear",
+    subcategories: {
+      "jackets": ["denim jacket", "bomber", "trucker jacket", "field jacket", "windbreaker", "harrington"],
+      "coats": ["overcoat", "trench coat", "wool coat", "parka", "puffer", "raincoat"],
+      "blazers & suiting": ["blazer", "sport coat", "suit", "waistcoat"],
+      "sweatshirts": ["hoodie", "crewneck sweatshirt", "zip-up", "quarter-zip"],
+      "vests": ["gilet", "puffer vest", "fleece vest"],
+    },
+  },
+  footwear: {
+    label: "Footwear",
+    subcategories: {
+      "sneakers": ["low-top", "high-top", "runners", "trainers", "court sneakers"],
+      "boots": ["chelsea boots", "chukka", "work boots", "ankle boots", "combat boots"],
+      "formal shoes": ["loafers", "derbies", "oxfords", "monk straps", "brogues"],
+      "sandals & slides": ["sandals", "slides", "espadrilles", "mules"],
+    },
+  },
+  underwear: {
+    label: "Underwear, Loungewear & Socks",
+    subcategories: {
+      "underwear": ["boxers", "briefs", "trunks", "bralette", "panties"],
+      "loungewear & sleepwear": ["pajamas", "robe", "loungewear set", "nightwear"],
+      "shapewear": ["shapewear", "bodysuit", "smoothing brief"],
+      "socks & hosiery": ["socks", "no-show socks", "tights", "stockings"],
+    },
+  },
+  accessory: {
+    label: "Accessories",
+    subcategories: {
+      "bags": ["tote", "backpack", "crossbody", "weekender", "wallet", "belt bag"],
+      "headwear": ["cap", "beanie", "bucket hat", "wide-brim hat"],
+      "small accessories": ["belt", "scarf", "gloves", "sunglasses", "tie"],
+      "jewelry": ["necklace", "bracelet", "ring", "earrings"],
+    },
+  },
+  apparel: {
+    label: "General Apparel (full range)",
+    subcategories: {
+      "mixed": ["tops", "bottoms", "outerwear", "accessories"],
+    },
+  },
+};
+
+// ── Vibe glossary ───────────────────────────────────────────────────────────────
+// Each brand carries one or more vibe tags. This explains what each tag signals so
+// the AI can match a shopper's described mood/style/use-case to the right brands.
+export const VIBE_GLOSSARY: Record<string, string> = {
+  workout: "gym & training gear — performance fabrics, gym/training sets",
+  sport: "athletic, sporty styling with a technical, performance edge",
+  seamless: "smooth second-skin basics; sculpting, bonded, no-VPL construction",
+  casual: "everyday relaxed wear that's easy to throw on and style",
+  streetwear: "urban and hype-driven — oversized fits, bold graphics, statement pieces",
+  cozy: "soft, comfortable, loungey — knits, fleece, easy comfort",
+  organic: "natural & sustainable fabrics, eco-conscious, quiet minimalist design",
+  formal: "dressy and tailored — office, occasion and elevated wear",
+  denim: "jeans-led or denim-forward collections",
+  outdoor: "rugged and utility-driven — hiking, travel and nature-ready",
+  active: "activewear & athleisure built for movement",
+  luxury: "premium, high-end, designer-grade fabrics and craftsmanship",
+};
+
+/** Human-readable catalog language(s) for a store, from its `languages` field or TLD. */
+export function storeLanguageLabel(store: StoreProfile): string {
+  const LANG_NAMES: Record<string, string> = {
+    en: "English", ja: "Japanese", it: "Italian", fr: "French",
+    gr: "Greek", el: "Greek", ru: "Russian", tr: "Turkish",
+    nl: "Dutch", de: "German", es: "Spanish", id: "Indonesian",
+  };
+  if (store.languages && store.languages.length > 0) {
+    return store.languages.map(l => LANG_NAMES[l] || l).join("/");
+  }
+  const d = store.domain.toLowerCase();
+  if (d.includes("coverchord")) return "Japanese/English";
+  if (d.endsWith(".jp")) return "Japanese/English";
+  if (d.endsWith(".gr")) return "Greek/English";
+  if (d.endsWith(".it")) return "Italian/English";
+  if (d.endsWith(".fr")) return "French/English";
+  if (d.endsWith(".ru")) return "Russian/English";
+  if (d.endsWith(".tr")) return "Turkish/English";
+  if (d.endsWith(".be")) return "Dutch/French/English";
+  if (d.endsWith(".co.id")) return "Indonesian/English";
+  return "English";
+}
+
+/** One directory line per brand: name, domain, categories, vibes and catalog language. */
+export function buildBrandDirectory(): string {
+  return UCP_REGISTRY.map(store => {
+    const name = brandDisplayName(store);
+    const cats = store.categories.join(", ");
+    const vibes = store.vibe.length > 0 ? store.vibe.join(", ") : "general";
+    const lang = storeLanguageLabel(store);
+    return `- ${name} — ${store.domain} | sells: [${cats}] | style: [${vibes}] | language: ${lang}`;
+  }).join("\n");
+}
+
+/** Human-readable category taxonomy (categories → subcategories → item types). */
+export function buildCategoryTaxonomy(): string {
+  return Object.entries(CATEGORY_TAXONOMY).map(([key, val]) => {
+    const subs = Object.entries(val.subcategories)
+      .map(([sub, items]) => `    • ${sub}: ${items.join(", ")}`)
+      .join("\n");
+    return `${val.label} [${key}]\n${subs}`;
+  }).join("\n");
+}
+
+/** Human-readable vibe glossary. */
+export function buildVibeGlossary(): string {
+  return Object.entries(VIBE_GLOSSARY).map(([k, v]) => `- ${k}: ${v}`).join("\n");
+}
+
 // Display names too generic to match on their own (real English words).
 // These brands are still reachable via category search, just not by the bare word.
 const GENERIC_BRAND_WORDS = new Set(["limited"]);

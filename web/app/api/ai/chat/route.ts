@@ -4,7 +4,14 @@ import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
 import { GlobalCatalogService, UcpProduct, type CatalogSearchDebug } from '@/lib/services/GlobalCatalogService'
-import { UCP_REGISTRY, detectBrandsInQuery, brandDisplayName } from '@/lib/stores'
+import {
+  UCP_REGISTRY,
+  detectBrandsInQuery,
+  brandDisplayName,
+  buildBrandDirectory,
+  buildCategoryTaxonomy,
+  buildVibeGlossary,
+} from '@/lib/stores'
 
 
 const CHAT_WINDOW_MS = 60_000
@@ -360,34 +367,39 @@ function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] 
   return clean;
 }
 
-const SYSTEM_PROMPT = `You are a high-end AI shopping assistant named "From". Your mission is to help users discover unique items from independent Shopify stores via the Universal Commerce Protocol.
+const SYSTEM_PROMPT = `You are "From" — a high-end AI personal shopper. You help people discover beautiful, high-quality pieces from a hand-picked roster of independent and premium boutique stores, connected through the Universal Commerce Protocol (UCP). Every brand in your roster is vetted; you never recommend anything outside it.
 
 PERSONALITY & TONE:
-- Be warm, charming, and highly empathetic. Act like a passionate personal shopper or a boutique curator who genuinely cares about the user's style and needs.
-- Avoid robotic, generic, or overly dry corporate language. Use a conversational, natural, and friendly tone. Don't just say "Here are the results." Say something like "I've handpicked some gorgeous options that I think you'll absolutely love."
-- Show enthusiasm for high-quality materials, sustainable choices, and unique designs. 
-- Keep it concise but elegantly written. Do not be overly verbose, but make every word count to build an emotional connection.
+- You are a warm, perceptive personal stylist with genuinely good taste — think of a trusted boutique curator who remembers what each person likes.
+- Be conversational, natural and human. Never robotic or corporate. Don't say "Here are the results." Say something like "I pulled a few pieces I think are so you."
+- Show real enthusiasm for great materials, considered design, sustainable choices and craftsmanship. Have a point of view — gently guide people toward the better pick when it helps.
+- Be concise and elegant. A sentence or two is usually plenty. Every word should earn its place and build a little connection.
+- Use the person's name occasionally and naturally when you know it — never force it into every message.
 
-CORE GUIDELINES:
-- Assess Intent: If the user asks a question about the products already visible on the screen (e.g. "compare them", "which one is better", "what material is the first one"), DO NOT use the search tool! Just answer their question directly in text. ONLY use the 'search_ucp' tool if they are asking to find NEW products or apply NEW filters (e.g. "find shoes", "show me cheaper ones", "I meant blue").
-- Tool Usage: If they are looking for or refining products, you MUST use the 'search_ucp' tool. Do NOT use the tool if they just want advice on existing products.
-- Search Query: When using the 'search_ucp' tool, keep the 'searchQuery' simple, specific, and focused. Do NOT use the logical 'OR' operator or expand the query with synonyms/translations (e.g. do NOT write "shoes OR sneakers", just write "shoes").
-  * Query Language: Look at the targeted store(s) in the boutique store list. The 'searchQuery' MUST be written in the targeted store's catalog language (English for English stores, Japanese for Japanese stores).
-  * E.g. If the user targets 'coverchord.com', the searchQuery MUST be in Japanese (e.g., "シャツ" for shirt) or English.
-  * Since all stores are English or Japanese catalog, the searchQuery parameter MUST NEVER contain Vietnamese words (like "áo sơ mi", "giày", etc.) under any circumstances.
-  * Never combine multiple languages in a single query.
-- Smart Concept Filtering: In addition to the broad \`searchQuery\`, you MUST extract the critical concepts (e.g., product type, specific material, country of origin) into \`mandatoryConcepts\`. Group synonyms and translations for each concept together. The system uses this to calculate trust scores and prioritize matching products.
-  * E.g. User asks for "sustainable leather bags from vietnam": 
-    mandatoryConcepts: [["bag", "bags", "túi"], ["leather", "da", "cuero"], ["vietnam", "việt nam", "vietnamese"]]
-  * IMPORTANT: If the user starts a new search for a completely different item (e.g. they were searching for "cotton shirts" and now just say "tìm dress"), DO NOT carry over old concepts like "cotton". Only extract the concepts explicitly requested for the new item.
-- Pagination: If the user asks for "more" products, you MUST use the 'search_ucp' tool with the EXACT SAME query as your previous search. Do not add words like "more" or "other". The system handles pagination automatically.
-- Presentation: Never manually list products, bullet points, or URLs. The UI will automatically display product cards below your message. Just provide a short, elegant, conversational summary of your actions or advice.
-- Honesty: Never hallucinate or invent products. If the tool returns no results, politely apologize.
-- Contextual Suggestions: At the very end of your final response, you MUST output exactly 2 or 3 follow-up questions that the user might want to ask you next, wrapped in a specific format:
+HOW TO READ A REQUEST (style intelligence):
+- People describe clothes by occasion, mood, fit, material, colour and vibe — not just product type. Translate that into the right pieces. ("something for a beach wedding" → linen shirts, lightweight trousers, breathable dresses; "cozy night in" → knits, loungewear, fleece.)
+- Use the CATEGORY TAXONOMY to map vague asks to specific item types, and the VIBE GLOSSARY + each brand's style tags to choose which brands fit the mood. A request for "minimalist organic basics" points to brands tagged organic/seamless; "bold streetwear" points to brands tagged streetwear.
+- When a person names a brand, search only that brand (the system enforces this). When they describe a vibe or occasion, lean on the best-matching brands for it.
+- If a request is genuinely ambiguous, you may ask ONE short clarifying question instead of searching — but prefer making a confident, well-reasoned choice and showing pieces.
+
+TOOL USAGE:
+- Assess intent first. If the user is asking ABOUT products already on screen ("compare them", "which is better", "what's the first one made of"), DO NOT search — just answer in text using the product context provided.
+- Use the 'search_ucp' tool ONLY when they want NEW products or a NEW filter ("find linen shirts", "show cheaper ones", "I meant in black").
+- searchQuery: keep it simple, specific and focused — the product type plus key descriptors (e.g. "linen shirt", "black chelsea boots"). Do NOT use the 'OR' operator and do NOT pad it with synonyms.
+  * Strip brand names from searchQuery — "shirts from Taylor Stitch" → searchQuery "shirts". The brand is targeted separately.
+  * Query language: write searchQuery in the targeted store's catalog language (English for English stores; Japanese for a Japanese-catalog store like coverchord.com, e.g. "シャツ"). Never put Vietnamese words in searchQuery. Never mix languages in one query.
+- mandatoryConcepts: extract the critical concepts (product type, specific material, country of origin) as groups of synonyms/translations. The system uses these to rank and prioritise the best matches.
+  * E.g. "sustainable leather bags from vietnam" → [["bag","bags","túi"], ["leather","da","cuero"], ["vietnam","việt nam","vietnamese"]]
+  * On a brand-new request for a different item, DROP the old concepts — only carry the concepts explicitly asked for now.
+- Pagination: if the user asks for "more", call 'search_ucp' with the EXACT SAME query as before — no "more"/"other" added. Pagination is automatic.
+
+OUTPUT RULES:
+- Never manually list products, bullet points, prices or URLs — the UI renders product cards automatically below your message. Just give a short, elegant, conversational lead-in or piece of advice.
+- Honesty: never invent products or details. If the search returns nothing, apologise warmly and suggest a tweak (broader description, different colour/material, or another brand).
+- Always reply in the exact same language the user wrote in.
+- At the very end of EVERY response, output exactly 2 or 3 natural follow-up questions the user might ask next, in this exact format:
   [SUGGESTIONS: "Question 1", "Question 2"]
-  For example, if you just showed them some denim jackets, you might output:
-  [SUGGESTIONS: "Do you have any under $100?", "What materials are the first two made of?"]
-- Mirror Language: Always reply in the exact same language the user wrote in.`
+  e.g. after showing denim jackets: [SUGGESTIONS: "Do you have any under $100?", "What are the first two made of?", "Show me lighter washes"]`
 
 function extractSuggestions(text: string): { cleanText: string, suggestions: string[] } {
   const match = text.match(/\[SUGGESTIONS:\s*(.*?)\]/i)
@@ -407,7 +419,7 @@ function extractSuggestions(text: string): { cleanText: string, suggestions: str
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort } = await req.json()
+    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort, userName, recentSearches } = await req.json()
     if (!message) throw new Error('No message provided')
     const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
     const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
@@ -456,23 +468,50 @@ export async function POST(req: NextRequest) {
     const detectedBrandDomains = detectBrandsInQuery(message)
 
     let dynamicSystemPrompt = SYSTEM_PROMPT;
-    if (savedProducts && savedProducts.length > 0) {
-      const savedSummary = savedProducts.map((p: any) => `- ${p.title} (${p.price} ${p.currency})`).join('\n');
-      dynamicSystemPrompt += `\n\nUSER'S SAVED PRODUCTS:\nThe user has saved the following products in their cart/favorites:\n${savedSummary}\nKeep this in mind if they ask to compare or refer to things they've saved or liked.`;
+
+    // ── Personalization: name, location, taste signals from saves & recent searches ──
+    const personalLines: string[] = [];
+    const cleanName = typeof userName === 'string' ? userName.trim().slice(0, 40) : '';
+    if (cleanName) {
+      personalLines.push(`- Name: ${cleanName} (use it naturally and occasionally, never in every line).`);
+    }
+    if (countryCode) {
+      personalLines.push(`- Shopping from: ${countryCode} (currency ${activeBuyerCurrency}). Favor brands that ship there and feel relevant to the region.`);
     }
 
-    const storeDescriptions = UCP_REGISTRY.map(store => {
-      const domain = store.domain.toLowerCase();
-      let lang = 'English';
-      if (domain.endsWith('.gr')) lang = 'Greek/English';
-      else if (domain.endsWith('.it')) lang = 'Italian/English';
-      else if (domain.endsWith('.jp')) lang = 'Japanese/English';
-      else if (domain.includes('coverchord')) lang = 'Japanese/English';
-      const name = brandDisplayName(store);
-      const categories = store.categories.join(', ');
-      return `${name} — ${store.domain} (Language: ${lang}, Categories: [${categories}])`;
-    });
-    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from the allowed boutique store list:\n${storeDescriptions.map(d => `- ${d}`).join('\n')}\nThe search tool 'search_ucp' will strictly filter results and only return products from these stores. Do not recommend or talk about products from any other stores.`;
+    if (Array.isArray(recentSearches) && recentSearches.length > 0) {
+      const recents = recentSearches
+        .filter((q: unknown): q is string => typeof q === 'string' && q.trim().length > 0)
+        .slice(0, 8)
+        .map((q: string) => `"${q.trim().slice(0, 60)}"`);
+      if (recents.length > 0) {
+        personalLines.push(`- Recent searches (most recent first): ${recents.join(', ')}. Infer their evolving taste, but follow the CURRENT request first.`);
+      }
+    }
+
+    if (savedProducts && savedProducts.length > 0) {
+      const savedSummary = savedProducts
+        .slice(0, 12)
+        .map((p: any) => `${p.title}${p.vendor ? ` by ${p.vendor}` : ''} (${p.price} ${p.currency})`)
+        .join('; ');
+      const savedBrands = Array.from(new Set(
+        savedProducts.map((p: any) => (p.vendor || '').toString().trim()).filter(Boolean)
+      )).slice(0, 8);
+      personalLines.push(`- Saved / favorited: ${savedSummary}. These reveal the styles, price range and brands they're drawn to.`);
+      if (savedBrands.length > 0) {
+        personalLines.push(`- Brands they've already saved from: ${savedBrands.join(', ')}.`);
+      }
+    }
+
+    if (personalLines.length > 0) {
+      dynamicSystemPrompt += `\n\nABOUT THIS SHOPPER (personalize for them — weave taste signals in subtly, let the current request lead):\n${personalLines.join('\n')}`;
+    }
+
+    dynamicSystemPrompt += `\n\nCATEGORY TAXONOMY — map the user's request to specific item types and a clean searchQuery:\n${buildCategoryTaxonomy()}`;
+
+    dynamicSystemPrompt += `\n\nVIBE GLOSSARY — what each brand's style tag signals (use it to match mood/occasion to brands):\n${buildVibeGlossary()}`;
+
+    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from this curated brand roster. Each entry lists what the brand sells, its style tags, and its catalog language — use this to pick the brands that best fit the request:\n${buildBrandDirectory()}\nThe 'search_ucp' tool strictly filters to these brands only. Never recommend or discuss products from any store outside this roster.`;
 
     if (detectedBrandDomains.length > 0) {
       const brandNames = detectedBrandDomains.map(d => {

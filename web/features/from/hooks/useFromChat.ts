@@ -212,6 +212,8 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
           history: buildApiHistory(history),
           savedProducts,
           buyerCurrency: shopperContext.currency,
+          userName: typeof window !== 'undefined' ? (window.localStorage.getItem('from_user_name') || undefined) : undefined,
+          recentSearches: searchHistory.slice(0, 8).map(entry => entry.query),
         }),
         signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
       })
