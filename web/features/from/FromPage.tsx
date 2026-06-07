@@ -848,7 +848,7 @@ export default function FromApp({
             }
 
 
-            {/* Loading — skeleton image grid, single unified light sweep */}
+            {/* Loading — skeleton image grid */}
             {loading && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 2, width: '100%', flexShrink: 0 }}>
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -856,15 +856,14 @@ export default function FromApp({
                     aspectRatio: '3/4',
                     position: 'relative',
                     overflow: 'hidden',
-                    // Alternate slightly different warm tones for depth
-                    background: i % 2 === 0 ? '#ede9e4' : '#e8e3dc',
+                    background: '#e8e4de',
                   }}>
-                    {/* Single wide shimmer bar — all cells same timing = one light source across grid */}
+                    {/* Shimmer: fade from base color → light → base color — no dark edges */}
                     <div style={{
                       position: 'absolute', top: 0, bottom: 0,
-                      width: '55%',
-                      background: 'linear-gradient(105deg, transparent 0%, rgba(255,251,248,0.75) 40%, rgba(255,255,255,0.90) 50%, rgba(255,251,248,0.75) 60%, transparent 100%)',
-                      animation: `sk-sweep 2.2s ${(i % 2) * 0.08}s cubic-bezier(0.4,0,0.6,1) infinite`,
+                      width: '60%',
+                      background: 'linear-gradient(90deg, #e8e4de 0%, #f0ece6 35%, #f7f4f0 50%, #f0ece6 65%, #e8e4de 100%)',
+                      animation: `sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,
                       willChange: 'transform',
                     }} />
                   </div>
