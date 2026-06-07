@@ -431,7 +431,7 @@ export default function FromApp({
         }
 
         /* ── Header ── */
-        .fr-header{display:flex;align-items:center;gap:10px;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
+        .fr-header{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
 
         /* ── Content area (body + floating bar share this space) ── */
         .fr-content{flex:1;position:relative;overflow:hidden;}
@@ -651,154 +651,170 @@ export default function FromApp({
               </div>
             </div>
 
-            {/* Nav items */}
-            <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
-              <div style={{ padding: "4px 12px 8px" }}>
+            {/* Fixed nav items — Explore / Bag / Collections */}
+            <div style={{ padding: "4px 12px 4px", flexShrink: 0 }}>
 
-                {/* Explore — personalised feed from history/saves */}
-                <div className="fr-hi" onClick={() => {
-                  setSidebarView('nav')
-                  setSidebar(false)
-                  setShowExplore(true)
-                  const terms = searchHistory.slice(0, 3).map(h => h.query)
-                  const saved = savedProducts.slice(0, 2).map(p => p.title)
-                  const hints = [...terms, ...saved].filter(Boolean)
-                  if (hints.length > 0) {
-                    sendMessage(`Show me a curated selection of products based on: ${hints.join(', ')}. Return products only.`, { skipHistory: true })
-                  }
-                  // If no hints, just show cache or "build history" message — no pointless query
-                }}>
-                  {/* Sparkle / discovery icon */}
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
-                    <path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8z"/>
-                    <path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5z"/>
-                  </svg>
-                  Explore
-                </div>
-
-                {/* Bag (saved products) */}
-                <div className={`fr-hi${sidebarView === 'saved' ? ' on' : ''}`} onClick={() => setSidebarView('saved')}>
-                  {/* Shopping bag icon */}
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <path d="M16 10a4 4 0 0 1-8 0"/>
-                  </svg>
-                  Bag
-                  {savedProducts.length > 0 && (
-                    <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
-                      {savedProducts.length}
-                    </span>
-                  )}
-                </div>
-
-                {/* Collections */}
-                <div className="fr-hi" onClick={() => setSidebar(false)}>
-                  {/* Stacked layers icon */}
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5"/>
-                    <path d="M2 12l10 5 10-5"/>
-                  </svg>
-                  Collections
-                </div>
-
+              {/* Explore — personalised feed from history/saves */}
+              <div className="fr-hi" onClick={() => {
+                setSidebarView('nav')
+                setSidebar(false)
+                setShowExplore(true)
+                const terms = searchHistory.slice(0, 3).map(h => h.query)
+                const saved = savedProducts.slice(0, 2).map(p => p.title)
+                const hints = [...terms, ...saved].filter(Boolean)
+                if (hints.length > 0) {
+                  sendMessage(`Show me a curated selection of products based on: ${hints.join(', ')}. Return products only.`, { skipHistory: true })
+                }
+              }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
+                  <path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8z"/>
+                  <path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5z"/>
+                </svg>
+                Explore
               </div>
 
-              <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 20px 10px" }} />
-
-              <div style={{ padding: "0 12px" }}>
-                {sidebarView === 'nav' ? (
-                  <>
-                    <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
-                    {searchHistory.length === 0
-                      ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
-                      : searchHistory.slice(0, 10).map(h => (
-                          <div key={h.id} className="fr-hi"
-                            style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
-                            onContextMenu={e => e.preventDefault()}
-                            onClick={() => {
-                              if (wasLongPress.current) { wasLongPress.current = false; return }
-                              sendMessage(h.query); setSidebar(false)
-                            }}
-                            onPointerDown={e => {
-                              wasLongPress.current = false
-                              const { clientX, clientY } = e
-                              longPressTimer.current = setTimeout(() => {
-                                wasLongPress.current = true
-                                const y = clientY + 8 + 160 > window.innerHeight ? clientY - 168 : clientY + 8
-                                setCtxMenu({ id: h.id, query: h.query, x: Math.min(clientX, window.innerWidth - 220), y })
-                              }, 550)
-                            }}
-                            onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                            onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                            {renameId === h.id
-                              ? <input ref={renameRef} value={renameVal}
-                                  onClick={e => e.stopPropagation()}
-                                  onChange={e => setRenameVal(e.target.value)}
-                                  onBlur={() => { if (renameVal.trim()) renameHistoryEntry(h.id, renameVal.trim()); setRenameId(null) }}
-                                  onKeyDown={e => {
-                                    e.stopPropagation()
-                                    if (e.key === 'Enter') { if (renameVal.trim()) renameHistoryEntry(h.id, renameVal.trim()); setRenameId(null) }
-                                    if (e.key === 'Escape') setRenameId(null)
-                                  }}
-                                  style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
-                                    fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
-                                    transform: 'scale(0.8125)', transformOrigin: 'left center' }}
-                                />
-                              : <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.query}</span>
-                            }
-                          </div>
-                        ))
-                    }
-                  </>
-                ) : (
-                  <>
-                    <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Bag</p>
-                    {savedProducts.length === 0
-                      ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>Nothing saved yet</p>
-                      : savedProducts.map(p => (
-                          <div key={p.id} className="fr-hi" onClick={() => { setSelected(p); setSidebar(false) }} style={{ gap: 10 }}>
-                            <div style={{ width: 34, height: 42, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: '#e8e8e8' }}>
-                              {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                              <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 2 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
-                            </div>
-                          </div>
-                        ))
-                    }
-                  </>
+              {/* Bag (saved products) */}
+              <div className={`fr-hi${sidebarView === 'saved' ? ' on' : ''}`} onClick={() => setSidebarView('saved')}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <path d="M16 10a4 4 0 0 1-8 0"/>
+                </svg>
+                Bag
+                {savedProducts.length > 0 && (
+                  <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
+                    {savedProducts.length}
+                  </span>
                 )}
               </div>
+
+              {/* Collections */}
+              <div className="fr-hi" onClick={() => setSidebar(false)}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+                Collections
+              </div>
+
             </div>
 
+            {/* Divider */}
+            <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 20px 8px", flexShrink: 0 }} />
+
+            {/* Scrollable recents / bag content */}
+            <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px" }}>
+              {sidebarView === 'nav' ? (
+                <>
+                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
+                  {searchHistory.length === 0
+                    ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
+                    : searchHistory.slice(0, 10).map(h => (
+                        <div key={h.id} className="fr-hi"
+                          style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                          onContextMenu={e => e.preventDefault()}
+                          onClick={() => {
+                            if (wasLongPress.current) { wasLongPress.current = false; return }
+                            sendMessage(h.query); setSidebar(false)
+                          }}
+                          onPointerDown={e => {
+                            wasLongPress.current = false
+                            const { clientX, clientY } = e
+                            longPressTimer.current = setTimeout(() => {
+                              wasLongPress.current = true
+                              const y = clientY + 8 + 160 > window.innerHeight ? clientY - 168 : clientY + 8
+                              setCtxMenu({ id: h.id, query: h.query, x: Math.min(clientX, window.innerWidth - 220), y })
+                            }, 550)
+                          }}
+                          onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                          onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                          {renameId === h.id
+                            ? <input ref={renameRef} value={renameVal}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => setRenameVal(e.target.value)}
+                                onBlur={() => { if (renameVal.trim()) renameHistoryEntry(h.id, renameVal.trim()); setRenameId(null) }}
+                                onKeyDown={e => {
+                                  e.stopPropagation()
+                                  if (e.key === 'Enter') { if (renameVal.trim()) renameHistoryEntry(h.id, renameVal.trim()); setRenameId(null) }
+                                  if (e.key === 'Escape') setRenameId(null)
+                                }}
+                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
+                                  fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
+                                  transform: 'scale(0.8125)', transformOrigin: 'left center' }}
+                              />
+                            : <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.query}</span>
+                          }
+                        </div>
+                      ))
+                  }
+                </>
+              ) : (
+                <>
+                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Bag</p>
+                  {savedProducts.length === 0
+                    ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>Nothing saved yet</p>
+                    : savedProducts.map(p => (
+                        <div key={p.id} className="fr-hi" onClick={() => { setSelected(p); setSidebar(false) }} style={{ gap: 10 }}>
+                          <div style={{ width: 34, height: 42, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: '#e8e8e8' }}>
+                            {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 2 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
+                          </div>
+                        </div>
+                      ))
+                  }
+                </>
+              )}
+            </div>
 
           </div>
 
           {/* ── Header ── */}
           <div className="fr-header">
-            <button onClick={() => setSidebar(true)} style={{
-              width: 36, height: 36, borderRadius: "50%", border: "none",
-              background: "#ffffff",
-              boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
-              display: "flex", flexDirection: "column", alignItems: "flex-start",
-              justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
-              transition: "box-shadow .15s, transform .1s", flexShrink: 0,
-            }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
-            >
-              <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
-              <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
-            </button>
-            <div onClick={() => { resetConversation(); setShowExplore(false) }} style={{ cursor: 'pointer' }}>
-              <FromLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
+            {/* Left: hamburger + logo */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button onClick={() => setSidebar(true)} style={{
+                width: 36, height: 36, borderRadius: "50%", border: "none",
+                background: "#ffffff",
+                boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
+                display: "flex", flexDirection: "column", alignItems: "flex-start",
+                justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
+                transition: "box-shadow .15s, transform .1s", flexShrink: 0,
+              }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
+              >
+                <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
+                <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
+              </button>
+              <div onClick={() => { resetConversation(); setShowExplore(false) }} style={{ cursor: 'pointer' }}>
+                <FromLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
+              </div>
             </div>
+            {/* Right: compose / new chat */}
+            <button
+              onClick={() => resetConversation()}
+              style={{
+                width: 36, height: 36, borderRadius: "50%", border: "none",
+                background: "#ffffff",
+                boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexShrink: 0, transition: "box-shadow .15s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
+              onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+            </button>
           </div>
 
           {/* ── Content (body + floating bar share this space) ── */}
