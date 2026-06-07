@@ -257,8 +257,32 @@ function getSizeAvailability(p: Product): Record<string, boolean> {
   }
   return map
 }
-function getCheckoutUrl(p: Product, size: string | null): string {
-  const v = size ? p.variants?.find(v => v.options.some(o => o.label === size)) : p.variants?.[0]
+// Map each colour value → whether any variant carrying it is available.
+function getColorAvailability(p: Product): Record<string, boolean> {
+  const map: Record<string, boolean> = {}
+  const colorOpt = p.options?.find(o => /colou?r/i.test(o.name))
+  if (!colorOpt) return map
+  for (const val of colorOpt.values) {
+    const v = p.variants?.find(v => v.options.some(o => o.label === val))
+    map[val] = v ? v.availability : true
+  }
+  return map
+}
+function getCheckoutUrl(p: Product, size: string | null, color: string | null): string {
+  let v = p.variants?.[0]
+  if (p.variants?.length) {
+    const wantSize  = size  && p.options?.some(o => o.name.toLowerCase().includes('size'))
+    const wantColor = color && p.options?.some(o => /colou?r/i.test(o.name))
+    if (wantSize && wantColor) {
+      v = p.variants.find(vt => vt.options.some(o => o.label === size) && vt.options.some(o => o.label === color))
+       || p.variants.find(vt => vt.options.some(o => o.label === size))
+       || p.variants[0]
+    } else if (wantSize) {
+      v = p.variants.find(vt => vt.options.some(o => o.label === size)) || p.variants[0]
+    } else if (wantColor) {
+      v = p.variants.find(vt => vt.options.some(o => o.label === color)) || p.variants[0]
+    }
+  }
   if (!v) return p.store_url
   try { const u = new URL(p.store_url); return `https://${u.hostname}/cart/${v.id.split('/').pop()}:1` }
   catch { return p.store_url }
@@ -495,7 +519,9 @@ export default function FromApp({
   const sheetSizes    = selectedProduct ? getProductSizes(selectedProduct) : []
   const sheetColors   = selectedProduct ? getProductColors(selectedProduct) : []
   const sizeAvail     = selectedProduct ? getSizeAvailability(selectedProduct) : {}
-  const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize) : '#'
+  const colorAvail    = selectedProduct ? getColorAvailability(selectedProduct) : {}
+  const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
+  const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
   const sheetStoreHost= selectedProduct ? (() => { try { return new URL(selectedProduct.store_url).hostname.replace('www.', '') } catch { return '' } })() : ''
   const similarItems  = selectedProduct
     ? (searchProducts.length ? searchProducts : exploreCache).filter(p => p.id !== selectedProduct.id).slice(0, 12)
@@ -1310,15 +1336,23 @@ export default function FromApp({
                   {sheetColors.length > 0 && (
                     <div style={{ padding: "18px 20px 0" }}>
                       <p style={{ fontFamily: SANS, fontSize: 12, marginBottom: 10, letterSpacing: ".02em" }}>
-                        <span style={{ color: INK3 }}>Colour: </span><span style={{ color: INK }}>{selectedColor || sheetColors[0]}</span>
+                        <span style={{ color: INK3 }}>Colour: </span><span style={{ color: INK }}>{effectiveColor}</span>
                       </p>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         {sheetColors.map(c => {
-                          const on = (selectedColor || sheetColors[0]) === c
+                          const on = effectiveColor === c
+                          const avail = colorAvail[c] !== false
                           return (
-                            <button key={c} onClick={() => setColor(c)}
-                              style={{ fontFamily: SANS, fontSize: 12, color: on ? INK : INK3, background: "#fff",
-                                border: `1px solid ${on ? INK : BRD}`, padding: "9px 14px", cursor: "pointer", transition: "border-color .15s" }}>
+                            <button key={c} disabled={!avail} onClick={() => avail && setColor(c)}
+                              style={{ fontFamily: SANS, fontSize: 12,
+                                color: !avail ? INK3 : on ? INK : INK3,
+                                background: "#fff",
+                                border: `1px solid ${on ? INK : BRD}`,
+                                padding: "9px 14px",
+                                cursor: avail ? "pointer" : "not-allowed",
+                                opacity: avail ? 1 : 0.38,
+                                textDecoration: avail ? "none" : "line-through",
+                                transition: "border-color .15s" }}>
                               {c}
                             </button>
                           )
