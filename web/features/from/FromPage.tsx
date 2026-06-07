@@ -283,15 +283,65 @@ function extractMaterial(p: Product): string {
   return single?.[0] || ''
 }
 
+// ── Internal Shopify tag patterns — never shown to shoppers ──────────────────
+const INTERNAL_TAG_RE = /^(akeneo|categorybatch|online.?pos|offline.?pos|price_|tt_|fb_|ig_|ggl_|_label_|all.?product|new.?arrival|build.?your|bundl|wishlist|oos_|featured_|pf_)/i
+const INTERNAL_TAG_EXACT = new Set([
+  'online-pos', 'offline-pos', 'all-products', 'new-arrivals', 'sale', 'clearance',
+  'build-your-wishlist', 'featured', 'trending', 'bundle', 'bundleable',
+  'all', 'new',
+])
+const HEX_IN_TAG   = /#[0-9a-fA-F]{3,8}/
+const TIMESTAMP_IN_TAG = /\b\d{9,10}\b/
+
+function isInternalTag(t: string): boolean {
+  if (HEX_IN_TAG.test(t)) return true
+  if (TIMESTAMP_IN_TAG.test(t)) return true
+  if (INTERNAL_TAG_RE.test(t)) return true
+  if (INTERNAL_TAG_EXACT.has(t.toLowerCase())) return true
+  // colon-value tags where value is purely numeric (akeneo_updated_at:1746219500)
+  if (/:\d+$/.test(t)) return true
+  // long hyphenated/underscored machine codes (4+ segments, 20+ chars)
+  if (/^[a-z0-9_-]+$/.test(t) && t.split(/[-_]/).length > 3 && t.length > 20) return true
+  return false
+}
+
+function humanizeTagValue(t: string): string {
+  // "key:value" format — extract the value
+  if (t.includes(':') && !t.startsWith('http')) {
+    const value = t.split(':').slice(1).join(':').trim()
+    if (!value || /^\d+$/.test(value)) return ''  // skip bare numbers
+    return value.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  }
+  // kebab-case / snake_case → Title Case
+  return t.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim()
+}
+
 function extractCareTags(p: Product): string[] {
-  return p.tags?.filter(t => CARE_KW.test(t)).map(t => t.split('=>').pop()?.trim() || t) || []
+  return (p.tags || [])
+    .filter(t => CARE_KW.test(t))
+    .map(t => {
+      const raw = t.split('=>').pop()?.trim() || t
+      return humanizeTagValue(raw)
+    })
+    .filter(Boolean)
 }
 
 function extractDetailTags(p: Product): string[] {
-  return (p.tags || []).filter(t => {
-    const lower = t.toLowerCase()
-    return t.length > 2 && t.length < 80 && !MATERIAL_KW.test(t) && !CARE_KW.test(t) && !lower.includes('=>')
-  })
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const t of (p.tags || [])) {
+    if (!t || t.length < 2 || t.length > 100) continue
+    if (MATERIAL_KW.test(t) || CARE_KW.test(t)) continue
+    if (t.includes('=>')) continue
+    if (isInternalTag(t)) continue
+    const display = humanizeTagValue(t)
+    if (!display || display.length < 2) continue
+    const key = display.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(display)
+  }
+  return result
 }
 function getProductSizes(p: Product): string[] {
   return p.options?.find(o => o.name.toLowerCase().includes('size'))?.values || []
@@ -381,6 +431,7 @@ export default function FromApp({
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
+  const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
 
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
@@ -433,6 +484,14 @@ export default function FromApp({
   // Keep refs up-to-date every render so the observer callback always sees current values
   canLoadMoreRef.current = !loading && !!lastProductMsg && !lastProductMsg.loadingMore && !lastProductMsg.hasNoMore && lastProductMsgIndex >= 0
   loadMoreRef.current = loadMoreProducts
+
+  // Fetch live exchange rates on mount — server caches for 1 h so this is cheap
+  useEffect(() => {
+    fetch('/api/rates')
+      .then(r => r.ok ? r.json() : null)
+      .then(fresh => { if (fresh && typeof fresh === 'object') setLiveRates(fresh) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
   useEffect(() => {
@@ -620,6 +679,10 @@ export default function FromApp({
   const colorAvail     = selectedProduct ? getColorAvailability(selectedProduct) : {}
   const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
+  const sizeGuideUrl  = selectedProduct ? (() => {
+    try { const u = new URL(selectedProduct.store_url); return `${u.protocol}//${u.hostname}/pages/size-guide` }
+    catch { return null }
+  })() : null
   const sheetStoreHost= selectedProduct ? (() => { try { return new URL(selectedProduct.store_url).hostname.replace('www.', '') } catch { return '' } })() : ''
   const sheetBrandName = selectedProduct ? (() => {
     // Try BRAND_NAMES lookup first (keyed by domain), then vendor, then domain fallback
@@ -1040,7 +1103,7 @@ export default function FromApp({
                           </div>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                            <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 2 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 2 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                           </div>
                         </div>
                       ))
@@ -1618,9 +1681,15 @@ export default function FromApp({
                           </button>
                         </div>
                         <p style={{ fontFamily: SANS, fontSize: 18, color: INK, fontWeight: 700, marginTop: 10 }}>
-                          {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, rates)}
+                          {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, liveRates)}
                         </p>
-                        <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Inclusive of all taxes</p>
+                        {selectedProduct.currency !== selectedProduct.base_currency ? (
+                          <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>
+                            {formatMoney(selectedProduct.price, selectedProduct.base_currency, selectedProduct.base_currency, liveRates)} · Live rate
+                          </p>
+                        ) : (
+                          <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Prices at checkout may vary</p>
+                        )}
                       </div>
 
                       {sheetColors.length > 0 && (
@@ -1655,6 +1724,15 @@ export default function FromApp({
 
                       {sheetSizes.length > 0 && (
                         <div style={{ padding: '14px 24px 0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: '.04em', textTransform: 'uppercase' }}>Size</span>
+                            {sizeGuideUrl && (
+                              <a href={sizeGuideUrl} target="_blank" rel="noopener noreferrer"
+                                style={{ fontFamily: SANS, fontSize: 11, color: INK3, textDecoration: 'underline', textUnderlineOffset: 3, letterSpacing: '.03em' }}>
+                                Size Guide
+                              </a>
+                            )}
+                          </div>
                           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
                             {sheetSizes.map((s, i) => {
                               const avail = sizeAvail[s] !== false
@@ -1700,16 +1778,34 @@ export default function FromApp({
                             )}
                           </Accordion>
                         )}
-                        {sheetSizeTable && (
+                        {/* Size Guide — embedded table from description, or link to brand's page */}
+                        {(sheetSizeTable || (!sheetSizeTable && sheetSizes.length > 0 && sizeGuideUrl)) && (
                           <Accordion label="Size Guide">
-                            <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: '.03em' }}>Measurements may vary slightly. When in doubt, size up.</p>
-                            <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
+                            {sheetSizeTable ? (
+                              <>
+                                <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: '.03em' }}>Measurements may vary slightly. When in doubt, size up.</p>
+                                <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
+                              </>
+                            ) : (
+                              <div>
+                                <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
+                                  For detailed measurements and fit guidance, see the brand's size guide.
+                                </p>
+                                <a href={sizeGuideUrl!} target="_blank" rel="noopener noreferrer"
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10,
+                                    fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK,
+                                    letterSpacing: '.04em', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                                  View Size Guide
+                                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 6h8M6 2l4 4-4 4"/></svg>
+                                </a>
+                              </div>
+                            )}
                           </Accordion>
                         )}
                         {(sheetMaterial || sheetCareTags.length > 0) && (
                           <Accordion label="Materials & Care">
                             {sheetMaterial && (
-                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
+                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, textTransform: 'capitalize', marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
                                 {sheetMaterial}
                               </p>
                             )}
@@ -1727,10 +1823,13 @@ export default function FromApp({
                         )}
                         {sheetDetailTags.length > 0 && (
                           <Accordion label="Product Details">
-                            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                              {sheetDetailTags.slice(0, 12).map((tag, i) => (
-                                <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: 'flex', alignItems: 'flex-start', gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
-                                  <div style={{ width: 3, height: 3, borderRadius: '50%', background: INK3, flexShrink: 0, marginTop: 6 }} />
+                            <ul style={{ listStyle: 'none', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {sheetDetailTags.slice(0, 16).map((tag, i) => (
+                                <li key={i} style={{
+                                  fontFamily: SANS, fontSize: 12, color: INK2, fontWeight: 300,
+                                  background: 'rgba(44,18,6,.04)', borderRadius: 20,
+                                  padding: '4px 11px', lineHeight: 1.5,
+                                }}>
                                   {tag}
                                 </li>
                               ))}
@@ -1806,9 +1905,15 @@ export default function FromApp({
                         </button>
                       </div>
                       <p style={{ fontFamily: SANS, fontSize: "clamp(15px,4vw,17px)", color: INK, fontWeight: 700, marginTop: 8 }}>
-                        {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, rates)}
+                        {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, liveRates)}
                       </p>
-                      <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Inclusive of all taxes</p>
+                      {selectedProduct.currency !== selectedProduct.base_currency ? (
+                        <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>
+                          {formatMoney(selectedProduct.price, selectedProduct.base_currency, selectedProduct.base_currency, liveRates)} · Live rate
+                        </p>
+                      ) : (
+                        <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Prices at checkout may vary</p>
+                      )}
                     </div>
 
                     {sheetColors.length > 0 && (
@@ -1854,6 +1959,15 @@ export default function FromApp({
 
                     {sheetSizes.length > 0 && (
                       <div style={{ padding: "14px 20px 0" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: ".04em", textTransform: "uppercase" }}>Size</span>
+                          {sizeGuideUrl && (
+                            <a href={sizeGuideUrl} target="_blank" rel="noopener noreferrer"
+                              style={{ fontFamily: SANS, fontSize: 11, color: INK3, textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: ".03em" }}>
+                              Size Guide
+                            </a>
+                          )}
+                        </div>
                         <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
                           {sheetSizes.map((s, i) => {
                             const avail = sizeAvail[s] !== false
@@ -1899,16 +2013,34 @@ export default function FromApp({
                           )}
                         </Accordion>
                       )}
-                      {sheetSizeTable && (
+                      {/* Size Guide — embedded table from description, or link to brand's page */}
+                      {(sheetSizeTable || (!sheetSizeTable && sheetSizes.length > 0 && sizeGuideUrl)) && (
                         <Accordion label="Size Guide">
-                          <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: ".03em" }}>Measurements may vary slightly. When in doubt, size up.</p>
-                          <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
+                          {sheetSizeTable ? (
+                            <>
+                              <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: ".03em" }}>Measurements may vary slightly. When in doubt, size up.</p>
+                              <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
+                            </>
+                          ) : (
+                            <div>
+                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
+                                For detailed measurements and fit guidance, see the brand's size guide.
+                              </p>
+                              <a href={sizeGuideUrl!} target="_blank" rel="noopener noreferrer"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10,
+                                  fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK,
+                                  letterSpacing: ".04em", textDecoration: "underline", textUnderlineOffset: 3 }}>
+                                View Size Guide
+                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 6h8M6 2l4 4-4 4"/></svg>
+                              </a>
+                            </div>
+                          )}
                         </Accordion>
                       )}
                       {(sheetMaterial || sheetCareTags.length > 0) && (
                         <Accordion label="Materials & Care">
                           {sheetMaterial && (
-                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
+                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, textTransform: "capitalize", marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
                               {sheetMaterial}
                             </p>
                           )}
@@ -1926,10 +2058,13 @@ export default function FromApp({
                       )}
                       {sheetDetailTags.length > 0 && (
                         <Accordion label="Product Details">
-                          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
-                            {sheetDetailTags.slice(0, 12).map((tag, i) => (
-                              <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
-                                <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 6 }} />
+                          <ul style={{ listStyle: "none", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {sheetDetailTags.slice(0, 16).map((tag, i) => (
+                              <li key={i} style={{
+                                fontFamily: SANS, fontSize: 12, color: INK2, fontWeight: 300,
+                                background: "rgba(44,18,6,.04)", borderRadius: 20,
+                                padding: "4px 11px", lineHeight: 1.5,
+                              }}>
                                 {tag}
                               </li>
                             ))}
@@ -1956,7 +2091,7 @@ export default function FromApp({
                                 {p.image_url && <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
                               </div>
                               <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
-                              <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK2, fontWeight: 600, marginTop: 3 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
+                              <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK2, fontWeight: 600, marginTop: 3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                             </button>
                           ))}
                         </div>
