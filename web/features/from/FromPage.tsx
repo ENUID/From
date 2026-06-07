@@ -311,8 +311,8 @@ export default function FromApp({
         .fr-bar{
           position:relative;overflow:hidden;
           display:flex;flex-direction:column;gap:10px;
-          border-radius:20px;border:none;
-          padding:14px 14px 7px 8px;
+          border-radius:24px;border:none;
+          padding:18px 18px 10px 12px;
           will-change:transform;
 
           /* Glass material */
@@ -334,8 +334,8 @@ export default function FromApp({
         .fr-bar-btm{display:flex;align-items:center;justify-content:space-between;}
         .fr-bar-right{display:flex;align-items:center;gap:8px;}
         .fr-ta{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;
-          font-size:14px;color:${INK};caret-color:${INK};resize:none;overflow:hidden;
-          min-height:22px;max-height:120px;line-height:1.55;padding:0;display:block;outline:none;width:100%;}
+          font-size:16px;color:${INK};caret-color:${INK};resize:none;overflow:hidden;
+          min-height:24px;max-height:120px;line-height:1.55;padding:0;display:block;outline:none;width:100%;}
         .fr-ta::placeholder{color:rgba(0,0,0,.28);}
 
         /* Glass icon buttons */
