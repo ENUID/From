@@ -225,7 +225,7 @@ export default function FromApp({
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize) : '#'
 
   return (
-    <div style={{ fontFamily: SANS, background: "#ffffff", minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ fontFamily: SANS, background: "#ffffff", height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
 
       {/* ── SVG filter for glass edge refraction ── */}
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -263,11 +263,11 @@ export default function FromApp({
         .fr-header{display:flex;align-items:center;gap:10px;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
 
         /* ── Body ── */
-        .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:110px;}
-        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
+        .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;}
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;}
 
-        /* ── Search bar floats over content ── */
-        .fr-bar-wrap{position:absolute;bottom:0;left:0;right:0;padding:0 clamp(12px,4vw,18px) 10px;z-index:50;}
+        /* ── Search bar — real flex child so it's always visible ── */
+        .fr-bar-wrap{flex-shrink:0;padding:6px clamp(12px,4vw,18px) max(10px,env(safe-area-inset-bottom));}
 
         /* ── Greeting ── */
         .fr-greet{padding:0 clamp(16px,5vw,24px) clamp(16px,4vw,24px);
