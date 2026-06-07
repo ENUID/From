@@ -246,14 +246,6 @@ export default function FromApp({
       </svg>
 
       <style>{`
-        @font-face {
-          font-family: 'TANMeringue';
-          src: url('/fonts/TANMeringue.woff2') format('woff2'),
-               url('/fonts/TANMeringue.ttf') format('truetype');
-          font-weight: 400;
-          font-style: normal;
-          font-display: swap;
-        }
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
         html,body{margin:0;padding:0;background:#e8e8e8;min-height:100%;width:100%;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}

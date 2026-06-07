@@ -7,6 +7,15 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* ---------- FONTS ---------- */
+@font-face {
+  font-family: 'TANMeringue';
+  src: url('/fonts/TANMeringue.woff2') format('woff2'),
+       url('/fonts/TANMeringue.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --serif: 'Cormorant Garamond', Georgia, serif;
   --mono:  'DM Mono', 'Courier New', monospace;
