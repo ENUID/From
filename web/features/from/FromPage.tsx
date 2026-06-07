@@ -792,6 +792,7 @@ export default function FromApp({
             top:50%;left:50%;
             right:auto;bottom:auto;
             width:min(600px,86vw);
+            min-height:min(72vh,680px);
             border-radius:28px;
             border:0.5px solid rgba(44,18,6,.07);
             box-shadow:
