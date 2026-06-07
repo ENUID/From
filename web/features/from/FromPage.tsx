@@ -259,9 +259,15 @@ export default function FromApp({
           .fr-shell{width:390px;height:min(844px,calc(100dvh - 80px));border-radius:48px;}
         }
 
+        /* ── Header ── */
+        .fr-header{display:flex;align-items:center;gap:10px;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
+
         /* ── Body ── */
-        .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;}
-        .fr-body.home{justify-content:flex-start;padding-top:clamp(72px,18vh,110px);}
+        .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:110px;}
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(16px,4vh,32px);}
+
+        /* ── Search bar floats over content ── */
+        .fr-bar-wrap{position:absolute;bottom:0;left:0;right:0;padding:0 clamp(12px,4vw,18px) 10px;z-index:50;}
 
         /* ── Greeting ── */
         .fr-greet{padding:0 clamp(16px,5vw,24px) clamp(16px,4vw,24px);
@@ -536,18 +542,18 @@ export default function FromApp({
 
           </div>
 
-          {/* ── Hamburger + FROM wordmark — floating overlay top-left ── */}
-          <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 50, display: "flex", alignItems: "center", gap: 10 }}>
+          {/* ── Header ── */}
+          <div className="fr-header">
             <button onClick={() => setSidebar(true)} style={{
               width: 36, height: 36, borderRadius: "50%", border: "none",
               background: "#ffffff",
-              boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
+              boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
               display: "flex", flexDirection: "column", alignItems: "flex-start",
               justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
               transition: "box-shadow .15s, transform .1s", flexShrink: 0,
             }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(44,18,6,.16), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
             >
               <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
               <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
@@ -660,8 +666,8 @@ export default function FromApp({
             <div style={{ height: 12 }} />
           </div>
 
-          {/* ── Search bar — liquid glass ── */}
-          <div style={{ padding: "6px clamp(12px,4vw,18px) 6px", flexShrink: 0 }}>
+          {/* ── Search bar — floats above content ── */}
+          <div className="fr-bar-wrap">
 
             {/* Spring-animated wrapper */}
             <div style={{ transform: `scale(${barScale})`, transformOrigin: "center bottom", willChange: "transform" }}
