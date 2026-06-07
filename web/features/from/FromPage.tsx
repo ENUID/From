@@ -483,11 +483,14 @@ export default function FromApp({
           loadMoreRef.current(lastProductMsgIndex)
         }
       },
-      { rootMargin: '800px', threshold: 0 }
+      { rootMargin: '1200px', threshold: 0 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [lastProductMsgIndex])
+    // Re-create when loadingMore flips false: the sentinel is often still inside
+    // the rootMargin after a batch loads, so the observer won't re-fire unless
+    // we create a fresh one — this chains loads with no visible gap.
+  }, [lastProductMsgIndex, lastProductMsg?.loadingMore])
 
   const onHandleDown = (e: React.PointerEvent) => {
     e.preventDefault();
