@@ -578,27 +578,42 @@ export default function FromApp({
 
             {/* Greeting — home screen only */}
             {!hasConversation && <div className={`fr-greet${loaded ? ' in' : ''}`}>
-              <div style={{ fontFamily: SERIF, fontSize: "clamp(48px,13vw,72px)", lineHeight: 1.08, letterSpacing: "-.02em", marginBottom: 10 }}>
-                <span style={{ fontWeight: 300, color: INK }}>Hello, </span>
-                {isEditingName ? (
-                  <input ref={nameRef} value={nameInput}
-                    onChange={e => setNameInput(e.target.value)}
-                    onBlur={saveName}
-                    onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameInput(''); setIsEditing(false) } }}
-                    maxLength={22} placeholder="your name"
-                    style={{ fontFamily: SERIF, fontSize: "clamp(48px,13vw,72px)", fontWeight: 400, fontStyle: "italic", color: INK, background: "transparent", border: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, width: "clamp(180px,60vw,320px)", letterSpacing: "-.02em", outline: "none" }}
-                  />
-                ) : (
-                  <span onClick={() => { setNameInput(userName); setIsEditing(true) }}
-                    style={{ fontFamily: SERIF, fontWeight: 400, fontStyle: "italic", cursor: "pointer", color: hasName ? INK : INK3, borderBottom: `1px dashed ${hasName ? INK : 'rgba(0,0,0,.3)'}`, paddingBottom: 1 }}>
-                    {hasName ? userName : "your name"}
-                  </span>
-                )}
-              </div>
+              {(() => {
+                const greetName = isEditingName ? (nameInput || "your name") : (hasName ? userName : "your name")
+                const totalChars = 7 + greetName.length
+                const px = Math.min(72, Math.max(26, Math.floor(290 / (totalChars * 0.48))))
+                return (
+                <div style={{ fontFamily: SERIF, fontSize: px, lineHeight: 1.08, letterSpacing: "-.02em", marginBottom: 10, whiteSpace: "nowrap" }}>
+                  <span style={{ fontWeight: 300, color: INK }}>Hello, </span>
+                  {isEditingName ? (
+                    <input ref={nameRef} value={nameInput}
+                      onChange={e => setNameInput(e.target.value)}
+                      onBlur={saveName}
+                      onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameInput(''); setIsEditing(false) } }}
+                      maxLength={22} placeholder="your name"
+                      style={{ fontFamily: SERIF, fontSize: px, fontWeight: 400, fontStyle: "italic", color: INK,
+                        background: "transparent", border: "none",
+                        borderBottom: `1.5px dashed ${INK}`,
+                        paddingBottom: 1, letterSpacing: "-.02em", outline: "none",
+                        width: `${Math.max(4, (nameInput.length || 9)) * 0.52}em` }}
+                    />
+                  ) : (
+                    <span onClick={() => { setNameInput(userName); setIsEditing(true) }}
+                      style={{ fontFamily: SERIF, fontWeight: 400, fontStyle: "italic", cursor: "pointer",
+                        color: hasName ? INK : INK3,
+                        borderBottom: `1.5px dashed ${hasName ? INK : 'rgba(0,0,0,.3)'}`,
+                        paddingBottom: 1 }}>
+                      {hasName ? userName : "your name"}
+                    </span>
+                  )}
+                </div>
+                )
+              })()}
               <p style={{ fontFamily: SANS, fontSize: "clamp(9px,2.2vw,11px)", letterSpacing: ".22em", textTransform: "uppercase", color: INK3, opacity: .45 }}>
                 Shop at the speed of thought
               </p>
-            </div>}
+            </div>
+            }
 
             {/* Results header */}
             {hasConversation && (
