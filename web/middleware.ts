@@ -1,25 +1,25 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import {
-  BUYER_COUNTRY_COOKIE,
-  BUYER_CURRENCY_COOKIE,
-  resolveBuyerContext,
-} from '@/lib/buyerContext'
+  SHOPPER_COUNTRY_COOKIE,
+  SHOPPER_CURRENCY_COOKIE,
+  resolveShopperContext,
+} from '@/lib/shopperContext'
 
-function withBuyerContext(request: NextRequest, response: NextResponse) {
-  const context = resolveBuyerContext({
+function withShopperContext(request: NextRequest, response: NextResponse) {
+  const context = resolveShopperContext({
     countryHeader: request.headers.get('x-vercel-ip-country'),
     acceptLanguage: request.headers.get('accept-language'),
-    cookieCountry: request.cookies.get(BUYER_COUNTRY_COOKIE)?.value,
-    cookieCurrency: request.cookies.get(BUYER_CURRENCY_COOKIE)?.value,
+    cookieCountry: request.cookies.get(SHOPPER_COUNTRY_COOKIE)?.value,
+    cookieCurrency: request.cookies.get(SHOPPER_CURRENCY_COOKIE)?.value,
   })
 
-  response.cookies.set(BUYER_COUNTRY_COOKIE, context.country, {
+  response.cookies.set(SHOPPER_COUNTRY_COOKIE, context.country, {
     path: '/',
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 30,
   })
-  response.cookies.set(BUYER_CURRENCY_COOKIE, context.currency, {
+  response.cookies.set(SHOPPER_CURRENCY_COOKIE, context.currency, {
     path: '/',
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 30,
@@ -40,7 +40,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  return withBuyerContext(request, NextResponse.next())
+  return withShopperContext(request, NextResponse.next())
 }
 
 export const config = {

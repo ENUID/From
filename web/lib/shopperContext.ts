@@ -1,7 +1,7 @@
-export const BUYER_COUNTRY_COOKIE = 'fo_buyer_country'
-export const BUYER_CURRENCY_COOKIE = 'fo_buyer_currency'
+export const SHOPPER_COUNTRY_COOKIE = 'fo_buyer_country'
+export const SHOPPER_CURRENCY_COOKIE = 'fo_buyer_currency'
 
-export type BuyerContext = {
+export type ShopperContext = {
   country: string
   currency: string
   source: 'geo' | 'locale' | 'cookie' | 'default'
@@ -21,7 +21,7 @@ function normalizeCode(value?: string | null) {
 export function currencyForCountry(country?: string | null) {
   const normalizedCountry = normalizeCode(country);
   if (!normalizedCountry) return 'USD';
-  
+
   try {
     const currency = (getCurrency as Record<string, string>)[normalizedCountry];
     return currency || 'USD';
@@ -41,12 +41,12 @@ export function countryFromAcceptLanguage(headerValue?: string | null) {
   return normalizeCode(regionMatch?.[1])
 }
 
-export function resolveBuyerContext(input: {
+export function resolveShopperContext(input: {
   countryHeader?: string | null
   acceptLanguage?: string | null
   cookieCountry?: string | null
   cookieCurrency?: string | null
-}): BuyerContext {
+}): ShopperContext {
   const headerCountry = normalizeCode(input.countryHeader)
   if (headerCountry) {
     return {

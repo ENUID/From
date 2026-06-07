@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { Product } from '@/components/ProductCard'
-import type { BuyerContext } from '@/lib/buyerContext'
+import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 
 export interface Message {
@@ -71,14 +71,14 @@ function buildApiHistory(history: ConversationTurn[]) {
   }))
 }
 
-export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates: ExchangeRates) {
+export function useFromChat(initialShopperContext: ShopperContext, initialRates: ExchangeRates) {
   const { data: session } = useSession()
   const userEmail = session?.user?.email ?? undefined
 
-  const convexSavedProducts = useQuery(api.buyer.getSavedProducts, userEmail ? { userEmail } : "skip")
-  const convexSearchHistory = useQuery(api.buyer.getSearchHistory, userEmail ? { userEmail } : "skip")
-  const toggleConvexSaved = useMutation(api.buyer.toggleSavedProduct)
-  const saveConvexHistory = useMutation(api.buyer.saveSearchHistory)
+  const convexSavedProducts = useQuery(api.shop.getSavedProducts, userEmail ? { userEmail } : "skip")
+  const convexSearchHistory = useQuery(api.shop.getSearchHistory, userEmail ? { userEmail } : "skip")
+  const toggleConvexSaved = useMutation(api.shop.toggleSavedProduct)
+  const saveConvexHistory = useMutation(api.shop.saveSearchHistory)
 
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [history, setHistory] = useState<ConversationTurn[]>([])
@@ -90,9 +90,9 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
   const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
-  const [buyerContext] = useState(initialBuyerContext)
+  const [shopperContext] = useState(initialShopperContext)
   const [rates] = useState(initialRates)
-  
+
   const hasConversation = messages.some(message => message.role === 'user')
 
   useEffect(() => {
@@ -108,20 +108,20 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
       const historyRaw = window.localStorage.getItem(HISTORY_KEY)
       if (savedRaw) {
         const saved = JSON.parse(savedRaw) as Product[]
-        setSavedProducts(normalizeProductsForCurrency(saved, buyerContext.currency))
+        setSavedProducts(normalizeProductsForCurrency(saved, shopperContext.currency))
       }
       if (historyRaw) setSearchHistory(JSON.parse(historyRaw) as SearchHistoryEntry[])
     } catch {
       window.localStorage.removeItem(SAVED_KEY)
       window.localStorage.removeItem(HISTORY_KEY)
     }
-  }, [buyerContext.currency])
+  }, [shopperContext.currency])
 
   useEffect(() => {
     if (convexSavedProducts) {
-      setSavedProducts(normalizeProductsForCurrency(convexSavedProducts, buyerContext.currency))
+      setSavedProducts(normalizeProductsForCurrency(convexSavedProducts, shopperContext.currency))
     }
-  }, [convexSavedProducts, buyerContext.currency])
+  }, [convexSavedProducts, shopperContext.currency])
 
   useEffect(() => {
     if (convexSearchHistory) {
@@ -170,7 +170,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
       toggleConvexSaved({ userEmail, product })
     }
     setSavedProducts(previous => {
-      const normalizedProduct = normalizeProductForCurrency(product, buyerContext.currency)
+      const normalizedProduct = normalizeProductForCurrency(product, shopperContext.currency)
       const exists = previous.some(item => item.id === product.id)
       if (exists) {
         return previous.filter(item => item.id !== product.id)
@@ -203,7 +203,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           message: messageText,
           history: buildApiHistory(history),
           savedProducts,
-          buyerCurrency: buyerContext.currency,
+          buyerCurrency: shopperContext.currency,
         }),
         signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
       })
@@ -211,7 +211,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
       if (!res.ok) throw new Error(data.error ?? 'Request failed')
 
       let products = Array.isArray(data.products)
-        ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
+        ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
         : []
 
       rememberSearch(messageText, products.length)
@@ -277,7 +277,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
           searchQuery: msg.searchQuery,
           budgetMax: msg.budgetMax,
           budgetCurrency: msg.budgetCurrency,
-          buyerCurrency: buyerContext.currency,
+          buyerCurrency: shopperContext.currency,
           isClothing: msg.isClothing,
           sort: msg.sort,
           history: buildApiHistory(history),
@@ -289,7 +289,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
       if (!res.ok) throw new Error(data.error ?? 'Request failed')
 
       let newProducts = Array.isArray(data.products)
-        ? normalizeProductsForCurrency(data.products as Product[], buyerContext.currency)
+        ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
         : []
 
       setMessages(prev => prev.map((m, idx) => {
@@ -339,7 +339,7 @@ export function useChatWorkspace(initialBuyerContext: BuyerContext, initialRates
     isSidebarOpen,
     setIsSidebarOpen,
     isMobile,
-    buyerContext,
+    shopperContext,
     rates,
     hasConversation,
     savedIds,

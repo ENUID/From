@@ -1,28 +1,28 @@
 import { cookies, headers } from 'next/headers'
-import BuyerWorkspacePage from '@/features/buyer/BuyerWorkspacePage'
+import FromPage from '@/features/from/FromPage'
 import {
-  BUYER_COUNTRY_COOKIE,
-  BUYER_CURRENCY_COOKIE,
-  resolveBuyerContext,
-} from '@/lib/buyerContext'
+  SHOPPER_COUNTRY_COOKIE,
+  SHOPPER_CURRENCY_COOKIE,
+  resolveShopperContext,
+} from '@/lib/shopperContext'
 import { getExchangeRates } from '@/lib/exchangeRates'
 
 export default async function Page() {
   const headerStore = await headers()
   const cookieStore = await cookies()
 
-  const buyerContext = resolveBuyerContext({
+  const shopperContext = resolveShopperContext({
     countryHeader: headerStore.get('x-vercel-ip-country'),
     acceptLanguage: headerStore.get('accept-language'),
-    cookieCountry: cookieStore.get(BUYER_COUNTRY_COOKIE)?.value,
-    cookieCurrency: cookieStore.get(BUYER_CURRENCY_COOKIE)?.value,
+    cookieCountry: cookieStore.get(SHOPPER_COUNTRY_COOKIE)?.value,
+    cookieCurrency: cookieStore.get(SHOPPER_CURRENCY_COOKIE)?.value,
   })
 
   const rates = await getExchangeRates()
 
   return (
-    <BuyerWorkspacePage 
-      initialBuyerContext={buyerContext} 
+    <FromPage
+      initialShopperContext={shopperContext}
       initialRates={rates}
     />
   )

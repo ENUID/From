@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useChatWorkspace } from './hooks/useChatWorkspace'
+import { useFromChat } from './hooks/useFromChat'
 import { formatMoney } from '@/lib/currency'
-import type { BuyerContext } from '@/lib/buyerContext'
+import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 
@@ -118,14 +118,14 @@ function getCheckoutUrl(p: Product, size: string | null): string {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FromApp({
-  initialBuyerContext, initialRates,
-}: { initialBuyerContext: BuyerContext; initialRates: ExchangeRates }) {
+  initialShopperContext, initialRates,
+}: { initialShopperContext: ShopperContext; initialRates: ExchangeRates }) {
 
   const {
     messages, input, setInput, loading, hasConversation,
-    savedIds, savedProducts, searchHistory, buyerContext, rates,
+    savedIds, savedProducts, searchHistory, shopperContext, rates,
     sendMessage, toggleSaved, resetConversation, loadMoreProducts,
-  } = useChatWorkspace(initialBuyerContext, initialRates)
+  } = useFromChat(initialShopperContext, initialRates)
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState("")
@@ -555,7 +555,7 @@ export default function FromApp({
                 New chat
               </button>
               <p style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: ".06em", textAlign: "center", marginTop: 10, opacity: .4 }}>
-                {buyerContext.country} · {buyerContext.currency}
+                {shopperContext.country} · {shopperContext.currency}
               </p>
             </div>
 
