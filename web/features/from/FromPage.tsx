@@ -602,53 +602,49 @@ export default function FromApp({
           {/* ── Sidebar ── */}
           <div className={`fr-sb ${sidebarOpen ? "open" : ""}`}>
 
-            {/* Header: From logo + profile avatar + New chat */}
+            {/* Header: From logo + avatar */}
             <div style={{
               padding: "clamp(22px,5vw,30px) 20px 14px",
               display: "flex", alignItems: "center", justifyContent: "space-between",
               flexShrink: 0,
             }}>
               <FromLogo size={24} color={SHUFFLED_PALETTE[logoIdx]} />
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-
-                {/* New chat icon — compose/pencil-square */}
-                <button
-                  onClick={() => { resetConversation(); setSidebarView('nav'); setSidebar(false) }}
-                  style={{
-                    width: 36, height: 36, borderRadius: "50%", border: "none",
-                    background: "#ffffff",
-                    boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", flexShrink: 0, transition: "box-shadow .15s",
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
-                  onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 20h9"/>
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              <div style={{
+                width: 38, height: 38, borderRadius: "50%",
+                background: "#ffffff",
+                boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexShrink: 0, userSelect: "none",
+              }}>
+                {hasName ? (
+                  <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK }}>
+                    {userName.charAt(0).toUpperCase()}
+                  </span>
+                ) : (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.7" strokeLinecap="round">
+                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                   </svg>
-                </button>
-
-                {/* Avatar */}
-                <div style={{
-                  width: 36, height: 36, borderRadius: "50%",
-                  background: "#ffffff",
-                  boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", flexShrink: 0, userSelect: "none",
-                }}>
-                  {hasName ? (
-                    <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK }}>
-                      {userName.charAt(0).toUpperCase()}
-                    </span>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.7" strokeLinecap="round">
-                      <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                    </svg>
-                  )}
-                </div>
+                )}
               </div>
+            </div>
+
+            {/* New chat button */}
+            <div style={{ padding: "0 20px 14px", flexShrink: 0 }}>
+              <button
+                onClick={() => { resetConversation(); setSidebarView('nav'); setSidebar(false) }}
+                style={{
+                  width: "100%", padding: "11px 16px", borderRadius: 12,
+                  background: INK, border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                  fontFamily: SANS, fontSize: 13, fontWeight: 400, color: "#fff",
+                  letterSpacing: ".01em", transition: "opacity .15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = ".8")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                New chat
+              </button>
             </div>
 
             {/* Fixed nav items — Explore / Bag / Collections */}
