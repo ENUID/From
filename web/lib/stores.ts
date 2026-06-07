@@ -1,5 +1,7 @@
 export type StoreProfile = {
   domain: string;
+  /** Human display name of the brand, used for brand-specific search detection. */
+  name?: string;
   categories: string[];
   vibe: string[];
   languages?: string[];
@@ -1697,5 +1699,448 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": []
+  },
+  {
+    "domain": "sofiedhoore.be",
+    "name": "Sofie D'Hoore",
+    "categories": ["top", "bottom", "dress", "outerwear", "accessory"],
+    "vibe": ["luxury", "organic"]
+  },
+  {
+    "domain": "bysera.zid.store",
+    "name": "SERA",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["luxury"]
+  },
+  {
+    "domain": "aritzia.com",
+    "name": "Aritzia",
+    "categories": ["top", "bottom", "dress", "outerwear", "accessory"],
+    "vibe": ["casual", "formal"]
+  },
+  {
+    "domain": "slowsteadyclub.com",
+    "name": "SlowSteadyClub",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["streetwear"]
+  },
+  {
+    "domain": "bohemegoods.com",
+    "name": "BOHEME",
+    "categories": ["top", "bottom", "dress", "accessory"],
+    "vibe": ["organic", "casual"]
+  },
+  {
+    "domain": "turnblack.in",
+    "name": "Turn Black",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear"]
+  },
+  {
+    "domain": "jucca.it",
+    "name": "Jucca",
+    "categories": ["top", "bottom", "dress", "outerwear"],
+    "vibe": ["casual"]
+  },
+  {
+    "domain": "camper.com",
+    "name": "Camper",
+    "categories": ["footwear", "accessory"],
+    "vibe": ["casual"]
+  },
+  {
+    "domain": "menspoem.in",
+    "name": "Men's Poem",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["formal", "casual"]
+  },
+  {
+    "domain": "atpco.it",
+    "name": "AT.P.CO",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "formal"]
+  },
+  {
+    "domain": "marksandspencer.in",
+    "name": "Marks & Spencer",
+    "categories": ["top", "bottom", "dress", "outerwear", "underwear", "accessory"],
+    "vibe": ["casual", "formal"]
+  },
+  {
+    "domain": "offonclothing.com",
+    "name": "Offon",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["casual"]
+  },
+  {
+    "domain": "thatie.ru",
+    "name": "Thatie",
+    "categories": ["top", "dress"],
+    "vibe": ["casual"]
+  },
+  {
+    "domain": "pertestore.ru",
+    "name": "Perte",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear"]
+  },
+  {
+    "domain": "sensclothing.com",
+    "name": "Sens",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["organic", "casual"]
+  },
+  {
+    "domain": "herbyh.design",
+    "name": "Her by H",
+    "categories": ["top", "dress"],
+    "vibe": ["cozy"]
+  },
+  {
+    "domain": "ekke.co",
+    "name": "Ekke",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["casual"]
+  },
+  {
+    "domain": "amoslook.com",
+    "name": "Amos Look",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual"]
+  },
+  {
+    "domain": "studiodoe.cc",
+    "name": "Studio Doe",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["organic"]
+  },
+  {
+    "domain": "noconcept.ru",
+    "name": "No Concept",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear"]
+  },
+  {
+    "domain": "mimpikita.com.my",
+    "name": "Kita&Co",
+    "categories": ["top", "dress"],
+    "vibe": ["luxury"]
+  },
+  {
+    "domain": "jhoola.com.tr",
+    "name": "Jhoola",
+    "categories": ["top", "dress"],
+    "vibe": ["organic"]
+  },
+  {
+    "domain": "dirtymanners.com",
+    "name": "Dirty Manners",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear"]
+  },
+  {
+    "domain": "towards.website",
+    "name": "Toward(s)",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear"]
+  },
+  {
+    "domain": "blueowl.us",
+    "name": "Blue Owl",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["denim"]
+  },
+  {
+    "domain": "morrisonshop.com",
+    "name": "Morrison",
+    "categories": ["top", "bottom", "dress", "outerwear"],
+    "vibe": ["casual"]
+  },
+  {
+    "domain": "payalkhandwala.com",
+    "name": "Payal Khandwala",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["luxury"]
+  },
+  {
+    "domain": "dashanddot.com",
+    "name": "Dast & Dot",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["casual"]
+  },
+  {
+    "domain": "azaadclo.com",
+    "name": "Azaad",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear"]
+  },
+  {
+    "domain": "ourlegacy.com",
+    "name": "Our Legacy",
+    "categories": ["top", "bottom", "outerwear", "footwear", "accessory"],
+    "vibe": ["streetwear", "luxury"]
+  },
+  {
+    "domain": "harah.in",
+    "name": "Harah",
+    "categories": ["top", "dress"],
+    "vibe": ["organic"]
+  },
+  {
+    "domain": "houseofmasaba.com",
+    "name": "House of Masaba",
+    "categories": ["top", "bottom", "dress", "accessory"],
+    "vibe": ["luxury"]
   }
 ];
+
+// ── Brand directory ───────────────────────────────────────────────────────────
+// Display name for every registry domain. New entries already carry an inline
+// `name`; this map backfills the human-facing name for the rest. It powers
+// brand-specific search ("show me shirts from Allbirds") and the "From {brand}"
+// label, and is the single place to keep brand names in sync with the registry.
+export const BRAND_NAMES: Record<string, string> = {
+  "gymsharkusa.myshopify.com": "Gymshark",
+  "skimsbody.myshopify.com": "SKIMS",
+  "aloyoga.com": "Alo Yoga",
+  "kith.com": "Kith",
+  "fashionnova.com": "Fashion Nova",
+  "allbirds.com": "Allbirds",
+  "taylorstitch.com": "Taylor Stitch",
+  "marinelayer.com": "Marine Layer",
+  "bombas.myshopify.com": "Bombas",
+  "chubbies.myshopify.com": "Chubbies",
+  "goodamerican.com": "Good American",
+  "faherty.myshopify.com": "Faherty Brand",
+  "pangaia.com": "Pangaia",
+  "spanx-com.myshopify.com": "Spanx",
+  "outdoorvoices.com": "Outdoor Voices",
+  "toa.st": "Toast",
+  "backalleybodega.com": "Back Alley Bodega",
+  "dissh.com.au": "DISSH",
+  "porterjames.com": "Porter James",
+  "caseycasey.eu": "Casey Casey",
+  "luroq.com": "Luroq London",
+  "luso.com.pk": "LUSO",
+  "effelements.in": "Eff",
+  "favrics.com": "FAVRICS",
+  "fromherman.com": "Herman",
+  "loomforma.com": "LoomForma",
+  "pegador.com": "Pegador",
+  "commas.cc": "Commas",
+  "finaldraftclo.com": "Final Draft",
+  "wearneutralground.com": "Neutral Ground",
+  "sweatscollective.com": "SWEATS",
+  "gentag.store": "gentag",
+  "antifragilecompany.in": "AntiFragile",
+  "itsashirt.gr": "It's A Shirt",
+  "circolo1901.it": "Circolo 1901",
+  "limited-clothing.co.uk": "Limited",
+  "laurenmanoogian.com": "Lauren Manoogian",
+  "borderlineofficial.com": "Borderline",
+  "stosi.in": "Stosi",
+  "studiopeterjohn.com": "Peter John",
+  "lacorsia.co": "La Corsia",
+  "commonleisureweb.com": "Common Leisure",
+  "ladywhiteco.com": "Lady White",
+  "slvrlake.myshopify.com": "SLVRLAKE",
+  "studionicholson.com": "Studio Nicholson",
+  "haruhar.com": "Haru Har",
+  "coverchord.com": "Coverchord",
+  "lionessfashion.com": "Lioness Fashion",
+  "and-daughter.com": "&Daughter",
+  "vahro.in": "Vahro",
+  "desiminimals.com": "Desi Minimals",
+  "lovepangolin.com": "Love Pangolin",
+  "chapter2drip.com": "Chapter 2",
+  "friendswithfrank.com": "Friends with Frank",
+  "shop-crowd.com": "CROWD",
+  "assemblylabel.com": "Assembly Label",
+  "solacetheory.com": "Solace Theory",
+  "hemblanks.com": "HemBlanks",
+  "yurofficial.com": "YUR",
+  "theruesociety.com": "The Rue Society",
+  "malverra.com": "Malverra",
+  "myfriendjoni.com": "myfriendjoni",
+  "kartikresearch.com": "Kartik Research",
+  "ceucle.com": "Ceucle",
+  "pariya.in": "Pariya",
+  "aimeleondore.com": "Aime Leon Dore",
+  "hommeyusa.myshopify.com": "Hommey",
+  "primulaveri.com": "Primulaveri",
+  "elkacollective.com": "Elka Collective",
+  "selectedhomme.in": "Selected India",
+  "rarabarefoot.in": "Rara Bare Foot",
+  "maisonx.in": "Maison X",
+  "elvntee.in": "Elvn Tee",
+  "wearbrun.com": "Brun",
+  "wearloqo.com": "Loqo",
+  "theminimalcloset.in": "The Minimal Closet",
+  "sleepscientist.in": "Sleep Scientist",
+  "urbanmonkey.com": "Urban Monkey",
+  "wearcomet.com": "Comet",
+  "milkandwhisky.in": "Milk&Whisky",
+  "pepeinner.com": "Innerwear by Pepe",
+  "monkstory.com": "Monk Story",
+  "stooky.in": "Stooky",
+  "senso.myshopify.com": "Senso",
+  "tezzo.in": "Tezzo",
+  "andreanthony.co.id": "Andre Anthony",
+  "shopdozo.com": "Dozo",
+  "thekiots.com": "Kiots",
+  "urbansocks.in": "Urban Socks",
+  "hzyclo.com": "Hzy",
+  "lamastore.in": "Lama Store",
+  "xyxxcrew.com": "XYXX Crew",
+  "biancajeswant.com": "Bianca Jeswant",
+  "saphed.com": "Saphed",
+  "theater.xyz": "Theater",
+  "asos.myshopify.com": "Asos",
+  "biasedblack.com": "Biased Black",
+  "thebearhouse.com": "The Bear House",
+  "kairo.store": "Kairo Store",
+  "harlanholden.ph": "Harlan Holden",
+  "kaicollections.com": "Kai Collections",
+  "musclemind.com": "Muscle Mind",
+  "ballerathletik.com": "Baller Athletik",
+  "jeffs.myshopify.com": "Jeff's",
+  "moderaegy.myshopify.com": "Modera",
+  "ludic.life": "Ludic",
+  "doodledept.com": "Doodle Dept",
+  "thestylevault.ae": "The Style Vault",
+  "classymastour.fr": "Classy Mastour",
+  "theforbiddenfruit.in": "The Forbidden Fruit",
+  "koa.com.pk": "Koa",
+  "botnia.in": "Botnia",
+  "orr.store": "Orr",
+  "oldlinenmill.com": "Old Linen Mill",
+  "asslcollectionparis.com": "Assl Collection Paris",
+  "shopnirvanaa.com": "Nirvanaa",
+  "bamboovogue.in": "Bamboo Vogue",
+  "mugasa.co.in": "Mugasa",
+  "lunaco.in": "Lunaco",
+  "daxuen.com": "Daxuen",
+  "wtflex.in": "What The Flex",
+  "surmaye.com": "Surmaye",
+  "thedeer.in": "The Deer",
+  "themusk.in": "The Musk India",
+  "oziss.in": "Oziss",
+  "whipped.store": "Whipped",
+  "gangafashions.com": "Ganga",
+  "dushaamai.com": "Dusha Amai",
+  "lininworld.com": "Linin",
+  "themisnomer.com": "The Misnomer",
+  "vanshitaaz.in": "Vanshitaaz",
+  "sergebasics.com": "Serge",
+  "bayek.fr": "Bayek",
+  "coteleparis.com": "Cotele Paris",
+  "mariniclothing.com": "Marini",
+  "almostgods.com": "Almost Gods",
+  "11-11.in": "11.11",
+  "shopunrush.com": "Unrush",
+  "kissagoi.com": "Kissa Goi",
+  "ikaibyraginiahuja.com": "Ikai",
+  "sofiedhoore.be": "Sofie D'Hoore",
+  "bysera.zid.store": "SERA",
+  "aritzia.com": "Aritzia",
+  "slowsteadyclub.com": "SlowSteadyClub",
+  "bohemegoods.com": "BOHEME",
+  "turnblack.in": "Turn Black",
+  "jucca.it": "Jucca",
+  "camper.com": "Camper",
+  "menspoem.in": "Men's Poem",
+  "atpco.it": "AT.P.CO",
+  "marksandspencer.in": "Marks & Spencer",
+  "offonclothing.com": "Offon",
+  "thatie.ru": "Thatie",
+  "pertestore.ru": "Perte",
+  "sensclothing.com": "Sens",
+  "herbyh.design": "Her by H",
+  "ekke.co": "Ekke",
+  "amoslook.com": "Amos Look",
+  "studiodoe.cc": "Studio Doe",
+  "noconcept.ru": "No Concept",
+  "mimpikita.com.my": "Kita&Co",
+  "jhoola.com.tr": "Jhoola",
+  "dirtymanners.com": "Dirty Manners",
+  "towards.website": "Toward(s)",
+  "blueowl.us": "Blue Owl",
+  "morrisonshop.com": "Morrison",
+  "payalkhandwala.com": "Payal Khandwala",
+  "dashanddot.com": "Dast & Dot",
+  "azaadclo.com": "Azaad",
+  "ourlegacy.com": "Our Legacy",
+  "harah.in": "Harah",
+  "houseofmasaba.com": "House of Masaba",
+};
+
+// Reduce a domain to a comparable brand token, e.g.
+// "gymsharkusa.myshopify.com" -> "gymsharkusa", "wearbrun.com" -> "brun".
+// Kept in sync with cleanBrandName() in GlobalCatalogService.
+export function cleanBrandToken(domain: string): string {
+  if (!domain) return "";
+  let c = domain.toLowerCase().trim();
+  c = c.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
+  if (c.includes(".myshopify.com")) {
+    const parts = c.replace(/\.myshopify\.com$/, "").split(".");
+    c = parts[parts.length - 1];
+  } else {
+    const parts = c.split(".");
+    const tlds = new Set(["com", "co", "uk", "org", "net", "store", "in", "us", "ca", "au", "io", "website", "me", "ph", "ae", "fr", "eu", "gr", "it", "id", "xyz", "cc", "be", "pk", "tr", "my", "ru", "design", "life"]);
+    const nonTlds = parts.filter(p => !tlds.has(p));
+    c = nonTlds.length > 0 ? nonTlds[nonTlds.length - 1] : parts[0];
+  }
+  c = c.replace(/[\-_]/g, "");
+  c = c.replace(/^(shop|weare|the|buy|get|official|studio|wear)/i, "");
+  c = c.replace(/(shop|store|clothing|brand|official|studio|wear|collective|denim)$/i, "");
+  return c;
+}
+
+/** Human-facing brand name for a store profile. */
+export function brandDisplayName(p: StoreProfile): string {
+  return p.name || BRAND_NAMES[p.domain] || cleanBrandToken(p.domain);
+}
+
+// Display names too generic to match on their own (real English words).
+// These brands are still reachable via category search, just not by the bare word.
+const GENERIC_BRAND_WORDS = new Set(["limited"]);
+
+function normalizeForBrandMatch(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9& ]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Detect explicit brand mentions in a free-text query and return the matching
+ * store domains (empty when the user didn't name a brand). Powers
+ * brand-specific search like "linen shirt from Taylor Stitch" or "show me Allbirds".
+ */
+export function detectBrandsInQuery(query: string): string[] {
+  if (!query) return [];
+  const q = " " + normalizeForBrandMatch(query) + " ";
+  const qDespaced = q.replace(/[ &]/g, "");
+  const matched: string[] = [];
+
+  for (const p of UCP_REGISTRY) {
+    const display = normalizeForBrandMatch(brandDisplayName(p));
+    const token = cleanBrandToken(p.domain);
+    let hit = false;
+
+    // 1) Whole display-name phrase (handles multi-word brands like "taylor stitch")
+    if (display.length >= 3 && !GENERIC_BRAND_WORDS.has(display) && q.includes(" " + display + " ")) {
+      hit = true;
+    }
+    // 2) Despaced display name ("aime leon dore" -> "aimeleondore")
+    const displayDespaced = display.replace(/[ &]/g, "");
+    if (!hit && displayDespaced.length >= 5 && !GENERIC_BRAND_WORDS.has(displayDespaced) && qDespaced.includes(displayDespaced)) {
+      hit = true;
+    }
+    // 3) Domain-derived token (catches "gymshark" -> gymsharkusa, "brun" -> wearbrun)
+    if (!hit && token.length >= 5 && !GENERIC_BRAND_WORDS.has(token) && qDespaced.includes(token)) {
+      hit = true;
+    }
+
+    if (hit) matched.push(p.domain.toLowerCase().trim());
+  }
+
+  return Array.from(new Set(matched));
+}

@@ -4,7 +4,7 @@ import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
 import { GlobalCatalogService, UcpProduct, type CatalogSearchDebug } from '@/lib/services/GlobalCatalogService'
-import { UCP_REGISTRY } from '@/lib/stores'
+import { UCP_REGISTRY, detectBrandsInQuery, brandDisplayName } from '@/lib/stores'
 
 
 const CHAT_WINDOW_MS = 60_000
@@ -176,6 +176,8 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   fastFirstPage?: boolean;
   loadMore?: boolean;
   debug?: CatalogSearchDebug;
+  /** Pre-detected brand domains from the user message — skip re-detection inside the service. */
+  brandDomains?: string[];
 }) {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
@@ -193,7 +195,8 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
       fastFirstPage: options.fastFirstPage,
       loadMore: options.loadMore,
       debug: options.debug,
-    }
+    },
+    options.brandDomains || []
   )
 
   return {
@@ -423,6 +426,7 @@ export async function POST(req: NextRequest) {
         countryCode,
         buyerCurrency: activeBuyerCurrency,
         excludeIds,
+        brandDomains: detectBrandsInQuery(searchQuery),
       }
 
       const catalogDebug: CatalogSearchDebug = {}
@@ -447,6 +451,10 @@ export async function POST(req: NextRequest) {
     const cleanHistory = sanitizeHistory(history || [], message)
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
 
+    // Detect explicit brand mentions in the user message so the catalog search
+    // can restrict to just those store(s) rather than scanning the whole registry.
+    const detectedBrandDomains = detectBrandsInQuery(message)
+
     let dynamicSystemPrompt = SYSTEM_PROMPT;
     if (savedProducts && savedProducts.length > 0) {
       const savedSummary = savedProducts.map((p: any) => `- ${p.title} (${p.price} ${p.currency})`).join('\n');
@@ -460,11 +468,19 @@ export async function POST(req: NextRequest) {
       else if (domain.endsWith('.it')) lang = 'Italian/English';
       else if (domain.endsWith('.jp')) lang = 'Japanese/English';
       else if (domain.includes('coverchord')) lang = 'Japanese/English';
-      
+      const name = brandDisplayName(store);
       const categories = store.categories.join(', ');
-      return `${store.domain} (Language: ${lang}, Categories: [${categories}])`;
+      return `${name} — ${store.domain} (Language: ${lang}, Categories: [${categories}])`;
     });
     dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from the allowed boutique store list:\n${storeDescriptions.map(d => `- ${d}`).join('\n')}\nThe search tool 'search_ucp' will strictly filter results and only return products from these stores. Do not recommend or talk about products from any other stores.`;
+
+    if (detectedBrandDomains.length > 0) {
+      const brandNames = detectedBrandDomains.map(d => {
+        const p = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === d);
+        return p ? brandDisplayName(p) : d;
+      }).join(', ');
+      dynamicSystemPrompt += `\n\nBRAND SEARCH: The user is explicitly asking about: ${brandNames}. Search within those brand(s) only.`;
+    }
 
 
     let aiResponse: ChatMessage
@@ -480,6 +496,7 @@ export async function POST(req: NextRequest) {
         buyerCurrency: activeBuyerCurrency,
         excludeIds: collectProductIds(history || []),
         fastFirstPage: true,
+        brandDomains: detectedBrandDomains,
       })
 
       const diagnostics = formatSearchDiagnostics(fallbackIntent, {
@@ -525,6 +542,7 @@ export async function POST(req: NextRequest) {
             buyerCurrency: activeBuyerCurrency,
             excludeIds: collectProductIds(history || []),
             fastFirstPage: true,
+            brandDomains: detectedBrandDomains,
           })
           products = result.products
           activeBudgetCurrency = result.budgetCurrency
@@ -567,6 +585,7 @@ Mirror the language the user wrote in.`
               buyerCurrency: activeBuyerCurrency,
               excludeIds: collectProductIds(history || []),
               fastFirstPage: true,
+              brandDomains: detectedBrandDomains,
             })
 
             const diagnostics = formatSearchDiagnostics(fallbackIntent, {

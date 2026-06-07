@@ -1,5 +1,5 @@
 import { getExchangeRates } from '../exchangeRates';
-import { UCP_REGISTRY } from '../stores';
+import { UCP_REGISTRY, detectBrandsInQuery } from '../stores';
 import { groqChat } from '../groq';
 
 
@@ -772,15 +772,17 @@ function applyCatalogFiltersWithRetry(products: UcpProduct[], filters: CatalogSe
 
 export class GlobalCatalogService {
   static async search(
-    query: string, 
-    budgetMax?: number | null, 
-    excludeIds: string[] = [], 
+    query: string,
+    budgetMax?: number | null,
+    excludeIds: string[] = [],
     countryCode?: string | null,
     isClothing?: boolean,
     mandatoryConcepts: string[][] = [],
     sort: ProductSort = 'trust_desc',
     budgetCurrency: string | null = 'USD',
-    options: CatalogSearchOptions = {}
+    options: CatalogSearchOptions = {},
+    /** When set, restricts the search to exactly these domain(s) — used for brand-specific queries. */
+    brandDomains: string[] = []
   ): Promise<UcpProduct[]> {
     const isFastFirstPage = Boolean(options.fastFirstPage && !options.refreshReserve);
     const limit = options.loadMore || options.refreshReserve
@@ -973,7 +975,16 @@ export class GlobalCatalogService {
       return fetchFromCatalog(q);
     };
 
-    const allowedDomains = getMatchingDomains(cleanedQuery);
+    // Brand-specific override: if the caller or the query itself names specific brands,
+    // restrict to those domains only so we don't dilute results with irrelevant stores.
+    const detectedBrands = brandDomains.length > 0 ? brandDomains : detectBrandsInQuery(cleanedQuery);
+    const allowedDomains = detectedBrands.length > 0
+      ? detectedBrands.filter(d => UCP_REGISTRY.some(s => s.domain.toLowerCase().trim() === d))
+      : getMatchingDomains(cleanedQuery);
+    const isBrandSearch = detectedBrands.length > 0 && allowedDomains.length > 0;
+    if (isBrandSearch) {
+      console.log(`[GlobalCatalog] Brand search detected — restricting to: [${allowedDomains.join(', ')}]`);
+    }
 
     const fetchChunkedFromCatalog = async (q: string): Promise<any[]> => {
       // Dynamically size chunks based on query complexity.
@@ -1072,7 +1083,7 @@ export class GlobalCatalogService {
       rates,
     };
 
-    const isFallback = allowedDomains.length === UCP_REGISTRY.length;
+    const isFallback = !isBrandSearch && allowedDomains.length === UCP_REGISTRY.length;
 
     // Relevance Sorting & Chunking setup for Direct Storefront query
     let domainsToQuery = [...allowedDomains];
