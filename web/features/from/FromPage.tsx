@@ -67,7 +67,8 @@ function useLight(elRef: React.RefObject<HTMLDivElement | null>) {
 function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
   return (
     <span style={{ fontFamily: SEASON, fontSize: size, fontWeight: 400, color,
-      letterSpacing: '0.03em', lineHeight: 1, display: 'block', userSelect: 'none' }}>
+      letterSpacing: '0.03em', lineHeight: 1, display: 'block', userSelect: 'none',
+      transition: 'color 2.4s ease' }}>
       FROM
     </span>
   )
@@ -144,6 +145,7 @@ export default function FromApp({
   const [uploadName, setUploadName]     = useState("")
   const [loaded, setLoaded]             = useState(false)
   const [attachMenuOpen, setAttachMenu] = useState(false)
+  const [logoHue, setLogoHue] = useState(220)
   const [menuPos, setMenuPos] = useState({ bottom: 100, left: 20 })
   const attachMenuRef = useRef<HTMLDivElement>(null)
   const paperclipRef  = useRef<HTMLButtonElement>(null)
@@ -191,6 +193,13 @@ export default function FromApp({
   const hasName   = userName.length > 0
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
+
+  // Cycle logo colour through every hue every 11 seconds; step of 47° (prime-ish) so it
+  // doesn't repeat the same sequence quickly. Lightness 36% keeps every hue readable on white.
+  useEffect(() => {
+    const id = setInterval(() => setLogoHue(h => (h + 47) % 360), 11000)
+    return () => clearInterval(id)
+  }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (selectedProduct) { setSize(null); setActiveImg(0); setSheetY(0) } }, [selectedProduct])
   useEffect(() => {
@@ -441,7 +450,7 @@ export default function FromApp({
               display: "flex", alignItems: "center", justifyContent: "space-between",
               flexShrink: 0,
             }}>
-              <FromLogo size={24} color={INK} />
+              <FromLogo size={24} color={`hsl(${logoHue},85%,36%)`} />
               <div style={{
                 width: 38, height: 38, borderRadius: "50%",
                 background: "#ffffff",
@@ -564,7 +573,7 @@ export default function FromApp({
               <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
               <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
             </button>
-            <FromLogo size={22} color={INK} />
+            <FromLogo size={22} color={`hsl(${logoHue},85%,36%)`} />
           </div>
 
           {/* ── Body ── */}
