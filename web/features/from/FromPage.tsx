@@ -1261,10 +1261,15 @@ export default function FromApp({
                         )}
                       </div>
                       {sheetImages.length > 1 && (
-                        <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
+                        <div style={{ position: "absolute", bottom: 12, left: 12, display: "flex", gap: 5 }}>
                           {sheetImages.map((_, i) => (
                             <div key={i} onClick={e => { e.stopPropagation(); setActiveImg(i) }}
-                              style={{ width: 5, height: 5, borderRadius: "50%", background: i === activeImg ? "white" : "rgba(255,255,255,.4)", cursor: "pointer", transform: i === activeImg ? "scale(1.3)" : "scale(1)", transition: "all .18s" }} />
+                              style={{
+                                width: 9, height: 9, cursor: "pointer", transition: "background .18s",
+                                background: i === activeImg ? "#1A1A1A" : "rgba(255,255,255,.55)",
+                                border: i === activeImg ? "1px solid #1A1A1A" : "1px solid rgba(26,26,26,.45)",
+                                boxShadow: "0 0 0 0.5px rgba(255,255,255,.35)",
+                              }} />
                           ))}
                         </div>
                       )}
