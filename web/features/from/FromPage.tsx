@@ -264,6 +264,7 @@ export default function FromApp({
   const renameRef     = useRef<HTMLInputElement>(null)
   const taRef         = useRef<HTMLTextAreaElement>(null)
   const fileRef       = useRef<HTMLInputElement>(null)
+  const dragHandleRef = useRef<HTMLDivElement>(null)
   const dragStartY    = useRef(0)
   const dragStartSnap = useRef<'full'|'half'>('full')
   const dragVel       = useRef(0)
@@ -283,6 +284,17 @@ export default function FromApp({
   const hasName   = userName.length > 0
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
+
+  // Prevent pull-to-refresh when dragging the sheet handle.
+  // React touch listeners are passive by default, so we must attach directly.
+  useEffect(() => {
+    const el = dragHandleRef.current
+    if (!el) return
+    const block = (e: TouchEvent) => e.preventDefault()
+    el.addEventListener('touchstart', block, { passive: false })
+    el.addEventListener('touchmove',  block, { passive: false })
+    return () => { el.removeEventListener('touchstart', block); el.removeEventListener('touchmove', block) }
+  }, [])
 
   // Persist explore results so they survive page refresh
   useEffect(() => {
@@ -406,7 +418,7 @@ export default function FromApp({
         .fr-wrap{display:flex;align-items:flex-start;justify-content:center;height:100dvh;width:100%;
           background:#ffffff;}
         .fr-shell{width:100%;height:100dvh;position:relative;display:flex;flex-direction:column;
-          overflow:hidden;
+          overflow:hidden;overscroll-behavior:none;
           background:#ffffff;}
         @media(min-width:768px){
           .fr-wrap{align-items:center;padding:32px 16px;height:auto;min-height:100dvh;background:#f2ede8;}
@@ -1086,7 +1098,7 @@ export default function FromApp({
           }}>
             {selectedProduct && (
               <>
-                <div className="fr-drag" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerLeave={onHandleUp}>
+                <div ref={dragHandleRef} className="fr-drag" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerLeave={onHandleUp}>
                   <div className="fr-drag-pill" />
                 </div>
 
