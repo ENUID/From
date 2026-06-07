@@ -144,17 +144,12 @@ export default function FromApp({
   const [uploadedImage, setUploaded]    = useState<string | null>(null)
   const [uploadName, setUploadName]     = useState("")
   const [loaded, setLoaded]             = useState(false)
-  const [attachMenuOpen, setAttachMenu] = useState(false)
   const [logoHue, setLogoHue] = useState(220)
-  const [menuPos, setMenuPos] = useState({ bottom: 100, left: 20 })
-  const attachMenuRef = useRef<HTMLDivElement>(null)
-  const paperclipRef  = useRef<HTMLButtonElement>(null)
 
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
   const [sendPressed, setSendPressed] = useState(false)
   const barRef      = useRef<HTMLDivElement>(null)
-  const attachWrap  = useRef<HTMLDivElement>(null)
 
   // Spring values
   const barScale  = useSpring(barPressed  ? 0.982 : 1, 260, 28)
@@ -165,23 +160,9 @@ export default function FromApp({
 
   const nameRef    = useRef<HTMLInputElement>(null)
   const taRef      = useRef<HTMLTextAreaElement>(null)
-  const fileRef    = useRef<HTMLInputElement>(null)   // Photo Library
-  const cameraRef  = useRef<HTMLInputElement>(null)   // Take Photo
-  const anyRef     = useRef<HTMLInputElement>(null)   // Choose File / Drive
+  const fileRef    = useRef<HTMLInputElement>(null)
   const dragStartY = useRef(0)
 
-  // Close attach menu on outside click
-  useEffect(() => {
-    if (!attachMenuOpen) return
-    const handler = (e: MouseEvent) => {
-      if (
-        !attachWrap.current?.contains(e.target as Node) &&
-        !attachMenuRef.current?.contains(e.target as Node)
-      ) setAttachMenu(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [attachMenuOpen])
 
   // Search results
   const lastProductMsg      = [...messages].reverse().find(m => m.role === 'assistant' && m.products?.length)
@@ -431,9 +412,7 @@ export default function FromApp({
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
-      <input ref={fileRef}   type="file" accept="image/*"                       style={{ display:"none" }} onChange={handleFile} />
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display:"none" }} onChange={handleFile} />
-      <input ref={anyRef}    type="file" accept="*/*"                           style={{ display:"none" }} onChange={handleFile} />
+      <input ref={fileRef} type="file" accept="image/*,*/*" style={{ display:"none" }} onChange={handleFile} />
 
       <div className="fr-wrap">
         <div className="fr-shell">
@@ -682,77 +661,7 @@ export default function FromApp({
           </div>
 
           {/* ── Search bar — liquid glass ── */}
-          <div style={{ padding: "6px clamp(12px,4vw,18px) 6px", flexShrink: 0, position: 'relative' }}>
-
-            {/* Attach menu — fixed position to escape all overflow:hidden ancestors */}
-            {attachMenuOpen && (
-              <div ref={attachMenuRef} style={{
-                position: 'fixed', bottom: menuPos.bottom, left: menuPos.left,
-                zIndex: 9999, minWidth: 210,
-                background: '#ffffff',
-                borderRadius: 18,
-                border: '0.5px solid rgba(44,18,6,.08)',
-                boxShadow: '0 12px 40px rgba(44,18,6,.12), inset 0 1px 0 rgba(255,255,255,.9)',
-                padding: '6px',
-                overflow: 'hidden',
-              }}>
-                {([
-                  { label: 'Photo Library', icon: 'gallery',  action: () => fileRef.current?.click() },
-                  { label: 'Take Photo',    icon: 'camera',   action: () => cameraRef.current?.click() },
-                  { label: 'Choose File',   icon: 'folder',   action: () => anyRef.current?.click() },
-                  { label: 'Google Drive',  icon: 'drive',    action: () => anyRef.current?.click() },
-                ] as { label: string; icon: string; action: () => void }[]).map(opt => (
-                  <button key={opt.label} type="button"
-                    onClick={() => { opt.action(); setAttachMenu(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 14, width: '100%',
-                      padding: '11px 14px', background: 'none', border: 'none',
-                      borderRadius: 12, cursor: 'pointer', textAlign: 'left',
-                      fontFamily: SANS, fontSize: 14.5, color: INK, fontWeight: 400,
-                      transition: 'background .1s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.05)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <span style={{
-                      width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                      background: 'rgba(44,18,6,.06)',
-                      boxShadow: 'none',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {opt.icon === 'gallery' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                          <polyline points="21 15 16 10 5 21"/>
-                        </svg>
-                      )}
-                      {opt.icon === 'camera' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                          <circle cx="12" cy="13" r="4"/>
-                        </svg>
-                      )}
-                      {opt.icon === 'folder' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                        </svg>
-                      )}
-                      {opt.icon === 'drive' && (
-                        <svg width="16" height="16" viewBox="0 0 87.3 78" fill={INK}>
-                          <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5z" opacity=".7"/>
-                          <path d="M43.65 25L29.9 1.2C28.55.4 27 0 25.45 0L6.6 32.5l13.75 23.8z" opacity=".7"/>
-                          <path d="M43.65 25l13.75-23.8C56.05.4 54.5 0 52.95 0H34.1l-4.2 1.2z"/>
-                          <path d="M43.65 53L29.9 76.8c1.35.8 2.9 1.2 4.45 1.2h18.6c1.55 0 3.1-.4 4.45-1.2z" opacity=".5"/>
-                          <path d="M73.4 32.5L60.2 9.85C58.85 8.5 57.2 7.55 55.4 7.05L43.65 25 57.4 48.8z" opacity=".7"/>
-                          <path d="M87.3 53c0-1.55-.4-3.1-1.2-4.5l-3.85-6.65c-.8-1.4-1.95-2.5-3.3-3.3L57.4 48.8 43.65 25 57.4 48.8 43.65 53l13.75 23.8c1.8-.5 3.45-1.45 4.8-2.8L87.3 57.5c.8-1.4 1.2-2.95 1.2-4.5z" opacity=".5"/>
-                        </svg>
-                      )}
-                    </span>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div style={{ padding: "6px clamp(12px,4vw,18px) 6px", flexShrink: 0 }}>
 
             {/* Spring-animated wrapper */}
             <div style={{ transform: `scale(${barScale})`, transformOrigin: "center bottom", willChange: "transform" }}
@@ -793,23 +702,12 @@ export default function FromApp({
                   {/* Row 2: actions */}
                   <div className="fr-bar-btm">
 
-                    {/* Paperclip — opens attach menu */}
-                    <div ref={attachWrap}>
-                      <button type="button" ref={paperclipRef} className="fr-icon-btn"
-                        onClick={() => {
-                          if (!attachMenuOpen && paperclipRef.current) {
-                            const r = paperclipRef.current.getBoundingClientRect()
-                            setMenuPos({ bottom: window.innerHeight - r.top + 10, left: r.left })
-                          }
-                          setAttachMenu(v => !v)
-                        }}
-                        style={{ transform: attachMenuOpen ? 'scale(0.93)' : undefined }}
-                      >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                        </svg>
-                      </button>
-                    </div>
+                    {/* Paperclip — directly opens native file picker */}
+                    <button type="button" className="fr-icon-btn" onClick={() => fileRef.current?.click()}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                      </svg>
+                    </button>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
                       <div style={{ transform: `scale(${sendScale})`, willChange: "transform" }}
