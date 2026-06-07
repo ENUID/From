@@ -6,6 +6,7 @@ import { formatMoney } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
+import { BRAND_NAMES } from '@/lib/stores'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const INK   = "#2C1206"   // dark brown
@@ -523,6 +524,16 @@ export default function FromApp({
   const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
   const sheetStoreHost= selectedProduct ? (() => { try { return new URL(selectedProduct.store_url).hostname.replace('www.', '') } catch { return '' } })() : ''
+  const sheetBrandName = selectedProduct ? (() => {
+    // Try BRAND_NAMES lookup first (keyed by domain), then vendor, then domain fallback
+    if (sheetStoreHost) {
+      const match = Object.entries(BRAND_NAMES).find(([domain]) =>
+        sheetStoreHost === domain || sheetStoreHost.endsWith('.' + domain) || domain.endsWith('.' + sheetStoreHost)
+      )
+      if (match) return match[1]
+    }
+    return selectedProduct.vendor || sheetStoreHost || 'the brand'
+  })() : ''
   const similarItems  = selectedProduct
     ? (searchProducts.length ? searchProducts : exploreCache).filter(p => p.id !== selectedProduct.id).slice(0, 12)
     : []
@@ -1407,7 +1418,7 @@ export default function FromApp({
                   {/* Sold by / visit store */}
                   <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span style={{ fontFamily: SANS, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: INK3 }}>
-                      From {sheetStoreHost || "store"}
+                      From: {sheetBrandName}
                     </span>
                     <a href={selectedProduct.store_url} target="_blank" rel="noopener noreferrer"
                       style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, textDecoration: "underline", textUnderlineOffset: 3 }}>
@@ -1441,7 +1452,7 @@ export default function FromApp({
                     )}
                     <Accordion label="Delivery & Returns">
                       <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
-                        Shipping, payment and returns are handled directly by {sheetStoreHost || "the store"}. Delivery times and return windows vary — see their policies at checkout.
+                        Shipping, payment and returns are handled directly by {sheetBrandName || "the store"}. Delivery times and return windows vary — see their policies at checkout.
                       </p>
                     </Accordion>
                   </div>
