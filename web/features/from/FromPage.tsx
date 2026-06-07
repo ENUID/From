@@ -1431,20 +1431,6 @@ export default function FromApp({
                   </div>
                 )}
 
-                {/* X close button — desktop only, floats in top-right corner of the sheet */}
-                {isWide && (
-                  <button onClick={() => setSelected(null)} aria-label="Close"
-                    style={{ position: 'absolute', top: 14, right: 14, zIndex: 20,
-                      width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                      background: 'rgba(44,18,6,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background .15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.14)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.07)')}>
-                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                      <path d="M1 1l10 10M11 1L1 11" stroke={INK} strokeWidth="1.6" strokeLinecap="round"/>
-                    </svg>
-                  </button>
-                )}
 
                 {isWide ? (
                   /* ── Desktop / tablet: image left + details right ── */
@@ -1484,8 +1470,22 @@ export default function FromApp({
                     {/* Right — scrollable product details */}
                     <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none' as const, display: 'flex', flexDirection: 'column', paddingBottom: 28 }}>
 
+                      {/* Close row — X sits alone at the top, no overlap with content */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 14px 0' }}>
+                        <button onClick={() => setSelected(null)} aria-label="Close"
+                          style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0,
+                            background: 'rgba(44,18,6,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'background .15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.14)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.07)')}>
+                          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                            <path d="M1 1l10 10M11 1L1 11" stroke={INK} strokeWidth="1.6" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </div>
+
                       {/* Title + save + price */}
-                      <div style={{ padding: '26px 24px 0' }}>
+                      <div style={{ padding: '12px 24px 0' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                           <h2 style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, lineHeight: 1.3, letterSpacing: '.06em', textTransform: 'uppercase', flex: 1 }}>
                             {selectedProduct.title}
