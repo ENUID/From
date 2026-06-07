@@ -264,7 +264,7 @@ export default function FromApp({
 
         /* ── Body ── */
         .fr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;}
-        .fr-body.home{justify-content:flex-start;padding-top:clamp(52px,14vh,88px);}
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(72px,18vh,110px);}
 
         /* ── Greeting ── */
         .fr-greet{padding:0 clamp(16px,5vw,24px) clamp(16px,4vw,24px);
@@ -561,33 +561,23 @@ export default function FromApp({
 
           </div>
 
-          {/* ── Nav bar — glass, hamburger top-left ── */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "flex-start",
-            padding: "clamp(22px,6vw,30px) clamp(16px,5vw,22px) clamp(6px,2vw,10px)",
-            flexShrink: 0, position: "sticky", top: 0, zIndex: 50,
-            background: "rgba(249,249,249,0.75)",
-            backdropFilter: "blur(20px) saturate(160%)",
-            WebkitBackdropFilter: "blur(20px) saturate(160%)" as any,
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
-          }}>
-            {/* Hamburger top-left — 1.75 lines (full + 3/4) */}
-            <button onClick={() => setSidebar(true)} style={{
-              width: 36, height: 36, borderRadius: "50%", border: "none",
-              background: "rgba(255,255,255,0.65)",
-              backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" as any,
-              boxShadow: "0 2px 8px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.95)",
-              display: "flex", flexDirection: "column", alignItems: "flex-start",
-              justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
-              transition: "box-shadow .15s, transform .1s",
-            }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 3px 12px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,1)"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
-            >
-              <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
-              <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
-            </button>
-          </div>
+          {/* ── Hamburger — floating overlay top-left ── */}
+          <button onClick={() => setSidebar(true)} style={{
+            position: "absolute", top: "clamp(14px,4vw,20px)", left: "clamp(14px,4vw,20px)",
+            zIndex: 50, width: 36, height: 36, borderRadius: "50%", border: "none",
+            background: "rgba(255,255,255,0.72)",
+            backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
+            boxShadow: "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)",
+            display: "flex", flexDirection: "column", alignItems: "flex-start",
+            justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
+            transition: "box-shadow .15s, transform .1s",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,1)"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
+          >
+            <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
+            <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
+          </button>
 
           {/* ── Body ── */}
           <div className={`fr-body${hasConversation ? '' : ' home'}`}>
@@ -684,7 +674,7 @@ export default function FromApp({
           </div>
 
           {/* ── Search bar — liquid glass ── */}
-          <div style={{ padding: "8px clamp(12px,4vw,18px) clamp(8px,2vw,14px)", flexShrink: 0,
+          <div style={{ padding: "6px clamp(12px,4vw,18px) clamp(6px,2vw,10px)", flexShrink: 0,
             background: "rgba(240,240,240,0.5)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" as any }}>
 
             {/* Spring-animated wrapper */}
