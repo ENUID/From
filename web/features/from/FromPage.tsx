@@ -602,12 +602,14 @@ export default function FromApp({
           {/* ── Sidebar ── */}
           <div className={`fr-sb ${sidebarOpen ? "open" : ""}`}>
 
-            {/* Header: From logo + profile avatar on same row */}
+            {/* Header: From logo + profile avatar + New chat */}
             <div style={{
-              padding: "clamp(22px,5vw,30px) 20px 16px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "clamp(22px,5vw,30px) 20px 14px",
+              display: "flex", flexDirection: "column", gap: 14,
               flexShrink: 0,
             }}>
+              {/* Top row: logo + avatar */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <FromLogo size={24} color={SHUFFLED_PALETTE[logoIdx]} />
               <div style={{
                 width: 38, height: 38, borderRadius: "50%",
@@ -626,6 +628,24 @@ export default function FromApp({
                   </svg>
                 )}
               </div>
+              </div>{/* end top row */}
+
+              {/* New chat button */}
+              <button
+                onClick={() => { resetConversation(); setSidebarView('nav'); setSidebar(false) }}
+                style={{
+                  width: "100%", padding: "11px 16px", borderRadius: 12,
+                  background: INK, border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                  fontFamily: SANS, fontSize: 13, fontWeight: 400, color: "#fff",
+                  letterSpacing: ".01em", transition: "opacity .15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = ".8")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                New chat
+              </button>
             </div>
 
             {/* Nav items */}
@@ -754,27 +774,6 @@ export default function FromApp({
               </div>
             </div>
 
-            {/* Footer: New chat pill + locale */}
-            <div style={{ padding: "14px 18px 24px", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", background: "transparent" }}>
-              <button
-                onClick={() => { resetConversation(); setSidebarView('nav'); setSidebar(false) }}
-                style={{
-                  width: "auto", padding: "11px 20px", borderRadius: 100,
-                  background: INK, border: "none", cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                  fontFamily: SANS, fontSize: 13, fontWeight: 400, color: "#fff",
-                  letterSpacing: ".01em", transition: "opacity .15s",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = ".8")}
-                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                New chat
-              </button>
-              <p style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: ".06em", textAlign: "right", marginTop: 8, opacity: .4 }}>
-                {shopperContext.country} · {shopperContext.currency}
-              </p>
-            </div>
 
           </div>
 
