@@ -398,6 +398,9 @@ export default function FromApp({
   const fileRef       = useRef<HTMLInputElement>(null)
   const dragHandleRef = useRef<HTMLDivElement>(null)
   const similarRef    = useRef<HTMLDivElement>(null)
+  const sentinelRef   = useRef<HTMLDivElement>(null)
+  const canLoadMoreRef = useRef(false)
+  const loadMoreRef   = useRef(loadMoreProducts)
 
   // Image carousel horizontal swipe
   const [imgDX, setImgDX]   = useState(0)
@@ -422,6 +425,10 @@ export default function FromApp({
   const showEmpty = hasConversation && searchProducts.length === 0 && !loading
   const canSend   = input.trim().length > 0 || uploadedImages.length > 0
   const hasName   = userName.length > 0
+
+  // Keep refs up-to-date every render so the observer callback always sees current values
+  canLoadMoreRef.current = !loading && !!lastProductMsg && !lastProductMsg.loadingMore && !lastProductMsg.hasNoMore && lastProductMsgIndex >= 0
+  loadMoreRef.current = loadMoreProducts
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
 
@@ -458,6 +465,22 @@ export default function FromApp({
       taRef.current.style.height = Math.min(taRef.current.scrollHeight, 120) + "px"
     }
   }, [input])
+
+  // Infinite scroll: re-create the observer whenever the result message changes
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel || lastProductMsgIndex < 0) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && canLoadMoreRef.current) {
+          loadMoreRef.current(lastProductMsgIndex)
+        }
+      },
+      { rootMargin: '300px', threshold: 0 }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [lastProductMsgIndex])
 
   const onHandleDown = (e: React.PointerEvent) => {
     e.preventDefault();
@@ -1085,8 +1108,8 @@ export default function FromApp({
 
             {/* Loading — skeleton image grid */}
             {loading && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 2, width: '100%', flexShrink: 0 }}>
-                {Array.from({ length: 8 }).map((_, i) => (
+              <div className="fr-grid">
+                {Array.from({ length: 12 }).map((_, i) => (
                   <div key={i} style={{
                     aspectRatio: '3/4',
                     position: 'relative',
@@ -1171,12 +1194,10 @@ export default function FromApp({
                     </div>
                   ))}
                 </div>
-                {lastProductMsg && !lastProductMsg.hasNoMore && lastProductMsgIndex >= 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 8px' }}>
-                    {lastProductMsg.loadingMore
-                      ? <div style={{ display: "flex", gap: 4 }}>{[0,.2,.4].map((d,i) => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: INK, animation: `fr-bounce 1.2s ${d}s ease-in-out infinite` }}/>)}</div>
-                      : <button onClick={() => loadMoreProducts(lastProductMsgIndex)} style={{ fontFamily: SANS, fontSize: 10, color: INK3, background: '#ffffff', border: '0.5px solid rgba(44,18,6,.12)', borderRadius: 100, padding: '7px 20px', cursor: 'pointer', letterSpacing: '.08em', boxShadow: '0 2px 8px rgba(44,18,6,.07)' }}>Load more</button>
-                    }
+                <div ref={sentinelRef} style={{ height: 1 }} />
+                {lastProductMsg?.loadingMore && (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0 10px' }}>
+                    <div style={{ display: "flex", gap: 4 }}>{[0,.2,.4].map((d,i) => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: INK, animation: `fr-bounce 1.2s ${d}s ease-in-out infinite` }}/>)}</div>
                   </div>
                 )}
               </>
