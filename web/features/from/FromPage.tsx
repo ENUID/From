@@ -786,13 +786,14 @@ export default function FromApp({
             0 -1px 0 rgba(44,18,6,.05),
             0 -24px 64px rgba(44,18,6,.10);
         }
-        /* On tablet/desktop the sheet becomes a centred floating card */
+        /* On tablet/desktop the sheet becomes a centred side-by-side card */
         @media(min-width:768px){
           .fr-sheet{
             top:50%;left:50%;
             right:auto;bottom:auto;
-            width:min(600px,86vw);
-            min-height:min(72vh,680px);
+            width:min(960px,90vw);
+            height:min(680px,88vh);
+            min-height:0;
             border-radius:28px;
             border:0.5px solid rgba(44,18,6,.07);
             box-shadow:
@@ -1322,8 +1323,8 @@ export default function FromApp({
           </div>{/* end fr-bar-wrap */}
           </div>{/* end fr-content */}
 
-          {/* ── Sheet overlay ── */}
-          <div className={`fr-sheet-ov ${selectedProduct ? "vis" : ""}`} onClick={() => setSelected(null)} />
+          {/* ── Sheet overlay — phone taps outside to close; desktop X button does it ── */}
+          <div className={`fr-sheet-ov ${selectedProduct ? "vis" : ""}`} onClick={isWide ? undefined : () => setSelected(null)} />
 
           {/* ── History long-press context menu — Apple Liquid Glass ── */}
           {ctxMenu && (
@@ -1391,8 +1392,8 @@ export default function FromApp({
 
           {/* ── Product sheet — liquid glass ── */}
           <div className="fr-sheet" style={isWide ? {
-            // Desktop / tablet — centred floating card, scale + fade
-            maxHeight: "88vh",
+            // Desktop / tablet — centred landscape card, scale + fade
+            height: "min(680px, 88vh)",
             transform: selectedProduct
               ? "translate(-50%, -50%) scale(1)"
               : "translate(-50%, -50%) scale(0.96)",
@@ -1415,241 +1416,418 @@ export default function FromApp({
                   <div className="fr-drag-pill" />
                 </div>
 
-                <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", paddingBottom: 24 }}>
-                  <div>
-                    <div style={{ position: "relative", overflow: "hidden", touchAction: "pan-y" }}
+                {isWide ? (
+                  /* ── Desktop / tablet: image left + details right ── */
+                  <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+                    {/* Close button — top-right corner */}
+                    <button onClick={() => setSelected(null)} aria-label="Close"
+                      style={{ position: 'absolute', top: 14, right: 14, zIndex: 10,
+                        width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                        background: 'rgba(44,18,6,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'background .15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.12)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.06)')}>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1l10 10M11 1L1 11" stroke={INK} strokeWidth="1.6" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+
+                    {/* Left — full-height image, swipeable carousel */}
+                    <div style={{ width: '48%', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#ede8e3' }}
                       onPointerDown={sheetImages.length > 1 ? onImgDown : undefined}
                       onPointerMove={sheetImages.length > 1 ? (e => onImgMove(e, sheetImages.length)) : undefined}
                       onPointerUp={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
                       onPointerCancel={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
                     >
-                      <div style={{ display: "flex", transition: (imgActive.current && imgLockH.current) ? "none" : "transform .32s cubic-bezier(.32,.72,0,1)", transform: `translateX(calc(-${activeImg * 100}% + ${imgDX}px))` }}>
+                      <div style={{ display: 'flex', height: '100%', transition: (imgActive.current && imgLockH.current) ? 'none' : 'transform .32s cubic-bezier(.32,.72,0,1)', transform: `translateX(calc(-${activeImg * 100}% + ${imgDX}px))` }}>
                         {sheetImages.length > 0 ? sheetImages.map((img, i) => (
-                          <div key={i} style={{ width: "100%", flexShrink: 0 }}>
-                            <img src={img} alt="" draggable={false} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block", userSelect: "none", pointerEvents: "none" }} />
+                          <div key={i} style={{ width: '100%', height: '100%', flexShrink: 0 }}>
+                            <img src={img} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', userSelect: 'none', pointerEvents: 'none' }} />
                           </div>
                         )) : (
-                          <div style={{ width: "100%", aspectRatio: "4/5", background: "#ebebeb", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
                           </div>
                         )}
                       </div>
                       {sheetImages.length > 1 && (
-                        <div style={{ position: "absolute", bottom: 12, left: 12, display: "flex", gap: 5 }}>
+                        <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6 }}>
                           {sheetImages.map((_, i) => (
                             <div key={i} onClick={e => { e.stopPropagation(); setActiveImg(i) }}
-                              style={{
-                                width: 9, height: 9, cursor: "pointer", transition: "background .18s",
-                                background: i === activeImg ? "#1A1A1A" : "rgba(255,255,255,.55)",
-                                border: i === activeImg ? "1px solid #1A1A1A" : "1px solid rgba(26,26,26,.45)",
-                                boxShadow: "0 0 0 0.5px rgba(255,255,255,.35)",
+                              style={{ width: 7, height: 7, borderRadius: '50%', cursor: 'pointer', transition: 'background .18s',
+                                background: i === activeImg ? '#fff' : 'rgba(255,255,255,.5)',
+                                boxShadow: '0 1px 4px rgba(0,0,0,.35)',
                               }} />
                           ))}
                         </div>
                       )}
                     </div>
-                  </div>
 
-                  {sheetImages.length > 1 && (
-                    <div style={{ padding: "10px 16px 0", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
-                      {sheetImages.map((img, i) => (
-                        <button key={i} onClick={() => setActiveImg(i)}
-                          style={{ width: 46, height: 58, overflow: "hidden", padding: 0, border: `1.5px solid ${i === activeImg ? INK : 'transparent'}`, cursor: "pointer", background: "#ebebeb", flexShrink: 0, transition: "border-color .15s" }}>
-                          <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                    {/* Right — scrollable product details */}
+                    <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none' as const, display: 'flex', flexDirection: 'column', paddingBottom: 28 }}>
 
-                  {/* Title + save + price */}
-                  <div style={{ padding: "18px 20px 0" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                      <h2 style={{ fontFamily: SANS, fontSize: "clamp(14px,4vw,16px)", fontWeight: 500, color: INK, lineHeight: 1.3, letterSpacing: ".01em", textTransform: "uppercase", flex: 1 }}>
-                        {selectedProduct.title}
-                      </h2>
-                      <button onClick={() => toggleSaved(selectedProduct)} aria-label="Save"
-                        style={{ background: "transparent", border: "none", padding: 2, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : "none"} stroke={INK} strokeWidth="1.5">
-                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                        </svg>
-                      </button>
-                    </div>
-                    <p style={{ fontFamily: SANS, fontSize: "clamp(15px,4vw,17px)", color: INK, fontWeight: 700, marginTop: 8 }}>
-                      {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, rates)}
-                    </p>
-                    <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Inclusive of all taxes</p>
-                  </div>
-
-                  {/* Colour */}
-                  {sheetColors.length > 0 && (
-                    <div style={{ padding: "18px 20px 0" }}>
-                      <p style={{ fontFamily: SANS, fontSize: 12, marginBottom: 10, letterSpacing: ".02em" }}>
-                        <span style={{ color: INK3 }}>Colour: </span><span style={{ color: INK }}>{effectiveColor}</span>
-                      </p>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        {sheetColors.map(c => {
-                          const on = effectiveColor === c
-                          const avail = colorAvail[c] !== false
-                          return (
-                            <button key={c} disabled={!avail} onClick={() => avail && setColor(c)}
-                              style={{ fontFamily: SANS, fontSize: 12,
-                                color: !avail ? INK3 : on ? INK : INK3,
-                                background: "#fff",
-                                border: `1px solid ${on ? INK : BRD}`,
-                                padding: "9px 14px",
-                                cursor: avail ? "pointer" : "not-allowed",
-                                opacity: avail ? 1 : 0.38,
-                                textDecoration: avail ? "none" : "line-through",
-                                transition: "border-color .15s" }}>
-                              {c}
-                            </button>
-                          )
-                        })}
+                      {/* Title + save + price */}
+                      <div style={{ padding: '26px 24px 0' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                          <h2 style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, lineHeight: 1.3, letterSpacing: '.06em', textTransform: 'uppercase', flex: 1 }}>
+                            {selectedProduct.title}
+                          </h2>
+                          <button onClick={() => toggleSaved(selectedProduct)} aria-label="Save"
+                            style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', flexShrink: 0, marginTop: 1 }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : 'none'} stroke={INK} strokeWidth="1.5">
+                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                            </svg>
+                          </button>
+                        </div>
+                        <p style={{ fontFamily: SANS, fontSize: 18, color: INK, fontWeight: 700, marginTop: 10 }}>
+                          {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, rates)}
+                        </p>
+                        <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Inclusive of all taxes</p>
                       </div>
-                    </div>
-                  )}
 
-                  {/* Stock + view similar */}
-                  <div style={{ padding: "18px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: SANS, fontSize: 12, color: INK2 }}>
-                      <span style={{ width: 7, height: 7, background: selectedProduct.in_stock ? "#3d5c3a" : "#c0392b", display: "inline-block" }} />
-                      {selectedProduct.in_stock ? "In stock" : "Out of stock"}
-                    </span>
-                    {similarItems.length > 0 && (
-                      <button onClick={() => similarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                        style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, background: "transparent", border: "none", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>
-                        View similar
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Sizes — boxed grid */}
-                  {sheetSizes.length > 0 && (
-                    <div style={{ padding: "14px 20px 0" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
-                        {sheetSizes.map((s, i) => {
-                          const avail = sizeAvail[s] !== false
-                          const on = selectedSize === s
-                          return (
-                            <button key={s} disabled={!avail} onClick={() => avail && setSize(on ? null : s)}
-                              className={`fr-szbox${on ? " on" : ""}${avail ? "" : " dis"}`}
-                              style={{ marginLeft: i % 6 === 0 ? 0 : -1 }}>
-                              {s}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ADD button */}
-                  <div style={{ padding: "16px 20px 0" }}>
-                    <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                      target="_blank" rel="noopener noreferrer"
-                      className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
-                      onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
-                      {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Checkout"}
-                    </a>
-                  </div>
-
-                  {/* Sold by / visit store */}
-                  <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontFamily: SANS, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: INK3 }}>
-                      From: {sheetBrandName}
-                    </span>
-                    <a href={selectedProduct.store_url} target="_blank" rel="noopener noreferrer"
-                      style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, textDecoration: "underline", textUnderlineOffset: 3 }}>
-                      Visit store
-                    </a>
-                  </div>
-
-                  {/* Accordions */}
-                  <div key={selectedProduct.id} style={{ padding: "22px 20px 0" }}>
-
-                    {/* Description & Fit */}
-                    {(sheetDescHtml || sheetDesc) && (
-                      <Accordion label="Description & Fit" defaultOpen>
-                        {sheetDescHtml ? (
-                          <div className="fr-html" dangerouslySetInnerHTML={{ __html: sheetDescHtml }} />
-                        ) : (
-                          <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: "pre-line" }}>{sheetDesc}</p>
-                        )}
-                      </Accordion>
-                    )}
-
-                    {/* Size Guide — only when a size chart table is found in the product HTML */}
-                    {sheetSizeTable && (
-                      <Accordion label="Size Guide">
-                        <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: ".03em" }}>Measurements may vary slightly. When in doubt, size up.</p>
-                        <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
-                      </Accordion>
-                    )}
-
-                    {/* Materials & Care */}
-                    {(sheetMaterial || sheetCareTags.length > 0) && (
-                      <Accordion label="Materials & Care">
-                        {sheetMaterial && (
-                          <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
-                            {sheetMaterial}
+                      {sheetColors.length > 0 && (
+                        <div style={{ padding: '18px 24px 0' }}>
+                          <p style={{ fontFamily: SANS, fontSize: 12, marginBottom: 10, letterSpacing: '.02em' }}>
+                            <span style={{ color: INK3 }}>Colour: </span><span style={{ color: INK }}>{effectiveColor}</span>
                           </p>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {sheetColors.map(c => {
+                              const on = effectiveColor === c
+                              const avail = colorAvail[c] !== false
+                              return (
+                                <button key={c} disabled={!avail} onClick={() => avail && setColor(c)}
+                                  style={{ fontFamily: SANS, fontSize: 12, color: !avail ? INK3 : on ? INK : INK3,
+                                    background: '#fff', border: `1px solid ${on ? INK : BRD}`, padding: '8px 14px',
+                                    cursor: avail ? 'pointer' : 'not-allowed', opacity: avail ? 1 : 0.38,
+                                    textDecoration: avail ? 'none' : 'line-through', transition: 'border-color .15s' }}>
+                                  {c}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ padding: '16px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: SANS, fontSize: 12, color: INK2 }}>
+                          <span style={{ width: 7, height: 7, background: selectedProduct.in_stock ? '#3d5c3a' : '#c0392b', display: 'inline-block' }} />
+                          {selectedProduct.in_stock ? 'In stock' : 'Out of stock'}
+                        </span>
+                      </div>
+
+                      {sheetSizes.length > 0 && (
+                        <div style={{ padding: '14px 24px 0' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
+                            {sheetSizes.map((s, i) => {
+                              const avail = sizeAvail[s] !== false
+                              const on = selectedSize === s
+                              return (
+                                <button key={s} disabled={!avail} onClick={() => avail && setSize(on ? null : s)}
+                                  className={`fr-szbox${on ? ' on' : ''}${avail ? '' : ' dis'}`}
+                                  style={{ marginLeft: i % 6 === 0 ? 0 : -1 }}>
+                                  {s}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ padding: '16px 24px 0' }}>
+                        <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
+                          target="_blank" rel="noopener noreferrer"
+                          className={`fr-add${sheetSizes.length > 0 && !selectedSize ? ' warn' : ''}`}
+                          onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
+                          {sheetSizes.length > 0 && !selectedSize ? 'Select a size' : 'Checkout'}
+                        </a>
+                      </div>
+
+                      <div style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontFamily: SANS, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: INK3 }}>
+                          From: {sheetBrandName}
+                        </span>
+                        <a href={selectedProduct.store_url} target="_blank" rel="noopener noreferrer"
+                          style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: '.06em', textTransform: 'uppercase', color: INK, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                          Visit store
+                        </a>
+                      </div>
+
+                      <div key={selectedProduct.id} style={{ padding: '16px 24px 0' }}>
+                        {(sheetDescHtml || sheetDesc) && (
+                          <Accordion label="Description & Fit" defaultOpen>
+                            {sheetDescHtml ? (
+                              <div className="fr-html" dangerouslySetInnerHTML={{ __html: sheetDescHtml }} />
+                            ) : (
+                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: 'pre-line' }}>{sheetDesc}</p>
+                            )}
+                          </Accordion>
                         )}
-                        {sheetCareTags.length > 0 && (
+                        {sheetSizeTable && (
+                          <Accordion label="Size Guide">
+                            <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: '.03em' }}>Measurements may vary slightly. When in doubt, size up.</p>
+                            <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
+                          </Accordion>
+                        )}
+                        {(sheetMaterial || sheetCareTags.length > 0) && (
+                          <Accordion label="Materials & Care">
+                            {sheetMaterial && (
+                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
+                                {sheetMaterial}
+                              </p>
+                            )}
+                            {sheetCareTags.length > 0 && (
+                              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                {sheetCareTags.map((tag, i) => (
+                                  <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: 'flex', alignItems: 'flex-start', gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
+                                    <div style={{ width: 3, height: 3, borderRadius: '50%', background: INK3, flexShrink: 0, marginTop: 6 }} />
+                                    {tag}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </Accordion>
+                        )}
+                        {sheetDetailTags.length > 0 && (
+                          <Accordion label="Product Details">
+                            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                              {sheetDetailTags.slice(0, 12).map((tag, i) => (
+                                <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: 'flex', alignItems: 'flex-start', gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
+                                  <div style={{ width: 3, height: 3, borderRadius: '50%', background: INK3, flexShrink: 0, marginTop: 6 }} />
+                                  {tag}
+                                </li>
+                              ))}
+                            </ul>
+                          </Accordion>
+                        )}
+                        <Accordion label="Delivery & Returns">
+                          <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
+                            Shipping, payment and returns are handled directly by {sheetBrandName || 'the store'}. Delivery times and return windows vary — see their policies at checkout.
+                          </p>
+                        </Accordion>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── Phone: original stacked layout ── */
+                  <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", paddingBottom: 24 }}>
+                    <div>
+                      <div style={{ position: "relative", overflow: "hidden", touchAction: "pan-y" }}
+                        onPointerDown={sheetImages.length > 1 ? onImgDown : undefined}
+                        onPointerMove={sheetImages.length > 1 ? (e => onImgMove(e, sheetImages.length)) : undefined}
+                        onPointerUp={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
+                        onPointerCancel={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
+                      >
+                        <div style={{ display: "flex", transition: (imgActive.current && imgLockH.current) ? "none" : "transform .32s cubic-bezier(.32,.72,0,1)", transform: `translateX(calc(-${activeImg * 100}% + ${imgDX}px))` }}>
+                          {sheetImages.length > 0 ? sheetImages.map((img, i) => (
+                            <div key={i} style={{ width: "100%", flexShrink: 0 }}>
+                              <img src={img} alt="" draggable={false} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block", userSelect: "none", pointerEvents: "none" }} />
+                            </div>
+                          )) : (
+                            <div style={{ width: "100%", aspectRatio: "4/5", background: "#ebebeb", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </div>
+                          )}
+                        </div>
+                        {sheetImages.length > 1 && (
+                          <div style={{ position: "absolute", bottom: 12, left: 12, display: "flex", gap: 5 }}>
+                            {sheetImages.map((_, i) => (
+                              <div key={i} onClick={e => { e.stopPropagation(); setActiveImg(i) }}
+                                style={{
+                                  width: 9, height: 9, cursor: "pointer", transition: "background .18s",
+                                  background: i === activeImg ? "#1A1A1A" : "rgba(255,255,255,.55)",
+                                  border: i === activeImg ? "1px solid #1A1A1A" : "1px solid rgba(26,26,26,.45)",
+                                  boxShadow: "0 0 0 0.5px rgba(255,255,255,.35)",
+                                }} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {sheetImages.length > 1 && (
+                      <div style={{ padding: "10px 16px 0", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+                        {sheetImages.map((img, i) => (
+                          <button key={i} onClick={() => setActiveImg(i)}
+                            style={{ width: 46, height: 58, overflow: "hidden", padding: 0, border: `1.5px solid ${i === activeImg ? INK : 'transparent'}`, cursor: "pointer", background: "#ebebeb", flexShrink: 0, transition: "border-color .15s" }}>
+                            <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ padding: "18px 20px 0" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                        <h2 style={{ fontFamily: SANS, fontSize: "clamp(14px,4vw,16px)", fontWeight: 500, color: INK, lineHeight: 1.3, letterSpacing: ".01em", textTransform: "uppercase", flex: 1 }}>
+                          {selectedProduct.title}
+                        </h2>
+                        <button onClick={() => toggleSaved(selectedProduct)} aria-label="Save"
+                          style={{ background: "transparent", border: "none", padding: 2, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : "none"} stroke={INK} strokeWidth="1.5">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <p style={{ fontFamily: SANS, fontSize: "clamp(15px,4vw,17px)", color: INK, fontWeight: 700, marginTop: 8 }}>
+                        {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, rates)}
+                      </p>
+                      <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Inclusive of all taxes</p>
+                    </div>
+
+                    {sheetColors.length > 0 && (
+                      <div style={{ padding: "18px 20px 0" }}>
+                        <p style={{ fontFamily: SANS, fontSize: 12, marginBottom: 10, letterSpacing: ".02em" }}>
+                          <span style={{ color: INK3 }}>Colour: </span><span style={{ color: INK }}>{effectiveColor}</span>
+                        </p>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {sheetColors.map(c => {
+                            const on = effectiveColor === c
+                            const avail = colorAvail[c] !== false
+                            return (
+                              <button key={c} disabled={!avail} onClick={() => avail && setColor(c)}
+                                style={{ fontFamily: SANS, fontSize: 12,
+                                  color: !avail ? INK3 : on ? INK : INK3,
+                                  background: "#fff",
+                                  border: `1px solid ${on ? INK : BRD}`,
+                                  padding: "9px 14px",
+                                  cursor: avail ? "pointer" : "not-allowed",
+                                  opacity: avail ? 1 : 0.38,
+                                  textDecoration: avail ? "none" : "line-through",
+                                  transition: "border-color .15s" }}>
+                                {c}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ padding: "18px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: SANS, fontSize: 12, color: INK2 }}>
+                        <span style={{ width: 7, height: 7, background: selectedProduct.in_stock ? "#3d5c3a" : "#c0392b", display: "inline-block" }} />
+                        {selectedProduct.in_stock ? "In stock" : "Out of stock"}
+                      </span>
+                      {similarItems.length > 0 && (
+                        <button onClick={() => similarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                          style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, background: "transparent", border: "none", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>
+                          View similar
+                        </button>
+                      )}
+                    </div>
+
+                    {sheetSizes.length > 0 && (
+                      <div style={{ padding: "14px 20px 0" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
+                          {sheetSizes.map((s, i) => {
+                            const avail = sizeAvail[s] !== false
+                            const on = selectedSize === s
+                            return (
+                              <button key={s} disabled={!avail} onClick={() => avail && setSize(on ? null : s)}
+                                className={`fr-szbox${on ? " on" : ""}${avail ? "" : " dis"}`}
+                                style={{ marginLeft: i % 6 === 0 ? 0 : -1 }}>
+                                {s}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ padding: "16px 20px 0" }}>
+                      <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
+                        target="_blank" rel="noopener noreferrer"
+                        className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
+                        onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
+                        {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Checkout"}
+                      </a>
+                    </div>
+
+                    <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontFamily: SANS, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: INK3 }}>
+                        From: {sheetBrandName}
+                      </span>
+                      <a href={selectedProduct.store_url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, textDecoration: "underline", textUnderlineOffset: 3 }}>
+                        Visit store
+                      </a>
+                    </div>
+
+                    <div key={selectedProduct.id} style={{ padding: "22px 20px 0" }}>
+                      {(sheetDescHtml || sheetDesc) && (
+                        <Accordion label="Description & Fit" defaultOpen>
+                          {sheetDescHtml ? (
+                            <div className="fr-html" dangerouslySetInnerHTML={{ __html: sheetDescHtml }} />
+                          ) : (
+                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: "pre-line" }}>{sheetDesc}</p>
+                          )}
+                        </Accordion>
+                      )}
+                      {sheetSizeTable && (
+                        <Accordion label="Size Guide">
+                          <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: ".03em" }}>Measurements may vary slightly. When in doubt, size up.</p>
+                          <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
+                        </Accordion>
+                      )}
+                      {(sheetMaterial || sheetCareTags.length > 0) && (
+                        <Accordion label="Materials & Care">
+                          {sheetMaterial && (
+                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
+                              {sheetMaterial}
+                            </p>
+                          )}
+                          {sheetCareTags.length > 0 && (
+                            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
+                              {sheetCareTags.map((tag, i) => (
+                                <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
+                                  <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 6 }} />
+                                  {tag}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </Accordion>
+                      )}
+                      {sheetDetailTags.length > 0 && (
+                        <Accordion label="Product Details">
                           <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
-                            {sheetCareTags.map((tag, i) => (
+                            {sheetDetailTags.slice(0, 12).map((tag, i) => (
                               <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
                                 <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 6 }} />
                                 {tag}
                               </li>
                             ))}
                           </ul>
-                        )}
+                        </Accordion>
+                      )}
+                      <Accordion label="Delivery & Returns">
+                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
+                          Shipping, payment and returns are handled directly by {sheetBrandName || "the store"}. Delivery times and return windows vary — see their policies at checkout.
+                        </p>
                       </Accordion>
-                    )}
-
-                    {/* Product Details */}
-                    {sheetDetailTags.length > 0 && (
-                      <Accordion label="Product Details">
-                        <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
-                          {sheetDetailTags.slice(0, 12).map((tag, i) => (
-                            <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
-                              <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 6 }} />
-                              {tag}
-                            </li>
-                          ))}
-                        </ul>
-                      </Accordion>
-                    )}
-
-                    <Accordion label="Delivery & Returns">
-                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
-                        Shipping, payment and returns are handled directly by {sheetBrandName || "the store"}. Delivery times and return windows vary — see their policies at checkout.
-                      </p>
-                    </Accordion>
-                  </div>
-
-                  {/* Similar items */}
-                  {similarItems.length > 0 && (
-                    <div ref={similarRef} style={{ padding: "26px 0 0" }}>
-                      <div style={{ padding: "0 20px", marginBottom: 14 }}>
-                        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: INK }}>Similar items</span>
-                      </div>
-                      <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", padding: "0 20px 4px" }}>
-                        {similarItems.map(p => (
-                          <button key={p.id} onClick={() => setSelected(p)}
-                            style={{ flexShrink: 0, width: 120, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
-                            <div style={{ width: 120, aspectRatio: "3/4", overflow: "hidden", background: "#ede8e3", marginBottom: 7 }}>
-                              {p.image_url && <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
-                            </div>
-                            <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
-                            <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK2, fontWeight: 600, marginTop: 3 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
-                          </button>
-                        ))}
-                      </div>
                     </div>
-                  )}
 
-                  <div style={{ height: 28 }} />
-                </div>
+                    {similarItems.length > 0 && (
+                      <div ref={similarRef} style={{ padding: "26px 0 0" }}>
+                        <div style={{ padding: "0 20px", marginBottom: 14 }}>
+                          <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: INK }}>Similar items</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", padding: "0 20px 4px" }}>
+                          {similarItems.map(p => (
+                            <button key={p.id} onClick={() => setSelected(p)}
+                              style={{ flexShrink: 0, width: 120, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
+                              <div style={{ width: 120, aspectRatio: "3/4", overflow: "hidden", background: "#ede8e3", marginBottom: 7 }}>
+                                {p.image_url && <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+                              </div>
+                              <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                              <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK2, fontWeight: 600, marginTop: 3 }}>{formatMoney(p.price, p.currency, p.base_currency, rates)}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ height: 28 }} />
+                  </div>
+                )}
               </>
             )}
           </div>
