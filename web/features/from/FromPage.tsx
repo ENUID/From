@@ -457,7 +457,7 @@ export default function FromApp({
         /* ── Grid ── */
         .fr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;width:100%;flex-shrink:0;}
         .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;}
-        .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s;}
+        .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;}
         .fr-cell:hover img{transform:scale(1.03);}
         .fr-cell{opacity:0;animation:fr-fi .35s ease forwards;}
         @keyframes fr-fi{to{opacity:1;}}
@@ -902,10 +902,23 @@ export default function FromApp({
               exploreCache.length > 0
                 ? <div className="fr-grid">{exploreCache.map(p => (
                     <div key={p.id} className="fr-cell" onClick={() => setSelected(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                      {p.image_url ? <img src={p.image_url} alt="" loading="lazy" />
-                        : <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          </div>}
+                      {p.image_url ? (
+                        <>
+                          <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
+                            <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
+                              background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
+                              animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
+                          </div>
+                          <img src={p.image_url} alt="" loading="lazy"
+                            style={{ position:'relative',zIndex:2,opacity:0 }}
+                            onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
+                          />
+                        </>
+                      ) : (
+                        <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </div>
+                      )}
                     </div>
                   ))}</div>
                 : <div style={{ padding: "60px 28px", textAlign: "center" }}>
@@ -920,12 +933,24 @@ export default function FromApp({
                 <div className="fr-grid">
                   {searchProducts.map(p => (
                     <div key={p.id} className="fr-cell" onClick={() => setSelected(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                      {p.image_url
-                        ? <img src={p.image_url} alt="" loading="lazy" />
-                        : <div style={{ width: '100%', height: '100%', background: '#e4e4e4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {p.image_url ? (
+                        <>
+                          {/* Shimmer sits behind until image is opaque */}
+                          <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
+                            <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
+                              background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
+                              animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
                           </div>
-                      }
+                          <img src={p.image_url} alt=""
+                            style={{ position:'relative',zIndex:2,opacity:0 }}
+                            onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
+                          />
+                        </>
+                      ) : (
+                        <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
