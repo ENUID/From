@@ -368,33 +368,40 @@ function splitCatalogQuery(query: string) {
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   "top": [
-    "shirt", "shirts", "t-shirt", "t-shirts", "tee", "tees", "top", "tops", "tank", "tanks", 
+    "shirt", "shirts", "t-shirt", "t-shirts", "tee", "tees", "top", "tops", "tank", "tanks",
     "blouse", "blouses", "crop", "henley", "polo", "sơ mi", "ao", "áo", "シャツ", "셔츠", "camisa"
   ],
   "bottom": [
-    "short", "shorts", "pants", "trouser", "trousers", "jean", "jeans", "denim", "skirt", "skirts", 
+    "short", "shorts", "pants", "trouser", "trousers", "jean", "jeans", "denim", "skirt", "skirts",
     "leggings", "jogger", "joggers", "sweatpant", "sweatpants", "quần", "裤"
   ],
   "dress": [
-    "dress", "dresses", "gown", "gowns", "jumpsuit", "jumpsuits", "bodysuit", "bodysuits", 
+    "dress", "dresses", "gown", "gowns", "jumpsuit", "jumpsuits", "bodysuit", "bodysuits",
     "romper", "rompers", "váy", "đầm", "ワンピース"
   ],
   "outerwear": [
-    "jacket", "jackets", "coat", "coats", "hoodie", "hoodies", "sweatshirt", "sweatshirts", 
-    "sweater", "sweaters", "cardigan", "cardigans", "blazer", "blazers", "fleece", "vest", "vests", 
+    "jacket", "jackets", "coat", "coats", "hoodie", "hoodies", "sweatshirt", "sweatshirts",
+    "sweater", "sweaters", "cardigan", "cardigans", "blazer", "blazers", "fleece", "vest", "vests",
     "khoác", "len", "ジャケット", "코트"
   ],
   "footwear": [
-    "shoe", "shoes", "sneaker", "sneakers", "boot", "boots", "sandal", "sandals", "heel", "heels", 
-    "slide", "slides", "loafer", "loafers", "giày", "dép", "guốc", "shoes", "boots", "sneakers", "靴", "신발"
+    "shoe", "shoes", "sneaker", "sneakers", "boot", "boots", "sandal", "sandals", "heel", "heels",
+    "slide", "slides", "loafer", "loafers", "giày", "dép", "guốc", "靴", "신발", "footwear", "mule", "mules",
+    "oxford", "oxfords", "derby", "derbies", "chelsea", "espadrille", "espadrilles", "clog", "clogs"
   ],
   "underwear": [
-    "sock", "socks", "underwear", "bra", "bras", "briefs", "boxer", "boxers", "thong", "thongs", 
+    "sock", "socks", "underwear", "bra", "bras", "briefs", "boxer", "boxers", "thong", "thongs",
     "sleepwear", "robe", "robes", "lingerie", "vớ", "sịp", "lót", "下着", "속옷"
   ],
   "accessory": [
-    "bag", "bags", "backpack", "backpacks", "hat", "hats", "cap", "caps", "belt", "belts", 
-    "sunglasses", "túi", "ví", "mũ", "nón", "kính", "バッグ", "모자"
+    "bag", "bags", "backpack", "backpacks", "tote", "totes", "pouch", "pouches", "clutch", "clutches",
+    "wallet", "wallets", "purse", "purses", "cardholder", "cardholders", "card holder",
+    "hat", "hats", "cap", "caps", "beanie", "beanies",
+    "belt", "belts", "sunglasses", "glasses", "scarf", "scarves",
+    "watch", "watches", "jewelry", "jewellery", "necklace", "necklaces", "bracelet", "bracelets",
+    "earring", "earrings", "ring", "rings", "pendant",
+    "keychain", "keychains", "key chain", "luggage tag", "luggage tags",
+    "túi", "ví", "mũ", "nón", "kính", "バッグ", "모자"
   ]
 };
 
@@ -504,27 +511,32 @@ const MATERIAL_SYNONYMS: Record<string, string[]> = {
 
 function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   const normalizedQuery = query.toLowerCase();
-  const searchableText = `${product.title} ${product.description || ''}`.toLowerCase();
+  // Include tags so "shoe" tags on a shoe product don't get missed
+  const searchableText = [
+    product.title,
+    product.description || '',
+    ...(product.tags || []),
+    ...(product.options?.flatMap(o => [o.name, ...o.values]) || []),
+  ].join(' ').toLowerCase();
 
   const queryKeywords = getProductKeywords(normalizedQuery);
   if (queryKeywords.length === 0) return false;
 
-  // 1. Material check
-  const queryMaterials = MATERIALS.filter(mat => 
+  // 1. Material check — if the query specifies a material, the product must have it
+  const queryMaterials = MATERIALS.filter(mat =>
     queryKeywords.some(kw => kw === mat || kw.includes(mat) || mat.includes(kw))
   );
-
   if (queryMaterials.length > 0) {
     const hasMaterial = queryMaterials.some(mat => {
       const synonyms = MATERIAL_SYNONYMS[mat] || [mat];
       return synonyms.some(syn => searchableText.includes(syn));
     });
-    if (!hasMaterial) {
-      return true; // Mismatch because of material
-    }
+    if (!hasMaterial) return true;
   }
 
-  // 2. Category check
+  // 2. Category check — if the query maps to specific categories, the product must be in one of them.
+  // Critical: this also catches products with NO recognized category at all (tissue boxes, notebooks, etc.)
+  // when the query is clearly for a fashion/accessory item.
   const queryCategories = new Set<string>();
   for (const kw of queryKeywords) {
     for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
@@ -542,12 +554,13 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
       }
     }
 
-    if (productCategories.size > 0) {
-      const matchesQueryCategory = Array.from(queryCategories).some(cat => productCategories.has(cat));
-      if (!matchesQueryCategory) {
-        return true; // Mismatch because of category
-      }
-    }
+    // Previously we only flagged a mismatch when productCategories was non-empty
+    // (i.e., the product was in a DIFFERENT category). That let completely uncategorized
+    // products (tissue boxes, notebooks, watches, wallets) pass unpenalized.
+    // Now we flag any product that doesn't belong to at least one query category,
+    // whether it's in the wrong category or in no category at all.
+    const matchesQueryCategory = Array.from(queryCategories).some(cat => productCategories.has(cat));
+    if (!matchesQueryCategory) return true;
   }
 
   return false;
@@ -749,24 +762,23 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     return true;
   });
 
-  const isMismatch = (p: UcpProduct) => (p.trust_score || 0) < 40;
+  // Hard-filter category mismatches. A mismatch trust_score is ≤34 (base 70-94 minus 60 penalty).
+  // Only fall back to including mismatches if they make up the entire result set (niche queries).
+  const MISMATCH_THRESHOLD = 40;
+  const matched = filtered.filter(p => (p.trust_score || 0) >= MISMATCH_THRESHOLD);
+  // Keep mismatches only as an absolute last resort — ensures niche/unlabeled stores still return something
+  filtered = matched.length >= 4 ? matched : filtered;
 
-  filtered = [...filtered].sort((a, b) => {
-    const mismatchA = isMismatch(a);
-    const mismatchB = isMismatch(b);
-    if (mismatchA !== mismatchB) {
-      return mismatchA ? 1 : -1;
-    }
-
-    if (sort === 'trust_desc') {
-      return (b.trust_score || 0) - (a.trust_score || 0);
-    } else if (sort !== 'relevance') {
+  const sortFn = (a: UcpProduct, b: UcpProduct): number => {
+    if (sort === 'trust_desc') return (b.trust_score || 0) - (a.trust_score || 0);
+    if (sort !== 'relevance') {
       const priceA = convertProductPrice(a, budgetCurrency, filters.rates);
       const priceB = convertProductPrice(b, budgetCurrency, filters.rates);
       return sort === 'price_desc' ? priceB - priceA : priceA - priceB;
     }
     return 0;
-  });
+  };
+  filtered = [...filtered].sort(sortFn);
 
   return filtered.slice(0, filters.limit);
 }
