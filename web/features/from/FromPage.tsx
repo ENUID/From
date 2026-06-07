@@ -526,6 +526,8 @@ export default function FromApp({
 
 
         @keyframes fr-bounce{0%,100%{transform:translateY(0);opacity:.2;}50%{transform:translateY(-6px);opacity:1;}}
+        @keyframes img-pulse{0%,100%{opacity:.30;}50%{opacity:.70;}}
+        @keyframes shimmer-sweep{0%{background-position:-400px 0;}100%{background-position:400px 0;}}
         @keyframes spin{to{transform:rotate(360deg);}}
         @keyframes ctxIn{0%{opacity:0;transform:scale(0.60);}55%{opacity:1;transform:scale(1.04);}80%{transform:scale(0.98);}100%{opacity:1;transform:scale(1);}}
         button{cursor:pointer;} a{color:inherit;}
@@ -785,11 +787,34 @@ export default function FromApp({
             }
 
 
-            {/* Loading dots */}
+            {/* Loading — ghost image grid that pulses to hint pictures are coming */}
             {loading && (
-              <div style={{ display: "flex", gap: 5, justifyContent: "center", padding: "44px 0" }}>
-                {[0, .2, .4].map((d, i) => (
-                  <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: INK, animation: `fr-bounce 1.2s ${d}s ease-in-out infinite` }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 2, width: '100%', flexShrink: 0 }}>
+                {[0, 0.12, 0.24, 0.36, 0.48, 0.60].map((delay, i) => (
+                  <div key={i} style={{
+                    aspectRatio: '3/4',
+                    borderRadius: 0,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    background: '#ede8e3',
+                    animation: `img-pulse 1.6s ${delay}s ease-in-out infinite`,
+                  }}>
+                    {/* Shimmer sweep */}
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)',
+                      backgroundSize: '400px 100%',
+                      animation: `shimmer-sweep 1.8s ${delay}s linear infinite`,
+                    }} />
+                    {/* Subtle image icon hint */}
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(44,18,6,0.18)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <path d="M21 15l-5-5L5 21"/>
+                      </svg>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
