@@ -578,7 +578,7 @@ export default function FromApp({
 
             {/* Greeting — home screen only */}
             {!hasConversation && <div className={`fr-greet${loaded ? ' in' : ''}`}>
-              <div style={{ fontFamily: SERIF, fontSize: "clamp(34px,9.5vw,52px)", lineHeight: 1.12, letterSpacing: "-.015em", marginBottom: 6 }}>
+              <div style={{ fontFamily: SERIF, fontSize: "clamp(48px,13vw,72px)", lineHeight: 1.08, letterSpacing: "-.02em", marginBottom: 10 }}>
                 <span style={{ fontWeight: 300, color: INK }}>Hello, </span>
                 {isEditingName ? (
                   <input ref={nameRef} value={nameInput}
@@ -586,7 +586,7 @@ export default function FromApp({
                     onBlur={saveName}
                     onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameInput(''); setIsEditing(false) } }}
                     maxLength={22} placeholder="your name"
-                    style={{ fontFamily: SERIF, fontSize: "clamp(34px,9.5vw,52px)", fontWeight: 400, fontStyle: "italic", color: INK, background: "transparent", border: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, width: "clamp(140px,52vw,240px)", letterSpacing: "-.015em", outline: "none" }}
+                    style={{ fontFamily: SERIF, fontSize: "clamp(48px,13vw,72px)", fontWeight: 400, fontStyle: "italic", color: INK, background: "transparent", border: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, width: "clamp(180px,60vw,320px)", letterSpacing: "-.02em", outline: "none" }}
                   />
                 ) : (
                   <span onClick={() => { setNameInput(userName); setIsEditing(true) }}
@@ -595,7 +595,7 @@ export default function FromApp({
                   </span>
                 )}
               </div>
-              <p style={{ fontFamily: SANS, fontSize: "clamp(7px,1.6vw,9px)", letterSpacing: ".22em", textTransform: "uppercase", color: INK3, opacity: .45 }}>
+              <p style={{ fontFamily: SANS, fontSize: "clamp(9px,2.2vw,11px)", letterSpacing: ".22em", textTransform: "uppercase", color: INK3, opacity: .45 }}>
                 Shop at the speed of thought
               </p>
             </div>}
