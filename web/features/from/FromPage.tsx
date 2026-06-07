@@ -14,7 +14,7 @@ const INK3  = "#555555"
 const BRD   = "rgba(0,0,0,0.07)"
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
-const SEASON = "'Bodoni Moda', 'Cormorant Garamond', Georgia, serif"
+const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
 
 // ── Spring physics hook ───────────────────────────────────────────────────────
 // Runs a damped spring in a RAF loop; returns live animated value.
@@ -142,6 +142,7 @@ export default function FromApp({
   const [uploadName, setUploadName]     = useState("")
   const [loaded, setLoaded]             = useState(false)
   const [attachMenuOpen, setAttachMenu] = useState(false)
+  const attachMenuRef = useRef<HTMLDivElement>(null)
 
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
@@ -167,7 +168,10 @@ export default function FromApp({
   useEffect(() => {
     if (!attachMenuOpen) return
     const handler = (e: MouseEvent) => {
-      if (!attachWrap.current?.contains(e.target as Node)) setAttachMenu(false)
+      if (
+        !attachWrap.current?.contains(e.target as Node) &&
+        !attachMenuRef.current?.contains(e.target as Node)
+      ) setAttachMenu(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -240,7 +244,15 @@ export default function FromApp({
       </svg>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&display=swap');
+        @font-face {
+          font-family: 'TANMeringue';
+          src: url('/fonts/TANMeringue.woff2') format('woff2'),
+               url('/fonts/TANMeringue.ttf') format('truetype');
+          font-weight: 400;
+          font-style: normal;
+          font-display: swap;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
         html,body{margin:0;padding:0;background:#e8e8e8;min-height:100%;width:100%;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
         ::-webkit-scrollbar{display:none;}
@@ -676,7 +688,80 @@ export default function FromApp({
           </div>
 
           {/* ── Search bar — liquid glass ── */}
-          <div style={{ padding: "6px clamp(12px,4vw,18px) 6px", flexShrink: 0 }}>
+          <div style={{ padding: "6px clamp(12px,4vw,18px) 6px", flexShrink: 0, position: 'relative' }}>
+
+            {/* Attach menu — rendered here to escape fr-bar's overflow:hidden */}
+            {attachMenuOpen && (
+              <div ref={attachMenuRef} style={{
+                position: 'absolute', bottom: 'calc(100% + 4px)', left: 'clamp(12px,4vw,18px)',
+                zIndex: 300, minWidth: 210,
+                background: 'rgba(210,228,255,0.82)',
+                backdropFilter: 'blur(28px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+                borderRadius: 18,
+                border: '0.5px solid rgba(255,255,255,0.7)',
+                boxShadow: '0 12px 40px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.9)',
+                padding: '6px',
+                overflow: 'hidden',
+              }}>
+                {([
+                  { label: 'Photo Library', icon: 'gallery',  action: () => fileRef.current?.click() },
+                  { label: 'Take Photo',    icon: 'camera',   action: () => cameraRef.current?.click() },
+                  { label: 'Choose File',   icon: 'folder',   action: () => anyRef.current?.click() },
+                  { label: 'Google Drive',  icon: 'drive',    action: () => anyRef.current?.click() },
+                ] as { label: string; icon: string; action: () => void }[]).map(opt => (
+                  <button key={opt.label} type="button"
+                    onClick={() => { opt.action(); setAttachMenu(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+                      padding: '11px 14px', background: 'none', border: 'none',
+                      borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+                      fontFamily: SANS, fontSize: 14.5, color: INK, fontWeight: 400,
+                      transition: 'background .1s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.35)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <span style={{
+                      width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                      background: 'rgba(255,255,255,0.55)',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,.9)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {opt.icon === 'gallery' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                      )}
+                      {opt.icon === 'camera' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                          <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                      )}
+                      {opt.icon === 'folder' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                      )}
+                      {opt.icon === 'drive' && (
+                        <svg width="16" height="16" viewBox="0 0 87.3 78" fill={INK}>
+                          <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5z" opacity=".7"/>
+                          <path d="M43.65 25L29.9 1.2C28.55.4 27 0 25.45 0L6.6 32.5l13.75 23.8z" opacity=".7"/>
+                          <path d="M43.65 25l13.75-23.8C56.05.4 54.5 0 52.95 0H34.1l-4.2 1.2z"/>
+                          <path d="M43.65 53L29.9 76.8c1.35.8 2.9 1.2 4.45 1.2h18.6c1.55 0 3.1-.4 4.45-1.2z" opacity=".5"/>
+                          <path d="M73.4 32.5L60.2 9.85C58.85 8.5 57.2 7.55 55.4 7.05L43.65 25 57.4 48.8z" opacity=".7"/>
+                          <path d="M87.3 53c0-1.55-.4-3.1-1.2-4.5l-3.85-6.65c-.8-1.4-1.95-2.5-3.3-3.3L57.4 48.8 43.65 25 57.4 48.8 43.65 53l13.75 23.8c1.8-.5 3.45-1.45 4.8-2.8L87.3 57.5c.8-1.4 1.2-2.95 1.2-4.5z" opacity=".5"/>
+                        </svg>
+                      )}
+                    </span>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Spring-animated wrapper */}
             <div style={{ transform: `scale(${barScale})`, transformOrigin: "center bottom", willChange: "transform" }}
@@ -718,82 +803,7 @@ export default function FromApp({
                   <div className="fr-bar-btm">
 
                     {/* Paperclip — opens attach menu */}
-                    <div ref={attachWrap} style={{ position: 'relative' }}>
-
-                      {/* Floating glass attach menu */}
-                      {attachMenuOpen && (
-                        <div style={{
-                          position: 'absolute', bottom: 'calc(100% + 10px)', left: 0,
-                          zIndex: 300, minWidth: 210,
-                          background: 'rgba(210,228,255,0.82)',
-                          backdropFilter: 'blur(28px) saturate(180%)',
-                          WebkitBackdropFilter: 'blur(28px) saturate(180%)',
-                          borderRadius: 18,
-                          border: '0.5px solid rgba(255,255,255,0.7)',
-                          boxShadow: '0 12px 40px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.9)',
-                          padding: '6px',
-                          overflow: 'hidden',
-                        }}>
-                          {([
-                            { label: 'Photo Library', icon: 'gallery',  action: () => fileRef.current?.click() },
-                            { label: 'Take Photo',    icon: 'camera',   action: () => cameraRef.current?.click() },
-                            { label: 'Choose File',   icon: 'folder',   action: () => anyRef.current?.click() },
-                            { label: 'Google Drive',  icon: 'drive',    action: () => anyRef.current?.click() },
-                          ] as { label: string; icon: string; action: () => void }[]).map(opt => (
-                            <button key={opt.label} type="button"
-                              onClick={() => { opt.action(); setAttachMenu(false) }}
-                              style={{
-                                display: 'flex', alignItems: 'center', gap: 14, width: '100%',
-                                padding: '11px 14px', background: 'none', border: 'none',
-                                borderRadius: 12, cursor: 'pointer', textAlign: 'left',
-                                fontFamily: SANS, fontSize: 14.5, color: INK, fontWeight: 400,
-                                transition: 'background .1s',
-                              }}
-                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.35)')}
-                              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                            >
-                              <span style={{
-                                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                                background: 'rgba(255,255,255,0.55)',
-                                backdropFilter: 'blur(8px)',
-                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,.9)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              }}>
-                                {opt.icon === 'gallery' && (
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                                    <polyline points="21 15 16 10 5 21"/>
-                                  </svg>
-                                )}
-                                {opt.icon === 'camera' && (
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                                    <circle cx="12" cy="13" r="4"/>
-                                  </svg>
-                                )}
-                                {opt.icon === 'folder' && (
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                                  </svg>
-                                )}
-                                {opt.icon === 'drive' && (
-                                  <svg width="16" height="16" viewBox="0 0 87.3 78" fill={INK}>
-                                    <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5z" opacity=".7"/>
-                                    <path d="M43.65 25L29.9 1.2C28.55.4 27 0 25.45 0L6.6 32.5l13.75 23.8z" opacity=".7"/>
-                                    <path d="M43.65 25l13.75-23.8C56.05.4 54.5 0 52.95 0H34.1l-4.2 1.2z"/>
-                                    <path d="M43.65 53L29.9 76.8c1.35.8 2.9 1.2 4.45 1.2h18.6c1.55 0 3.1-.4 4.45-1.2z" opacity=".5"/>
-                                    <path d="M73.4 32.5L60.2 9.85C58.85 8.5 57.2 7.55 55.4 7.05L43.65 25 57.4 48.8z" opacity=".7"/>
-                                    <path d="M87.3 53c0-1.55-.4-3.1-1.2-4.5l-3.85-6.65c-.8-1.4-1.95-2.5-3.3-3.3L57.4 48.8 43.65 25 57.4 48.8 43.65 53l13.75 23.8c1.8-.5 3.45-1.45 4.8-2.8L87.3 57.5c.8-1.4 1.2-2.95 1.2-4.5z" opacity=".5"/>
-                                  </svg>
-                                )}
-                              </span>
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Paperclip button */}
+                    <div ref={attachWrap}>
                       <button type="button" className="fr-icon-btn"
                         onClick={() => setAttachMenu(v => !v)}
                         style={{ transform: attachMenuOpen ? 'scale(0.93)' : undefined }}
