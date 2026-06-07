@@ -300,11 +300,9 @@ export default function FromApp({
         .fr-sb{position:absolute;top:0;left:0;bottom:0;width:min(290px,86%);z-index:200;
           transform:translateX(-100%);transition:transform .34s cubic-bezier(.32,.72,0,1);
           display:flex;flex-direction:column;
-          background:rgba(251,246,239,0.96);
-          backdrop-filter:blur(36px) saturate(180%);
-          -webkit-backdrop-filter:blur(36px) saturate(180%);
-          border-right:0.5px solid rgba(255,248,238,0.7);
-          box-shadow:8px 0 48px rgba(44,18,6,.12),inset -0.5px 0 0 rgba(44,18,6,.06);
+          background:#ffffff;
+          border-right:0.5px solid rgba(44,18,6,.08);
+          box-shadow:8px 0 48px rgba(44,18,6,.10);
           border-radius:inherit;}
         .fr-sb.open{transform:translateX(0);}
         .fr-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:199;pointer-events:none;
@@ -315,25 +313,20 @@ export default function FromApp({
         .fr-hi:hover{background:rgba(44,18,6,.05);}
         .fr-hi.on{background:rgba(44,18,6,.07);font-weight:400;}
 
-        /* ── Liquid glass search bar ── */
+        /* ── Search bar ── */
         .fr-bar{
           position:relative;overflow:hidden;
           display:flex;flex-direction:column;gap:10px;
           border-radius:24px;border:none;
           padding:18px 18px 10px 12px;
           will-change:transform;
-
-          /* Warm glass material */
-          background:rgba(255,248,240,0.68);
-          backdrop-filter:blur(28px) saturate(190%) brightness(1.03);
-          -webkit-backdrop-filter:blur(28px) saturate(190%) brightness(1.03);
-
+          background:#ffffff;
           box-shadow:
-            0 16px 48px rgba(44,18,6,.13),
-            0 4px 14px rgba(44,18,6,.08),
-            0 1px 3px rgba(44,18,6,.05),
-            inset 0 1.5px 0 rgba(255,252,248,.98),
-            inset 0 -0.5px 0 rgba(44,18,6,.05);
+            0 16px 48px rgba(44,18,6,.10),
+            0 4px 14px rgba(44,18,6,.06),
+            0 1px 3px rgba(44,18,6,.04),
+            inset 0 1.5px 0 rgba(255,255,255,.98),
+            inset 0 -0.5px 0 rgba(44,18,6,.04);
         }
 
         /* Textarea */
@@ -343,22 +336,20 @@ export default function FromApp({
         .fr-ta{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;
           font-size:16px;color:${INK};caret-color:${INK};resize:none;overflow:hidden;
           min-height:24px;max-height:120px;line-height:1.55;padding:0;display:block;outline:none;width:100%;}
-        .fr-ta::placeholder{color:rgba(0,0,0,.28);}
+        .fr-ta::placeholder{color:rgba(44,18,6,.28);}
 
-        /* Glass icon buttons */
+        /* Icon buttons */
         .fr-icon-btn{
           width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
           display:flex;align-items:center;justify-content:center;
           color:${INK2};
-          background:rgba(255,248,238,0.75);
-          backdrop-filter:blur(8px);
-          -webkit-backdrop-filter:blur(8px);
-          box-shadow:0 2px 8px rgba(44,18,6,.10),inset 0 1px 0 rgba(255,252,248,.95),inset 0 -0.5px 0 rgba(44,18,6,.06);
+          background:#ffffff;
+          box-shadow:0 2px 8px rgba(44,18,6,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -0.5px 0 rgba(44,18,6,.06);
           transition:background .15s,box-shadow .15s,transform .1s;
         }
         .fr-icon-btn:hover{
-          background:rgba(255,248,238,0.95);
-          box-shadow:0 3px 12px rgba(44,18,6,.13),inset 0 1px 0 rgba(255,252,248,1),inset 0 -0.5px 0 rgba(44,18,6,.07);
+          background:#ffffff;
+          box-shadow:0 3px 12px rgba(44,18,6,.13),inset 0 1px 0 #fff,inset 0 -0.5px 0 rgba(44,18,6,.07);
           transform:translateY(-0.5px);
         }
         .fr-icon-btn:active{transform:scale(0.93);}
@@ -366,28 +357,25 @@ export default function FromApp({
         /* Send button */
         .fr-send-btn{
           width:36px;height:36px;border-radius:50%;border:none;
-          background:${canSend ? INK : 'rgba(0,0,0,.18)'};
+          background:${canSend ? INK : 'rgba(44,18,6,.18)'};
           display:flex;align-items:center;justify-content:center;
           cursor:${canSend ? 'pointer' : 'default'};
           flex-shrink:0;
           box-shadow:${canSend
-            ? '0 4px 14px rgba(0,0,0,.35),0 1px 4px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.12)'
+            ? '0 4px 14px rgba(44,18,6,.35),0 1px 4px rgba(44,18,6,.2),inset 0 1px 0 rgba(255,255,255,.12)'
             : 'none'};
           transition:background .2s,box-shadow .2s;
         }
 
-        /* Liquid glass bottom sheet */
+        /* Bottom sheet */
         .fr-sheet{
           position:absolute;bottom:0;left:0;right:0;border-radius:24px 24px 0 0;
           display:flex;flex-direction:column;z-index:101;
-          background:rgba(251,246,239,0.92);
-          backdrop-filter:blur(36px) saturate(180%);
-          -webkit-backdrop-filter:blur(36px) saturate(180%);
-          border-top:0.5px solid rgba(255,248,238,0.8);
+          background:#ffffff;
+          border-top:0.5px solid rgba(44,18,6,.08);
           box-shadow:
-            0 -1px 0 rgba(44,18,6,.06),
-            0 -24px 64px rgba(44,18,6,.12),
-            inset 0 1.5px 0 rgba(255,252,248,.95);
+            0 -1px 0 rgba(44,18,6,.05),
+            0 -24px 64px rgba(44,18,6,.10);
         }
         .fr-sheet-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:100;
           pointer-events:none;transition:background .36s;border-radius:inherit;}
@@ -456,10 +444,8 @@ export default function FromApp({
               <FromLogo size={24} color={INK} />
               <div style={{
                 width: 38, height: 38, borderRadius: "50%",
-                background: "rgba(255,248,238,0.78)",
-                backdropFilter: "blur(12px) saturate(160%)",
-                WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
-                boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,252,248,.95)",
+                background: "#ffffff",
+                boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", flexShrink: 0, userSelect: "none",
               }}>
@@ -566,15 +552,14 @@ export default function FromApp({
           <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 50, display: "flex", alignItems: "center", gap: 10 }}>
             <button onClick={() => setSidebar(true)} style={{
               width: 36, height: 36, borderRadius: "50%", border: "none",
-              background: "rgba(255,248,238,0.78)",
-              backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
-              boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,252,248,.95)",
+              background: "#ffffff",
+              boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
               display: "flex", flexDirection: "column", alignItems: "flex-start",
               justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
               transition: "box-shadow .15s, transform .1s", flexShrink: 0,
             }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(44,18,6,.16), inset 0 1px 0 rgba(255,252,248,1)"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,252,248,.95)"; e.currentTarget.style.transform = "" }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(44,18,6,.16), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
             >
               <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
               <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
@@ -677,7 +662,7 @@ export default function FromApp({
                   <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 8px' }}>
                     {lastProductMsg.loadingMore
                       ? <div style={{ display: "flex", gap: 4 }}>{[0,.2,.4].map((d,i) => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: INK, animation: `fr-bounce 1.2s ${d}s ease-in-out infinite` }}/>)}</div>
-                      : <button onClick={() => loadMoreProducts(lastProductMsgIndex)} style={{ fontFamily: SANS, fontSize: 10, color: INK3, background: 'rgba(255,248,238,0.7)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '0.5px solid rgba(255,244,228,0.6)', borderRadius: 100, padding: '7px 20px', cursor: 'pointer', letterSpacing: '.08em', boxShadow: '0 2px 8px rgba(44,18,6,.07)' }}>Load more</button>
+                      : <button onClick={() => loadMoreProducts(lastProductMsgIndex)} style={{ fontFamily: SANS, fontSize: 10, color: INK3, background: '#ffffff', border: '0.5px solid rgba(44,18,6,.12)', borderRadius: 100, padding: '7px 20px', cursor: 'pointer', letterSpacing: '.08em', boxShadow: '0 2px 8px rgba(44,18,6,.07)' }}>Load more</button>
                     }
                   </div>
                 )}
@@ -695,12 +680,10 @@ export default function FromApp({
               <div ref={attachMenuRef} style={{
                 position: 'fixed', bottom: menuPos.bottom, left: menuPos.left,
                 zIndex: 9999, minWidth: 210,
-                background: 'rgba(251,244,234,0.92)',
-                backdropFilter: 'blur(28px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+                background: '#ffffff',
                 borderRadius: 18,
-                border: '0.5px solid rgba(255,248,238,0.8)',
-                boxShadow: '0 12px 40px rgba(44,18,6,.12), inset 0 1px 0 rgba(255,252,248,.9)',
+                border: '0.5px solid rgba(44,18,6,.08)',
+                boxShadow: '0 12px 40px rgba(44,18,6,.12), inset 0 1px 0 rgba(255,255,255,.9)',
                 padding: '6px',
                 overflow: 'hidden',
               }}>
@@ -719,14 +702,13 @@ export default function FromApp({
                       fontFamily: SANS, fontSize: 14.5, color: INK, fontWeight: 400,
                       transition: 'background .1s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,244,232,0.5)')}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.05)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
                     <span style={{
                       width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                      background: 'rgba(255,248,238,0.65)',
-                      backdropFilter: 'blur(8px)',
-                      boxShadow: 'inset 0 1px 0 rgba(255,252,248,.9)',
+                      background: 'rgba(44,18,6,.06)',
+                      boxShadow: 'none',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       {opt.icon === 'gallery' && (
@@ -774,7 +756,7 @@ export default function FromApp({
                 {/* Mouse-tracking specular hotspot */}
                 <div style={{
                   position: 'absolute', inset: 0, borderRadius: 20, pointerEvents: 'none', zIndex: 0,
-                  background: `radial-gradient(ellipse 55% 40% at ${light.x * 100}% ${light.y * 100}%, rgba(255,248,235,0.55) 0%, rgba(255,244,228,0.18) 40%, transparent 70%)`,
+                  background: `radial-gradient(ellipse 55% 40% at ${light.x * 100}% ${light.y * 100}%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.12) 40%, transparent 70%)`,
                   transition: 'background 80ms linear',
                 }} />
 
