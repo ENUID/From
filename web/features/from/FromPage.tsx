@@ -557,7 +557,7 @@ export default function FromApp({
 
           {/* ── Hamburger — floating overlay top-left ── */}
           <button onClick={() => setSidebar(true)} style={{
-            position: "absolute", top: "clamp(14px,4vw,20px)", left: "clamp(14px,4vw,20px)",
+            position: "absolute", top: "8px", left: "8px",
             zIndex: 50, width: 36, height: 36, borderRadius: "50%", border: "none",
             background: "rgba(255,255,255,0.72)",
             backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)" as any,
@@ -676,7 +676,7 @@ export default function FromApp({
           </div>
 
           {/* ── Search bar — liquid glass ── */}
-          <div style={{ padding: "6px clamp(12px,4vw,18px) clamp(22px,5vw,32px)", flexShrink: 0 }}>
+          <div style={{ padding: "6px clamp(12px,4vw,18px) 6px", flexShrink: 0 }}>
 
             {/* Spring-animated wrapper */}
             <div style={{ transform: `scale(${barScale})`, transformOrigin: "center bottom", willChange: "transform" }}
