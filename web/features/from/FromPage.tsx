@@ -893,8 +893,12 @@ export default function FromApp({
   const dragLastT     = useRef(0)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasLongPress   = useRef(false)
+  const longPressStart = useRef<{ x: number; y: number } | null>(null)
   const productLongTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const productWasLong   = useRef(false)
+  const productLongStart = useRef<{ x: number; y: number } | null>(null)
+  // Long-press duration for the product / bag context menus (deliberate hold).
+  const LONG_PRESS_MS = 2000
 
 
   // Search results
@@ -1698,6 +1702,7 @@ export default function FromApp({
                           }}
                           onPointerDown={e => {
                             wasLongPress.current = false
+                            longPressStart.current = { x: e.clientX, y: e.clientY }
                             const { clientX, clientY } = e
                             longPressTimer.current = setTimeout(() => {
                               wasLongPress.current = true
@@ -1706,7 +1711,13 @@ export default function FromApp({
                               const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
                               const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
                               setBagCtxMenu({ product: p, x, y, above })
-                            }, 550)
+                            }, LONG_PRESS_MS)
+                          }}
+                          onPointerMove={e => {
+                            const s = longPressStart.current
+                            if (s && longPressTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10) {
+                              clearTimeout(longPressTimer.current); longPressTimer.current = null
+                            }
                           }}
                           onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
                           onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
@@ -1863,6 +1874,7 @@ export default function FromApp({
                       onContextMenu={e => e.preventDefault()}
                       onPointerDown={e => {
                         productWasLong.current = false
+                        productLongStart.current = { x: e.clientX, y: e.clientY }
                         const { clientX, clientY } = e
                         productLongTimer.current = setTimeout(() => {
                           productWasLong.current = true
@@ -1871,7 +1883,13 @@ export default function FromApp({
                           const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
                           const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
                           setProductCtxMenu({ product: p, x, y, above })
-                        }, 700)
+                        }, LONG_PRESS_MS)
+                      }}
+                      onPointerMove={e => {
+                        const s = productLongStart.current
+                        if (s && productLongTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10) {
+                          clearTimeout(productLongTimer.current); productLongTimer.current = null
+                        }
                       }}
                       onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
                       onPointerLeave={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
@@ -1916,6 +1934,7 @@ export default function FromApp({
                       onContextMenu={e => e.preventDefault()}
                       onPointerDown={e => {
                         productWasLong.current = false
+                        productLongStart.current = { x: e.clientX, y: e.clientY }
                         const { clientX, clientY } = e
                         productLongTimer.current = setTimeout(() => {
                           productWasLong.current = true
@@ -1924,7 +1943,13 @@ export default function FromApp({
                           const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
                           const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
                           setProductCtxMenu({ product: p, x, y, above })
-                        }, 700)
+                        }, LONG_PRESS_MS)
+                      }}
+                      onPointerMove={e => {
+                        const s = productLongStart.current
+                        if (s && productLongTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10) {
+                          clearTimeout(productLongTimer.current); productLongTimer.current = null
+                        }
                       }}
                       onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
                       onPointerLeave={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
