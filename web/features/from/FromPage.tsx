@@ -7,7 +7,7 @@ import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 import { BRAND_NAMES } from '@/lib/stores'
-import { taglineForTime, FOUR_HOURS_MS } from './taglines'
+import { taglineForTime, FOUR_HOURS_MS, TAGLINES, shuffledIndices } from './taglines'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const INK   = "#2C1206"   // dark brown
@@ -433,8 +433,9 @@ export default function FromApp({
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
-  const [tagText, setTagText]           = useState(() => taglineForTime())  // one line per 4-hour window (SSR-safe)
+  const [tagText, setTagText]           = useState(() => taglineForTime())  // hero line on first paint (SSR-safe)
   const [tagVis, setTagVis]             = useState(true)
+  const tagOrderRef                     = useRef<number[]>([])
 
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
@@ -515,28 +516,22 @@ export default function FromApp({
     return () => document.removeEventListener('contextmenu', block)
   }, [])
 
-  // Greeting tagline — one line per 4-hour wall-clock window, drawn from 12,000+.
-  // Stays fixed within the window, then cross-fades to the next when the 4-hour
-  // boundary rolls over (even if the page is left open). Only active on home.
+  // Rotating greeting tagline — changes every 13s, no repeats until all 12,000+
+  // have cycled. Only runs while the home greeting is visible.
   const homeVisible = !hasConversation && !showExplore
   useEffect(() => {
     if (!homeVisible) return
-    setTagText(taglineForTime())             // sync in case the block changed since mount
-    setTagVis(true)
-    let timer: ReturnType<typeof setTimeout>
-    const scheduleNextBoundary = () => {
-      const msUntilNextBlock = FOUR_HOURS_MS - (Date.now() % FOUR_HOURS_MS)
-      timer = setTimeout(() => {
-        setTagVis(false)                     // fade out
-        window.setTimeout(() => {            // swap at the bottom of the fade
-          setTagText(taglineForTime())
-          setTagVis(true)                    // fade back in
-        }, 420)
-        scheduleNextBoundary()               // arm the following 4-hour boundary
-      }, msUntilNextBlock + 50)
-    }
-    scheduleNextBoundary()
-    return () => clearTimeout(timer)
+    tagOrderRef.current = shuffledIndices(TAGLINES.length)
+    let pos = 0
+    const id = window.setInterval(() => {
+      setTagVis(false)
+      window.setTimeout(() => {
+        pos = (pos + 1) % tagOrderRef.current.length
+        setTagText(TAGLINES[tagOrderRef.current[pos]])
+        setTagVis(true)
+      }, 420)
+    }, 13000)
+    return () => window.clearInterval(id)
   }, [homeVisible])
 
   // Prevent pull-to-refresh when dragging the sheet handle.
