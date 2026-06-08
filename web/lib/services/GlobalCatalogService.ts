@@ -509,6 +509,52 @@ const MATERIAL_SYNONYMS: Record<string, string[]> = {
   'jeans': ['denim', 'bò', 'jean', 'jeans']
 };
 
+// ── Attribute matching (gender / colour / garment type) ────────────────────
+// These run as HARD filters so an explicit request ("men's t-shirt", "sky blue")
+// can never be satisfied with the opposite gender, a different colour, or the
+// wrong garment. Whole-word matching avoids "men" matching inside "women" and
+// "tan" matching inside "tank".
+
+function hasWord(text: string, word: string): boolean {
+  return new RegExp(`(?:^|[^a-z])${word.replace(/\s+/g, '[\\s-]*')}(?:[^a-z]|$)`, 'i').test(text);
+}
+
+function detectGender(text: string): 'men' | 'women' | 'kids' | null {
+  const women = /(?:^|[^a-z])(women|woman|womens|womenswear|ladies|lady|female|girls?)(?:[^a-z]|$)/i.test(text);
+  const men   = /(?:^|[^a-z])(men|man|mens|menswear|male|guys?|boys?|gentlemen)(?:[^a-z]|$)/i.test(text);
+  const kids  = /(?:^|[^a-z])(kids?|children|child|toddler|infant|baby)(?:[^a-z]|$)/i.test(text);
+  if (kids && !women && !men) return 'kids';
+  if (women && !men) return 'women';
+  if (men && !women) return 'men';
+  return null; // unisex, ambiguous, or unmarked
+}
+
+// Colour vocabulary; sub-shades map to a base so "sky blue" still matches "blue".
+const COLOR_TERMS: string[] = [
+  'black', 'white', 'ivory', 'cream', 'beige', 'tan', 'camel', 'khaki', 'olive', 'sage',
+  'green', 'mint', 'emerald', 'forest', 'blue', 'sky blue', 'navy', 'teal', 'turquoise',
+  'indigo', 'cobalt', 'red', 'maroon', 'burgundy', 'wine', 'crimson', 'pink', 'rose',
+  'fuchsia', 'blush', 'coral', 'peach', 'purple', 'lavender', 'lilac', 'violet', 'plum',
+  'yellow', 'mustard', 'gold', 'orange', 'rust', 'terracotta', 'brown', 'chocolate', 'mocha',
+  'grey', 'gray', 'charcoal', 'slate', 'silver', 'taupe',
+];
+const COLOR_BASE: Record<string, string> = {
+  'sky blue': 'blue', 'navy': 'blue', 'teal': 'blue', 'turquoise': 'blue', 'indigo': 'blue', 'cobalt': 'blue',
+  'maroon': 'red', 'burgundy': 'red', 'wine': 'red', 'crimson': 'red',
+  'rose': 'pink', 'fuchsia': 'pink', 'blush': 'pink',
+  'lavender': 'purple', 'lilac': 'purple', 'violet': 'purple', 'plum': 'purple',
+  'mustard': 'yellow', 'gold': 'yellow',
+  'rust': 'orange', 'peach': 'orange', 'coral': 'orange', 'terracotta': 'orange',
+  'chocolate': 'brown', 'camel': 'brown', 'tan': 'brown', 'mocha': 'brown', 'taupe': 'brown',
+  'charcoal': 'grey', 'gray': 'grey', 'silver': 'grey', 'slate': 'grey',
+  'sage': 'green', 'olive': 'green', 'mint': 'green', 'emerald': 'green', 'forest': 'green',
+  'cream': 'white', 'ivory': 'white', 'beige': 'white',
+};
+
+// Garment-type precision: distinguish a casual tee from a button-up/formal shirt.
+const TEE_MARKERS = ['t-shirt', 't shirt', 'tshirt', 'tee', 'tees'];
+const FORMAL_SHIRT_MARKERS = ['button-up', 'button up', 'button-down', 'button down', 'dress shirt', 'oxford shirt', 'poplin', 'flannel shirt', 'overshirt', 'camp collar', 'linen shirt'];
+
 function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   const normalizedQuery = query.toLowerCase();
   // Include tags so "shoe" tags on a shoe product don't get missed
@@ -521,6 +567,39 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
 
   const queryKeywords = getProductKeywords(normalizedQuery);
   if (queryKeywords.length === 0) return false;
+
+  // 0a. Gender check — an explicit gender request must never return the opposite
+  // gender. Products with no gender marker (unisex/unlabeled) are allowed through.
+  const qGender = detectGender(normalizedQuery);
+  if (qGender === 'men' || qGender === 'women') {
+    const pGender = detectGender(searchableText);
+    if (pGender && pGender !== qGender) return true;
+  }
+
+  // 0b. Colour check — if a colour is requested, reject products that clearly
+  // come in a DIFFERENT colour (no requested shade anywhere in title/options).
+  const queryColors = COLOR_TERMS
+    .filter(c => hasWord(normalizedQuery, c))
+    .sort((a, b) => b.length - a.length);
+  if (queryColors.length > 0) {
+    const wanted = new Set<string>();
+    for (const c of queryColors) { wanted.add(c); if (COLOR_BASE[c]) wanted.add(COLOR_BASE[c]); }
+    const hasWanted = Array.from(wanted).some(c => hasWord(searchableText, c));
+    if (!hasWanted) {
+      const productHasOtherColor = COLOR_TERMS.some(c => hasWord(searchableText, c));
+      if (productHasOtherColor) return true; // product is explicitly a different colour
+    }
+  }
+
+  // 0c. Garment precision — tee vs button-up/formal shirt are not interchangeable.
+  const wantsTee = TEE_MARKERS.some(m => hasWord(normalizedQuery, m));
+  const wantsFormalShirt = !wantsTee && FORMAL_SHIRT_MARKERS.some(m => hasWord(normalizedQuery, m));
+  if (wantsTee || wantsFormalShirt) {
+    const isTee = TEE_MARKERS.some(m => hasWord(searchableText, m));
+    const isFormalShirt = FORMAL_SHIRT_MARKERS.some(m => hasWord(searchableText, m));
+    if (wantsTee && isFormalShirt && !isTee) return true;
+    if (wantsFormalShirt && isTee && !isFormalShirt) return true;
+  }
 
   // 1. Material check — if the query specifies a material, the product must have it
   const queryMaterials = MATERIALS.filter(mat =>
@@ -720,7 +799,16 @@ function parseStorefrontProduct(p: any, domain: string, currency: string): UcpPr
 }
 
 // Fetch + keyword-filter a store's full catalog from its public /products.json.
-async function fetchStorefrontProducts(domain: string, keywords: string[], wantLimit: number): Promise<UcpProduct[]> {
+// queryForScoring + mandatoryConcepts let storefront products carry the SAME
+// trust_score and pass the SAME gender/colour/garment hard filter as catalog
+// products, so the brand fallback never reintroduces wrong-attribute items.
+async function fetchStorefrontProducts(
+  domain: string,
+  keywords: string[],
+  wantLimit: number,
+  queryForScoring = '',
+  mandatoryConcepts: string[][] = [],
+): Promise<UcpProduct[]> {
   const currency = guessStorefrontCurrency(domain);
   try {
     const res = await fetch(`https://${domain}/products.json?limit=250`, {
@@ -734,6 +822,13 @@ async function fetchStorefrontProducts(domain: string, keywords: string[], wantL
     let parsed: UcpProduct[] = raw
       .map((p: any) => parseStorefrontProduct(p, domain, currency))
       .filter((p: UcpProduct | null): p is UcpProduct => p !== null);
+
+    // Score + apply the same hard attribute filter as the main catalog path.
+    for (const p of parsed) {
+      let ts = calculateTrustScore(p, mandatoryConcepts);
+      if (queryForScoring && isProductQueryMismatch(p, queryForScoring)) ts = Math.max(0, ts - 60);
+      p.trust_score = ts;
+    }
 
     if (keywords.length > 0) {
       const kw = keywords.map((k) => k.toLowerCase());
@@ -1413,7 +1508,7 @@ export class GlobalCatalogService {
       const parsed = cacheStoreProducts(domain, raw);
       if (parsed.length > 0 || !isBrandSearch) return parsed;
 
-      const storefront = await fetchStorefrontProducts(domain, getProductKeywords(storeQuery), limit);
+      const storefront = await fetchStorefrontProducts(domain, getProductKeywords(storeQuery), limit, cleanedQuery, mandatoryConcepts);
       if (storefront.length > 0) {
         const cachedState = searchCache.get(cacheKey);
         const merged = uniqueById([...(cachedState?.products || []), ...storefront]);

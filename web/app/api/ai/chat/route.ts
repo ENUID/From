@@ -385,12 +385,17 @@ HOW TO READ A REQUEST (style intelligence):
 TOOL USAGE:
 - Assess intent first. If the user is asking ABOUT products already on screen ("compare them", "which is better", "what's the first one made of"), DO NOT search — just answer in text using the product context provided.
 - Use the 'search_ucp' tool ONLY when they want NEW products or a NEW filter ("find linen shirts", "show cheaper ones", "I meant in black").
-- searchQuery: keep it simple, specific and focused — the product type plus key descriptors (e.g. "linen shirt", "black chelsea boots"). Do NOT use the 'OR' operator and do NOT pad it with synonyms.
+- searchQuery: keep it simple, specific and focused — the product type plus EVERY hard attribute the user stated: gender, colour, material. (e.g. "men sky blue linen shirt", "women black chelsea boots"). Do NOT use the 'OR' operator and do NOT pad it with synonyms. Do NOT drop attributes the user explicitly gave.
   * Strip brand names from searchQuery — "shirts from Taylor Stitch" → searchQuery "shirts". The brand is targeted separately.
+  * Use the EXACT garment the user named. "t-shirt" / "tee" is NOT the same as a "shirt" (button-up). If they say t-shirt, write "t-shirt", never "shirt". If they say shirt, don't return tees.
   * Query language: write searchQuery in the targeted store's catalog language (English for English stores; Japanese for a Japanese-catalog store like coverchord.com, e.g. "シャツ"). Never put Vietnamese words in searchQuery. Never mix languages in one query.
-- mandatoryConcepts: ALWAYS set this — extract the critical concepts (product type, specific material, country of origin) as groups of synonyms. The system uses these to hard-rank results and reject off-category products.
-  * ALWAYS include the primary product type as the first concept group, even for simple requests. E.g. "show me shoes" → [["shoe","shoes","sneaker","sneakers","footwear","boot","boots"]]. "shirts" → [["shirt","shirts","tee","tees","top","tops"]]. Never leave mandatoryConcepts empty for a product search.
+- mandatoryConcepts: ALWAYS set this — extract EVERY hard constraint the user gave as its own group of synonyms. The system uses these to hard-rank results and HARD-REJECT anything that doesn't match. Order: product type first, then gender, then colour, then material, then origin.
+  * Product type group must be PRECISE. "t-shirt" → ["t-shirt","tee","tshirt","t-shirts","tees"] (NOT "shirt"). "shirt" (button-up) → ["shirt","button-up","button down","oxford"]. "shoes" → ["shoe","shoes","sneaker","sneakers","footwear","boot","boots"].
+  * Gender is MANDATORY whenever stated. "men"/"man"/"male" → ["men","mens","man","male","unisex"]. "women"/"ladies" → ["women","womens","woman","ladies","female"]. "kids" → ["kids","children","child","youth"]. Never omit gender when the user gave it — it is the #1 cause of wrong results.
+  * Colour is MANDATORY whenever stated. "sky blue" → ["sky blue","light blue","blue"]. "black" → ["black"]. Include the base shade so close variants still match.
+  * E.g. "men's xl sky blue linen shirt" → [["shirt","button-up","oxford"], ["men","mens","man","male","unisex"], ["sky blue","light blue","blue"], ["linen"]]
   * E.g. "sustainable leather bags from vietnam" → [["bag","bags","backpack","tote","túi"], ["leather","da","cuero"], ["vietnam","việt nam","vietnamese"]]
+  * Size (XL, M, 32) is NOT a mandatoryConcept — it's a fit detail handled at checkout, never a search filter. Don't put sizes in searchQuery or mandatoryConcepts.
   * On a brand-new request for a different item, DROP the old concepts — only carry the concepts explicitly asked for now.
 - Pagination: if the user asks for "more", call 'search_ucp' with the EXACT SAME query as before — no "more"/"other" added. Pagination is automatic.
 
