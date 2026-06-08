@@ -1,5 +1,5 @@
 import { getExchangeRates } from '../exchangeRates';
-import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES } from '../stores';
+import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, domainCountry } from '../stores';
 import { groqChat } from '../groq';
 
 
@@ -38,6 +38,8 @@ type CatalogSearchFilters = {
   sort?: ProductSort;
   limit: number;
   rates: Record<string, number>;
+  /** Shopper's ISO country — brands from this country are surfaced first. */
+  userCountry?: string | null;
 };
 
 export type CatalogSearchDebug = {
@@ -1023,7 +1025,17 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
   // Keep mismatches only as an absolute last resort — ensures niche/unlabeled stores still return something
   filtered = matched.length >= 4 ? matched : filtered;
 
+  // Brands from the shopper's own country come first, then everything else —
+  // each tier still ordered by the chosen sort (relevance/trust/price).
+  const userCountry = filters.userCountry ? filters.userCountry.toUpperCase() : null;
+  const isLocalBrand = (p: UcpProduct): boolean =>
+    !!userCountry && domainCountry(getProductStoreDomain(p)) === userCountry;
+
   const sortFn = (a: UcpProduct, b: UcpProduct): number => {
+    if (userCountry) {
+      const la = isLocalBrand(a), lb = isLocalBrand(b);
+      if (la !== lb) return la ? -1 : 1; // same-country brands first
+    }
     if (sort === 'trust_desc') return (b.trust_score || 0) - (a.trust_score || 0);
     if (sort !== 'relevance') {
       const priceA = convertProductPrice(a, budgetCurrency, filters.rates);
@@ -1375,6 +1387,7 @@ export class GlobalCatalogService {
       sort,
       limit,
       rates,
+      userCountry: normalizedCountryCode,
     };
 
     const isFallback = !isBrandSearch && allowedDomains.length === UCP_REGISTRY.length;

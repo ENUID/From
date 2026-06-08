@@ -2101,6 +2101,66 @@ export function brandDisplayName(p: StoreProfile): string {
   return p.name || BRAND_NAMES[p.domain] || cleanBrandToken(p.domain);
 }
 
+// ── Brand home country ───────────────────────────────────────────────────────
+// Used to surface brands FROM the shopper's own country first. Country is
+// inferred from the domain's country-code TLD; brands on generic TLDs (.com,
+// .store, .myshopify.com, …) are pinned via the override map below. ISO-3166-1
+// alpha-2 codes. Extend OVERRIDES as more brands are confirmed.
+
+const TLD_COUNTRY: Record<string, string> = {
+  'co.in': 'IN', 'in': 'IN',
+  'com.au': 'AU', 'au': 'AU',
+  'co.uk': 'GB', 'uk': 'GB',
+  'com.pk': 'PK', 'pk': 'PK',
+  'com.tr': 'TR', 'tr': 'TR',
+  'com.my': 'MY', 'my': 'MY',
+  'co.id': 'ID', 'id': 'ID',
+  'fr': 'FR', 'it': 'IT', 'ru': 'RU', 'be': 'BE', 'gr': 'GR',
+  'de': 'DE', 'es': 'ES', 'nl': 'NL', 'ph': 'PH', 'ae': 'AE', 'ca': 'CA',
+};
+
+// Brands on generic TLDs whose home country isn't derivable from the domain.
+// High-confidence entries only. Keyed by the brand's REAL storefront hostname
+// (what products carry), with .myshopify.com aliases included where relevant.
+const DOMAIN_COUNTRY_OVERRIDES: Record<string, string> = {
+  // United States
+  'skims.com': 'US', 'skimsbody.myshopify.com': 'US', 'aloyoga.com': 'US', 'kith.com': 'US',
+  'fashionnova.com': 'US', 'allbirds.com': 'US', 'taylorstitch.com': 'US', 'marinelayer.com': 'US',
+  'bombas.com': 'US', 'bombas.myshopify.com': 'US', 'chubbiesshorts.com': 'US', 'chubbies.myshopify.com': 'US',
+  'goodamerican.com': 'US', 'fahertybrand.com': 'US', 'faherty.myshopify.com': 'US',
+  'spanx.com': 'US', 'spanx-com.myshopify.com': 'US', 'outdoorvoices.com': 'US',
+  'aimeleondore.com': 'US', 'ladywhiteco.com': 'US', 'slvrlake-denim.com': 'US',
+  'slvrlake.myshopify.com': 'US', 'blueowl.us': 'US', 'laurenmanoogian.com': 'US',
+  // United Kingdom
+  'gymshark.com': 'GB', 'gymsharkusa.myshopify.com': 'GB', 'toa.st': 'GB', 'pangaia.com': 'GB',
+  'studionicholson.com': 'GB', 'and-daughter.com': 'GB',
+  // India (brands on generic TLDs)
+  'urbanmonkey.com': 'IN', 'xyxxcrew.com': 'IN', 'biancajeswant.com': 'IN',
+  'saphed.com': 'IN', 'thebearhouse.com': 'IN', 'shopnirvanaa.com': 'IN',
+  'gangafashions.com': 'IN', 'almostgods.com': 'IN', 'ikaibyraginiahuja.com': 'IN',
+  'payalkhandwala.com': 'IN', 'houseofmasaba.com': 'IN', 'pepeinner.com': 'IN',
+  'desiminimals.com': 'IN', 'lovepangolin.com': 'IN', 'dashanddot.com': 'IN',
+  'azaadclo.com': 'IN', 'lininworld.com': 'IN', 'kartikresearch.com': 'IN',
+  // Australia
+  'assemblylabel.com': 'AU', 'elkacollective.com': 'AU', 'commas.cc': 'AU',
+  // Other
+  'ourlegacy.com': 'SE', 'camper.com': 'ES', 'aritzia.com': 'CA', 'coverchord.com': 'JP',
+};
+
+function normalizeDomain(domain: string): string {
+  return domain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+}
+
+/** Best-effort ISO country a brand operates from, or null if unknown. */
+export function domainCountry(domain: string): string | null {
+  if (!domain) return null;
+  const d = normalizeDomain(domain);
+  if (DOMAIN_COUNTRY_OVERRIDES[d]) return DOMAIN_COUNTRY_OVERRIDES[d];
+  const tlds = Object.keys(TLD_COUNTRY).sort((a, b) => b.length - a.length);
+  for (const t of tlds) if (d.endsWith('.' + t)) return TLD_COUNTRY[t];
+  return null;
+}
+
 // ── Category taxonomy ───────────────────────────────────────────────────────────
 // Brands are tagged with flat top-level categories (top, bottom, dress, …). This
 // taxonomy expands each one into the subcategories and sub-sub item types it covers,
