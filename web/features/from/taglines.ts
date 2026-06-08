@@ -425,3 +425,17 @@ export function shuffledIndices(n: number): number[] {
   }
   return a
 }
+
+// ── Time-based selection — one tagline per 4-hour wall-clock window ──────────
+// The line is a pure function of the current 4-hour block, so it's identical
+// across reloads, devices, and SSR vs client (no hydration mismatch), and it
+// flips exactly when the block rolls over. A Knuth multiplicative hash scatters
+// consecutive blocks across the whole array so neighbouring windows feel
+// completely different rather than stepping through similar lines.
+export const FOUR_HOURS_MS = 4 * 60 * 60 * 1000
+
+export function taglineForTime(now: number = Date.now()): string {
+  const block = Math.floor(now / FOUR_HOURS_MS)
+  const idx = Math.abs((block * 2654435761) % TAGLINES.length)
+  return TAGLINES[idx]
+}
