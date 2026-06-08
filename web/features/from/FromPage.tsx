@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useFromChat } from './hooks/useFromChat'
 import { formatMoney } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
@@ -388,6 +388,67 @@ function getColorAvailability(p: Product): Record<string, boolean> {
   }
   return map
 }
+// ── Size guide parsing ────────────────────────────────────────────────────────
+type SizeRow   = { label: string; values: string[] }
+type SizeTable = { label: string; headers: string[]; rows: SizeRow[] }
+
+function sgStripTags(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function parseOneTable(tableHtml: string): { headers: string[]; rows: SizeRow[] } | null {
+  const rawRows: string[][] = []
+  const trRe = /<tr(?:\s[^>]*)?>[\s\S]*?<\/tr>/gi
+  let trM: RegExpExecArray | null
+  while ((trM = trRe.exec(tableHtml)) !== null) {
+    const cells: string[] = []
+    const tdRe = /<(?:th|td)(?:\s[^>]*)?>[\s\S]*?<\/(?:th|td)>/gi
+    let tdM: RegExpExecArray | null
+    while ((tdM = tdRe.exec(trM[0])) !== null) {
+      const inner = tdM[0].replace(/^<(?:th|td)[^>]*>/, '').replace(/<\/(?:th|td)>$/, '')
+      cells.push(sgStripTags(inner))
+    }
+    if (cells.length > 1) rawRows.push(cells)
+  }
+  if (rawRows.length < 2) return null
+  const headers = rawRows[0].slice(1).filter(h => h.length > 0)
+  if (!headers.length) return null
+  const rows = rawRows.slice(1)
+    .map(r => ({ label: r[0] ?? '', values: r.slice(1, headers.length + 1) }))
+    .filter(r => r.label.trim() && r.values.some(v => v.trim()))
+  return rows.length ? { headers, rows } : null
+}
+
+function parseSizeGuideHtml(html: string): SizeTable[] {
+  const tables: SizeTable[] = []
+  // Try to find section labels (heading directly before table)
+  const sections = html.split(/<table(?:\s[^>]*)?>/)
+  for (let i = 1; i < sections.length; i++) {
+    const tableHtml = '<table>' + sections[i].split('</table>')[0] + '</table>'
+    if (!SIZE_TABLE_KWS.test(tableHtml)) continue
+    const parsed = parseOneTable(tableHtml)
+    if (!parsed) continue
+    // Grab the last heading before this table from the previous chunk
+    const prev = sections[i - 1]
+    const headingM = prev.match(/<(?:h[1-6]|caption|strong)[^>]*>([^<]{2,60})<\/(?:h[1-6]|caption|strong)>\s*$/i)
+    const label = headingM ? sgStripTags(headingM[1]) : ''
+    tables.push({ label, ...parsed })
+  }
+  return tables
+}
+
+// Split headers into groups of 3 for the range selector buttons
+function chunkHeaders(headers: string[], size = 3): string[][] {
+  const chunks: string[][] = []
+  for (let i = 0; i < headers.length; i += size) chunks.push(headers.slice(i, i + size))
+  return chunks
+}
+
 function getCheckoutUrl(p: Product, size: string | null, color: string | null): string {
   let v = p.variants?.[0]
   if (p.variants?.length) {
@@ -441,6 +502,8 @@ export default function FromApp({
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
   const [sizeGuideOpen, setSizeGuideOpen]       = useState(false)
+  const [sgTableIdx, setSgTableIdx]             = useState(0)
+  const [sgGroupIdx, setSgGroupIdx]             = useState(0)
   const [cleanDesc, setCleanDesc]               = useState<string | null>(null)
   const [cleanDescLoading, setCleanDescLoading] = useState(false)
   const [loaded, setLoaded]             = useState(false)
@@ -585,7 +648,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
-  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setCleanDesc(null) } }, [selectedProduct])
+  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"
@@ -802,6 +865,19 @@ export default function FromApp({
       .finally(() => { if (!cancelled) setCleanDescLoading(false) })
     return () => { cancelled = true }
   }, [selectedProduct?.id])
+
+  // Parse size guide HTML into structured interactive data
+  const parsedSizeTables = useMemo(() => {
+    const html = sheetSizeTable || fetchedSizeGuide
+    if (!html) return []
+    return parseSizeGuideHtml(html)
+  }, [sheetSizeTable, fetchedSizeGuide])
+
+  const sgTable   = parsedSizeTables[sgTableIdx] ?? null
+  const sgChunks  = sgTable ? chunkHeaders(sgTable.headers) : []
+  const sgChunk   = sgChunks[sgGroupIdx] ?? []
+  // Indices of current chunk's columns in the full headers array
+  const sgColStart = sgGroupIdx * 3
 
   return (
     <div style={{ fontFamily: SANS, background: "#ffffff", height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -1629,38 +1705,112 @@ export default function FromApp({
             </>
           )}
 
-          {/* ── Size Guide modal ── */}
+          {/* ── Size Guide modal — interactive ── */}
           {sizeGuideOpen && (
-            <div
-              onClick={() => setSizeGuideOpen(false)}
+            <div onClick={() => setSizeGuideOpen(false)}
               style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
-              <div
-                onClick={e => e.stopPropagation()}
-                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '82vh' }}>
-                {/* Header */}
+              <div onClick={e => e.stopPropagation()}
+                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '86vh' }}>
+
+                {/* ── Header ── */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 14px', borderBottom: '1px solid rgba(44,18,6,0.08)', flexShrink: 0 }}>
-                  <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: INK }}>Size Guide</span>
-                  <button onClick={() => setSizeGuideOpen(false)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0, borderRadius: '50%' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
+                  <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Size Guide</span>
+                  <button onClick={() => setSizeGuideOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
-                {/* Body */}
-                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-                  <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: '.03em', padding: '14px 20px 10px' }}>
-                    Measurements may vary slightly. When in doubt, size up.
-                  </p>
-                  {(sheetSizeTable || fetchedSizeGuide) ? (
-                    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 32 } as React.CSSProperties}>
-                      <div className="fr-sz-modal" style={{ padding: '0 20px', minWidth: 'max-content' }}
-                        dangerouslySetInnerHTML={{ __html: (sheetSizeTable || fetchedSizeGuide)! }} />
-                    </div>
-                  ) : (
-                    <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: '8px 20px 32px', fontWeight: 300 }}>Loading…</p>
-                  )}
-                </div>
+
+                {sizeGuideLoading && !sheetSizeTable && !fetchedSizeGuide ? (
+                  <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: '24px 20px', fontWeight: 300 }}>Loading…</p>
+                ) : parsedSizeTables.length > 0 ? (
+                  <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+
+                    {/* ── Section tabs (if multiple tables) ── */}
+                    {parsedSizeTables.length > 1 && (
+                      <div style={{ display: 'flex', borderBottom: '1px solid rgba(44,18,6,0.08)', flexShrink: 0 }}>
+                        {parsedSizeTables.map((t, i) => (
+                          <button key={i} onClick={() => { setSgTableIdx(i); setSgGroupIdx(0) }}
+                            style={{ flex: 1, padding: '13px 8px', fontFamily: SANS, fontSize: 11, fontWeight: sgTableIdx === i ? 600 : 400,
+                              letterSpacing: '.08em', textTransform: 'uppercase', color: sgTableIdx === i ? INK : INK3,
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              borderBottom: sgTableIdx === i ? `2px solid ${INK}` : '2px solid transparent',
+                              marginBottom: -1 }}>
+                            {t.label || `Table ${i + 1}`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {sgTable && (
+                      <>
+                        {/* ── Range group selector ── */}
+                        {sgChunks.length > 1 && (
+                          <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
+                            <p style={{ fontFamily: SANS, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: INK3, marginBottom: 10 }}>Select size range</p>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              {sgChunks.map((chunk, i) => {
+                                const label = chunk.length > 1 ? `${chunk[0]} – ${chunk[chunk.length - 1]}` : chunk[0]
+                                const on = sgGroupIdx === i
+                                return (
+                                  <button key={i} onClick={() => setSgGroupIdx(i)}
+                                    style={{ flex: 1, padding: '10px 8px', fontFamily: SANS, fontSize: 11, fontWeight: 500,
+                                      letterSpacing: '.05em', color: on ? '#fff' : INK,
+                                      background: on ? INK : 'transparent',
+                                      border: `1px solid ${on ? INK : 'rgba(44,18,6,0.18)'}`,
+                                      borderRadius: 4, cursor: 'pointer', transition: 'all .15s' }}>
+                                    {label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── Measurement table ── */}
+                        <div style={{ padding: '20px 20px 40px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: SANS }}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: '38%', textAlign: 'left', padding: '0 0 12px', fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3 }} />
+                                {sgChunk.map(h => (
+                                  <th key={h} style={{ textAlign: 'center', padding: '0 4px 12px', fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.06em', color: INK }}>
+                                    {h}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sgTable.rows
+                                .filter(row => row.values.slice(sgColStart, sgColStart + sgChunk.length).some(v => v.trim()))
+                                .map((row, ri) => (
+                                  <tr key={ri} style={{ borderTop: '1px solid rgba(44,18,6,0.07)' }}>
+                                    <td style={{ padding: '13px 0', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK, letterSpacing: '.02em' }}>
+                                      {row.label}
+                                    </td>
+                                    {sgChunk.map((_, ci) => (
+                                      <td key={ci} style={{ padding: '13px 4px', textAlign: 'center', fontFamily: SANS, fontSize: 12, fontWeight: 300, color: INK2 }}>
+                                        {row.values[sgColStart + ci] ?? '—'}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                          <p style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: '.04em', marginTop: 16, lineHeight: 1.6 }}>
+                            Measurements may vary slightly. When in doubt, size up.
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (sheetSizeTable || fetchedSizeGuide) ? (
+                  // Fallback: image-based size guide
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 40px' } as React.CSSProperties}>
+                    <div className="fr-sz-modal" dangerouslySetInnerHTML={{ __html: (sheetSizeTable || fetchedSizeGuide)! }} />
+                  </div>
+                ) : (
+                  <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: '24px 20px 40px', fontWeight: 300 }}>No size guide available for this product.</p>
+                )}
               </div>
             </div>
           )}
