@@ -179,6 +179,26 @@ async function tryDirectFetch(origin: string): Promise<string | null> {
   return null
 }
 
+// ── Strategy 4: Root-level pages — non-Shopify stores (WooCommerce, custom) ──
+async function tryRootSlugs(origin: string): Promise<string | null> {
+  const slugs = [
+    'size-guide', 'size-chart', 'sizing', 'size', 'sizes',
+    'fit-guide', 'sizing-guide', 'size-information',
+    'measurement-guide', 'measurements',
+  ]
+  for (let i = 0; i < slugs.length; i += 4) {
+    const results = await Promise.all(
+      slugs.slice(i, i + 4).map(async slug => {
+        const html = await getHtml(`${origin}/${slug}`)
+        return html ? tryExtract(html) : null
+      })
+    )
+    const found = results.find(r => r !== null)
+    if (found) return found
+  }
+  return null
+}
+
 // ── Route handler ───────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -205,15 +225,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ html: shopifyResult })
   }
 
-  // Strategies 2 + 3 in parallel
-  const [productResult, directResult] = await Promise.allSettled([
+  const [productResult, directResult, rootResult] = await Promise.allSettled([
     tryProductJson(raw),
     tryDirectFetch(origin),
+    tryRootSlugs(origin),
   ])
 
   const result =
     (productResult.status === 'fulfilled' && productResult.value) ||
-    (directResult.status === 'fulfilled'  && directResult.value)  ||
+    (directResult.status  === 'fulfilled' && directResult.value)  ||
+    (rootResult.status    === 'fulfilled' && rootResult.value)    ||
     null
 
   cache.set(origin, result)

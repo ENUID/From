@@ -250,6 +250,61 @@ function sanitizeHtml(html: string): string {
 
 const SIZE_TABLE_KWS = /\b(size|chest|waist|hip|inseam|sleeve|shoulder|length|neck|bust|height|weight|measurements?|XS|XL|XXL)\b/i
 
+// ── Unit conversion ───────────────────────────────────────────────────────────
+const FRAC_TO_DEC: Record<string, number> = {
+  '½': 0.5, '¼': 0.25, '¾': 0.75,
+  '⅓': 0.333, '⅔': 0.667,
+  '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875,
+}
+
+function parseMeasNum(s: string): number {
+  const lastChar = s.slice(-1)
+  const frac = FRAC_TO_DEC[lastChar] ?? 0
+  const base = parseFloat(frac > 0 ? s.slice(0, -1) : s)
+  return isNaN(base) ? NaN : base + frac
+}
+
+function fmtConverted(n: number, toUnit: 'in' | 'cm'): string {
+  if (toUnit === 'cm') return Math.round(n).toString()
+  const rounded = Math.round(n * 2) / 2
+  const whole = Math.floor(rounded)
+  return rounded === whole ? String(whole) : `${whole}½`
+}
+
+function convertMeasurement(v: string, fromUnit: 'in' | 'cm' | '', toUnit: 'in' | 'cm'): string {
+  if (!fromUnit || fromUnit === toUnit || !v || v === '—') return v
+  const factor = fromUnit === 'in' ? 2.54 : 1 / 2.54
+  if (v.includes('×')) {
+    return v.replace(/\d+(?:[.,]\d+)?(?:[½¼¾⅓⅔⅛⅜⅝⅞])?/g, m => {
+      const n = parseMeasNum(m); return isNaN(n) ? m : fmtConverted(n * factor, toUnit)
+    })
+  }
+  const rng = v.match(/^(\d[\d½¼¾⅓⅔⅛⅜⅝⅞]*)\s*[-–]\s*(\d[\d½¼¾⅓⅔⅛⅜⅝⅞]*)$/)
+  if (rng) {
+    const a = parseMeasNum(rng[1]), b = parseMeasNum(rng[2])
+    if (!isNaN(a) && !isNaN(b)) return `${fmtConverted(a * factor, toUnit)}–${fmtConverted(b * factor, toUnit)}`
+  }
+  const n = parseMeasNum(v)
+  return isNaN(n) ? v : fmtConverted(n * factor, toUnit)
+}
+
+// ── International size reference data ────────────────────────────────────────
+const INTL_W_HDR = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+const INTL_W: { sys: string; vals: string[] }[] = [
+  { sys: 'US',    vals: ['0–2',  '4–6',  '8–10', '12–14', '16',  '18–20'] },
+  { sys: 'UK',    vals: ['4–6',  '8–10', '12–14','16–18', '20',  '22–24'] },
+  { sys: 'EU',    vals: ['32–34','36–38','40–42', '44–46', '48',  '50–52'] },
+  { sys: 'IT',    vals: ['36–38','40–42','44–46', '48–50', '52',  '54–56'] },
+  { sys: 'AU/NZ', vals: ['6–8',  '10–12','14–16', '18–20', '22',  '24–26'] },
+  { sys: 'JP',    vals: ['5–7',  '9–11', '13–15', '17–19', '21',  '23–25'] },
+]
+const INTL_M_HDR = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
+const INTL_M: { sys: string; vals: string[] }[] = [
+  { sys: 'EU/IT', vals: ['44',  '46',  '48–50', '52', '54–56', '58', '60'] },
+  { sys: 'UK',    vals: ['34',  '36',  '38–40', '42', '44–46', '48', '50'] },
+  { sys: 'JP',    vals: ['S',   'M',   'L',     'LL', '3L',    '4L', '5L'] },
+]
+
 function extractSizeTables(html: string): string | null {
   const found: string[] = []
   // HTML tables with size keywords
@@ -708,6 +763,8 @@ export default function FromApp({
   const [sizeGuideOpen, setSizeGuideOpen]       = useState(false)
   const [sgTableIdx, setSgTableIdx]             = useState(0)
   const [sgGroupIdx, setSgGroupIdx]             = useState(0)
+  const [sgDisplayUnit, setSgDisplayUnit]       = useState<'in' | 'cm' | null>(null)
+  const [sgIntlGender, setSgIntlGender]         = useState<'w' | 'm'>('w')
   const [cleanDesc, setCleanDesc]               = useState<string | null>(null)
   const [cleanDescLoading, setCleanDescLoading] = useState(false)
   const [shippingInfo, setShippingInfo]         = useState<{ shipping: string; returns: string } | null>(null)
@@ -1040,6 +1097,12 @@ export default function FromApp({
     ? (searchProducts.length ? searchProducts : exploreCache).filter(p => p.id !== selectedProduct.id).slice(0, 12)
     : []
 
+  // Restore/persist unit preference across products
+  useEffect(() => {
+    const s = localStorage.getItem('from:sg-unit')
+    if (s === 'in' || s === 'cm') setSgDisplayUnit(s)
+  }, [])
+
   // Fetch size guide inline — runs after sheetSizeTable is derived, so ref is valid
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -1056,6 +1119,10 @@ export default function FromApp({
       .finally(() => { if (!cancelled) setSizeGuideLoading(false) })
     return () => { cancelled = true }
   }, [selectedProduct?.id, sheetSizeTable])
+
+  useEffect(() => {
+    if (sgDisplayUnit) localStorage.setItem('from:sg-unit', sgDisplayUnit)
+  }, [sgDisplayUnit])
 
   // AI-clean the product description — strips marketing fluff, CTAs, shipping text
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1118,6 +1185,7 @@ export default function FromApp({
   }, [sheetSizeTable, fetchedSizeGuide])
 
   const sgTable   = parsedSizeTables[sgTableIdx] ?? null
+  const sgEffectiveUnit = sgDisplayUnit ?? (sgTable?.unit || null)
   const sgChunks  = sgTable ? chunkHeaders(sgTable.headers) : []
   const sgChunk   = sgChunks[sgGroupIdx] ?? []
   // Indices of current chunk's columns in the full headers array
@@ -1964,9 +2032,27 @@ export default function FromApp({
                       <p style={{ fontFamily: SANS, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, marginTop: 3 }}>{parsedSizeTables[0].label}</p>
                     )}
                   </div>
-                  <button onClick={() => setSizeGuideOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {sgTable?.unit && (
+                      <div style={{ display: 'flex', border: `1px solid rgba(44,18,6,0.18)`, overflow: 'hidden', borderRadius: 4 }}>
+                        {(['in', 'cm'] as const).map(u => {
+                          const active = (sgDisplayUnit ?? sgTable!.unit) === u
+                          return (
+                            <button key={u} onClick={() => setSgDisplayUnit(u === sgTable!.unit && !sgDisplayUnit ? u : u)}
+                              style={{ padding: '5px 11px', fontFamily: SANS, fontSize: 10, fontWeight: 500,
+                                letterSpacing: '.06em', border: 'none', cursor: 'pointer',
+                                background: active ? INK : 'transparent',
+                                color: active ? '#fff' : INK3, transition: 'all .15s' }}>
+                              {u}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <button onClick={() => setSizeGuideOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
                 </div>
 
                 {sizeGuideLoading && !sheetSizeTable && !fetchedSizeGuide ? (
@@ -2038,7 +2124,7 @@ export default function FromApp({
                                     </td>
                                     {sgChunk.map((_, ci) => (
                                       <td key={ci} style={{ padding: '14px 4px', textAlign: 'center', fontFamily: SANS, fontSize: 12, fontWeight: 300, color: INK2 }}>
-                                        {row.values[sgColStart + ci] ?? '—'}
+                                        {sgDisplayUnit ? convertMeasurement(row.values[sgColStart + ci] ?? '—', sgTable.unit, sgDisplayUnit) : (row.values[sgColStart + ci] ?? '—')}
                                       </td>
                                     ))}
                                   </tr>
@@ -2046,11 +2132,65 @@ export default function FromApp({
                             </tbody>
                           </table>
                           <p style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: '.04em', marginTop: 16, lineHeight: 1.6 }}>
-                            {sgTable.unit
-                              ? `All measurements in ${sgTable.unit === 'in' ? 'inches' : 'centimetres'}. `
+                            {sgEffectiveUnit
+                              ? `All measurements in ${sgEffectiveUnit === 'in' ? 'inches' : 'centimetres'}. `
                               : ''}
                             Measurements may vary slightly. When in doubt, size up.
                           </p>
+                          {/* ── International size reference ── */}
+                          <div style={{ marginTop: 28, borderTop: '1px solid rgba(44,18,6,0.07)', paddingTop: 18 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                              <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: INK2 }}>
+                                International Sizes
+                              </span>
+                              <div style={{ display: 'flex', border: `1px solid rgba(44,18,6,0.18)`, overflow: 'hidden', borderRadius: 4 }}>
+                                {(['Women', 'Men'] as const).map((g, gi) => {
+                                  const gkey = gi === 0 ? 'w' : 'm'
+                                  const on = sgIntlGender === gkey
+                                  return (
+                                    <button key={g} onClick={() => setSgIntlGender(gkey as 'w' | 'm')}
+                                      style={{ padding: '5px 11px', fontFamily: SANS, fontSize: 10, fontWeight: 500,
+                                        letterSpacing: '.04em', border: 'none', cursor: 'pointer',
+                                        background: on ? INK : 'transparent',
+                                        color: on ? '#fff' : INK3, transition: 'all .15s' }}>
+                                      {g}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                              <table style={{ borderCollapse: 'collapse', fontFamily: SANS, fontSize: 11, minWidth: '100%' }}>
+                                <thead>
+                                  <tr>
+                                    <th style={{ textAlign: 'left', padding: '0 10px 8px 0', fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK3, whiteSpace: 'nowrap' }} />
+                                    {(sgIntlGender === 'w' ? INTL_W_HDR : INTL_M_HDR).map(h => (
+                                      <th key={h} style={{ textAlign: 'center', padding: '0 6px 8px', fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: INK }}>
+                                        {h}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(sgIntlGender === 'w' ? INTL_W : INTL_M).map(row => (
+                                    <tr key={row.sys} style={{ borderTop: '1px solid rgba(44,18,6,0.06)' }}>
+                                      <td style={{ padding: '8px 10px 8px 0', fontFamily: SANS, fontSize: 11, fontWeight: 600, color: INK2, whiteSpace: 'nowrap' }}>
+                                        {row.sys}
+                                      </td>
+                                      {row.vals.map((v, vi) => (
+                                        <td key={vi} style={{ textAlign: 'center', padding: '8px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 300, color: INK3 }}>
+                                          {v}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <p style={{ fontFamily: SANS, fontSize: 9, color: INK3, letterSpacing: '.04em', marginTop: 10, lineHeight: 1.6 }}>
+                              Standard reference only. Brands vary — always check the measurements above.
+                            </p>
+                          </div>
                         </div>
                       </>
                     )}
