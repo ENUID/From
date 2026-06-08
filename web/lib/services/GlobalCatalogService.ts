@@ -614,6 +614,147 @@ function normalizeCurrency(code?: string | null) {
   return String(code || 'USD').trim().toUpperCase() || 'USD';
 }
 
+// ── Shopify storefront /products.json fallback ──────────────────────────────
+// Many curated brands are NOT indexed in the central Shopify catalog (and some
+// aren't reachable via the per-store /api/mcp endpoint). Every Shopify store,
+// however, exposes a public /products.json with the FULL product list including
+// the complete image gallery. We use it as a fallback for brand-specific
+// searches so every brand is findable and every product shows all its pictures.
+
+const STOREFRONT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+// /products.json omits currency, so infer a best-effort default from the TLD.
+const TLD_CURRENCY: Record<string, string> = {
+  'co.in': 'INR', 'in': 'INR',
+  'co.uk': 'GBP', 'uk': 'GBP',
+  'com.au': 'AUD', 'au': 'AUD',
+  'ca': 'CAD',
+  'fr': 'EUR', 'it': 'EUR', 'eu': 'EUR', 'be': 'EUR', 'de': 'EUR', 'es': 'EUR', 'gr': 'EUR', 'nl': 'EUR',
+  'com.pk': 'PKR', 'pk': 'PKR',
+  'ru': 'RUB',
+  'com.tr': 'TRY', 'tr': 'TRY',
+  'com.my': 'MYR', 'my': 'MYR',
+  'co.id': 'IDR', 'id': 'IDR',
+  'ph': 'PHP',
+  'ae': 'AED',
+};
+function guessStorefrontCurrency(domain: string): string {
+  const d = domain.toLowerCase();
+  const tlds = Object.keys(TLD_CURRENCY).sort((a, b) => b.length - a.length);
+  for (const t of tlds) if (d.endsWith('.' + t)) return TLD_CURRENCY[t];
+  return 'USD';
+}
+
+// Convert one /products.json product into the same UcpProduct shape the rest of
+// the pipeline expects, with EVERY image mapped into media[] at gallery quality.
+function parseStorefrontProduct(p: any, domain: string, currency: string): UcpProduct | null {
+  try {
+    if (!p || !p.id) return null;
+    const images: string[] = Array.isArray(p.images)
+      ? p.images.map((im: any) => im?.src).filter((s: any): s is string => typeof s === 'string' && s.length > 0)
+      : [];
+    if (images.length === 0) return null;
+
+    const media = images.map((src) => ({ type: 'image', url: normalizeGalleryUrl(src), alt: '' }));
+    const v0 = p.variants?.[0] || {};
+    const priceNum = parseFloat(v0.price ?? '0') || 0; // /products.json prices are already major units
+
+    const handle = p.handle || String(p.id);
+    let store_url = `https://${domain}/products/${handle}`;
+    try { const u = new URL(store_url); u.searchParams.set('ref', 'from_ai_affiliate'); store_url = u.toString(); } catch {}
+
+    const options = Array.isArray(p.options)
+      ? p.options
+          .map((o: any) => ({ name: o.name, values: Array.isArray(o.values) ? o.values : [] }))
+          .filter((o: any) => o.values.length > 0)
+      : undefined;
+
+    const variants = Array.isArray(p.variants)
+      ? p.variants.map((v: any) => {
+          const vOpts: Array<{ name: string; label: string }> = [];
+          (p.options || []).forEach((o: any, idx: number) => {
+            const label = v[`option${idx + 1}`];
+            if (label) vOpts.push({ name: o.name, label });
+          });
+          const vImg = (p.images || []).find(
+            (im: any) => Array.isArray(im.variant_ids) && im.variant_ids.includes(v.id)
+          );
+          return {
+            id: String(v.id),
+            title: v.title || '',
+            price: parseFloat(v.price ?? '0') || 0,
+            availability: v.available !== false,
+            options: vOpts,
+            media: vImg ? [{ url: normalizeGalleryUrl(vImg.src), alt: '' }] : [],
+          };
+        })
+      : [];
+
+    const tags = typeof p.tags === 'string'
+      ? p.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+      : Array.isArray(p.tags) ? p.tags : [];
+
+    const descHtml = typeof p.body_html === 'string' && p.body_html.trim() ? p.body_html : undefined;
+    const brandToken = BRAND_NAMES[domain] || cleanBrandName(domain);
+    const vendor = p.vendor || (brandToken ? brandToken.charAt(0).toUpperCase() + brandToken.slice(1) : 'Independent Seller');
+
+    return {
+      id: `gid://shopify/Product/${p.id}`,
+      title: p.title || 'Untitled Product',
+      vendor,
+      price: priceNum,
+      currency,
+      store_url,
+      image_url: normalizeImageUrl(images[0]),
+      in_stock: variants.length === 0 ? true : variants.some((v: { availability: boolean }) => v.availability),
+      tags,
+      description: undefined,
+      description_html: descHtml,
+      options: options && options.length > 0 ? options : undefined,
+      variants,
+      media,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Fetch + keyword-filter a store's full catalog from its public /products.json.
+async function fetchStorefrontProducts(domain: string, keywords: string[], wantLimit: number): Promise<UcpProduct[]> {
+  const currency = guessStorefrontCurrency(domain);
+  try {
+    const res = await fetch(`https://${domain}/products.json?limit=250`, {
+      headers: { 'User-Agent': STOREFRONT_UA, Accept: 'application/json', 'Accept-Language': 'en-US,en;q=0.9' },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw: any[] = Array.isArray(data?.products) ? data.products : [];
+
+    let parsed: UcpProduct[] = raw
+      .map((p: any) => parseStorefrontProduct(p, domain, currency))
+      .filter((p: UcpProduct | null): p is UcpProduct => p !== null);
+
+    if (keywords.length > 0) {
+      const kw = keywords.map((k) => k.toLowerCase());
+      const scored = parsed.map((p) => {
+        const text = `${p.title} ${p.description_html || ''} ${(p.tags || []).join(' ')} ${p.vendor}`.toLowerCase();
+        return { p, hits: kw.filter((k) => text.includes(k)).length };
+      });
+      const anyHit = scored.some((s) => s.hits > 0);
+      // If the query matches some products, keep only matches (best first);
+      // otherwise return the store's products unfiltered (pure brand browse).
+      parsed = anyHit
+        ? scored.filter((s) => s.hits > 0).sort((a, b) => b.hits - a.hits).map((s) => s.p)
+        : parsed;
+    }
+
+    return parsed.slice(0, Math.max(wantLimit, 50));
+  } catch {
+    return [];
+  }
+}
+
 function convertProductPrice(product: UcpProduct, targetCurrency: string, rates: Record<string, number>) {
   const currency = (product.currency || 'USD').toUpperCase();
   const target = normalizeCurrency(targetCurrency);
@@ -1263,6 +1404,24 @@ export class GlobalCatalogService {
       return parsedStoreProducts;
     };
 
+    // Per-domain fetch with storefront fallback: try the store's /api/mcp
+    // endpoint first; if it yields nothing AND this is an explicit brand search,
+    // fall back to the public /products.json so the brand is always findable
+    // and every product carries its full image gallery.
+    const fetchDomainProducts = async (domain: string): Promise<UcpProduct[]> => {
+      const raw = await queryDomain(domain);
+      const parsed = cacheStoreProducts(domain, raw);
+      if (parsed.length > 0 || !isBrandSearch) return parsed;
+
+      const storefront = await fetchStorefrontProducts(domain, getProductKeywords(storeQuery), limit);
+      if (storefront.length > 0) {
+        const cachedState = searchCache.get(cacheKey);
+        const merged = uniqueById([...(cachedState?.products || []), ...storefront]);
+        searchCache.set(cacheKey, { timestamp: Date.now(), products: merged, nextChunkIndex: cachedState?.nextChunkIndex ?? 1 });
+      }
+      return storefront;
+    };
+
     // 1. Cache Hit Logic with JIT Lazy replenishment check
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       const filteredCache = applyCatalogFilters(cached.products, filterOptions);
@@ -1282,10 +1441,7 @@ export class GlobalCatalogService {
             
             (async () => {
               try {
-                await Promise.all(nextChunk.map(async (domain) => {
-                  const products = await queryDomain(domain);
-                  cacheStoreProducts(domain, products);
-                }));
+                await Promise.all(nextChunk.map((domain) => fetchDomainProducts(domain)));
                 console.log(`[GlobalCatalog] Background replenishment of Store Chunk ${nextChunkIndex + 1} complete.`);
               } catch (err) {
                 console.warn(`[GlobalCatalog] Background replenishment of Store Chunk ${nextChunkIndex + 1} failed:`, err);
@@ -1314,8 +1470,7 @@ export class GlobalCatalogService {
 
         const firstChunkPromises = firstChunk.map(async (domain) => {
           try {
-            const products = await queryDomain(domain);
-            const parsed = cacheStoreProducts(domain, products);
+            const parsed = await fetchDomainProducts(domain);
             directParsedProducts.push(...parsed);
           } catch {} finally {
             resolvedCount++;
@@ -1367,10 +1522,7 @@ export class GlobalCatalogService {
             
             (async () => {
               try {
-                await Promise.all(secondChunk.map(async (domain) => {
-                  const products = await queryDomain(domain);
-                  cacheStoreProducts(domain, products);
-                }));
+                await Promise.all(secondChunk.map((domain) => fetchDomainProducts(domain)));
                 console.log(`[GlobalCatalog] Background replenishment of Chunk 2 complete.`);
               } catch {}
             })();
@@ -1390,18 +1542,11 @@ export class GlobalCatalogService {
           const chunkToQuery = chunks[currentNextChunkIndex];
           console.log(`[GlobalCatalog] Fetching Chunk ${currentNextChunkIndex + 1} with ${chunkToQuery.length} stores...`);
           
-          const chunkResults = await Promise.all(chunkToQuery.map(async (domain) => {
+          await Promise.all(chunkToQuery.map(async (domain) => {
             try {
-              const products = await queryDomain(domain);
-              return { domain, products };
-            } catch {
-              return { domain, products: [] };
-            }
+              await fetchDomainProducts(domain);
+            } catch {}
           }));
-
-          for (const res of chunkResults) {
-            cacheStoreProducts(res.domain, res.products);
-          }
 
           currentNextChunkIndex++;
 
@@ -1433,10 +1578,7 @@ export class GlobalCatalogService {
 
             (async () => {
               try {
-                await Promise.all(finalNextChunk.map(async (domain) => {
-                  const products = await queryDomain(domain);
-                  cacheStoreProducts(domain, products);
-                }));
+                await Promise.all(finalNextChunk.map((domain) => fetchDomainProducts(domain)));
                 console.log(`[GlobalCatalog] Background replenishment of Chunk ${currentNextChunkIndex + 1} complete.`);
               } catch {}
             })();
