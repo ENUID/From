@@ -501,6 +501,17 @@ export default function FromApp({
     return () => window.removeEventListener('resize', check)
   }, [])
 
+  // Block native browser context menu (image long-press sheet in Chrome/Brave/Firefox)
+  // for any touch on a product card. Must be a native listener so it fires before
+  // the browser decides to show its own menu.
+  useEffect(() => {
+    const block = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest('.fr-cell')) e.preventDefault()
+    }
+    document.addEventListener('contextmenu', block)
+    return () => document.removeEventListener('contextmenu', block)
+  }, [])
+
   // Prevent pull-to-refresh when dragging the sheet handle.
   // React touch listeners are passive by default, so we must attach directly.
   useEffect(() => {
@@ -1274,6 +1285,9 @@ export default function FromApp({
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />
+                          {/* Transparent overlay — touch target is this div, not the <img>,
+                              so Chrome/Brave never fires its image long-press context menu */}
+                          <div style={{ position:'absolute',inset:0,zIndex:3,WebkitTouchCallout:'none' } as React.CSSProperties} />
                         </>
                       ) : (
                         <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
@@ -1325,6 +1339,9 @@ export default function FromApp({
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />
+                          {/* Transparent overlay — touch target is this div, not the <img>,
+                              so Chrome/Brave never fires its image long-press context menu */}
+                          <div style={{ position:'absolute',inset:0,zIndex:3,WebkitTouchCallout:'none' } as React.CSSProperties} />
                         </>
                       ) : (
                         <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
