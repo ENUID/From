@@ -1004,7 +1004,7 @@ export default function FromApp({
           loadMoreRef.current(lastProductMsgIndex)
         }
       },
-      { rootMargin: '2800px', threshold: 0 }
+      { rootMargin: '4000px', threshold: 0 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
@@ -1940,6 +1940,7 @@ export default function FromApp({
                               animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
                           </div>
                           <img src={p.image_url} alt="" draggable={false}
+                            loading="lazy" decoding="async"
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />

@@ -54,12 +54,12 @@ type CatalogSearchOptions = {
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
-const FAST_PAGE_LIMIT = 40;
-const CATALOG_PAGE_LIMIT = 50;
-const REFRESH_PAGE_LIMIT = 50;
+const FAST_PAGE_LIMIT = 50;
+const CATALOG_PAGE_LIMIT = 60;
+const REFRESH_PAGE_LIMIT = 60;
 const FAST_SUBQUERY_LIMIT = 3;
-const INITIAL_RESULT_LIMIT = 40;
-const LOAD_MORE_RESULT_LIMIT = 40;
+const INITIAL_RESULT_LIMIT = 50;
+const LOAD_MORE_RESULT_LIMIT = 100;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[], nextChunkIndex?: number }>();
 
 const COUNTRY_MAP: { [key: string]: string } = {
@@ -1526,7 +1526,7 @@ export class GlobalCatalogService {
         
         // Replenishment Check: keep a deep reserve so infinite scroll never stalls
         const remainingCount = filteredCache.length - limit;
-        if (remainingCount < 80) {
+        if (remainingCount < 200) {
           const nextChunkIndex = cached.nextChunkIndex ?? 1;
           const nextChunk = chunks[nextChunkIndex];
           if (nextChunk && nextChunk.length > 0) {
@@ -1608,7 +1608,7 @@ export class GlobalCatalogService {
         const allAvailable = currentCached ? applyCatalogFilters(currentCached.products, filterOptions) : [];
         const remainingCount = allAvailable.length - 40;
 
-        if (remainingCount < 80) {
+        if (remainingCount < 200) {
           const secondChunk = chunks[1];
           if (secondChunk && secondChunk.length > 0 && currentCached) {
             console.log(`[GlobalCatalog] Replenishment threshold reached for first page (${remainingCount} < 40). Fetching Store Chunk 2/${chunks.length} in background...`);
@@ -1664,7 +1664,7 @@ export class GlobalCatalogService {
         const allAvailable = currentCached ? applyCatalogFilters(currentCached.products, filterOptions) : [];
         const remainingCount = allAvailable.length - limit;
 
-        if (remainingCount < 80) {
+        if (remainingCount < 200) {
           const finalNextChunk = chunks[currentNextChunkIndex];
           if (finalNextChunk && finalNextChunk.length > 0 && currentCached) {
             console.log(`[GlobalCatalog] Replenishment threshold reached for loadMore (${remainingCount} < 40). Fetching Store Chunk ${currentNextChunkIndex + 1}/${chunks.length} in background...`);
