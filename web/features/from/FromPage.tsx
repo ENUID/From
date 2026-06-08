@@ -1081,10 +1081,9 @@ export default function FromApp({
   const colorAvail     = selectedProduct ? getColorAvailability(selectedProduct) : {}
   const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
-  const sizeGuideUrl  = selectedProduct ? (() => {
-    try { const u = new URL(selectedProduct.store_url); return `${u.protocol}//${u.hostname}/pages/size-guide` }
-    catch { return null }
-  })() : null
+  // Link straight to this product's own page so the shopper lands on the exact
+  // item (where the brand's own size guide / fit info lives), not a generic page.
+  const sizeGuideUrl  = selectedProduct?.store_url || null
   const sheetStoreHost= selectedProduct ? (() => { try { return new URL(selectedProduct.store_url).hostname.replace('www.', '') } catch { return '' } })() : ''
   const sheetBrandName = selectedProduct ? (() => {
     // Try BRAND_NAMES lookup first (keyed by domain), then vendor, then domain fallback
@@ -2239,12 +2238,12 @@ export default function FromApp({
                 ) : (
                   <div style={{ padding: '24px 20px 40px' }}>
                     <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300, lineHeight: 1.7, marginBottom: 16 }}>
-                      {sizeGuideLoading ? 'Loading size guide…' : "We couldn't load the size guide for this brand."}
+                      {sizeGuideLoading ? 'Loading size guide…' : "We couldn't load the size guide for this product."}
                     </p>
                     {!sizeGuideLoading && sizeGuideUrl && (
                       <a href={sizeGuideUrl} target="_blank" rel="noopener noreferrer"
                         style={{ fontFamily: SANS, fontSize: 13, color: INK, fontWeight: 500, textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                        View size guide on {sheetBrandName || sheetStoreHost} →
+                        View this product on {sheetBrandName || sheetStoreHost} →
                       </a>
                     )}
                   </div>
