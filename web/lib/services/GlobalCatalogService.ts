@@ -986,6 +986,25 @@ function getProductStoreDomain(product: UcpProduct): string {
   }
 }
 
+// A brand's original pricing currency is a strong signal of its home country —
+// fills the gap for brands on generic TLDs (.com) with no domain-based country.
+// EUR/USD are intentionally omitted/handled loosely since they span countries.
+const CURRENCY_COUNTRY: Record<string, string> = {
+  INR: 'IN', GBP: 'GB', AUD: 'AU', CAD: 'CA', PKR: 'PK', AED: 'AE', RUB: 'RU',
+  TRY: 'TR', MYR: 'MY', IDR: 'ID', PHP: 'PH', JPY: 'JP', SGD: 'SG', NZD: 'NZ',
+  SEK: 'SE', BRL: 'BR', ZAR: 'ZA', THB: 'TH', VND: 'VN', KRW: 'KR', HKD: 'HK',
+  CHF: 'CH', DKK: 'DK', NOK: 'NO', PLN: 'PL', MXN: 'MX', SAR: 'SA', EGP: 'EG',
+  USD: 'US',
+};
+
+// Resolve a product's brand-origin country: domain first (most reliable), then
+// fall back to the original pricing currency.
+function productOriginCountry(p: UcpProduct): string | null {
+  return domainCountry(getProductStoreDomain(p))
+    || CURRENCY_COUNTRY[(p.currency || '').toUpperCase()]
+    || null;
+}
+
 function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilters) {
   const excludeIds = new Set(filters.excludeIds || []);
   const sort = filters.sort || 'trust_desc';
@@ -1029,7 +1048,7 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
   // each tier still ordered by the chosen sort (relevance/trust/price).
   const userCountry = filters.userCountry ? filters.userCountry.toUpperCase() : null;
   const isLocalBrand = (p: UcpProduct): boolean =>
-    !!userCountry && domainCountry(getProductStoreDomain(p)) === userCountry;
+    !!userCountry && productOriginCountry(p) === userCountry;
 
   const sortFn = (a: UcpProduct, b: UcpProduct): number => {
     if (userCountry) {
