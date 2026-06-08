@@ -771,6 +771,7 @@ export default function FromApp({
   const [fetchedProductImages, setFetchedProductImages] = useState<string[]>([])
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
+  const [exploreToast, setExploreToast] = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
     try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
   })
@@ -1502,17 +1503,11 @@ export default function FromApp({
             {/* Fixed nav items — Explore / Bag / Collections */}
             <div style={{ padding: "4px 12px 4px", flexShrink: 0 }}>
 
-              {/* Explore — personalised feed from history/saves */}
+              {/* Explore — coming soon */}
               <div className="fr-hi" onClick={() => {
-                setSidebarView('nav')
                 setSidebar(false)
-                setShowExplore(true)
-                const terms = searchHistory.slice(0, 3).map(h => h.query)
-                const saved = savedProducts.slice(0, 2).map(p => p.title)
-                const hints = [...terms, ...saved].filter(Boolean)
-                if (hints.length > 0) {
-                  sendMessage(`Show me a curated selection of products based on: ${hints.join(', ')}. Return products only.`, { skipHistory: true })
-                }
+                setExploreToast(true)
+                setTimeout(() => setExploreToast(false), 2800)
               }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
@@ -2249,6 +2244,22 @@ export default function FromApp({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ── Explore coming-soon toast ── */}
+          {exploreToast && (
+            <div style={{ position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+              background: INK, color: '#fff', borderRadius: 24,
+              padding: '11px 22px', display: 'flex', alignItems: 'center', gap: 10,
+              fontFamily: SANS, fontSize: 13, fontWeight: 400, letterSpacing: '.01em',
+              boxShadow: '0 4px 20px rgba(44,18,6,0.28)', whiteSpace: 'nowrap',
+              animation: 'ctxIn 0.25s cubic-bezier(0.34,1.36,0.64,1)',
+            }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .7 }}>
+                <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
+              </svg>
+              Explore is coming soon
             </div>
           )}
 
