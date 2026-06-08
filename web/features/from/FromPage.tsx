@@ -1609,7 +1609,28 @@ export default function FromApp({
                   {savedProducts.length === 0
                     ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>Nothing saved yet</p>
                     : savedProducts.map(p => (
-                        <div key={p.id} className="fr-hi" onClick={() => { setSelected(p); setSidebar(false) }} style={{ gap: 10 }}>
+                        <div key={p.id} className="fr-hi"
+                          style={{ gap: 10, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                          onContextMenu={e => e.preventDefault()}
+                          onClick={() => {
+                            if (wasLongPress.current) { wasLongPress.current = false; return }
+                            setSelected(p); setSidebar(false)
+                          }}
+                          onPointerDown={e => {
+                            wasLongPress.current = false
+                            const { clientX, clientY } = e
+                            longPressTimer.current = setTimeout(() => {
+                              wasLongPress.current = true
+                              const menuW = 190; const menuH = 90
+                              const above = clientY + 8 + menuH > window.innerHeight
+                              const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
+                              const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                              setProductCtxMenu({ product: p, x, y, above })
+                            }, 550)
+                          }}
+                          onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                          onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                        >
                           <div style={{ width: 34, height: 42, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: '#e8e8e8' }}>
                             {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                           </div>
