@@ -788,6 +788,67 @@ export default function FromApp({
   const [tagVis, setTagVis]             = useState(true)
   const tagOrderRef                     = useRef<number[]>([])
 
+  // ── Stylist sheet — conversational AI over specific product(s) ──────────────
+  type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison }
+  const [stylistOpen, setStylistOpen]       = useState(false)
+  const [stylistProducts, setStylistProducts] = useState<Product[]>([])
+  const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>([])
+  const [stylistInput, setStylistInput]     = useState('')
+  const [stylistLoading, setStylistLoading] = useState(false)
+  const stylistScrollRef                    = useRef<HTMLDivElement>(null)
+
+  const openStylist = (p: Product) => {
+    setStylistProducts(prev => {
+      // Re-opening on the same product keeps the conversation; a new product resets it.
+      if (prev.length === 1 && prev[0].id === p.id) return prev
+      setStylistMsgs([])
+      return [p]
+    })
+    setStylistOpen(true)
+  }
+  const addStylistProduct = (p: Product) => {
+    setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 4) ? prev : [...prev, p])
+  }
+  const removeStylistProduct = (id: string) => {
+    setStylistProducts(prev => prev.filter(p => p.id !== id))
+  }
+  const sendStylist = async (q: string) => {
+    const question = q.trim()
+    if (!question || stylistLoading || stylistProducts.length === 0) return
+    setStylistInput('')
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question }])
+    setStylistLoading(true)
+    try {
+      const payloadProducts = stylistProducts.map(p => ({
+        id: p.id, title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
+        material: extractMaterial(p) || undefined,
+        description: (getDescriptionText(p) || '').slice(0, 900) || undefined,
+        tags: (p.tags || []).filter(t => !isInternalTag(t)).slice(0, 20),
+        options: p.options,
+      }))
+      const res = await fetch('/api/ai/stylist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          products: payloadProducts,
+          messages: stylistMsgs.map(m => ({ role: m.role, content: m.content })),
+          question,
+          buyerCurrency: shopperContext.currency,
+        }),
+      })
+      const data = await res.json()
+      if (data?.reply) {
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined }])
+      } else {
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
+      }
+    } catch {
+      setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching the stylist. Give it another go in a moment.' }])
+    } finally {
+      setStylistLoading(false)
+    }
+  }
+
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
   const [sendPressed, setSendPressed] = useState(false)
@@ -914,6 +975,8 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
+  // Keep the stylist conversation scrolled to the latest message
+  useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
@@ -1444,6 +1507,7 @@ export default function FromApp({
         @keyframes ctxIn{0%{opacity:0;transform:scale(0.60);}55%{opacity:1;transform:scale(1.04);}80%{transform:scale(0.98);}100%{opacity:1;transform:scale(1);}}
         @keyframes toastIn{0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(0.88);}60%{opacity:1;transform:translateX(-50%) translateY(-4px) scale(1.03);}80%{transform:translateX(-50%) translateY(2px) scale(0.99);}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
         @keyframes toastOut{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.88);}}
+        @keyframes sheetUp{0%{transform:translateY(100%);}100%{transform:translateY(0);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
@@ -2050,6 +2114,146 @@ export default function FromApp({
             </>
           )}
 
+          {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
+          {stylistOpen && (
+            <div onClick={() => setStylistOpen(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
+              <div onClick={e => e.stopPropagation()}
+                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '90vh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)' }}>
+
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', borderBottom: `1px solid ${BRD}`, flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill={INK} stroke="none"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Your Stylist</span>
+                  </div>
+                  <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+
+                {/* Pinned products */}
+                <div style={{ display: 'flex', gap: 10, padding: '12px 20px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
+                  {stylistProducts.map(p => (
+                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 116 }}>
+                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 116, height: 145, borderRadius: 10, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
+                        {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                      </div>
+                      <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                      {stylistProducts.length > 1 && (
+                        <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add-to-compare strip from the current grid */}
+                {(() => {
+                  const pool = (searchProducts.length ? searchProducts : exploreCache).filter(p => !stylistProducts.some(s => s.id === p.id)).slice(0, 14)
+                  if (stylistProducts.length >= 4 || pool.length === 0) return null
+                  return (
+                    <div style={{ flexShrink: 0, padding: '9px 20px 11px', borderBottom: `1px solid ${BRD}` }}>
+                      <div style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: INK3, marginBottom: 7 }}>Add to compare</div>
+                      <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+                        {pool.map(p => (
+                          <button key={p.id} onClick={() => addStylistProduct(p)} title={p.title}
+                            style={{ position: 'relative', flexShrink: 0, width: 40, height: 50, borderRadius: 7, overflow: 'hidden', border: `1px solid ${BRD}`, background: BG2, cursor: 'pointer', padding: 0 }}>
+                            {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                            <span style={{ position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: INK, color: '#fff', fontSize: 12, lineHeight: '14px', textAlign: 'center' }}>+</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Conversation */}
+                <div ref={stylistScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', WebkitOverflowScrolling: 'touch', minHeight: 130 } as React.CSSProperties}>
+                  {stylistMsgs.length === 0 && !stylistLoading && (
+                    <div>
+                      <p style={{ fontFamily: SERIF, fontSize: 19, color: INK2, lineHeight: 1.4, marginBottom: 16 }}>
+                        {stylistProducts.length > 1 ? 'Ask me to compare these — or anything about them.' : 'Ask me anything about this piece — fabric, fit, how to style it, or whether it suits you.'}
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {(stylistProducts.length > 1
+                          ? ['Which should I buy?', 'Compare the fabric', 'Which is better value?']
+                          : ['What is it made of?', 'How does it fit?', 'How would you style it?']
+                        ).map(s => (
+                          <button key={s} onClick={() => sendStylist(s)}
+                            style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, background: BG2, border: `1px solid ${BRD}`, borderRadius: 16, padding: '8px 14px', cursor: 'pointer' }}>{s}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {stylistMsgs.map((m, i) => (
+                    <div key={i} style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                      <div style={{ maxWidth: '88%', fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
+                        padding: m.role === 'user' ? '9px 14px' : 0,
+                        background: m.role === 'user' ? INK : 'transparent',
+                        color: m.role === 'user' ? '#fff' : INK2,
+                        borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
+                        whiteSpace: 'pre-wrap' }}>
+                        {m.content}
+                      </div>
+                      {m.comparison && m.comparison.rows.length > 0 && (
+                        <div style={{ marginTop: 10, width: '100%', border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', borderBottom: `1px solid ${BRD}` }}>
+                            <div style={{ width: 88, flexShrink: 0 }} />
+                            {stylistProducts.map((p, ci) => (
+                              <div key={p.id} style={{ flex: 1, padding: '10px 6px', textAlign: 'center', borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
+                                <div style={{ width: 38, height: 48, margin: '0 auto', borderRadius: 6, overflow: 'hidden', background: BG2 }}>
+                                  {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                </div>
+                                {m.comparison!.pick?.index === ci && (
+                                  <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: INK, marginTop: 4 }}>Best pick</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {m.comparison.rows.map((row, ri) => (
+                            <div key={ri} style={{ display: 'flex', borderBottom: ri < m.comparison!.rows.length - 1 ? `1px solid ${BRD}` : 'none' }}>
+                              <div style={{ width: 88, flexShrink: 0, padding: '9px 10px', fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.03em', textTransform: 'uppercase', color: INK3 }}>{row.label}</div>
+                              {stylistProducts.map((p, ci) => (
+                                <div key={ci} style={{ flex: 1, padding: '9px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 12, color: INK2, borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
+                                  {row.values[ci] ?? '—'}
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                          {m.comparison.pick?.reason && stylistProducts[m.comparison.pick.index] && (
+                            <div style={{ padding: '10px 12px', fontFamily: SANS, fontSize: 12, color: INK2, lineHeight: 1.5, background: 'rgba(44,18,6,0.03)', borderTop: `1px solid ${BRD}` }}>
+                              <strong style={{ fontWeight: 600 }}>{stylistProducts[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {stylistLoading && (
+                    <div style={{ display: 'flex', gap: 5, padding: '4px 2px' }}>
+                      {[0, 1, 2].map(d => <span key={d} style={{ width: 7, height: 7, borderRadius: '50%', background: INK3, animation: `fr-bounce 1.2s ${d * 0.15}s infinite` }} />)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Input */}
+                <div style={{ flexShrink: 0, padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', borderTop: `1px solid ${BRD}`, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
+                    placeholder="Ask your stylist…"
+                    style={{ flex: 1, fontFamily: SANS, fontSize: 14, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
+                  <button onClick={() => sendStylist(stylistInput)} disabled={!stylistInput.trim() || stylistLoading}
+                    style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: stylistInput.trim() && !stylistLoading ? INK : 'rgba(44,18,6,.2)', color: '#fff', cursor: stylistInput.trim() && !stylistLoading ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Size Guide modal — interactive ── */}
           {sizeGuideOpen && (
             <div onClick={() => setSizeGuideOpen(false)}
@@ -2283,13 +2487,10 @@ export default function FromApp({
               }}>
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
-                {/* Ask the stylist */}
+                {/* Ask your stylist */}
                 <div onClick={() => {
-                    const p = bagCtxMenu.product
-                    if (p.image_url) setUploaded(prev => prev.length < 11 ? [...prev, { url: p.image_url!, name: p.title }] : prev)
-                    setInputHint('Tell me more about this')
+                    openStylist(bagCtxMenu.product)
                     setBagCtxMenu(null)
-                    setTimeout(() => taRef.current?.focus(), 80)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
@@ -2343,16 +2544,10 @@ export default function FromApp({
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
 
-                {/* Ask the stylist — drops product image as a chip so AI sees it */}
+                {/* Ask your stylist — opens the conversational stylist sheet */}
                 <div onClick={() => {
-                    const p = productCtxMenu.product
-                    const willHave = uploadedImages.length + (p.image_url ? 1 : 0)
-                    if (p.image_url) {
-                      setUploaded(prev => prev.length < 11 ? [...prev, { url: p.image_url!, name: p.title }] : prev)
-                    }
-                    setInputHint(willHave > 1 ? 'Tell me more about these' : 'Tell me more about this')
+                    openStylist(productCtxMenu.product)
                     setProductCtxMenu(null)
-                    setTimeout(() => taRef.current?.focus(), 80)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
