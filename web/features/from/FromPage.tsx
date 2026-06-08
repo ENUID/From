@@ -797,30 +797,32 @@ export default function FromApp({
   const [stylistInput, setStylistInput]     = useState('')
   const [stylistLoading, setStylistLoading] = useState(false)
   const stylistScrollRef                    = useRef<HTMLDivElement>(null)
+  // Products attached to the search bar — sending a query with these opens the stylist.
+  const [barProducts, setBarProducts]       = useState<Product[]>([])
 
-  const openStylist = (p: Product) => {
-    setStylistProducts(prev => {
-      // Re-opening on the same product keeps the conversation; a new product resets it.
-      if (prev.length === 1 && prev[0].id === p.id) return prev
-      setStylistMsgs([])
-      return [p]
-    })
-    setStylistOpen(true)
+  const addBarProduct = (p: Product) => {
+    setBarProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 4) ? prev : [...prev, p])
+    setInputHint('Ask about your selection…')
+    setTimeout(() => taRef.current?.focus(), 80)
   }
-  const addStylistProduct = (p: Product) => {
-    setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 4) ? prev : [...prev, p])
-  }
+  const removeBarProduct = (id: string) => setBarProducts(prev => {
+    const next = prev.filter(p => p.id !== id)
+    if (next.length === 0) setInputHint(null)
+    return next
+  })
   const removeStylistProduct = (id: string) => {
     setStylistProducts(prev => prev.filter(p => p.id !== id))
   }
-  const sendStylist = async (q: string) => {
+  const sendStylist = async (q: string, productsArg?: Product[], historyArg?: StylistMsg[]) => {
     const question = q.trim()
-    if (!question || stylistLoading || stylistProducts.length === 0) return
+    const products = productsArg ?? stylistProducts
+    const history  = historyArg ?? stylistMsgs
+    if (!question || stylistLoading || products.length === 0) return
     setStylistInput('')
     setStylistMsgs(prev => [...prev, { role: 'user', content: question }])
     setStylistLoading(true)
     try {
-      const payloadProducts = stylistProducts.map(p => ({
+      const payloadProducts = products.map(p => ({
         id: p.id, title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
         material: extractMaterial(p) || undefined,
         description: (getDescriptionText(p) || '').slice(0, 900) || undefined,
@@ -831,7 +833,7 @@ export default function FromApp({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           products: payloadProducts,
-          messages: stylistMsgs.map(m => ({ role: m.role, content: m.content })),
+          messages: history.map(m => ({ role: m.role, content: m.content })),
           question,
           buyerCurrency: shopperContext.currency,
         }),
@@ -847,6 +849,13 @@ export default function FromApp({
     } finally {
       setStylistLoading(false)
     }
+  }
+  // Open the stylist page with attached products and immediately ask the query.
+  const openStylistWith = (products: Product[], query: string) => {
+    setStylistProducts(products)
+    setStylistMsgs([])
+    setStylistOpen(true)
+    sendStylist(query, products, [])
   }
 
   // Glass interaction states
@@ -894,7 +903,7 @@ export default function FromApp({
   const searchProducts: Product[] = (lastProductMsg?.products || []).filter((p: Product) => p.in_stock)
   const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
   const showEmpty = hasConversation && searchProducts.length === 0 && !loading
-  const canSend   = input.trim().length > 0 || uploadedImages.length > 0
+  const canSend   = input.trim().length > 0 || uploadedImages.length > 0 || barProducts.length > 0
   const hasName   = userName.length > 0
 
   // Keep refs up-to-date every render so the observer callback always sees current values
@@ -1082,6 +1091,13 @@ export default function FromApp({
 
   const doSearch = () => {
     if (!canSend || loading) return
+    // Products attached → take the query to the stylist page instead of searching.
+    if (barProducts.length > 0) {
+      const q = input.trim() || (barProducts.length > 1 ? 'Compare these for me' : 'Tell me about this piece')
+      openStylistWith(barProducts, q)
+      setBarProducts([]); setInput(''); setInputHint(null)
+      return
+    }
     const names = uploadedImages.map(u => u.name).join(' ')
     const q = [input.trim(), names].filter(Boolean).join(' '); if (!q) return
     setShowExplore(false)
@@ -1972,6 +1988,26 @@ export default function FromApp({
                 {/* Content — sits above overlays */}
                 <div style={{ position: 'relative', zIndex: 1 }}>
 
+                  {/* Product strip — attached products that send the query to the stylist */}
+                  {barProducts.length > 0 && (
+                    <div style={{
+                      display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 12px 0',
+                      scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+                    } as React.CSSProperties}>
+                      {barProducts.map(p => (
+                        <div key={p.id} style={{ position: 'relative', flexShrink: 0 }}>
+                          <div style={{ width: 56, height: 70, borderRadius: 10, overflow: 'hidden', background: BG2, border: '1px solid rgba(0,0,0,0.08)' }}>
+                            {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                          </div>
+                          <button type="button" onClick={() => removeBarProduct(p.id)}
+                            style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#1E1A16', border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.6" strokeLinecap="round"/></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Image strip — appears above search bar when images attached */}
                   {uploadedImages.length > 0 && (
                     <div style={{
@@ -2150,43 +2186,12 @@ export default function FromApp({
                   ))}
                 </div>
 
-                {/* Add-to-compare strip from the current grid */}
-                {(() => {
-                  const pool = (searchProducts.length ? searchProducts : exploreCache).filter(p => !stylistProducts.some(s => s.id === p.id)).slice(0, 14)
-                  if (stylistProducts.length >= 4 || pool.length === 0) return null
-                  return (
-                    <div style={{ flexShrink: 0, padding: '9px 20px 11px', borderBottom: `1px solid ${BRD}` }}>
-                      <div style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: INK3, marginBottom: 7 }}>Add to compare</div>
-                      <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-                        {pool.map(p => (
-                          <button key={p.id} onClick={() => addStylistProduct(p)} title={p.title}
-                            style={{ position: 'relative', flexShrink: 0, width: 40, height: 50, borderRadius: 7, overflow: 'hidden', border: `1px solid ${BRD}`, background: BG2, cursor: 'pointer', padding: 0 }}>
-                            {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                            <span style={{ position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: INK, color: '#fff', fontSize: 12, lineHeight: '14px', textAlign: 'center' }}>+</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
-
                 {/* Conversation */}
-                <div ref={stylistScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', WebkitOverflowScrolling: 'touch', minHeight: 130 } as React.CSSProperties}>
+                <div ref={stylistScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', WebkitOverflowScrolling: 'touch', minHeight: 130 } as React.CSSProperties}>
                   {stylistMsgs.length === 0 && !stylistLoading && (
-                    <div>
-                      <p style={{ fontFamily: SERIF, fontSize: 19, color: INK2, lineHeight: 1.4, marginBottom: 16 }}>
-                        {stylistProducts.length > 1 ? 'Ask me to compare these — or anything about them.' : 'Ask me anything about this piece — fabric, fit, how to style it, or whether it suits you.'}
-                      </p>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {(stylistProducts.length > 1
-                          ? ['Which should I buy?', 'Compare the fabric', 'Which is better value?']
-                          : ['What is it made of?', 'How does it fit?', 'How would you style it?']
-                        ).map(s => (
-                          <button key={s} onClick={() => sendStylist(s)}
-                            style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, background: BG2, border: `1px solid ${BRD}`, borderRadius: 16, padding: '8px 14px', cursor: 'pointer' }}>{s}</button>
-                        ))}
-                      </div>
-                    </div>
+                    <p style={{ fontFamily: SERIF, fontSize: 18, color: INK3, lineHeight: 1.4 }}>
+                      Ask anything about {stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.
+                    </p>
                   )}
                   {stylistMsgs.map((m, i) => (
                     <div key={i} style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
@@ -2489,7 +2494,8 @@ export default function FromApp({
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
                 {/* Ask your stylist */}
                 <div onClick={() => {
-                    openStylist(bagCtxMenu.product)
+                    addBarProduct(bagCtxMenu.product)
+                    setSidebar(false)
                     setBagCtxMenu(null)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
@@ -2546,7 +2552,7 @@ export default function FromApp({
 
                 {/* Ask your stylist — opens the conversational stylist sheet */}
                 <div onClick={() => {
-                    openStylist(productCtxMenu.product)
+                    addBarProduct(productCtxMenu.product)
                     setProductCtxMenu(null)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
