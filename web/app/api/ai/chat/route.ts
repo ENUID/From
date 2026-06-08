@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
+import { generateRobustAIResponse, generatePostToolReply, POST_TOOL_REPLY_TIMEOUT_MS, ChatMessage } from '@/lib/groq'
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
@@ -614,7 +614,7 @@ Mirror the language the user wrote in.`
               POST_TOOL_PROMPT,
               aiResponse,
               formatSearchToolResult(products),
-              5000,
+              POST_TOOL_REPLY_TIMEOUT_MS,
             )
             finalContent = postSearchText || fallbackText(message, products, {
               budgetMax: activeBudgetMax,
