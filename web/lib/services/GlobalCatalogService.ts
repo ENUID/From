@@ -988,14 +988,22 @@ function getProductStoreDomain(product: UcpProduct): string {
 
 // A brand's original pricing currency is a strong signal of its home country —
 // fills the gap for brands on generic TLDs (.com) with no domain-based country.
-// EUR/USD are intentionally omitted/handled loosely since they span countries.
+// EUR resolves to the 'EU' region (shared across Europe, see EUROPE below).
 const CURRENCY_COUNTRY: Record<string, string> = {
   INR: 'IN', GBP: 'GB', AUD: 'AU', CAD: 'CA', PKR: 'PK', AED: 'AE', RUB: 'RU',
   TRY: 'TR', MYR: 'MY', IDR: 'ID', PHP: 'PH', JPY: 'JP', SGD: 'SG', NZD: 'NZ',
   SEK: 'SE', BRL: 'BR', ZAR: 'ZA', THB: 'TH', VND: 'VN', KRW: 'KR', HKD: 'HK',
   CHF: 'CH', DKK: 'DK', NOK: 'NO', PLN: 'PL', MXN: 'MX', SAR: 'SA', EGP: 'EG',
-  USD: 'US',
+  EUR: 'EU', USD: 'US',
 };
+
+// Europe is treated as one local market: a shopper in any European country sees
+// every European brand (EUR currency or a European country of origin) first.
+const EUROPE = new Set([
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
+  'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES',
+  'SE', 'GB', 'NO', 'CH', 'IS', 'EU',
+]);
 
 // Resolve a product's brand-origin country: domain first (most reliable), then
 // fall back to the original pricing currency.
@@ -1047,8 +1055,16 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
   // Brands from the shopper's own country come first, then everything else —
   // each tier still ordered by the chosen sort (relevance/trust/price).
   const userCountry = filters.userCountry ? filters.userCountry.toUpperCase() : null;
-  const isLocalBrand = (p: UcpProduct): boolean =>
-    !!userCountry && productOriginCountry(p) === userCountry;
+  const userInEurope = !!userCountry && EUROPE.has(userCountry);
+  const isLocalBrand = (p: UcpProduct): boolean => {
+    if (!userCountry) return false;
+    const origin = productOriginCountry(p);
+    if (!origin) return false;
+    if (origin === userCountry) return true;
+    // A European shopper sees all European brands as local (EUR + EU countries).
+    if (userInEurope && EUROPE.has(origin)) return true;
+    return false;
+  };
 
   const sortFn = (a: UcpProduct, b: UcpProduct): number => {
     if (userCountry) {
