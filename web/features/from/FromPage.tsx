@@ -248,21 +248,37 @@ function sanitizeHtml(html: string): string {
     .replace(/href\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '')
 }
 
-const SIZE_TABLE_KWS = /\b(size|chest|waist|hip|inseam|sleeve|shoulder|length|neck|bust|height|weight|measurements?)\b/i
+const SIZE_TABLE_KWS = /\b(size|chest|waist|hip|inseam|sleeve|shoulder|length|neck|bust|height|weight|measurements?|XS|XL|XXL)\b/i
 
 function extractSizeTables(html: string): string | null {
-  const tables: string[] = []
-  const re = /<table[\s\S]*?<\/table>/gi
+  const found: string[] = []
+  // HTML tables with size keywords
+  const tableRe = /<table[\s\S]*?<\/table>/gi
   let m: RegExpExecArray | null
-  while ((m = re.exec(html)) !== null) {
-    if (SIZE_TABLE_KWS.test(m[0])) tables.push(m[0])
+  while ((m = tableRe.exec(html)) !== null) {
+    if (SIZE_TABLE_KWS.test(m[0])) found.push(m[0])
   }
-  return tables.length > 0 ? tables.join('') : null
+  if (found.length) return found.join('')
+
+  // Images whose src/alt suggests a size chart (common: brand embeds a chart image in description)
+  const imgRe = /<img[^>]+>/gi
+  while ((m = imgRe.exec(html)) !== null) {
+    const tag = m[0]
+    if (/size.?chart|size.?guide|sizing|measurement/i.test(tag) && /src=/i.test(tag)) {
+      const srcMatch = tag.match(/src=["']([^"']+)["']/i)
+      if (srcMatch && !srcMatch[1].startsWith('data:')) {
+        found.push(tag.replace(/<img/, '<img style="max-width:100%;height:auto;display:block"'))
+      }
+    }
+  }
+  return found.length ? `<div>${found.join('')}</div>` : null
 }
 
 function stripSizeTables(html: string): string {
   return html
     .replace(/<table[\s\S]*?<\/table>/gi, t => SIZE_TABLE_KWS.test(t) ? '' : t)
+    // Also strip size chart images already shown in the size guide section
+    .replace(/<img[^>]+>/gi, tag => /size.?chart|size.?guide|sizing|measurement/i.test(tag) ? '' : tag)
     .replace(/\n{3,}/g, '\n\n').trim()
 }
 
