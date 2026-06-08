@@ -2299,7 +2299,7 @@ export default function FromApp({
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Ask the stylist</span>
+                  <span>Ask your stylist</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
                   </svg>
@@ -2362,7 +2362,7 @@ export default function FromApp({
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Ask the stylist</span>
+                  <span>Ask your stylist</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
                   </svg>
