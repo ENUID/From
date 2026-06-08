@@ -772,6 +772,7 @@ export default function FromApp({
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreToast, setExploreToast] = useState(false)
+  const [exploreToastOut, setExploreToastOut] = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
     try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
   })
@@ -1442,6 +1443,8 @@ export default function FromApp({
         @keyframes sk-sweep{0%{transform:translateX(-100%);}100%{transform:translateX(300%);}}
         @keyframes spin{to{transform:rotate(360deg);}}
         @keyframes ctxIn{0%{opacity:0;transform:scale(0.60);}55%{opacity:1;transform:scale(1.04);}80%{transform:scale(0.98);}100%{opacity:1;transform:scale(1);}}
+        @keyframes toastIn{0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(0.88);}60%{opacity:1;transform:translateX(-50%) translateY(-4px) scale(1.03);}80%{transform:translateX(-50%) translateY(2px) scale(0.99);}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
+        @keyframes toastOut{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.88);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
@@ -1507,8 +1510,10 @@ export default function FromApp({
               {/* Explore — coming soon */}
               <div className="fr-hi" onClick={() => {
                 setSidebar(false)
+                setExploreToastOut(false)
                 setExploreToast(true)
-                setTimeout(() => setExploreToast(false), 2800)
+                setTimeout(() => setExploreToastOut(true), 2200)
+                setTimeout(() => setExploreToast(false), 2650)
               }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
@@ -2250,17 +2255,17 @@ export default function FromApp({
 
           {/* ── Explore coming-soon toast ── */}
           {exploreToast && (
-            <div style={{ position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+            <div style={{ position: 'fixed', bottom: 96, left: '50%', zIndex: 9999,
               background: INK, color: '#fff', borderRadius: 24,
               padding: '11px 22px', display: 'flex', alignItems: 'center', gap: 10,
               fontFamily: SANS, fontSize: 13, fontWeight: 400, letterSpacing: '.01em',
-              boxShadow: '0 4px 20px rgba(44,18,6,0.28)', whiteSpace: 'nowrap',
-              animation: 'ctxIn 0.25s cubic-bezier(0.34,1.36,0.64,1)',
+              boxShadow: '0 8px 32px rgba(44,18,6,0.32), 0 2px 8px rgba(44,18,6,0.18)', whiteSpace: 'nowrap',
+              animation: `${exploreToastOut ? 'toastOut 0.42s cubic-bezier(0.4,0,1,1)' : 'toastIn 0.52s cubic-bezier(0.34,1.36,0.64,1)'} forwards`,
             }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .7 }}>
                 <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
               </svg>
-              Explore is coming soon
+              Explore — coming soon
             </div>
           )}
 
