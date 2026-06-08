@@ -778,6 +778,7 @@ export default function FromApp({
   const [logoIdx, setLogoIdx] = useState(0)
   const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number; above: boolean } | null>(null)
   const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
+  const [bagCtxMenu, setBagCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
@@ -1620,7 +1621,7 @@ export default function FromApp({
                               const above = clientY + 8 + menuH > window.innerHeight
                               const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
                               const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
-                              setProductCtxMenu({ product: p, x, y, above })
+                              setBagCtxMenu({ product: p, x, y, above })
                             }, 550)
                           }}
                           onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
@@ -2261,6 +2262,60 @@ export default function FromApp({
               </svg>
               Explore is coming soon
             </div>
+          )}
+
+          {/* ── Bag item long-press menu — Ask stylist + Remove ── */}
+          {bagCtxMenu && (
+            <>
+              <div onClick={() => setBagCtxMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
+              <div style={{
+                position: 'fixed', left: bagCtxMenu.x, top: bagCtxMenu.y, zIndex: 9001,
+                width: 190, borderRadius: 12, overflow: 'hidden',
+                background: 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(245,245,248,0.94) 100%)',
+                boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
+                border: '0.5px solid rgba(180,180,190,0.35)',
+                animation: 'ctxIn 0.22s cubic-bezier(0.34,1.36,0.64,1)',
+                transformOrigin: bagCtxMenu.above ? 'bottom left' : 'top left',
+              }}>
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+                  background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
+                {/* Ask the stylist */}
+                <div onClick={() => {
+                    const p = bagCtxMenu.product
+                    if (p.image_url) setUploaded(prev => prev.length < 11 ? [...prev, { url: p.image_url!, name: p.title }] : prev)
+                    setInputHint('Tell me more about this')
+                    setBagCtxMenu(null)
+                    setTimeout(() => taRef.current?.focus(), 80)
+                  }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>Ask the stylist</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+                  </svg>
+                </div>
+                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
+                {/* Remove from bag */}
+                <div onClick={() => { toggleSaved(bagCtxMenu.product); setBagCtxMenu(null) }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#FF3B30' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>Remove from bag</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,59,48,0.8)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
+                </div>
+              </div>
+            </>
           )}
 
           {/* ── Product card long-press context menu — Liquid Glass ── */}
