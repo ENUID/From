@@ -440,6 +440,7 @@ export default function FromApp({
   const [inputHint, setInputHint]       = useState<string | null>(null)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
+  const [sizeGuideOpen, setSizeGuideOpen]       = useState(false)
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
@@ -582,7 +583,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
-  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full') } }, [selectedProduct])
+  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"
@@ -987,9 +988,13 @@ export default function FromApp({
         .fr-html th{background:rgba(44,18,6,0.05);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:${INK};}
         .fr-html th,.fr-html td{padding:9px 12px;border:1px solid rgba(44,18,6,0.10);text-align:left;vertical-align:middle;}
         .fr-html tr:nth-child(even) td{background:rgba(44,18,6,0.025);}
-        /* Size guide table wrapper */
-        .fr-size-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px;border:1px solid rgba(44,18,6,0.08);}
-        .fr-size-wrap table{min-width:100%;white-space:nowrap;}
+        /* Size guide modal */
+        .fr-sz-modal{font-family:'DM Sans',sans-serif;}
+        .fr-sz-modal table{width:auto;min-width:max-content;white-space:nowrap;border-collapse:collapse;font-size:12px;}
+        .fr-sz-modal th{background:rgba(44,18,6,.05);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:${INK};padding:9px 14px;border:1px solid rgba(44,18,6,.1);text-align:left;vertical-align:middle;}
+        .fr-sz-modal td{padding:9px 14px;border:1px solid rgba(44,18,6,.1);text-align:left;vertical-align:middle;color:${INK2};font-weight:300;}
+        .fr-sz-modal tr:nth-child(even) td{background:rgba(44,18,6,.025);}
+        .fr-sz-modal img{max-width:100%;height:auto;display:block;}
 
         /* ADD button — full width */
         .fr-add{display:block;width:100%;padding:17px;border:none;cursor:pointer;touch-action:manipulation;
@@ -1597,6 +1602,42 @@ export default function FromApp({
             </>
           )}
 
+          {/* ── Size Guide modal ── */}
+          {sizeGuideOpen && (
+            <div
+              onClick={() => setSizeGuideOpen(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '82vh' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 14px', borderBottom: '1px solid rgba(44,18,6,0.08)', flexShrink: 0 }}>
+                  <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: INK }}>Size Guide</span>
+                  <button onClick={() => setSizeGuideOpen(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0, borderRadius: '50%' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                {/* Body */}
+                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                  <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: '.03em', padding: '14px 20px 10px' }}>
+                    Measurements may vary slightly. When in doubt, size up.
+                  </p>
+                  {(sheetSizeTable || fetchedSizeGuide) ? (
+                    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 32 } as React.CSSProperties}>
+                      <div className="fr-sz-modal" style={{ padding: '0 20px', minWidth: 'max-content' }}
+                        dangerouslySetInnerHTML={{ __html: (sheetSizeTable || fetchedSizeGuide)! }} />
+                    </div>
+                  ) : (
+                    <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: '8px 20px 32px', fontWeight: 300 }}>Loading…</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Product card long-press context menu — Liquid Glass ── */}
           {productCtxMenu && (
             <>
@@ -1829,6 +1870,11 @@ export default function FromApp({
                         <div style={{ padding: '14px 24px 0' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: '.04em', textTransform: 'uppercase' }}>Size</span>
+                            {(sheetSizeTable || sizeGuideLoading || fetchedSizeGuide) && (
+                              <button onClick={() => setSizeGuideOpen(true)} style={{ fontFamily: SANS, fontSize: 11, color: INK3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3, letterSpacing: '.03em' }}>
+                                {sizeGuideLoading && !sheetSizeTable && !fetchedSizeGuide ? 'Loading…' : 'Size Guide'}
+                              </button>
+                            )}
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
                             {sheetSizes.map((s, i) => {
@@ -1872,19 +1918,6 @@ export default function FromApp({
                               <div className="fr-html" dangerouslySetInnerHTML={{ __html: sheetDescHtml }} />
                             ) : (
                               <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: 'pre-line' }}>{sheetDesc}</p>
-                            )}
-                          </Accordion>
-                        )}
-                        {/* Size Guide — embedded from description or fetched inline; never redirects */}
-                        {(sheetSizeTable || sizeGuideLoading || fetchedSizeGuide) && (
-                          <Accordion label="Size Guide">
-                            {sizeGuideLoading && !sheetSizeTable ? (
-                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300 }}>Loading size guide…</p>
-                            ) : (
-                              <>
-                                <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: '.03em' }}>Measurements may vary slightly. When in doubt, size up.</p>
-                                <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: (sheetSizeTable || fetchedSizeGuide)! }} />
-                              </>
                             )}
                           </Accordion>
                         )}
@@ -2050,6 +2083,11 @@ export default function FromApp({
                       <div style={{ padding: "14px 20px 0" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                           <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: ".04em", textTransform: "uppercase" }}>Size</span>
+                          {(sheetSizeTable || sizeGuideLoading || fetchedSizeGuide) && (
+                            <button onClick={() => setSizeGuideOpen(true)} style={{ fontFamily: SANS, fontSize: 11, color: INK3, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: ".03em" }}>
+                              {sizeGuideLoading && !sheetSizeTable && !fetchedSizeGuide ? 'Loading…' : 'Size Guide'}
+                            </button>
+                          )}
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
                           {sheetSizes.map((s, i) => {
@@ -2093,19 +2131,6 @@ export default function FromApp({
                             <div className="fr-html" dangerouslySetInnerHTML={{ __html: sheetDescHtml }} />
                           ) : (
                             <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: "pre-line" }}>{sheetDesc}</p>
-                          )}
-                        </Accordion>
-                      )}
-                      {/* Size Guide — embedded from description or fetched inline; never redirects */}
-                      {(sheetSizeTable || sizeGuideLoading || fetchedSizeGuide) && (
-                        <Accordion label="Size Guide">
-                          {sizeGuideLoading && !sheetSizeTable ? (
-                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300 }}>Loading size guide…</p>
-                          ) : (
-                            <>
-                              <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: ".03em" }}>Measurements may vary slightly. When in doubt, size up.</p>
-                              <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: (sheetSizeTable || fetchedSizeGuide)! }} />
-                            </>
                           )}
                         </Accordion>
                       )}
