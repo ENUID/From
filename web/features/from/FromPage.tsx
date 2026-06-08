@@ -1658,7 +1658,7 @@ export default function FromApp({
               </button>
             </div>
 
-            {/* Fixed nav items — Explore / Bag / Collections */}
+            {/* Fixed nav items — Explore / Brand Collections / Bag */}
             <div style={{ padding: "4px 12px 4px", flexShrink: 0 }}>
 
               {/* Explore — coming soon */}
@@ -1677,13 +1677,13 @@ export default function FromApp({
                 Explore
               </div>
 
-              {/* Brands — full roster with logos */}
+              {/* Brand Collections — full roster with logos */}
               <div className="fr-hi" onClick={() => { setBrandQuery(''); setBrandsOpen(true) }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
                   <line x1="7" y1="7" x2="7.01" y2="7"/>
                 </svg>
-                Brands
+                Brand Collections
               </div>
 
               {/* Bag (saved products) */}
@@ -1701,15 +1701,6 @@ export default function FromApp({
                 )}
               </div>
 
-              {/* Collections */}
-              <div className="fr-hi" onClick={() => setSidebar(false)}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
-                Collections
-              </div>
 
             </div>
 
@@ -1795,12 +1786,12 @@ export default function FromApp({
                           }}
                           onPointerMove={e => {
                             const s = longPressStart.current
-                            if (s && longPressTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10) {
+                            if (s && longPressTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 18) {
                               clearTimeout(longPressTimer.current); longPressTimer.current = null
                             }
                           }}
                           onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                          onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                          onPointerLeave={e => { if (e.pointerType !== 'touch' && longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
                         >
                           <div style={{ width: 34, height: 42, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: '#e8e8e8' }}>
                             {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
@@ -1967,13 +1958,12 @@ export default function FromApp({
                       }}
                       onPointerMove={e => {
                         const s = productLongStart.current
-                        if (s && productLongTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10) {
+                        if (s && productLongTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 18) {
                           clearTimeout(productLongTimer.current); productLongTimer.current = null
                         }
                       }}
                       onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
-                      onPointerLeave={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
-                      onPointerCancel={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onPointerLeave={e => { if (e.pointerType !== 'touch' && productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
@@ -2041,13 +2031,12 @@ export default function FromApp({
                       }}
                       onPointerMove={e => {
                         const s = productLongStart.current
-                        if (s && productLongTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10) {
+                        if (s && productLongTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 18) {
                           clearTimeout(productLongTimer.current); productLongTimer.current = null
                         }
                       }}
                       onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
-                      onPointerLeave={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
-                      onPointerCancel={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onPointerLeave={e => { if (e.pointerType !== 'touch' && productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
