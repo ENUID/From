@@ -425,7 +425,7 @@ function getColorAvailability(p: Product): Record<string, boolean> {
 }
 // ── Size guide parsing ────────────────────────────────────────────────────────
 type SizeRow   = { label: string; values: string[] }
-type SizeTable = { label: string; headers: string[]; rows: SizeRow[] }
+type SizeTable = { label: string; headers: string[]; rows: SizeRow[]; unit: 'in' | 'cm' | '' }
 
 function sgStripTags(html: string): string {
   return html
@@ -553,7 +553,7 @@ function parseSizeGuideHtml(html: string): SizeTable[] {
     // If heading extraction found nothing, infer from measurement names in the table
     const finalLabel = label || inferTableLabel(tbl.rows.map(r => r.label))
 
-    tables.push({ label: finalLabel, ...tbl })
+    tables.push(normalizeTable({ label: finalLabel, ...tbl, unit: '' }))
   }
   return tables
 }
@@ -563,6 +563,94 @@ function chunkHeaders(headers: string[], size = 3): string[][] {
   const chunks: string[][] = []
   for (let i = 0; i < headers.length; i += size) chunks.push(headers.slice(i, i + size))
   return chunks
+}
+
+// ── Size-table normalization ────────────────────────────────────────────────
+
+// Title-case a measurement row label; preserve size abbreviations (XS, S/M…)
+function titleCaseLabel(s: string): string {
+  if (!s) return s
+  if (isSizeLike(s.trim())) return s.trim().toUpperCase()
+  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// Detect a unit mentioned anywhere in a string
+function detectUnit(s: string): 'in' | 'cm' | '' {
+  if (/\bcm\b/i.test(s)) return 'cm'
+  if (/\binch(es)?\b|^\s*in\s*$|"/i.test(s)) return 'in'
+  return ''
+}
+
+// Strip unit annotation from a column header; return clean text + detected unit
+function cleanHeader(h: string): { clean: string; unit: 'in' | 'cm' | '' } {
+  const unit = detectUnit(h)
+  const clean = h
+    .replace(/\s*[\(\[]\s*in\s+cm\s*[\)\]]/gi, '')
+    .replace(/\s*[\(\[]\s*centimetres?\s*[\)\]]/gi, '')
+    .replace(/\s*[\(\[]\s*cm\s*[\)\]]/gi, '')
+    .replace(/\s*[\(\[]\s*in\s+inch(es)?\s*[\)\]]/gi, '')
+    .replace(/\s*[\(\[]\s*inch(es)?\s*[\)\]]/gi, '')
+    .replace(/\s*[\(\[]\s*"\s*[\)\]]/gi, '')
+    .replace(/\s*-\s*cm$/i, '').replace(/\s*\(cm\)$/i, '')
+    .replace(/\s*-\s*in$/i, '').replace(/\s*\(in\)$/i, '')
+    .trim()
+  return { clean: clean || h.trim(), unit }
+}
+
+// Format cell values: replace "x" dimension separator with "×"
+function humanizeValue(v: string): string {
+  if (!v || v === '—') return v
+  return v.replace(/(\d[\d.,½¼¾⅓⅔⅛⅜⅝⅞]*)\s*[xX]\s*(\d[\d.,½¼¾⅓⅔⅛⅜⅝⅞]*)/g, '$1 × $2')
+}
+
+// Normalize a full table: clean headers, title-case labels, format values, infer unit
+function normalizeTable(t: SizeTable): SizeTable {
+  // 1. Strip unit suffixes from column headers and collect the unit
+  let unit: 'in' | 'cm' | '' = ''
+  const cleanedHeaders = t.headers.map(h => {
+    const { clean, unit: u } = cleanHeader(h)
+    if (u && !unit) unit = u
+    return clean
+  })
+
+  // 2. Try row labels
+  if (!unit) unit = detectUnit(t.rows.map(r => r.label).join(' '))
+
+  // 3. Try cell values
+  if (!unit) {
+    outer: for (const row of t.rows) {
+      for (const v of row.values) {
+        const u = detectUnit(v)
+        if (u) { unit = u; break outer }
+      }
+    }
+  }
+
+  // 4. Infer from value magnitudes for garment tables
+  if (!unit) {
+    const isGarment = t.rows.some(r =>
+      /\b(chest|waist|hip|inseam|sleeve|bust|body|shoulder|neck|length)\b/i.test(r.label)
+    )
+    if (isGarment) {
+      const nums: number[] = []
+      for (const row of t.rows)
+        for (const v of row.values) {
+          const m = v.match(/(\d+(?:\.\d+)?)/)
+          if (m) nums.push(parseFloat(m[1]))
+        }
+      if (nums.length > 0) {
+        const avg = nums.reduce((a, b) => a + b, 0) / nums.length
+        unit = avg < 70 ? 'in' : 'cm'
+      }
+    }
+  }
+
+  const cleanedRows = t.rows.map(row => ({
+    label: titleCaseLabel(row.label),
+    values: row.values.map(humanizeValue),
+  }))
+
+  return { ...t, headers: cleanedHeaders, rows: cleanedRows, unit }
 }
 
 function getCheckoutUrl(p: Product, size: string | null, color: string | null): string {
@@ -1958,6 +2046,9 @@ export default function FromApp({
                             </tbody>
                           </table>
                           <p style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: '.04em', marginTop: 16, lineHeight: 1.6 }}>
+                            {sgTable.unit
+                              ? `All measurements in ${sgTable.unit === 'in' ? 'inches' : 'centimetres'}. `
+                              : ''}
                             Measurements may vary slightly. When in doubt, size up.
                           </p>
                         </div>
