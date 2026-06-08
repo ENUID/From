@@ -1574,11 +1574,15 @@ export default function FromApp({
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
 
-                {/* Ask about this */}
+                {/* Ask the stylist — drops product image as a chip so AI sees it */}
                 <div onClick={() => {
-                    setInput(`Tell me more about ${productCtxMenu.product.title} — `)
+                    const p = productCtxMenu.product
+                    if (p.image_url) {
+                      setUploaded(prev => prev.length < 11 ? [...prev, { url: p.image_url!, name: p.title }] : prev)
+                    }
+                    setInput('Tell me about this')
                     setProductCtxMenu(null)
-                    setTimeout(() => { taRef.current?.focus(); taRef.current && (taRef.current.selectionStart = taRef.current.selectionEnd = taRef.current.value.length) }, 80)
+                    setTimeout(() => { taRef.current?.focus() }, 80)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
@@ -1587,9 +1591,9 @@ export default function FromApp({
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Ask about this</span>
+                  <span>Ask the stylist</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
                   </svg>
                 </div>
 
