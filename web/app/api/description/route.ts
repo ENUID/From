@@ -1,57 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { groqChat } from '@/lib/groq'
 
-// In-process cache — avoids re-calling the LLM for the same product in one deployment
 const cache = new Map<string, string>()
 
-const SYSTEM = `You are a product information editor for a curated independent fashion marketplace.
+const SYSTEM = `You are a product information writer for a curated independent fashion marketplace.
 
-Your job: take a raw Shopify product description and return ONLY the genuinely useful product information, rewritten as clean, factual prose.
+Your job: given a raw Shopify product description plus the product title, brand, and type, write clean factual product information that a customer would find genuinely useful.
 
-ALWAYS REMOVE:
-- Calls to action ("Add to cart", "Buy now", "Get yours today", "Shop now", "Order today")
-- Shipping and returns policy ("Free shipping", "30-day returns", "Ships in 3-5 days")
-- Discount or promo codes
-- Social media requests ("Follow us on Instagram", "Tag us @brand")
-- SEO keyword stuffing (lists of unrelated search terms)
-- Urgency/scarcity marketing ("Limited stock!", "Selling fast!", "Hurry")
-- References to other products or collections
-- Store or website links
-- Placeholder text or broken template variables ({{ ... }})
-- HTML artefacts or formatting symbols
-- Empty filler ("This product is perfect for...", "You will love this...")
+RULES:
+- Never use em dashes (—) or en dashes (–). Use a comma or plain sentence break instead.
+- No bullet points, no headers, no lists.
+- No marketing language whatsoever.
+- No calls to action ("Add to cart", "Buy now", "Shop now", "Order today", "Get yours").
+- No shipping, returns, or discount information.
+- No social media references or links.
+- No urgency language ("Limited stock", "Selling fast", "Hurry").
+- No placeholder text or broken variables.
+- Do not copy filler phrases ("This product is perfect for", "You will love").
 
-KEEP (only what is specific to this item):
-- Fabric and material composition (e.g. "100% organic cotton", "shell: 80% wool")
-- Construction and craft details (e.g. "French seams", "hand-stitched")
-- Fit and silhouette notes (e.g. "relaxed fit", "true to size", "model wears XS")
-- Product-specific features (e.g. "two front pockets", "adjustable drawstring", "detachable collar")
-- Dimensions or measurements if given
-- Country of origin if stated
-- Brief care note only if not already covered by care tags
+ALWAYS WRITE SOMETHING USEFUL:
+- If the raw description is full of junk with little substance, ignore it and write 1 to 2 factual sentences about the product based on its title, brand name, and product type. Draw on what a knowledgeable fashion buyer would say about an item of this kind.
+- If the raw description has genuine content, keep only: fabric and material composition, construction details, fit notes, silhouette, specific product features, model sizing info, country of origin.
 
-FORMAT: Write 1–3 short paragraphs of clean prose. No bullet points. No headers. No marketing tone. If the raw description contains almost nothing useful, write a single factual sentence inferred from the product title and type.`
+FORMAT: 1 to 3 short plain sentences. No special characters. No markdown. Minimal and direct.`
 
 export async function POST(req: NextRequest) {
   try {
     const { id, title, vendor, type, rawText } = await req.json()
 
-    if (!rawText || rawText.trim().length < 15) {
-      return NextResponse.json({ text: '' })
-    }
-
-    const cacheKey = id || rawText.slice(0, 120)
+    const cacheKey = id || (rawText ?? '').slice(0, 120)
     const cached = cache.get(cacheKey)
     if (cached !== undefined) return NextResponse.json({ text: cached })
 
-    const context = [title, vendor && `by ${vendor}`, type].filter(Boolean).join(' — ')
-    const userMsg = `Product: ${context}\n\nRaw description:\n${rawText.slice(0, 1800)}`
+    const context = [title, vendor && `by ${vendor}`, type].filter(Boolean).join(', ')
+    const raw = (rawText ?? '').trim()
+    const userMsg = `Product: ${context}\n\nRaw description:\n${raw.slice(0, 1800)}`
 
     const msg = await groqChat(
       [{ role: 'user', content: userMsg }],
       SYSTEM,
       undefined,
-      { max_tokens: 220, temperature: 0.15 }
+      { max_tokens: 180, temperature: 0.2 }
     )
 
     const text = (msg?.content ?? '').trim()

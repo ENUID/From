@@ -506,6 +506,7 @@ export default function FromApp({
   const [sgGroupIdx, setSgGroupIdx]             = useState(0)
   const [cleanDesc, setCleanDesc]               = useState<string | null>(null)
   const [cleanDescLoading, setCleanDescLoading] = useState(false)
+  const [shippingInfo, setShippingInfo]         = useState<{ shipping: string; returns: string } | null>(null)
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
@@ -648,7 +649,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
-  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null) } }, [selectedProduct])
+  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"
@@ -863,6 +864,19 @@ export default function FromApp({
       .then(d => { if (!cancelled) setCleanDesc(d.text || null) })
       .catch(() => { if (!cancelled) setCleanDesc(null) })
       .finally(() => { if (!cancelled) setCleanDescLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedProduct?.id])
+
+  // Fetch shipping & returns from brand policy pages
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const storeUrl = selectedProduct?.store_url
+    if (!storeUrl) { setShippingInfo(null); return }
+    let cancelled = false
+    fetch(`/api/shipping?url=${encodeURIComponent(storeUrl)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setShippingInfo(d.data ?? null) })
+      .catch(() => { if (!cancelled) setShippingInfo(null) })
     return () => { cancelled = true }
   }, [selectedProduct?.id])
 
@@ -2104,42 +2118,56 @@ export default function FromApp({
                         )}
                         {(sheetMaterial || sheetCareTags.length > 0) && (
                           <Accordion label="Materials & Care">
-                            {sheetMaterial && (
-                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, textTransform: 'capitalize', marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
-                                {sheetMaterial}
-                              </p>
-                            )}
-                            {sheetCareTags.length > 0 && (
-                              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                                {sheetCareTags.map((tag, i) => (
-                                  <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: 'flex', alignItems: 'flex-start', gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
-                                    <div style={{ width: 3, height: 3, borderRadius: '50%', background: INK3, flexShrink: 0, marginTop: 6 }} />
-                                    {tag}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
+                            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {sheetMaterial && sheetMaterial.split(/[,;]+/).map(m => m.trim()).filter(Boolean).map((m, i) => (
+                                <li key={`mat-${i}`} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.5 }}>
+                                  {'• '}{m.charAt(0).toUpperCase() + m.slice(1)}
+                                </li>
+                              ))}
+                              {sheetCareTags.map((tag, i) => (
+                                <li key={`care-${i}`} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.5 }}>
+                                  {'• '}{tag}
+                                </li>
+                              ))}
+                            </ul>
                           </Accordion>
                         )}
                         {sheetDetailTags.length > 0 && (
                           <Accordion label="Product Details">
-                            <ul style={{ listStyle: 'none', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
                               {sheetDetailTags.slice(0, 16).map((tag, i) => (
-                                <li key={i} style={{
-                                  fontFamily: SANS, fontSize: 12, color: INK2, fontWeight: 300,
-                                  background: 'rgba(44,18,6,.04)', borderRadius: 20,
-                                  padding: '4px 11px', lineHeight: 1.5,
-                                }}>
-                                  {tag}
+                                <li key={i} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.5 }}>
+                                  {'• '}{tag}
                                 </li>
                               ))}
                             </ul>
                           </Accordion>
                         )}
                         <Accordion label="Delivery & Returns">
-                          <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
-                            Shipping, payment and returns are handled directly by {sheetBrandName || 'the store'}. Delivery times and return windows vary — see their policies at checkout.
-                          </p>
+                          {shippingInfo ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                              {shippingInfo.shipping && (
+                                <div>
+                                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Shipping</p>
+                                  {shippingInfo.shipping.split('\n').filter(l => l.trim()).map((line, i) => (
+                                    <p key={i} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.6, marginBottom: 4 }}>{line.trim()}</p>
+                                  ))}
+                                </div>
+                              )}
+                              {shippingInfo.returns && (
+                                <div>
+                                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Returns</p>
+                                  {shippingInfo.returns.split('\n').filter(l => l.trim()).map((line, i) => (
+                                    <p key={i} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.6, marginBottom: 4 }}>{line.trim()}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
+                              Shipping and returns are handled directly by {sheetBrandName || 'the store'}. Delivery times and return windows vary. Check their policies at checkout.
+                            </p>
+                          )}
                         </Accordion>
                       </div>
                     </div>
@@ -2321,42 +2349,56 @@ export default function FromApp({
                       )}
                       {(sheetMaterial || sheetCareTags.length > 0) && (
                         <Accordion label="Materials & Care">
-                          {sheetMaterial && (
-                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, textTransform: "capitalize", marginBottom: sheetCareTags.length > 0 ? 12 : 0 }}>
-                              {sheetMaterial}
-                            </p>
-                          )}
-                          {sheetCareTags.length > 0 && (
-                            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
-                              {sheetCareTags.map((tag, i) => (
-                                <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: INK2, display: "flex", alignItems: "flex-start", gap: 9, fontWeight: 300, lineHeight: 1.5 }}>
-                                  <div style={{ width: 3, height: 3, borderRadius: "50%", background: INK3, flexShrink: 0, marginTop: 6 }} />
-                                  {tag}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
+                          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                            {sheetMaterial && sheetMaterial.split(/[,;]+/).map(m => m.trim()).filter(Boolean).map((m, i) => (
+                              <li key={`mat-${i}`} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.5 }}>
+                                {'• '}{m.charAt(0).toUpperCase() + m.slice(1)}
+                              </li>
+                            ))}
+                            {sheetCareTags.map((tag, i) => (
+                              <li key={`care-${i}`} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.5 }}>
+                                {'• '}{tag}
+                              </li>
+                            ))}
+                          </ul>
                         </Accordion>
                       )}
                       {sheetDetailTags.length > 0 && (
                         <Accordion label="Product Details">
-                          <ul style={{ listStyle: "none", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
                             {sheetDetailTags.slice(0, 16).map((tag, i) => (
-                              <li key={i} style={{
-                                fontFamily: SANS, fontSize: 12, color: INK2, fontWeight: 300,
-                                background: "rgba(44,18,6,.04)", borderRadius: 20,
-                                padding: "4px 11px", lineHeight: 1.5,
-                              }}>
-                                {tag}
+                              <li key={i} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.5 }}>
+                                {'• '}{tag}
                               </li>
                             ))}
                           </ul>
                         </Accordion>
                       )}
                       <Accordion label="Delivery & Returns">
-                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
-                          Shipping, payment and returns are handled directly by {sheetBrandName || "the store"}. Delivery times and return windows vary — see their policies at checkout.
-                        </p>
+                        {shippingInfo ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            {shippingInfo.shipping && (
+                              <div>
+                                <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: INK3, marginBottom: 8 }}>Shipping</p>
+                                {shippingInfo.shipping.split('\n').filter(l => l.trim()).map((line, i) => (
+                                  <p key={i} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.6, marginBottom: 4 }}>{line.trim()}</p>
+                                ))}
+                              </div>
+                            )}
+                            {shippingInfo.returns && (
+                              <div>
+                                <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: INK3, marginBottom: 8 }}>Returns</p>
+                                {shippingInfo.returns.split('\n').filter(l => l.trim()).map((line, i) => (
+                                  <p key={i} style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 300, lineHeight: 1.6, marginBottom: 4 }}>{line.trim()}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
+                            Shipping and returns are handled directly by {sheetBrandName || "the store"}. Delivery times and return windows vary. Check their policies at checkout.
+                          </p>
+                        )}
                       </Accordion>
                     </div>
 
