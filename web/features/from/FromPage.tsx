@@ -441,6 +441,8 @@ export default function FromApp({
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
   const [sizeGuideOpen, setSizeGuideOpen]       = useState(false)
+  const [cleanDesc, setCleanDesc]               = useState<string | null>(null)
+  const [cleanDescLoading, setCleanDescLoading] = useState(false)
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
@@ -583,7 +585,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
-  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false) } }, [selectedProduct])
+  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setCleanDesc(null) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"
@@ -775,6 +777,31 @@ export default function FromApp({
       .finally(() => { if (!cancelled) setSizeGuideLoading(false) })
     return () => { cancelled = true }
   }, [selectedProduct?.id, sheetSizeTable])
+
+  // AI-clean the product description — strips marketing fluff, CTAs, shipping text
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const raw = sheetDesc.trim()
+    if (!selectedProduct || !raw) { setCleanDesc(null); return }
+    let cancelled = false
+    setCleanDescLoading(true)
+    fetch('/api/description', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: selectedProduct.id,
+        title: selectedProduct.title,
+        vendor: selectedProduct.vendor,
+        type: selectedProduct.product_type,
+        rawText: raw,
+      }),
+    })
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setCleanDesc(d.text || null) })
+      .catch(() => { if (!cancelled) setCleanDesc(null) })
+      .finally(() => { if (!cancelled) setCleanDescLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedProduct?.id])
 
   return (
     <div style={{ fontFamily: SANS, background: "#ffffff", height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -1912,12 +1939,16 @@ export default function FromApp({
                       </div>
 
                       <div key={selectedProduct.id} style={{ padding: '16px 24px 0' }}>
-                        {(sheetDescHtml || sheetDesc) && (
+                        {(sheetDesc || sheetDescHtml) && (
                           <Accordion label="Description & Fit" defaultOpen>
-                            {sheetDescHtml ? (
+                            {cleanDescLoading && !cleanDesc ? (
+                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300, lineHeight: 1.7 }}>…</p>
+                            ) : cleanDesc ? (
+                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.75, fontWeight: 300, whiteSpace: 'pre-line' }}>{cleanDesc}</p>
+                            ) : sheetDescHtml ? (
                               <div className="fr-html" dangerouslySetInnerHTML={{ __html: sheetDescHtml }} />
                             ) : (
-                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: 'pre-line' }}>{sheetDesc}</p>
+                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.75, fontWeight: 300, whiteSpace: 'pre-line' }}>{sheetDesc}</p>
                             )}
                           </Accordion>
                         )}
@@ -2125,12 +2156,16 @@ export default function FromApp({
                     </div>
 
                     <div key={selectedProduct.id} style={{ padding: "22px 20px 0" }}>
-                      {(sheetDescHtml || sheetDesc) && (
+                      {(sheetDesc || sheetDescHtml) && (
                         <Accordion label="Description & Fit" defaultOpen>
-                          {sheetDescHtml ? (
+                          {cleanDescLoading && !cleanDesc ? (
+                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300, lineHeight: 1.7 }}>…</p>
+                          ) : cleanDesc ? (
+                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.75, fontWeight: 300, whiteSpace: "pre-line" }}>{cleanDesc}</p>
+                          ) : sheetDescHtml ? (
                             <div className="fr-html" dangerouslySetInnerHTML={{ __html: sheetDescHtml }} />
                           ) : (
-                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300, whiteSpace: "pre-line" }}>{sheetDesc}</p>
+                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.75, fontWeight: 300, whiteSpace: "pre-line" }}>{sheetDesc}</p>
                           )}
                         </Accordion>
                       )}
