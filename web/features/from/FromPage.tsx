@@ -1187,6 +1187,18 @@ export default function FromApp({
   const sgTable   = parsedSizeTables[sgTableIdx] ?? null
   const sgEffectiveUnit = sgDisplayUnit ?? (sgTable?.unit || null)
   const sgChunks  = sgTable ? chunkHeaders(sgTable.headers) : []
+
+  // Which columns of the international reference to show — only the letter sizes
+  // the brand actually carries. If no letter sizes in headers, intl section is hidden.
+  const sgIntlCols = useMemo(() => {
+    if (!sgTable) return null
+    const brandHdrs = new Set(sgTable.headers.map(h => h.toUpperCase().trim()))
+    const refHdr = sgIntlGender === 'w' ? INTL_W_HDR : INTL_M_HDR
+    const cols = refHdr
+      .map((h, i) => ({ h, i }))
+      .filter(({ h }) => brandHdrs.has(h))
+    return cols.length > 0 ? cols : null
+  }, [sgTable, sgIntlGender])
   const sgChunk   = sgChunks[sgGroupIdx] ?? []
   // Indices of current chunk's columns in the full headers array
   const sgColStart = sgGroupIdx * 3
@@ -2137,60 +2149,62 @@ export default function FromApp({
                               : ''}
                             Measurements may vary slightly. When in doubt, size up.
                           </p>
-                          {/* ── International size reference ── */}
-                          <div style={{ marginTop: 28, borderTop: '1px solid rgba(44,18,6,0.07)', paddingTop: 18 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                              <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: INK2 }}>
-                                International Sizes
-                              </span>
-                              <div style={{ display: 'flex', border: `1px solid rgba(44,18,6,0.18)`, overflow: 'hidden', borderRadius: 4 }}>
-                                {(['Women', 'Men'] as const).map((g, gi) => {
-                                  const gkey = gi === 0 ? 'w' : 'm'
-                                  const on = sgIntlGender === gkey
-                                  return (
-                                    <button key={g} onClick={() => setSgIntlGender(gkey as 'w' | 'm')}
-                                      style={{ padding: '5px 11px', fontFamily: SANS, fontSize: 10, fontWeight: 500,
-                                        letterSpacing: '.04em', border: 'none', cursor: 'pointer',
-                                        background: on ? INK : 'transparent',
-                                        color: on ? '#fff' : INK3, transition: 'all .15s' }}>
-                                      {g}
-                                    </button>
-                                  )
-                                })}
+                          {/* ── International size reference — only shown when brand uses letter sizes ── */}
+                          {sgIntlCols && (
+                            <div style={{ marginTop: 28, borderTop: '1px solid rgba(44,18,6,0.07)', paddingTop: 18 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                                <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: INK2 }}>
+                                  International Sizes
+                                </span>
+                                <div style={{ display: 'flex', border: `1px solid rgba(44,18,6,0.18)`, overflow: 'hidden', borderRadius: 4 }}>
+                                  {(['Women', 'Men'] as const).map((g, gi) => {
+                                    const gkey = gi === 0 ? 'w' : 'm'
+                                    const on = sgIntlGender === gkey
+                                    return (
+                                      <button key={g} onClick={() => setSgIntlGender(gkey as 'w' | 'm')}
+                                        style={{ padding: '5px 11px', fontFamily: SANS, fontSize: 10, fontWeight: 500,
+                                          letterSpacing: '.04em', border: 'none', cursor: 'pointer',
+                                          background: on ? INK : 'transparent',
+                                          color: on ? '#fff' : INK3, transition: 'all .15s' }}>
+                                        {g}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-                              <table style={{ borderCollapse: 'collapse', fontFamily: SANS, fontSize: 11, minWidth: '100%' }}>
-                                <thead>
-                                  <tr>
-                                    <th style={{ textAlign: 'left', padding: '0 10px 8px 0', fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK3, whiteSpace: 'nowrap' }} />
-                                    {(sgIntlGender === 'w' ? INTL_W_HDR : INTL_M_HDR).map(h => (
-                                      <th key={h} style={{ textAlign: 'center', padding: '0 6px 8px', fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: INK }}>
-                                        {h}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {(sgIntlGender === 'w' ? INTL_W : INTL_M).map(row => (
-                                    <tr key={row.sys} style={{ borderTop: '1px solid rgba(44,18,6,0.06)' }}>
-                                      <td style={{ padding: '8px 10px 8px 0', fontFamily: SANS, fontSize: 11, fontWeight: 600, color: INK2, whiteSpace: 'nowrap' }}>
-                                        {row.sys}
-                                      </td>
-                                      {row.vals.map((v, vi) => (
-                                        <td key={vi} style={{ textAlign: 'center', padding: '8px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 300, color: INK3 }}>
-                                          {v}
-                                        </td>
+                              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                                <table style={{ borderCollapse: 'collapse', fontFamily: SANS, fontSize: 11, minWidth: '100%' }}>
+                                  <thead>
+                                    <tr>
+                                      <th style={{ textAlign: 'left', padding: '0 10px 8px 0', fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK3, whiteSpace: 'nowrap' }} />
+                                      {sgIntlCols.map(({ h }) => (
+                                        <th key={h} style={{ textAlign: 'center', padding: '0 6px 8px', fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: INK }}>
+                                          {h}
+                                        </th>
                                       ))}
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                  </thead>
+                                  <tbody>
+                                    {(sgIntlGender === 'w' ? INTL_W : INTL_M).map(row => (
+                                      <tr key={row.sys} style={{ borderTop: '1px solid rgba(44,18,6,0.06)' }}>
+                                        <td style={{ padding: '8px 10px 8px 0', fontFamily: SANS, fontSize: 11, fontWeight: 600, color: INK2, whiteSpace: 'nowrap' }}>
+                                          {row.sys}
+                                        </td>
+                                        {sgIntlCols.map(({ i }) => (
+                                          <td key={i} style={{ textAlign: 'center', padding: '8px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 300, color: INK3 }}>
+                                            {row.vals[i]}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <p style={{ fontFamily: SANS, fontSize: 9, color: INK3, letterSpacing: '.04em', marginTop: 10, lineHeight: 1.6 }}>
+                                Standard reference only. Brands vary — always check the measurements above.
+                              </p>
                             </div>
-                            <p style={{ fontFamily: SANS, fontSize: 9, color: INK3, letterSpacing: '.04em', marginTop: 10, lineHeight: 1.6 }}>
-                              Standard reference only. Brands vary — always check the measurements above.
-                            </p>
-                          </div>
+                          )}
                         </div>
                       </>
                     )}
