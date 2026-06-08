@@ -422,6 +422,8 @@ export default function FromApp({
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
   const [inputHint, setInputHint]       = useState<string | null>(null)
+  const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
+  const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
@@ -739,6 +741,23 @@ export default function FromApp({
   const similarItems  = selectedProduct
     ? (searchProducts.length ? searchProducts : exploreCache).filter(p => p.id !== selectedProduct.id).slice(0, 12)
     : []
+
+  // Fetch size guide inline — runs after sheetSizeTable is derived, so ref is valid
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!selectedProduct || sheetSizeTable) { setFetchedSizeGuide(null); setSizeGuideLoading(false); return }
+    const storeUrl = selectedProduct.store_url
+    if (!storeUrl) { setFetchedSizeGuide(null); return }
+    let cancelled = false
+    setSizeGuideLoading(true)
+    setFetchedSizeGuide(null)
+    fetch(`/api/sizeguide?url=${encodeURIComponent(storeUrl)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setFetchedSizeGuide(d.html ?? null) })
+      .catch(() => { if (!cancelled) setFetchedSizeGuide(null) })
+      .finally(() => { if (!cancelled) setSizeGuideLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedProduct?.id, sheetSizeTable])
 
   return (
     <div style={{ fontFamily: SANS, background: "#ffffff", height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -1794,12 +1813,6 @@ export default function FromApp({
                         <div style={{ padding: '14px 24px 0' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: '.04em', textTransform: 'uppercase' }}>Size</span>
-                            {sizeGuideUrl && (
-                              <a href={sizeGuideUrl} target="_blank" rel="noopener noreferrer"
-                                style={{ fontFamily: SANS, fontSize: 11, color: INK3, textDecoration: 'underline', textUnderlineOffset: 3, letterSpacing: '.03em' }}>
-                                Size Guide
-                              </a>
-                            )}
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
                             {sheetSizes.map((s, i) => {
@@ -1846,27 +1859,16 @@ export default function FromApp({
                             )}
                           </Accordion>
                         )}
-                        {/* Size Guide — embedded table from description, or link to brand's page */}
-                        {(sheetSizeTable || (!sheetSizeTable && sheetSizes.length > 0 && sizeGuideUrl)) && (
+                        {/* Size Guide — embedded from description or fetched inline; never redirects */}
+                        {(sheetSizeTable || sizeGuideLoading || fetchedSizeGuide) && (
                           <Accordion label="Size Guide">
-                            {sheetSizeTable ? (
+                            {sizeGuideLoading && !sheetSizeTable ? (
+                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300 }}>Loading size guide…</p>
+                            ) : (
                               <>
                                 <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: '.03em' }}>Measurements may vary slightly. When in doubt, size up.</p>
-                                <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
+                                <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: (sheetSizeTable || fetchedSizeGuide)! }} />
                               </>
-                            ) : (
-                              <div>
-                                <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
-                                  For detailed measurements and fit guidance, see the brand's size guide.
-                                </p>
-                                <a href={sizeGuideUrl!} target="_blank" rel="noopener noreferrer"
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10,
-                                    fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK,
-                                    letterSpacing: '.04em', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                                  View Size Guide
-                                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 6h8M6 2l4 4-4 4"/></svg>
-                                </a>
-                              </div>
                             )}
                           </Accordion>
                         )}
@@ -2032,12 +2034,6 @@ export default function FromApp({
                       <div style={{ padding: "14px 20px 0" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                           <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: ".04em", textTransform: "uppercase" }}>Size</span>
-                          {sizeGuideUrl && (
-                            <a href={sizeGuideUrl} target="_blank" rel="noopener noreferrer"
-                              style={{ fontFamily: SANS, fontSize: 11, color: INK3, textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: ".03em" }}>
-                              Size Guide
-                            </a>
-                          )}
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
                           {sheetSizes.map((s, i) => {
@@ -2084,27 +2080,16 @@ export default function FromApp({
                           )}
                         </Accordion>
                       )}
-                      {/* Size Guide — embedded table from description, or link to brand's page */}
-                      {(sheetSizeTable || (!sheetSizeTable && sheetSizes.length > 0 && sizeGuideUrl)) && (
+                      {/* Size Guide — embedded from description or fetched inline; never redirects */}
+                      {(sheetSizeTable || sizeGuideLoading || fetchedSizeGuide) && (
                         <Accordion label="Size Guide">
-                          {sheetSizeTable ? (
+                          {sizeGuideLoading && !sheetSizeTable ? (
+                            <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300 }}>Loading size guide…</p>
+                          ) : (
                             <>
                               <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 12, letterSpacing: ".03em" }}>Measurements may vary slightly. When in doubt, size up.</p>
-                              <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: sheetSizeTable }} />
+                              <div className="fr-size-wrap fr-html" dangerouslySetInnerHTML={{ __html: (sheetSizeTable || fetchedSizeGuide)! }} />
                             </>
-                          ) : (
-                            <div>
-                              <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, fontWeight: 300 }}>
-                                For detailed measurements and fit guidance, see the brand's size guide.
-                              </p>
-                              <a href={sizeGuideUrl!} target="_blank" rel="noopener noreferrer"
-                                style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10,
-                                  fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK,
-                                  letterSpacing: ".04em", textDecoration: "underline", textUnderlineOffset: 3 }}>
-                                View Size Guide
-                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 6h8M6 2l4 4-4 4"/></svg>
-                              </a>
-                            </div>
                           )}
                         </Accordion>
                       )}
