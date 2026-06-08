@@ -436,6 +436,25 @@ function sgStripTags(html: string): string {
     .replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+// Recognises standard garment size labels (alpha or numeric)
+const SG_SIZE_RE = /^(XXS|XS|S|M|L|XL|XXL|XXXL|XXXXL|4XL|5XL|6XL|1X|2X|3X|4X|\d{1,3}|One ?Size|OS|OSFA)$/i
+function isSizeLike(s: string): boolean {
+  return SG_SIZE_RE.test(s.trim())
+}
+
+// Flip a table so sizes become column headers and measurements become row labels.
+// Input:  headers=["NECK","CHEST","WAIST"], rows=[{label:"XS", values:[…]}, …]
+// Output: headers=["XS","S","M",…],         rows=[{label:"NECK", values:[…]}, …]
+function transposeTable(t: { headers: string[]; rows: SizeRow[] }): { headers: string[]; rows: SizeRow[] } {
+  return {
+    headers: t.rows.map(r => r.label),
+    rows: t.headers.map((h, hi) => ({
+      label: h,
+      values: t.rows.map(r => r.values[hi] ?? ''),
+    })),
+  }
+}
+
 function parseOneTable(tableHtml: string): { headers: string[]; rows: SizeRow[] } | null {
   const rawRows: string[][] = []
   const trRe = /<tr(?:\s[^>]*)?>[\s\S]*?<\/tr>/gi
@@ -461,7 +480,6 @@ function parseOneTable(tableHtml: string): { headers: string[]; rows: SizeRow[] 
 
 function parseSizeGuideHtml(html: string): SizeTable[] {
   const tables: SizeTable[] = []
-  // Try to find section labels (heading directly before table)
   const sections = html.split(/<table(?:\s[^>]*)?>/)
   for (let i = 1; i < sections.length; i++) {
     const tableHtml = '<table>' + sections[i].split('</table>')[0] + '</table>'
@@ -472,7 +490,11 @@ function parseSizeGuideHtml(html: string): SizeTable[] {
     const prev = sections[i - 1]
     const headingM = prev.match(/<(?:h[1-6]|caption|strong)[^>]*>([^<]{2,60})<\/(?:h[1-6]|caption|strong)>\s*$/i)
     const label = headingM ? sgStripTags(headingM[1]) : ''
-    tables.push({ label, ...parsed })
+    // Auto-orient: if majority of row labels are size names (XS, S, M…),
+    // the table is stored sizes-as-rows — transpose so sizes become columns.
+    const sizeLikeCount = parsed.rows.filter(r => isSizeLike(r.label)).length
+    const tbl = sizeLikeCount > parsed.rows.length / 2 ? transposeTable(parsed) : parsed
+    tables.push({ label, ...tbl })
   }
   return tables
 }
@@ -1763,7 +1785,12 @@ export default function FromApp({
 
                 {/* ── Header ── */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 14px', borderBottom: '1px solid rgba(44,18,6,0.08)', flexShrink: 0 }}>
-                  <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Size Guide</span>
+                  <div>
+                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Size Guide</span>
+                    {parsedSizeTables.length === 1 && parsedSizeTables[0].label && (
+                      <p style={{ fontFamily: SANS, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, marginTop: 3 }}>{parsedSizeTables[0].label}</p>
+                    )}
+                  </div>
                   <button onClick={() => setSizeGuideOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
@@ -1774,14 +1801,14 @@ export default function FromApp({
                 ) : parsedSizeTables.length > 0 ? (
                   <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
 
-                    {/* ── Section tabs (if multiple tables) ── */}
+                    {/* ── Section tabs (multiple tables, e.g. Tops / Bottoms) ── */}
                     {parsedSizeTables.length > 1 && (
-                      <div style={{ display: 'flex', borderBottom: '1px solid rgba(44,18,6,0.08)', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', borderBottom: '1px solid rgba(44,18,6,0.08)', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
                         {parsedSizeTables.map((t, i) => (
                           <button key={i} onClick={() => { setSgTableIdx(i); setSgGroupIdx(0) }}
-                            style={{ flex: 1, padding: '13px 8px', fontFamily: SANS, fontSize: 11, fontWeight: sgTableIdx === i ? 600 : 400,
+                            style={{ flexShrink: 0, padding: '13px 16px', fontFamily: SANS, fontSize: 11, fontWeight: sgTableIdx === i ? 600 : 400,
                               letterSpacing: '.08em', textTransform: 'uppercase', color: sgTableIdx === i ? INK : INK3,
-                              background: 'none', border: 'none', cursor: 'pointer',
+                              background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
                               borderBottom: sgTableIdx === i ? `2px solid ${INK}` : '2px solid transparent',
                               marginBottom: -1 }}>
                             {t.label || `Table ${i + 1}`}
@@ -1792,21 +1819,21 @@ export default function FromApp({
 
                     {sgTable && (
                       <>
-                        {/* ── Range group selector ── */}
+                        {/* ── Range selector — e.g. "XS – M | L – XXL | XXXL" ── */}
                         {sgChunks.length > 1 && (
-                          <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
-                            <p style={{ fontFamily: SANS, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: INK3, marginBottom: 10 }}>Select size range</p>
+                          <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
+                            <p style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: INK3, marginBottom: 10 }}>Select size range</p>
                             <div style={{ display: 'flex', gap: 8 }}>
                               {sgChunks.map((chunk, i) => {
-                                const label = chunk.length > 1 ? `${chunk[0]} – ${chunk[chunk.length - 1]}` : chunk[0]
+                                const label = chunk.length > 1 ? `${chunk[0]} - ${chunk[chunk.length - 1]}` : chunk[0]
                                 const on = sgGroupIdx === i
                                 return (
                                   <button key={i} onClick={() => setSgGroupIdx(i)}
-                                    style={{ flex: 1, padding: '10px 8px', fontFamily: SANS, fontSize: 11, fontWeight: 500,
-                                      letterSpacing: '.05em', color: on ? '#fff' : INK,
+                                    style={{ flex: 1, padding: '11px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 500,
+                                      letterSpacing: '.04em', color: on ? '#fff' : INK,
                                       background: on ? INK : 'transparent',
-                                      border: `1px solid ${on ? INK : 'rgba(44,18,6,0.18)'}`,
-                                      borderRadius: 4, cursor: 'pointer', transition: 'all .15s' }}>
+                                      border: `1.5px solid ${on ? INK : 'rgba(44,18,6,0.20)'}`,
+                                      borderRadius: 0, cursor: 'pointer', transition: 'all .15s' }}>
                                     {label}
                                   </button>
                                 )
@@ -1820,9 +1847,9 @@ export default function FromApp({
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: SANS }}>
                             <thead>
                               <tr>
-                                <th style={{ width: '38%', textAlign: 'left', padding: '0 0 12px', fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3 }} />
+                                <th style={{ textAlign: 'left', padding: '0 0 16px', fontFamily: SANS, fontSize: 10, fontWeight: 400, letterSpacing: '.06em', textTransform: 'uppercase', color: INK3 }} />
                                 {sgChunk.map(h => (
-                                  <th key={h} style={{ textAlign: 'center', padding: '0 4px 12px', fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.06em', color: INK }}>
+                                  <th key={h} style={{ textAlign: 'center', padding: '0 4px 16px', fontFamily: SANS, fontSize: 12, fontWeight: 700, letterSpacing: '.06em', color: INK }}>
                                     {h}
                                   </th>
                                 ))}
@@ -1833,11 +1860,11 @@ export default function FromApp({
                                 .filter(row => row.values.slice(sgColStart, sgColStart + sgChunk.length).some(v => v.trim()))
                                 .map((row, ri) => (
                                   <tr key={ri} style={{ borderTop: '1px solid rgba(44,18,6,0.07)' }}>
-                                    <td style={{ padding: '13px 0', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK, letterSpacing: '.02em' }}>
+                                    <td style={{ padding: '14px 0', fontFamily: SANS, fontSize: 12, fontWeight: 600, color: INK, letterSpacing: '.02em' }}>
                                       {row.label}
                                     </td>
                                     {sgChunk.map((_, ci) => (
-                                      <td key={ci} style={{ padding: '13px 4px', textAlign: 'center', fontFamily: SANS, fontSize: 12, fontWeight: 300, color: INK2 }}>
+                                      <td key={ci} style={{ padding: '14px 4px', textAlign: 'center', fontFamily: SANS, fontSize: 12, fontWeight: 300, color: INK2 }}>
                                         {row.values[sgColStart + ci] ?? '—'}
                                       </td>
                                     ))}
