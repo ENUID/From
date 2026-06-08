@@ -1448,7 +1448,8 @@ export default function FromApp({
                     <textarea ref={taRef} className="fr-ta" rows={1}
                       placeholder="What are you looking for?"
                       value={input} onChange={e => setInput(e.target.value)}
-                      onKeyDown={kd} disabled={loading} />
+                      onKeyDown={kd} disabled={loading}
+                      style={{ color: (input === 'Tell me more about this' || input === 'Tell me more about these') ? 'rgba(44,18,6,.38)' : undefined }} />
                   </div>
 
                   {/* Row 2: actions */}
@@ -1577,12 +1578,19 @@ export default function FromApp({
                 {/* Ask the stylist — drops product image as a chip so AI sees it */}
                 <div onClick={() => {
                     const p = productCtxMenu.product
+                    const willHave = uploadedImages.length + (p.image_url ? 1 : 0)
                     if (p.image_url) {
                       setUploaded(prev => prev.length < 11 ? [...prev, { url: p.image_url!, name: p.title }] : prev)
                     }
-                    setInput('Tell me about this')
+                    // Light instructional prompt — "this" for one product, "these" for several.
+                    // User can edit or add their own question before sending.
+                    setInput(willHave > 1 ? 'Tell me more about these' : 'Tell me more about this')
                     setProductCtxMenu(null)
-                    setTimeout(() => { taRef.current?.focus() }, 80)
+                    setTimeout(() => {
+                      taRef.current?.focus()
+                      // Select all so user can instantly type their own question if they want
+                      taRef.current?.select()
+                    }, 80)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
