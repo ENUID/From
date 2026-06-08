@@ -426,8 +426,8 @@ export default function FromApp({
     try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
   })
   const [logoIdx, setLogoIdx] = useState(0)
-  const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number } | null>(null)
-  const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number; above: boolean } | null>(null)
+  const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
@@ -738,7 +738,7 @@ export default function FromApp({
         .fr-content{flex:1;position:relative;overflow:hidden;}
 
         /* ── Body ── */
-        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:120px;}
+        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:120px;overscroll-behavior-y:contain;}
         .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
         /* ── Search bar wrap ── */
@@ -772,7 +772,7 @@ export default function FromApp({
         @media(min-width:600px){.fr-grid{grid-template-columns:repeat(3,1fr);}}
         @media(min-width:820px){.fr-grid{grid-template-columns:repeat(4,1fr);}}
         @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
-        .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;}
+        .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;-webkit-touch-callout:none;pointer-events:none;user-select:none;-webkit-user-select:none;}
         .fr-cell:hover img{transform:scale(1.03);}
         .fr-cell{opacity:0;animation:fr-fi .35s ease forwards;}
@@ -828,7 +828,7 @@ export default function FromApp({
         /* Icon buttons */
         .fr-icon-btn{
           width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
-          display:flex;align-items:center;justify-content:center;
+          display:flex;align-items:center;justify-content:center;touch-action:manipulation;
           color:${INK2};
           background:#ffffff;
           box-shadow:0 2px 8px rgba(44,18,6,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -0.5px 0 rgba(44,18,6,.06);
@@ -843,7 +843,7 @@ export default function FromApp({
 
         /* Send button */
         .fr-send-btn{
-          width:36px;height:36px;border-radius:50%;border:none;
+          width:36px;height:36px;border-radius:50%;border:none;touch-action:manipulation;
           background:${canSend ? INK : 'rgba(44,18,6,.18)'};
           display:flex;align-items:center;justify-content:center;
           cursor:${canSend ? 'pointer' : 'default'};
@@ -915,7 +915,7 @@ export default function FromApp({
         .fr-size-wrap table{min-width:100%;white-space:nowrap;}
 
         /* ADD button — full width */
-        .fr-add{display:block;width:100%;padding:17px;border:none;cursor:pointer;
+        .fr-add{display:block;width:100%;padding:17px;border:none;cursor:pointer;touch-action:manipulation;
           font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.14em;
           text-transform:uppercase;text-align:center;text-decoration:none;
           background:${INK};color:#fff;transition:background .18s;}
@@ -1044,7 +1044,7 @@ export default function FromApp({
             <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 20px 8px", flexShrink: 0 }} />
 
             {/* Scrollable recents / bag content */}
-            <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px" }}>
+            <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
               {sidebarView === 'nav' ? (
                 <>
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
@@ -1063,8 +1063,11 @@ export default function FromApp({
                             const { clientX, clientY } = e
                             longPressTimer.current = setTimeout(() => {
                               wasLongPress.current = true
-                              const y = clientY + 8 + 160 > window.innerHeight ? clientY - 168 : clientY + 8
-                              setCtxMenu({ id: h.id, query: h.query, x: Math.min(clientX, window.innerWidth - 220), y })
+                              const menuW = 220; const menuH = 120
+                              const above = clientY + 8 + menuH > window.innerHeight
+                              const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
+                              const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                              setCtxMenu({ id: h.id, query: h.query, x, y, above })
                             }, 550)
                           }}
                           onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
@@ -1248,9 +1251,11 @@ export default function FromApp({
                         const { clientX, clientY } = e
                         productLongTimer.current = setTimeout(() => {
                           productWasLong.current = true
-                          const menuH = 152
-                          const y = clientY + 8 + menuH > window.innerHeight ? clientY - menuH - 4 : clientY + 8
-                          setProductCtxMenu({ product: p, x: Math.min(clientX, window.innerWidth - 200), y })
+                          const menuW = 200; const menuH = 160
+                          const above = clientY + 8 + menuH > window.innerHeight
+                          const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
+                          const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                          setProductCtxMenu({ product: p, x, y, above })
                         }, 700)
                       }}
                       onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
@@ -1296,9 +1301,11 @@ export default function FromApp({
                         const { clientX, clientY } = e
                         productLongTimer.current = setTimeout(() => {
                           productWasLong.current = true
-                          const menuH = 152
-                          const y = clientY + 8 + menuH > window.innerHeight ? clientY - menuH - 4 : clientY + 8
-                          setProductCtxMenu({ product: p, x: Math.min(clientX, window.innerWidth - 200), y })
+                          const menuW = 200; const menuH = 160
+                          const above = clientY + 8 + menuH > window.innerHeight
+                          const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
+                          const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                          setProductCtxMenu({ product: p, x, y, above })
                         }, 700)
                       }}
                       onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
@@ -1457,7 +1464,7 @@ export default function FromApp({
                 boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
                 border: '0.5px solid rgba(180,180,190,0.35)',
                 animation: 'ctxIn 0.22s cubic-bezier(0.34,1.36,0.64,1)',
-                transformOrigin: 'top left',
+                transformOrigin: ctxMenu.above ? 'bottom left' : 'top left',
               }}>
                 {/* Specular sweep */}
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
@@ -1518,7 +1525,7 @@ export default function FromApp({
                 boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
                 border: '0.5px solid rgba(180,180,190,0.35)',
                 animation: 'ctxIn 0.22s cubic-bezier(0.34,1.36,0.64,1)',
-                transformOrigin: 'top left',
+                transformOrigin: productCtxMenu.above ? 'bottom left' : 'top left',
               }}>
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
@@ -1620,7 +1627,7 @@ export default function FromApp({
                   <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
                     {/* Left — full-height image, swipeable carousel */}
-                    <div style={{ width: '48%', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#ede8e3' }}
+                    <div style={{ width: '48%', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#ede8e3', touchAction: sheetImages.length > 1 ? 'none' : 'auto' }}
                       onPointerDown={sheetImages.length > 1 ? onImgDown : undefined}
                       onPointerMove={sheetImages.length > 1 ? (e => onImgMove(e, sheetImages.length)) : undefined}
                       onPointerUp={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
@@ -1651,7 +1658,7 @@ export default function FromApp({
                     </div>
 
                     {/* Right — scrollable product details */}
-                    <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none' as const, display: 'flex', flexDirection: 'column', paddingBottom: 28 }}>
+                    <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none' as const, display: 'flex', flexDirection: 'column', paddingBottom: 28, overscrollBehaviorY: 'contain' }}>
 
                       {/* Close row — X sits alone at the top, no overlap with content */}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 14px 0' }}>
@@ -1846,7 +1853,7 @@ export default function FromApp({
                   </div>
                 ) : (
                   /* ── Phone: original stacked layout ── */
-                  <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", paddingBottom: 24 }}>
+                  <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", paddingBottom: 24, overscrollBehaviorY: "contain" }}>
                     <div>
                       <div style={{ position: "relative", overflow: "hidden", touchAction: "pan-y" }}
                         onPointerDown={sheetImages.length > 1 ? onImgDown : undefined}
@@ -2083,7 +2090,7 @@ export default function FromApp({
                         <div style={{ padding: "0 20px", marginBottom: 14 }}>
                           <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: INK }}>Similar items</span>
                         </div>
-                        <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", padding: "0 20px 4px" }}>
+                        <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", padding: "0 20px 4px", touchAction: "pan-x", overscrollBehaviorX: "contain" }}>
                           {similarItems.map(p => (
                             <button key={p.id} onClick={() => setSelected(p)}
                               style={{ flexShrink: 0, width: 120, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
