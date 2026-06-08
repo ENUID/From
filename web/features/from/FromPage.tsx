@@ -1738,11 +1738,14 @@ export default function FromApp({
                           <h2 style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, lineHeight: 1.3, letterSpacing: '.06em', textTransform: 'uppercase', flex: 1 }}>
                             {selectedProduct.title}
                           </h2>
-                          <button onClick={() => toggleSaved(selectedProduct)} aria-label="Save"
-                            style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', flexShrink: 0, marginTop: 1 }}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : 'none'} stroke={INK} strokeWidth="1.5">
-                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                          <button onClick={() => toggleSaved(selectedProduct)} aria-label={savedIds.has(selectedProduct.id) ? 'In your bag' : 'Bag it'}
+                            style={{ background: 'transparent', border: 'none', padding: '2px 4px', cursor: 'pointer', flexShrink: 0, marginTop: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : 'none'} stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
                             </svg>
+                            <span style={{ fontFamily: SANS, fontSize: 8.5, letterSpacing: '.09em', textTransform: 'uppercase', color: INK, lineHeight: 1 }}>
+                              {savedIds.has(selectedProduct.id) ? 'Bagged' : 'Bag it'}
+                            </span>
                           </button>
                         </div>
                         <p style={{ fontFamily: SANS, fontSize: 18, color: INK, fontWeight: 700, marginTop: 10 }}>
@@ -1962,11 +1965,14 @@ export default function FromApp({
                         <h2 style={{ fontFamily: SANS, fontSize: "clamp(14px,4vw,16px)", fontWeight: 500, color: INK, lineHeight: 1.3, letterSpacing: ".01em", textTransform: "uppercase", flex: 1 }}>
                           {selectedProduct.title}
                         </h2>
-                        <button onClick={() => toggleSaved(selectedProduct)} aria-label="Save"
-                          style={{ background: "transparent", border: "none", padding: 2, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : "none"} stroke={INK} strokeWidth="1.5">
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                        <button onClick={() => toggleSaved(selectedProduct)} aria-label={savedIds.has(selectedProduct.id) ? 'In your bag' : 'Bag it'}
+                          style={{ background: "transparent", border: "none", padding: "2px 4px", cursor: "pointer", flexShrink: 0, marginTop: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          <svg width="21" height="21" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : "none"} stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
                           </svg>
+                          <span style={{ fontFamily: SANS, fontSize: 8.5, letterSpacing: ".09em", textTransform: "uppercase", color: INK, lineHeight: 1 }}>
+                            {savedIds.has(selectedProduct.id) ? 'Bagged' : 'Bag it'}
+                          </span>
                         </button>
                       </div>
                       <p style={{ fontFamily: SANS, fontSize: "clamp(15px,4vw,17px)", color: INK, fontWeight: 700, marginTop: 8 }}>
