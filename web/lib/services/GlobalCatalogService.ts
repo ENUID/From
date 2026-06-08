@@ -579,13 +579,31 @@ function uniqueById<T extends { id?: string }>(items: T[]) {
   return unique;
 }
 
+// Thumbnail — used for product card grid (small squares), capped at 800 px
 function normalizeImageUrl(url?: string): string {
   if (!url) return '';
   let normalized = url.startsWith('//') ? `https:${url}` : url;
   if (normalized.includes('cdn.shopify.com')) {
     try {
       const urlObj = new URL(normalized);
-      urlObj.searchParams.set('width', '400');
+      urlObj.searchParams.set('width', '800');
+      urlObj.searchParams.delete('height');
+      normalized = urlObj.toString();
+    } catch {}
+  }
+  return normalized;
+}
+
+// Gallery — used for the product detail carousel, served at 2 048 px so every
+// retina / high-DPI screen gets a sharp image without serving the raw upload.
+function normalizeGalleryUrl(url?: string): string {
+  if (!url) return '';
+  let normalized = url.startsWith('//') ? `https:${url}` : url;
+  if (normalized.includes('cdn.shopify.com')) {
+    try {
+      const urlObj = new URL(normalized);
+      urlObj.searchParams.set('width', '2048');
+      urlObj.searchParams.delete('height');
       normalized = urlObj.toString();
     } catch {}
   }
@@ -947,7 +965,7 @@ export class GlobalCatalogService {
             options: v.options || [],
             media: (v.media || []).map((m: any) => ({
               ...m,
-              url: normalizeImageUrl(m.url),
+              url: normalizeGalleryUrl(m.url),
               alt: m.alt ?? m.altText ?? m.alt_text ?? ''
             }))
           };
@@ -955,7 +973,7 @@ export class GlobalCatalogService {
 
         const parsedMedia = (p.media || []).map((m: any) => ({
           ...m,
-          url: normalizeImageUrl(m.url),
+          url: normalizeGalleryUrl(m.url),
           alt: m.alt ?? m.altText ?? m.alt_text ?? ''
         }));
         const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());

@@ -564,6 +564,7 @@ export default function FromApp({
   const [cleanDesc, setCleanDesc]               = useState<string | null>(null)
   const [cleanDescLoading, setCleanDescLoading] = useState(false)
   const [shippingInfo, setShippingInfo]         = useState<{ shipping: string; returns: string } | null>(null)
+  const [fetchedProductImages, setFetchedProductImages] = useState<string[]>([])
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
@@ -706,7 +707,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
-  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null) } }, [selectedProduct])
+  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"
@@ -845,7 +846,17 @@ export default function FromApp({
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
   const handleReset = () => { resetConversation(); setInputHint(null) }
 
-  const sheetImages    = selectedProduct ? getProductImages(selectedProduct) : []
+  // Merge catalog images with the full gallery fetched from product.json.
+  // Fetched images take precedence (higher quality, more complete); any catalog
+  // images not already present are appended so nothing is lost.
+  const _catalogImages = selectedProduct ? getProductImages(selectedProduct) : []
+  const sheetImages = fetchedProductImages.length > 0
+    ? (() => {
+        const fetchedSet = new Set(fetchedProductImages)
+        const extra = _catalogImages.filter(u => !fetchedSet.has(u))
+        return [...fetchedProductImages, ...extra]
+      })()
+    : _catalogImages
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
   const sheetDescRaw   = selectedProduct?.description_html
     ? sanitizeHtml(selectedProduct.description_html)
@@ -934,6 +945,21 @@ export default function FromApp({
       .then(r => r.json())
       .then(d => { if (!cancelled) setShippingInfo(d.data ?? null) })
       .catch(() => { if (!cancelled) setShippingInfo(null) })
+    return () => { cancelled = true }
+  }, [selectedProduct?.id])
+
+  // Fetch full product image gallery from Shopify product.json.
+  // The Catalog API often returns only 1 image; this fills in the rest.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setFetchedProductImages([])
+    const storeUrl = selectedProduct?.store_url
+    if (!storeUrl) return
+    let cancelled = false
+    fetch(`/api/product-images?url=${encodeURIComponent(storeUrl)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled && Array.isArray(d.images) && d.images.length > 0) setFetchedProductImages(d.images) })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [selectedProduct?.id])
 
