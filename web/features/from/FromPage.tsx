@@ -932,7 +932,7 @@ export default function FromApp({
           loadMoreRef.current(lastProductMsgIndex)
         }
       },
-      { rootMargin: '1200px', threshold: 0 }
+      { rootMargin: '2800px', threshold: 0 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()

@@ -54,12 +54,12 @@ type CatalogSearchOptions = {
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
-const FAST_PAGE_LIMIT = 30;
-const CATALOG_PAGE_LIMIT = 30;
-const REFRESH_PAGE_LIMIT = 30;
+const FAST_PAGE_LIMIT = 40;
+const CATALOG_PAGE_LIMIT = 50;
+const REFRESH_PAGE_LIMIT = 50;
 const FAST_SUBQUERY_LIMIT = 3;
-const INITIAL_RESULT_LIMIT = 30;
-const LOAD_MORE_RESULT_LIMIT = 10;
+const INITIAL_RESULT_LIMIT = 40;
+const LOAD_MORE_RESULT_LIMIT = 40;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[], nextChunkIndex?: number }>();
 
 const COUNTRY_MAP: { [key: string]: string } = {
@@ -1429,9 +1429,9 @@ export class GlobalCatalogService {
       if (filteredCache.length >= limit || (!options.refreshReserve && filteredCache.length > 0)) {
         console.log(`[GlobalCatalog] Cache hit for "${cacheKey}" (${filteredCache.length} products).`);
         
-        // Replenishment Check: If remaining products in cache is less than 40, pre-fetch the next store chunk
+        // Replenishment Check: keep a deep reserve so infinite scroll never stalls
         const remainingCount = filteredCache.length - limit;
-        if (remainingCount < 40) {
+        if (remainingCount < 80) {
           const nextChunkIndex = cached.nextChunkIndex ?? 1;
           const nextChunk = chunks[nextChunkIndex];
           if (nextChunk && nextChunk.length > 0) {
@@ -1486,7 +1486,7 @@ export class GlobalCatalogService {
             if (resolvedCount >= total) {
               settled = true;
               resolve();
-            } else if (directParsedProducts.length >= 30) {
+            } else if (directParsedProducts.length >= 40) {
               settled = true;
               console.log(`[GlobalCatalog] Early return for first page: ${directParsedProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
               resolve();
@@ -1511,9 +1511,9 @@ export class GlobalCatalogService {
         // Replenishment Check: If remaining products in cache is less than 40, pre-fetch Chunk 2
         const currentCached = searchCache.get(cacheKey);
         const allAvailable = currentCached ? applyCatalogFilters(currentCached.products, filterOptions) : [];
-        const remainingCount = allAvailable.length - 30;
+        const remainingCount = allAvailable.length - 40;
 
-        if (remainingCount < 40) {
+        if (remainingCount < 80) {
           const secondChunk = chunks[1];
           if (secondChunk && secondChunk.length > 0 && currentCached) {
             console.log(`[GlobalCatalog] Replenishment threshold reached for first page (${remainingCount} < 40). Fetching Store Chunk 2/${chunks.length} in background...`);
@@ -1565,11 +1565,11 @@ export class GlobalCatalogService {
           searchCache.set(cacheKey, currentCached);
         }
 
-        // Replenishment Check: If remaining products in cache is less than 40, pre-fetch the next chunk
+        // Replenishment Check: keep a deep reserve so infinite scroll never stalls
         const allAvailable = currentCached ? applyCatalogFilters(currentCached.products, filterOptions) : [];
         const remainingCount = allAvailable.length - limit;
 
-        if (remainingCount < 40) {
+        if (remainingCount < 80) {
           const finalNextChunk = chunks[currentNextChunkIndex];
           if (finalNextChunk && finalNextChunk.length > 0 && currentCached) {
             console.log(`[GlobalCatalog] Replenishment threshold reached for loadMore (${remainingCount} < 40). Fetching Store Chunk ${currentNextChunkIndex + 1}/${chunks.length} in background...`);
