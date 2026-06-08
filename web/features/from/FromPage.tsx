@@ -436,10 +436,16 @@ function sgStripTags(html: string): string {
     .replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-// Recognises standard garment size labels (alpha or numeric)
-const SG_SIZE_RE = /^(XXS|XS|S|M|L|XL|XXL|XXXL|XXXXL|4XL|5XL|6XL|1X|2X|3X|4X|\d{1,3}|One ?Size|OS|OSFA)$/i
+// Recognises standard garment size labels including composite forms:
+// "S", "XL", "S (0-4)", "M/L", "S/M (0-6)", "XXL", "1X", "38", etc.
+const SG_SIZE_CORE = /^(XXS|XS|S|M|L|XL|XXL|XXXL|XXXXL|4XL|5XL|6XL|1X|2X|3X|4X|\d{1,3}|One ?Size|OS|OSFA)/i
 function isSizeLike(s: string): boolean {
-  return SG_SIZE_RE.test(s.trim())
+  const clean = s.trim()
+  // Must START with a known size token; optional suffix like "/M", " (0-4)", " - XL"
+  if (!SG_SIZE_CORE.test(clean)) return false
+  // Must not be a plain measurement word like "Natural Waist", "Low Hip", etc.
+  if (/waist|chest|bust|hip|inseam|sleeve|shoulder|neck|length|height|weight/i.test(clean)) return false
+  return true
 }
 
 // Flip a table so sizes become column headers and measurements become row labels.
@@ -453,6 +459,55 @@ function transposeTable(t: { headers: string[]; rows: SizeRow[] }): { headers: s
       values: t.rows.map(r => r.values[hi] ?? ''),
     })),
   }
+}
+
+// Infer a human-readable section label from measurement names in the table.
+function inferTableLabel(measurementLabels: string[]): string {
+  const txt = measurementLabels.join(' ').toLowerCase()
+  const hasInseam  = /inseam|leg\b|rise\b/.test(txt)
+  const hasBust    = /bust|chest/.test(txt)
+  const hasSleeve  = /sleeve/.test(txt)
+  const hasHip     = /\bhip\b/.test(txt)
+  const hasWaist   = /waist/.test(txt)
+  if (hasInseam)               return 'Bottoms'
+  if (hasSleeve || hasBust)    return 'Tops'
+  if (hasHip && hasWaist && !hasBust) return 'Bottoms'
+  if (hasHip && !hasBust)      return 'Bottoms'
+  return ''
+}
+
+// Strip noisy prefixes like "Measurements for", "*All sizes are approximate"
+function cleanSectionLabel(raw: string): string {
+  return raw
+    .replace(/^\*?\s*measurements?\s+(?:for\s+)?/i, '')
+    .replace(/^\*?\s*all\s+sizes\s+are\s+approximate\s*/i, '')
+    .replace(/\*.*$/, '')  // remove trailing asterisk notes
+    .trim()
+}
+
+// Extract the last meaningful title/heading from the HTML preceding a <table>.
+// Handles any gap (paragraphs, disclaimers) between the heading and the table.
+function extractSectionLabel(prev: string): string {
+  // 1. Heading tags: h1-h6, caption — most semantic, search whole chunk
+  const hMatches = Array.from(prev.matchAll(/<(?:h[1-6]|caption)[^>]*>([\s\S]*?)<\/(?:h[1-6]|caption)>/gi))
+  if (hMatches.length > 0) {
+    const text = cleanSectionLabel(sgStripTags(hMatches[hMatches.length - 1][1]))
+    if (text.length >= 2 && text.length <= 80) return text
+  }
+  // 2. strong / b tags
+  const sMatches = Array.from(prev.matchAll(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi))
+  for (let j = sMatches.length - 1; j >= 0; j--) {
+    const text = cleanSectionLabel(sgStripTags(sMatches[j][1]))
+    if (text.length >= 2 && text.length <= 80 && /[A-Za-z]/.test(text)) return text
+  }
+  // 3. p / div tags that look like short titles (not measurement disclaimers)
+  const pMatches = Array.from(prev.matchAll(/<(?:p|div)[^>]*>([\s\S]*?)<\/(?:p|div)>/gi))
+  for (let j = pMatches.length - 1; j >= 0; j--) {
+    const text = cleanSectionLabel(sgStripTags(pMatches[j][1]))
+    if (text.length >= 3 && text.length <= 60 && /^[A-Z]/.test(text) &&
+        !/approximate|disclaimer|note\b|inch|cm\b/i.test(text)) return text
+  }
+  return ''
 }
 
 function parseOneTable(tableHtml: string): { headers: string[]; rows: SizeRow[] } | null {
@@ -486,15 +541,19 @@ function parseSizeGuideHtml(html: string): SizeTable[] {
     if (!SIZE_TABLE_KWS.test(tableHtml)) continue
     const parsed = parseOneTable(tableHtml)
     if (!parsed) continue
-    // Grab the last heading before this table from the previous chunk
-    const prev = sections[i - 1]
-    const headingM = prev.match(/<(?:h[1-6]|caption|strong)[^>]*>([^<]{2,60})<\/(?:h[1-6]|caption|strong)>\s*$/i)
-    const label = headingM ? sgStripTags(headingM[1]) : ''
+
+    // Find the last meaningful heading anywhere in the preceding HTML chunk
+    const label = extractSectionLabel(sections[i - 1])
+
     // Auto-orient: if majority of row labels are size names (XS, S, M…),
     // the table is stored sizes-as-rows — transpose so sizes become columns.
     const sizeLikeCount = parsed.rows.filter(r => isSizeLike(r.label)).length
     const tbl = sizeLikeCount > parsed.rows.length / 2 ? transposeTable(parsed) : parsed
-    tables.push({ label, ...tbl })
+
+    // If heading extraction found nothing, infer from measurement names in the table
+    const finalLabel = label || inferTableLabel(tbl.rows.map(r => r.label))
+
+    tables.push({ label: finalLabel, ...tbl })
   }
   return tables
 }
