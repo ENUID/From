@@ -7,7 +7,7 @@ import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 import { BRAND_NAMES } from '@/lib/stores'
-import { taglineForTime, FOUR_HOURS_MS, TAGLINES, shuffledIndices } from './taglines'
+import { TAGLINES, shuffledIndices } from './taglines'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const INK   = "#2C1206"   // dark brown
@@ -433,7 +433,7 @@ export default function FromApp({
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
-  const [tagText, setTagText]           = useState(() => taglineForTime())  // hero line on first paint (SSR-safe)
+  const [tagText, setTagText]           = useState(TAGLINES[0])  // SSR-safe hero line; randomised client-side in effect
   const [tagVis, setTagVis]             = useState(true)
   const tagOrderRef                     = useRef<number[]>([])
 
@@ -521,13 +521,16 @@ export default function FromApp({
   const homeVisible = !hasConversation && !showExplore
   useEffect(() => {
     if (!homeVisible) return
-    tagOrderRef.current = shuffledIndices(TAGLINES.length)
+    const order = shuffledIndices(TAGLINES.length)
+    tagOrderRef.current = order
     let pos = 0
+    // Immediately show a random tagline so every page load feels fresh
+    setTagText(TAGLINES[order[pos]])
     const id = window.setInterval(() => {
       setTagVis(false)
       window.setTimeout(() => {
-        pos = (pos + 1) % tagOrderRef.current.length
-        setTagText(TAGLINES[tagOrderRef.current[pos]])
+        pos = (pos + 1) % order.length
+        setTagText(TAGLINES[order[pos]])
         setTagVis(true)
       }, 420)
     }, 13000)
