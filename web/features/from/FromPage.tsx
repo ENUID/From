@@ -7,6 +7,7 @@ import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 import { BRAND_NAMES } from '@/lib/stores'
+import { TAGLINES, shuffledIndices } from './taglines'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const INK   = "#2C1206"   // dark brown
@@ -432,6 +433,8 @@ export default function FromApp({
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
+  const [tagText, setTagText]           = useState(TAGLINES[0])  // hero line on first paint (SSR-safe)
+  const [tagVis, setTagVis]             = useState(true)
 
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
@@ -511,6 +514,27 @@ export default function FromApp({
     document.addEventListener('contextmenu', block)
     return () => document.removeEventListener('contextmenu', block)
   }, [])
+
+  // Rotating greeting tagline — fades to a new one of 3,000+ every 13s, no repeats
+  // until the shuffled run is exhausted. Only runs while the home greeting is shown.
+  const homeVisible = !hasConversation && !showExplore
+  useEffect(() => {
+    if (!homeVisible) { setTagText(TAGLINES[0]); setTagVis(true); return }
+    const order = shuffledIndices(TAGLINES.length)
+    let pos = -1
+    const id = window.setInterval(() => {
+      setTagVis(false)                       // fade out
+      window.setTimeout(() => {              // swap at the bottom of the fade
+        pos = (pos + 1) % order.length
+        let next = TAGLINES[order[pos]]
+        if (next === tagText) { pos = (pos + 1) % order.length; next = TAGLINES[order[pos]] }
+        setTagText(next)
+        setTagVis(true)                      // fade back in
+      }, 420)
+    }, 13000)
+    return () => window.clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeVisible])
 
   // Prevent pull-to-refresh when dragging the sheet handle.
   // React touch listeners are passive by default, so we must attach directly.
@@ -1212,8 +1236,13 @@ export default function FromApp({
                 </div>
                 )
               })()}
-              <p style={{ fontFamily: SANS, fontSize: "clamp(9px,2.2vw,11px)", letterSpacing: ".22em", textTransform: "uppercase", color: INK3, opacity: .45 }}>
-                Shop at the speed of thought
+              <p style={{
+                fontFamily: SANS, fontSize: "clamp(9px,2.2vw,11px)", letterSpacing: ".16em",
+                textTransform: "uppercase", color: INK3, lineHeight: 1.7,
+                maxWidth: 360, minHeight: "3.4em",
+                opacity: tagVis ? .5 : 0, transition: "opacity .42s ease",
+              }}>
+                {tagText}
               </p>
             </div>
             }
