@@ -421,6 +421,7 @@ export default function FromApp({
   const [sidebarOpen, setSidebar]     = useState(false)
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
+  const [inputHint, setInputHint]       = useState<string | null>(null)
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
@@ -671,7 +672,7 @@ export default function FromApp({
     const names = uploadedImages.map(u => u.name).join(' ')
     const q = [input.trim(), names].filter(Boolean).join(' '); if (!q) return
     setShowExplore(false)
-    sendMessage(q); setUploaded([])
+    sendMessage(q); setUploaded([]); setInputHint(null)
     if (fileRef.current) fileRef.current.value = ''
   }
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -688,7 +689,11 @@ export default function FromApp({
     })
     if (fileRef.current) fileRef.current.value = ''
   }
-  const removeUpload = (idx: number) => setUploaded(prev => prev.filter((_, i) => i !== idx))
+  const removeUpload = (idx: number) => setUploaded(prev => {
+    const next = prev.filter((_, i) => i !== idx)
+    if (next.length === 0) setInputHint(null)
+    return next
+  })
   const saveName = () => {
     const n = nameInput.trim()
     setUserName(n)
@@ -696,6 +701,7 @@ export default function FromApp({
     setIsEditing(false)
   }
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
+  const handleReset = () => { resetConversation(); setInputHint(null) }
 
   const sheetImages    = selectedProduct ? getProductImages(selectedProduct) : []
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
@@ -1010,7 +1016,7 @@ export default function FromApp({
             {/* New chat button */}
             <div style={{ padding: "0 20px 14px", flexShrink: 0 }}>
               <button
-                onClick={() => { resetConversation(); setSidebarView('nav'); setSidebar(false) }}
+                onClick={() => { handleReset(); setSidebarView('nav'); setSidebar(false) }}
                 style={{
                   width: "100%", padding: "11px 16px", borderRadius: 12,
                   background: INK, border: "none", cursor: "pointer",
@@ -1171,13 +1177,13 @@ export default function FromApp({
                 <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
                 <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
               </button>
-              <div onClick={() => { resetConversation(); setShowExplore(false) }} style={{ cursor: 'pointer' }}>
+              <div onClick={() => { handleReset(); setShowExplore(false) }} style={{ cursor: 'pointer' }}>
                 <FromLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
               </div>
             </div>
             {/* Right: compose / new chat */}
             <button
-              onClick={() => resetConversation()}
+              onClick={() => handleReset()}
               style={{
                 width: 36, height: 36, borderRadius: "50%", border: "none",
                 background: "#ffffff",
@@ -1449,10 +1455,9 @@ export default function FromApp({
                   {/* Row 1: input */}
                   <div className="fr-bar-top">
                     <textarea ref={taRef} className="fr-ta" rows={1}
-                      placeholder="What are you looking for?"
+                      placeholder={inputHint ?? "What are you looking for?"}
                       value={input} onChange={e => setInput(e.target.value)}
-                      onKeyDown={kd} disabled={loading}
-                      style={{ color: (input === 'Tell me more about this' || input === 'Tell me more about these') ? 'rgba(44,18,6,.38)' : undefined }} />
+                      onKeyDown={kd} disabled={loading} />
                   </div>
 
                   {/* Row 2: actions */}
@@ -1585,15 +1590,9 @@ export default function FromApp({
                     if (p.image_url) {
                       setUploaded(prev => prev.length < 11 ? [...prev, { url: p.image_url!, name: p.title }] : prev)
                     }
-                    // Light instructional prompt — "this" for one product, "these" for several.
-                    // User can edit or add their own question before sending.
-                    setInput(willHave > 1 ? 'Tell me more about these' : 'Tell me more about this')
+                    setInputHint(willHave > 1 ? 'Tell me more about these' : 'Tell me more about this')
                     setProductCtxMenu(null)
-                    setTimeout(() => {
-                      taRef.current?.focus()
-                      // Select all so user can instantly type their own question if they want
-                      taRef.current?.select()
-                    }, 80)
+                    setTimeout(() => taRef.current?.focus(), 80)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
