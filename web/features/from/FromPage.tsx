@@ -167,6 +167,46 @@ function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: str
   )
 }
 
+// Map the few .myshopify.com registry domains to their real storefront so the
+// logo service can resolve them; everything else uses its own domain.
+const LOGO_DOMAIN: Record<string, string> = {
+  'gymsharkusa.myshopify.com': 'gymshark.com',
+  'skimsbody.myshopify.com': 'skims.com',
+  'bombas.myshopify.com': 'bombas.com',
+  'chubbies.myshopify.com': 'chubbiesshorts.com',
+  'faherty.myshopify.com': 'fahertybrand.com',
+  'spanx-com.myshopify.com': 'spanx.com',
+  'slvrlake.myshopify.com': 'slvrlake-denim.com',
+  'hommeyusa.myshopify.com': 'gethommey.com.au',
+  'senso.myshopify.com': 'senso.com.au',
+  'jeffs.myshopify.com': 'studiojeffs.com',
+  'asos.myshopify.com': 'asos.com',
+}
+function logoDomain(domain: string): string {
+  return LOGO_DOMAIN[domain] || domain
+}
+
+// Brand logo with a graceful typographic monogram fallback.
+function BrandLogo({ domain, name, size = 44 }: { domain: string; name: string; size?: number }) {
+  const [failed, setFailed] = useState(false)
+  const initial = (name.replace(/[^A-Za-z0-9]/g, '').charAt(0) || '?').toUpperCase()
+  if (failed) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: '50%', background: '#F2EDE9',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        fontFamily: SERIF, fontSize: size * 0.46, fontWeight: 500, color: '#2C1206' }}>
+        {initial}
+      </div>
+    )
+  }
+  return (
+    <img src={`https://logo.clearbit.com/${logoDomain(domain)}`} alt="" loading="lazy"
+      onError={() => setFailed(true)}
+      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'contain',
+        background: '#fff', border: '1px solid rgba(44,18,6,0.08)', flexShrink: 0 }} />
+  )
+}
+
 // ── Collapsible accordion row (H&M editorial style) ───────────────────────────
 function Accordion({ label, children, defaultOpen = false }: { label: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -780,6 +820,25 @@ export default function FromApp({
   const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number; above: boolean } | null>(null)
   const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   const [bagCtxMenu, setBagCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
+  const [brandsOpen, setBrandsOpen]     = useState(false)
+  const [brandQuery, setBrandQuery]     = useState('')
+  const [activeBrand, setActiveBrand]   = useState<{ name: string; domain: string } | null>(null)
+  const allBrands = useMemo(() =>
+    Object.entries(BRAND_NAMES)
+      .map(([domain, name]) => ({ domain, name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  [])
+  const filteredBrands = useMemo(() => {
+    const q = brandQuery.trim().toLowerCase()
+    return q ? allBrands.filter(b => b.name.toLowerCase().includes(q)) : allBrands
+  }, [allBrands, brandQuery])
+  const openBrand = (b: { name: string; domain: string }) => {
+    setBrandsOpen(false); setBrandQuery('')
+    setActiveBrand(b)
+    setShowExplore(false)
+    sendMessage(b.name)
+    setSidebar(false)
+  }
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
@@ -1104,7 +1163,7 @@ export default function FromApp({
     }
     const names = uploadedImages.map(u => u.name).join(' ')
     const q = [input.trim(), names].filter(Boolean).join(' '); if (!q) return
-    setShowExplore(false)
+    setShowExplore(false); setActiveBrand(null)
     sendMessage(q); setUploaded([]); setInputHint(null)
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -1134,7 +1193,7 @@ export default function FromApp({
     setIsEditing(false)
   }
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
-  const handleReset = () => { resetConversation(); setInputHint(null) }
+  const handleReset = () => { resetConversation(); setInputHint(null); setActiveBrand(null) }
 
   // Merge catalog images with the full gallery fetched from product.json.
   // Fetched images take precedence (higher quality, more complete); any catalog
@@ -1164,6 +1223,18 @@ export default function FromApp({
   const colorAvail     = selectedProduct ? getColorAvailability(selectedProduct) : {}
   const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
+  // Open the brand's checkout in a centered popup window so From stays open
+  // behind it. (The brand's checkout lives on its own domain and blocks being
+  // embedded in an iframe, so a popup window is as close to in-app as possible.)
+  const openCheckout = (url: string) => {
+    if (!url || url === '#') return
+    const w = 460, h = 760
+    const left = Math.round(window.screenX + Math.max(0, (window.outerWidth - w) / 2))
+    const top  = Math.round(window.screenY + Math.max(0, (window.outerHeight - h) / 2))
+    const popup = window.open(url, 'fromCheckout', `popup=yes,width=${w},height=${h},left=${left},top=${top}`)
+    if (popup) { try { popup.opener = null } catch {} popup.focus?.() }
+    else window.open(url, '_blank', 'noopener,noreferrer') // popup blocked → fall back to a tab
+  }
   // Link straight to this product's own page so the shopper lands on the exact
   // item (where the brand's own size guide / fit info lives), not a generic page.
   const sizeGuideUrl  = selectedProduct?.store_url || null
@@ -1606,6 +1677,15 @@ export default function FromApp({
                 Explore
               </div>
 
+              {/* Brands — full roster with logos */}
+              <div className="fr-hi" onClick={() => { setBrandQuery(''); setBrandsOpen(true) }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                  <line x1="7" y1="7" x2="7.01" y2="7"/>
+                </svg>
+                Brands
+              </div>
+
               {/* Bag (saved products) */}
               <div className={`fr-hi${sidebarView === 'saved' ? ' on' : ''}`} onClick={() => setSidebarView('saved')}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -1924,6 +2004,20 @@ export default function FromApp({
                   </div>
             )}
 
+            {/* Brand profile header — shown when viewing a brand's catalog */}
+            {activeBrand && (hasConversation || loading) && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '22px 24px 18px', gap: 10 }}>
+                <BrandLogo domain={activeBrand.domain} name={activeBrand.name} size={64} />
+                <div>
+                  <h2 style={{ fontFamily: SEASON, fontSize: 'clamp(22px,6vw,28px)', fontWeight: 400, color: INK, letterSpacing: '.01em', lineHeight: 1.1 }}>{activeBrand.name}</h2>
+                  <p style={{ fontFamily: SANS, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: INK3, marginTop: 6 }}>
+                    {loading ? 'Loading collection…' : `${searchProducts.length} ${searchProducts.length === 1 ? 'piece' : 'pieces'}`}
+                  </p>
+                </div>
+                <div style={{ width: 36, height: 1, background: BRD, marginTop: 2 }} />
+              </div>
+            )}
+
             {/* Product grid */}
             {(hasConversation || showExplore) && !loading && searchProducts.length > 0 && (
               <>
@@ -2174,6 +2268,47 @@ export default function FromApp({
                 </div>
               </div>
             </>
+          )}
+
+          {/* ── Brands roster — all working brands with logo + name ── */}
+          {brandsOpen && (
+            <div onClick={() => setBrandsOpen(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 9992, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
+              <div onClick={e => e.stopPropagation()}
+                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '92vh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)' }}>
+
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', flexShrink: 0 }}>
+                  <div>
+                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Brands</span>
+                    <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginLeft: 8 }}>{allBrands.length}</span>
+                  </div>
+                  <button onClick={() => setBrandsOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+
+                {/* Search */}
+                <div style={{ padding: '0 20px 12px', flexShrink: 0 }}>
+                  <input value={brandQuery} onChange={e => setBrandQuery(e.target.value)} placeholder="Search brands…"
+                    style={{ width: '100%', fontFamily: SANS, fontSize: 14, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '10px 16px', outline: 'none', background: BG2 }} />
+                </div>
+
+                {/* List */}
+                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '4px 12px 32px' } as React.CSSProperties}>
+                  {filteredBrands.length === 0 ? (
+                    <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: '20px 8px', opacity: .6 }}>No brands match “{brandQuery}”.</p>
+                  ) : filteredBrands.map(b => (
+                    <div key={b.domain} onClick={() => openBrand(b)} className="fr-hi"
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', cursor: 'pointer' }}>
+                      <BrandLogo domain={b.domain} name={b.name} size={40} />
+                      <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0, opacity: .5 }}><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
@@ -2805,7 +2940,7 @@ export default function FromApp({
                         <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
                           target="_blank" rel="noopener noreferrer"
                           className={`fr-add${sheetSizes.length > 0 && !selectedSize ? ' warn' : ''}`}
-                          onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
+                          onClick={e => { e.preventDefault(); if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
                           {sheetSizes.length > 0 && !selectedSize ? 'Select a size' : 'Checkout'}
                         </a>
                       </div>
@@ -3034,7 +3169,7 @@ export default function FromApp({
                       <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
                         target="_blank" rel="noopener noreferrer"
                         className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
-                        onClick={sheetSizes.length > 0 && !selectedSize ? e => e.preventDefault() : undefined}>
+                        onClick={e => { e.preventDefault(); if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
                         {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Checkout"}
                       </a>
                     </div>

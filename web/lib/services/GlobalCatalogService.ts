@@ -1349,7 +1349,9 @@ export class GlobalCatalogService {
 
 
         const filters: any = { available: true };
-        if (normalizedCountryCode) {
+        // Don't restrict an explicit brand search by shipping country — the
+        // shopper asked for this brand, so always show it regardless of country.
+        if (normalizedCountryCode && !isBrandSearch) {
           filters.ships_to = { country: normalizedCountryCode };
         }
 
@@ -1494,7 +1496,7 @@ export class GlobalCatalogService {
       const partPromises = storeParts.map(async (part) => {
         const endpoint = `https://${domain}/api/mcp`;
         const filters: any = { available: true };
-        if (normalizedCountryCode) {
+        if (normalizedCountryCode && !isBrandSearch) {
           filters.ships_to = { country: normalizedCountryCode };
         }
         const payload = {
