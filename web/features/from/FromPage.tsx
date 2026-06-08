@@ -360,6 +360,41 @@ function extractDetailTags(p: Product): string[] {
   }
   return result
 }
+// Normalize verbose size names → standard abbreviations for display only.
+// Internal state / variant matching always uses the raw Shopify value.
+const SIZE_ABBREV: Record<string, string> = {
+  'extra small':                           'XS',
+  'x-small':                               'XS',
+  'x small':                               'XS',
+  'small':                                 'S',
+  'medium':                                'M',
+  'large':                                 'L',
+  'extra large':                           'XL',
+  'x-large':                               'XL',
+  'x large':                               'XL',
+  'extra extra large':                     'XXL',
+  'double extra large':                    'XXL',
+  'xx-large':                              'XXL',
+  'xx large':                              'XXL',
+  '2x-large':                              'XXL',
+  'extra extra extra large':               'XXXL',
+  'triple extra large':                    'XXXL',
+  'xxx-large':                             'XXXL',
+  'xxx large':                             'XXXL',
+  '3x-large':                              'XXXL',
+  'extra extra extra extra large':         '4XL',
+  'xxxx-large':                            '4XL',
+  '4x-large':                              '4XL',
+  'extra extra extra extra extra large':   '5XL',
+  'xxxxx-large':                           '5XL',
+  '5x-large':                              '5XL',
+  '6x-large':                              '6XL',
+  'extra extra extra extra extra extra large': '6XL',
+}
+function normalizeSizeLabel(raw: string): string {
+  return SIZE_ABBREV[raw.toLowerCase().trim()] ?? raw
+}
+
 function getProductSizes(p: Product): string[] {
   return p.options?.find(o => o.name.toLowerCase().includes('size'))?.values || []
 }
@@ -1823,7 +1858,17 @@ export default function FromApp({
                     <div className="fr-sz-modal" dangerouslySetInnerHTML={{ __html: (sheetSizeTable || fetchedSizeGuide)! }} />
                   </div>
                 ) : (
-                  <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: '24px 20px 40px', fontWeight: 300 }}>No size guide available for this product.</p>
+                  <div style={{ padding: '24px 20px 40px' }}>
+                    <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, fontWeight: 300, lineHeight: 1.7, marginBottom: 16 }}>
+                      {sizeGuideLoading ? 'Loading size guide…' : "We couldn't load the size guide for this brand."}
+                    </p>
+                    {!sizeGuideLoading && sizeGuideUrl && (
+                      <a href={sizeGuideUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ fontFamily: SANS, fontSize: 13, color: INK, fontWeight: 500, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                        View size guide on {sheetBrandName || sheetStoreHost} →
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -2061,11 +2106,9 @@ export default function FromApp({
                         <div style={{ padding: '14px 24px 0' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: '.04em', textTransform: 'uppercase' }}>Size</span>
-                            {(sheetSizeTable || sizeGuideLoading || fetchedSizeGuide) && (
-                              <button onClick={() => setSizeGuideOpen(true)} style={{ fontFamily: SANS, fontSize: 11, color: INK3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3, letterSpacing: '.03em' }}>
-                                {sizeGuideLoading && !sheetSizeTable && !fetchedSizeGuide ? 'Loading…' : 'Size Guide'}
-                              </button>
-                            )}
+                            <button onClick={() => setSizeGuideOpen(true)} style={{ fontFamily: SANS, fontSize: 11, color: INK3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3, letterSpacing: '.03em' }}>
+                              {sizeGuideLoading && !sheetSizeTable && !fetchedSizeGuide ? 'Loading…' : 'Size Guide'}
+                            </button>
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
                             {sheetSizes.map((s, i) => {
@@ -2075,7 +2118,7 @@ export default function FromApp({
                                 <button key={s} disabled={!avail} onClick={() => avail && setSize(on ? null : s)}
                                   className={`fr-szbox${on ? ' on' : ''}${avail ? '' : ' dis'}`}
                                   style={{ marginLeft: i % 6 === 0 ? 0 : -1 }}>
-                                  {s}
+                                  {normalizeSizeLabel(s)}
                                 </button>
                               )
                             })}
@@ -2292,11 +2335,9 @@ export default function FromApp({
                       <div style={{ padding: "14px 20px 0" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                           <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: ".04em", textTransform: "uppercase" }}>Size</span>
-                          {(sheetSizeTable || sizeGuideLoading || fetchedSizeGuide) && (
-                            <button onClick={() => setSizeGuideOpen(true)} style={{ fontFamily: SANS, fontSize: 11, color: INK3, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: ".03em" }}>
-                              {sizeGuideLoading && !sheetSizeTable && !fetchedSizeGuide ? 'Loading…' : 'Size Guide'}
-                            </button>
-                          )}
+                          <button onClick={() => setSizeGuideOpen(true)} style={{ fontFamily: SANS, fontSize: 11, color: INK3, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: ".03em" }}>
+                            {sizeGuideLoading && !sheetSizeTable && !fetchedSizeGuide ? 'Loading…' : 'Size Guide'}
+                          </button>
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(sheetSizes.length, 6)},1fr)` }}>
                           {sheetSizes.map((s, i) => {
@@ -2306,7 +2347,7 @@ export default function FromApp({
                               <button key={s} disabled={!avail} onClick={() => avail && setSize(on ? null : s)}
                                 className={`fr-szbox${on ? " on" : ""}${avail ? "" : " dis"}`}
                                 style={{ marginLeft: i % 6 === 0 ? 0 : -1 }}>
-                                {s}
+                                {normalizeSizeLabel(s)}
                               </button>
                             )
                           })}

@@ -28,7 +28,6 @@ function extractSizeImages(html: string): string | null {
     if (!/\bsrc=/i.test(tag)) continue
     const srcM = tag.match(/src=["']([^"']+)["']/i)
     if (!srcM || srcM[1].startsWith('data:')) continue
-    // Must look like a size-related image
     if (!/size.?chart|size.?guide|sizing|measurement/i.test(tag)) continue
     found.push(tag
       .replace(/width=["'][^"']*["']/gi, '')
@@ -65,6 +64,18 @@ function tryExtract(html: string): string | null {
 
 // ── Fetch helpers ───────────────────────────────────────────────────────────
 
+const BROWSER_HEADERS = {
+  'User-Agent': UA,
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
+}
+
 async function getJson(url: string, ms = 8000): Promise<any> {
   const c = new AbortController(); const t = setTimeout(() => c.abort(), ms)
   try {
@@ -79,7 +90,7 @@ async function getHtml(url: string, ms = 7000): Promise<string | null> {
   try {
     const r = await fetch(url, {
       signal: c.signal,
-      headers: { Accept: 'text/html,application/xhtml+xml', 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' },
+      headers: { Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', ...BROWSER_HEADERS },
     })
     if (!r.ok) return null
     return await r.text()
@@ -87,17 +98,16 @@ async function getHtml(url: string, ms = 7000): Promise<string | null> {
 }
 
 // ── Strategy 1: Shopify public pages JSON API ────────────────────────────────
-// /pages.json returns all store pages with full body_html — no bot protection,
-// no Cloudflare, works on every Shopify store (custom domain or myshopify.com).
+// /pages.json returns all store pages with body_html — no bot protection.
+// When body_html is empty (JSON-template stores), fall back to rendered fetch.
 async function tryShopifyPagesApi(origin: string): Promise<string | null> {
   const data = await getJson(`${origin}/pages.json?limit=250`)
   if (!data?.pages) return null
 
-  const pages: { title: string; body_html: string }[] = data.pages ?? []
+  const pages: { title: string; body_html: string; handle: string }[] = data.pages ?? []
 
-  // Sort: size-guide/size-chart page titles rank first
   const ranked = pages
-    .filter(p => /size|fit|measurement|sizing/i.test(p.title) && p.body_html?.length > 20)
+    .filter(p => /size|fit|measurement|sizing/i.test(p.title))
     .sort((a, b) => {
       const score = (t: string) =>
         /size.?(guide|chart)/i.test(t) ? 3 : /size/i.test(t) ? 2 : /fit|measurement/i.test(t) ? 1 : 0
@@ -105,14 +115,22 @@ async function tryShopifyPagesApi(origin: string): Promise<string | null> {
     })
 
   for (const page of ranked) {
-    const result = tryExtract(page.body_html)
-    if (result) return result
+    if (page.body_html?.length > 20) {
+      const result = tryExtract(page.body_html)
+      if (result) return result
+    } else if (page.handle) {
+      // body_html is empty (JSON-template page) — fetch the rendered HTML directly
+      const html = await getHtml(`${origin}/pages/${page.handle}`)
+      if (html) {
+        const result = tryExtract(html)
+        if (result) return result
+      }
+    }
   }
   return null
 }
 
 // ── Strategy 2: Shopify product JSON (uses description_html) ─────────────────
-// If the store_url contains a product path, try fetching its JSON directly.
 async function tryProductJson(storeUrl: string): Promise<string | null> {
   const m = storeUrl.match(/\/products\/([^/?#]+)/)
   if (!m) return null
@@ -123,20 +141,40 @@ async function tryProductJson(storeUrl: string): Promise<string | null> {
   return extractTables(html) ?? extractSizeImages(html)
 }
 
-// ── Strategy 3: Direct HTML fetch with many URL patterns ────────────────────
+// ── Strategy 3: Direct HTML fetch — comprehensive slug list ─────────────────
 const SLUG_PATTERNS = [
+  // Most common
   'size-guide', 'size-chart', 'sizing', 'size', 'sizes',
+  // Fit
   'fit-guide', 'fit', 'size-guides', 'size-charts',
-  'measurement-guide', 'measurements', 'international-sizing',
-  'size-information', 'size-info',
+  // Measurement variants
+  'measurement-guide', 'measurements', 'how-to-measure', 'how-to-size',
+  // International
+  'international-sizing', 'size-information', 'size-info',
+  // Gendered
+  'size-guide-women', 'size-guide-men', 'size-guide-kids',
+  'womens-size-guide', 'mens-size-guide',
+  'women-size-guide', 'men-size-guide',
+  'size-guide-womens', 'size-guide-mens',
+  // Alternatives
+  'sizing-guide', 'sizing-chart', 'size-reference', 'size-help',
+  'body-measurements', 'find-your-size', 'find-your-fit',
+  'size-and-fit', 'fit-and-size',
 ]
 
 async function tryDirectFetch(origin: string): Promise<string | null> {
-  for (const slug of SLUG_PATTERNS) {
-    const html = await getHtml(`${origin}/pages/${slug}`)
-    if (!html) continue
-    const result = tryExtract(html)
-    if (result) return result
+  // Batch in groups of 4 to avoid overwhelming a single server
+  for (let i = 0; i < SLUG_PATTERNS.length; i += 4) {
+    const batch = SLUG_PATTERNS.slice(i, i + 4)
+    const results = await Promise.all(
+      batch.map(async slug => {
+        const html = await getHtml(`${origin}/pages/${slug}`)
+        if (!html) return null
+        return tryExtract(html)
+      })
+    )
+    const found = results.find(r => r !== null)
+    if (found) return found
   }
   return null
 }
@@ -160,14 +198,14 @@ export async function GET(req: NextRequest) {
   // Check cache first
   if (cache.has(origin)) return NextResponse.json({ html: cache.get(origin) ?? null })
 
-  // Run all three strategies — Shopify JSON first (most reliable), then fallbacks in parallel
+  // Strategy 1: Shopify pages JSON (most reliable, no bot protection)
   const shopifyResult = await tryShopifyPagesApi(origin)
   if (shopifyResult) {
     cache.set(origin, shopifyResult)
     return NextResponse.json({ html: shopifyResult })
   }
 
-  // Fallbacks: product JSON and direct HTML fetch in parallel
+  // Strategies 2 + 3 in parallel
   const [productResult, directResult] = await Promise.allSettled([
     tryProductJson(raw),
     tryDirectFetch(origin),
