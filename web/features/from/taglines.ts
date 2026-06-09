@@ -423,6 +423,21 @@ export function shuffledIndices(n: number): number[] {
     const j = Math.floor(Math.random() * (i + 1))
     ;[a[i], a[j]] = [a[j], a[i]]
   }
+  // Single-pass greedy: if two consecutive entries share the same first word
+  // (e.g. "Fashion is art" → "Fashion is rebellion"), swap the second with the
+  // next entry that starts differently.  This stops runs of "Fashion is…" or
+  // "Style is…" lines from feeling like repeats.
+  for (let i = 1; i < a.length; i++) {
+    const prevWord = TAGLINES[a[i - 1]].split(' ')[0]
+    if (TAGLINES[a[i]].split(' ')[0] === prevWord) {
+      for (let j = i + 1; j < a.length; j++) {
+        if (TAGLINES[a[j]].split(' ')[0] !== prevWord) {
+          ;[a[i], a[j]] = [a[j], a[i]]
+          break
+        }
+      }
+    }
+  }
   return a
 }
 

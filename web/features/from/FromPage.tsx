@@ -843,6 +843,7 @@ export default function FromApp({
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
+  const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
   const [tagText, setTagText]           = useState(TAGLINES[0])  // SSR-safe hero line; randomised client-side in effect
@@ -1035,7 +1036,10 @@ export default function FromApp({
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
   useEffect(() => {
-    const check = () => setIsWide(window.innerWidth >= 1024)
+    const check = () => {
+      setIsWide(window.innerWidth >= 1024)
+      setWindowWidth(window.innerWidth)
+    }
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
@@ -1081,11 +1085,13 @@ export default function FromApp({
     setTagText(TAGLINES[order[pos]])
     const id = window.setInterval(() => {
       setTagVis(false)
+      // 350ms > the 300ms linear fade-out — ensures old text is fully gone
+      // before the new line appears, eliminating any visual overlap.
       window.setTimeout(() => {
         pos = (pos + 1) % order.length
         setTagText(TAGLINES[order[pos]])
         setTagVis(true)
-      }, 420)
+      }, 350)
     }, 13000)
     return () => window.clearInterval(id)
   }, [homeVisible])
@@ -1925,13 +1931,18 @@ export default function FromApp({
             {!hasConversation && !showExplore && <div className={`fr-greet${loaded ? ' in' : ''}`}>
               {(() => {
                 const greetName = isEditingName ? (nameInput || "your name") : (hasName ? userName : "your name")
-                const HELLO_PX = 72
-                // Only the name shrinks; "Hello, " is locked at HELLO_PX no matter what
-                const namePx = Math.min(HELLO_PX, Math.max(20, Math.floor(150 / (Math.max(1, greetName.length) * 0.52))))
+                // Scale "Hello, " fluidly from 72px (phone) up to 140px (large desktop).
+                // windowWidth is 0 until after mount; fall back to 72px for SSR.
+                const helloPx = windowWidth > 0
+                  ? Math.min(140, Math.max(72, Math.round(windowWidth * 0.1)))
+                  : 72
+                // Name scales proportionally: same ratio as original (150 target-width / 0.52 char-width)
+                // but now referenced to helloPx so it grows with the heading.
+                const namePx = Math.min(helloPx, Math.max(20, Math.floor(helloPx * 2.08 / (Math.max(1, greetName.length) * 0.52))))
                 return (
                 <div style={{ fontFamily: SERIF, lineHeight: 1.08, letterSpacing: "-.02em", marginBottom: 10,
                   display: "flex", alignItems: "baseline", flexWrap: "nowrap", overflow: "hidden" }}>
-                  <span style={{ fontWeight: 300, color: INK, fontSize: HELLO_PX, flexShrink: 0, whiteSpace: "nowrap" }}>Hello,&nbsp;</span>
+                  <span style={{ fontWeight: 300, color: INK, fontSize: helloPx, flexShrink: 0, whiteSpace: "nowrap" }}>Hello,&nbsp;</span>
                   {isEditingName ? (
                     <input ref={nameRef} value={nameInput}
                       onChange={e => setNameInput(e.target.value)}
@@ -1958,10 +1969,19 @@ export default function FromApp({
                 )
               })()}
               <p style={{
-                fontFamily: SANS, fontSize: "clamp(9px,2.2vw,11px)", letterSpacing: ".16em",
+                fontFamily: SANS,
+                // Grows from 10px on phones to 13px on iPad/laptop — stays readable
+                // and fits on one line at typical tagline lengths on larger screens.
+                fontSize: "clamp(10px,1.4vw,13px)",
+                letterSpacing: ".16em",
                 textTransform: "uppercase", color: INK3, lineHeight: 1.7,
-                maxWidth: 360, minHeight: "3.4em",
-                opacity: tagVis ? .5 : 0, transition: "opacity .42s ease",
+                // Expands with viewport so the tagline fits on a single line.
+                maxWidth: "min(900px,80vw)",
+                minHeight: "1.7em",
+                opacity: tagVis ? .5 : 0,
+                // Fade-out uses linear so opacity reaches exactly 0 at 300ms,
+                // ensuring no old-text ghost when the new line appears at 350ms.
+                transition: tagVis ? "opacity .42s ease" : "opacity .3s linear",
               }}>
                 {tagText}
               </p>
