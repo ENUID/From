@@ -952,12 +952,7 @@ export default function FromApp({
   const dragLastT     = useRef(0)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasLongPress   = useRef(false)
-  const longPressStart = useRef<{ x: number; y: number } | null>(null)
-  const productLongTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const productWasLong   = useRef(false)
-  const productLongStart = useRef<{ x: number; y: number } | null>(null)
-  // Long-press duration for the product / bag context menus (deliberate hold).
-  const LONG_PRESS_MS = 2000
+  const productWasLong = useRef(false)
 
 
   // Search results
