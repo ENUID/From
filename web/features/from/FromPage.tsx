@@ -1101,7 +1101,15 @@ export default function FromApp({
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             products: payloadProducts,
-            messages: history.map(m => ({ role: m.role, content: m.content })),
+            messages: history.map(m => ({
+              role: m.role,
+              content: m.content,
+              ...(m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 ? {
+                foundProducts: m.foundProducts.slice(0, 4).map(p => ({
+                  title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
+                })),
+              } : {}),
+            })),
             question,
             images: capturedImages,
             buyerCurrency: shopperContext.currency,

@@ -15,7 +15,8 @@ type StylistProduct = {
   options?: { name: string; values: string[] }[]
 }
 
-type StylistMessage = { role: 'user' | 'assistant'; content: string }
+type StylistFoundProduct = { title: string; vendor?: string; price?: number; currency?: string }
+type StylistMessage = { role: 'user' | 'assistant'; content: string; foundProducts?: StylistFoundProduct[] }
 
 type Comparison = {
   rows: { label: string; values: string[] }[]
@@ -161,6 +162,34 @@ When the shopper shares clothing photos:
 4. If store products are in context, connect them explicitly: "[PRODUCT:N] works here because the [color/fabric/weight] echoes/balances [what's in the photo]"
 5. If the photo shows a complete outfit, give one honest verdict: strongest element, weakest element, one specific swap that would elevate it most
 
+━━━ CONVERSATIONAL CONTEXT & MEMORY ━━━
+You have the full conversation history. Use it actively — every prior message is context.
+
+BACK-REFERENCES — always resolve from the conversation:
+• "it", "that one", "this one" → the most recently discussed product or garment
+• "the first one", "the second", "option 2" → by order products appeared in the conversation
+• "the blue one", "the linen one", "the cheaper one" → identify by the described attribute
+• "them", "both", "those" → all products currently being discussed
+• "what we were looking at" / "the one I mentioned" → earlier reference in this chat
+
+MULTI-TURN MEMORY — connect dots across messages:
+• If the shopper stated an occasion, budget, body concern, or preference earlier — honour it throughout. Never make them repeat themselves.
+• "I need this for my sister's wedding" said three turns ago still applies now.
+• "Yes" / "love it" / "perfect" → they're confirming your suggestion. Acknowledge briefly ("Good call"), then offer the logical next step (complementary piece, or next question).
+• "No" / "not quite" / "something else" → pivot immediately. One concrete alternative or one short specific question — never repeat the same suggestion.
+• "More like this" / "show me similar" → use [SEARCH:] targeting what they responded positively to.
+• "Forget that" / "never mind" / "completely different" → drop prior context, treat as fresh.
+
+FOUND PRODUCT MEMORY — when products were found in earlier turns (noted in the chat history):
+• You can reference them by name: "The [title] I found earlier would also work here."
+• If asked to compare current products with earlier ones → compare them directly using what you know.
+• Never re-search for a product already found in this conversation — reference it by name.
+
+CONTINUITY RULES:
+• Build on what you've already said. Never repeat an explanation you already gave this conversation.
+• If you're unsure which item they mean, ask ONE short specific question: "Do you mean the linen shirt or the jacket we looked at?"
+• Treat this like a real back-and-forth with a person who has context — not isolated questions from a stranger.
+
 ━━━ HONESTY — NON-NEGOTIABLE ━━━
 • If you can't find or don't know something, say so directly: "I can only see what you have open right now."
 • Never fake confidence. If you're unsure, say so briefly and move on.
@@ -238,28 +267,48 @@ function parseReply(raw: string): { reply: string; comparison?: Comparison; sear
   return { reply: replyText || cleanedRaw, searchQuery }
 }
 
+// ── History enrichment ──────────────────────────────────────────────────────
+// Appends a memory note to assistant messages that had found products, so the AI
+// can refer back to previously found items in multi-turn conversations.
+function enrichHistory(history: StylistMessage[]): { role: 'user' | 'assistant'; content: string }[] {
+  return history.map(m => {
+    if (m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0) {
+      const list = m.foundProducts
+        .slice(0, 4)
+        .map((p, i) => `${i + 1}. ${p.title}${p.vendor ? ` by ${p.vendor}` : ''}${p.price != null ? ` (${p.price} ${p.currency || 'USD'})` : ''}`)
+        .join('; ')
+      return { role: m.role, content: `${m.content}\n[Products shown to shopper: ${list}]` }
+    }
+    return { role: m.role, content: m.content }
+  })
+}
+
 // ── Route ───────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const products: StylistProduct[] = Array.isArray(body?.products) ? body.products.slice(0, 4) : []
-    const history: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-8) : []
+    const history: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-12) : []
     const question: string = typeof body?.question === 'string' ? body.question.trim().slice(0, 500) : ''
     const images: string[] = Array.isArray(body?.images)
       ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:')).slice(0, 8)
       : []
     const countryCode: string | null = typeof body?.countryCode === 'string' ? body.countryCode.trim().slice(0, 4) || null : null
 
-    const hasContent = products.length > 0 || images.length > 0
+    const hasHistory = history.length > 0
+    const hasContent = products.length > 0 || images.length > 0 || hasHistory
     if (!question || !hasContent) {
       return NextResponse.json({ reply: null, comparison: null, foundProducts: null })
     }
 
     const hasImages = images.length > 0
+    const enrichedHistory = enrichHistory(history)
 
     // Build context block shown to the model regardless of vision/text
     const productContext = products.length > 0
       ? `STORE PRODUCTS the shopper is considering:\n\n${products.map(productBlock).join('\n\n---\n\n')}`
+      : hasHistory
+      ? '(No specific store products pinned right now — the shopper is continuing an existing conversation. Reference products mentioned earlier in the chat if relevant.)'
       : ''
 
     const imageNote = hasImages
@@ -274,7 +323,7 @@ export async function POST(req: NextRequest) {
       // Build multimodal messages for vision model
       const visionMessages: VisionMessage[] = [
         { role: 'system' as const, content: contextBlock },
-        ...history.map(m => ({ role: m.role, content: m.content })),
+        ...enrichedHistory,
       ]
 
       // Build the final user message with text + images
@@ -291,7 +340,7 @@ export async function POST(req: NextRequest) {
       // Text-only path (no images)
       const messages = [
         { role: 'system' as const, content: contextBlock },
-        ...history.map(m => ({ role: m.role, content: m.content })),
+        ...enrichedHistory,
         { role: 'user' as const, content: question },
       ]
       const msg = await groqChat(messages, SYSTEM, undefined, { max_tokens: 500, temperature: 0.3 })
