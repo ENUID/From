@@ -39,6 +39,22 @@ type RateEntry = {
 }
 
 const rateBuckets = new Map<string, RateEntry>()
+const RATE_BUCKETS_MAX = 10_000
+
+// Drop expired buckets so the map can't grow without bound under heavy traffic
+// from many distinct IPs on a warm serverless instance.
+function sweepRateBuckets(now: number) {
+  if (rateBuckets.size < RATE_BUCKETS_MAX) return
+  rateBuckets.forEach((entry, key) => {
+    if (entry.resetAt <= now) rateBuckets.delete(key)
+  })
+  // If everything is still live (extreme load), evict oldest to stay bounded.
+  while (rateBuckets.size > RATE_BUCKETS_MAX) {
+    const oldest = rateBuckets.keys().next().value
+    if (oldest === undefined) break
+    rateBuckets.delete(oldest)
+  }
+}
 
 function getClientKey(req: NextRequest) {
   const forwarded = req.headers.get('x-forwarded-for')
@@ -48,6 +64,7 @@ function getClientKey(req: NextRequest) {
 
 function isRateLimited(req: NextRequest) {
   const now = Date.now()
+  sweepRateBuckets(now)
   const key = getClientKey(req)
   const current = rateBuckets.get(key)
 

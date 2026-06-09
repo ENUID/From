@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { groqChat } from '@/lib/groq'
+import { BoundedCache } from '@/lib/boundedCache'
 
-const cache = new Map<string, { shipping: string; returns: string } | null>()
+const cache = new BoundedCache<string, { shipping: string; returns: string } | null>(2000)
 
 // Shopify standard policy pages + common custom slugs
 function policyUrls(base: string) {

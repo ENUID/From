@@ -63,6 +63,23 @@ const FAST_SUBQUERY_LIMIT = 3;
 const INITIAL_RESULT_LIMIT = 50;
 const LOAD_MORE_RESULT_LIMIT = 100;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[], nextChunkIndex?: number }>();
+// Cap the cache so a long-lived (warm) serverless instance serving many unique
+// queries can never grow without bound. When over the cap, drop expired entries
+// first, then the oldest, keeping memory flat under heavy concurrent load.
+const SEARCH_CACHE_MAX = 500;
+function evictSearchCache() {
+  if (searchCache.size <= SEARCH_CACHE_MAX) return;
+  const now = Date.now();
+  searchCache.forEach((val, key) => {
+    if (now - val.timestamp >= CACHE_TTL_MS) searchCache.delete(key);
+  });
+  // Map preserves insertion order — delete oldest until back under the cap.
+  while (searchCache.size > SEARCH_CACHE_MAX) {
+    const oldest = searchCache.keys().next().value;
+    if (oldest === undefined) break;
+    searchCache.delete(oldest);
+  }
+}
 
 const COUNTRY_MAP: { [key: string]: string } = {
   IN: 'India',
@@ -330,6 +347,12 @@ Translate the input search query from any language (Vietnamese, Japanese, Chines
         
       if (cleanedTranslation) {
         console.log(`[GlobalCatalog] LLM translated "${part}" to "${cleanedTranslation}"`);
+        // Bound the cache — translations are tiny and effectively permanent, so
+        // evict the oldest entry once we hit the cap to keep memory flat.
+        if (translationCache.size >= 2000) {
+          const oldest = translationCache.keys().next().value;
+          if (oldest !== undefined) translationCache.delete(oldest);
+        }
         translationCache.set(cacheKey, cleanedTranslation);
         translatedParts.push(cleanedTranslation);
       } else {
@@ -1131,6 +1154,7 @@ export class GlobalCatalogService {
 
     const normalizedCountryCode = countryCode?.trim().toUpperCase() || null;
     const cacheKey = `${normalizedQuery.toLowerCase()}:${normalizedCountryCode || 'global'}`;
+    evictSearchCache();
     const cached = searchCache.get(cacheKey);
     const rates = await getExchangeRates().catch(() => ({} as Record<string, number>));
 

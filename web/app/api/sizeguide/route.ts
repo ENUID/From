@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { BoundedCache } from '@/lib/boundedCache'
 
 const SIZE_KWS = /\b(size|chest|waist|hip|inseam|sleeve|shoulder|length|neck|bust|height|weight|measurements?|XS|XL|XXL)\b/i
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 // In-process cache keyed by store origin
-const cache = new Map<string, string | null>()
+const cache = new BoundedCache<string, string | null>(2000)
 
 // ── Content extractors ──────────────────────────────────────────────────────
 
