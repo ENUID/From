@@ -1817,6 +1817,7 @@ export default function FromApp({
         @keyframes toastIn{0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(0.88);}60%{opacity:1;transform:translateX(-50%) translateY(-4px) scale(1.03);}80%{transform:translateX(-50%) translateY(2px) scale(0.99);}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
         @keyframes toastOut{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.88);}}
         @keyframes sheetUp{0%{transform:translateY(100%);}100%{transform:translateY(0);}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
