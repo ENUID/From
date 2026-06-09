@@ -768,6 +768,25 @@ function getCheckoutUrl(p: Product, size: string | null, color: string | null): 
   catch { return p.store_url }
 }
 
+// ── Stylist text renderer — converts **bold** to <strong>, strips list markers ─
+function renderStylistText(text: string): React.ReactNode {
+  const cleaned = text
+    .replace(/^\s*\d+\.\s+/gm, '')   // strip "1. " list markers
+    .replace(/^\s*[-•]\s+/gm, '')    // strip "- " / "• " bullet markers
+    .trim()
+  const parts = cleaned.split(/\*\*([^*\n]+)\*\*/g)
+  if (parts.length === 1) return cleaned
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1
+          ? <strong key={i} style={{ fontWeight: 700 }}>{part}</strong>
+          : part
+      )}
+    </>
+  )
+}
+
 // ── Stylist loading phases — contextual search animation ─────────────────────
 type StylistLoadingPhase = { main: string; sub: string; subsub?: string }
 
@@ -777,50 +796,57 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
     return [
       { main: 'Reading your photo…', sub: 'Identifying garments & colors' },
       { main: 'Analysing tones & textures…', sub: 'Color harmony check', subsub: 'Warm vs cool undertones' },
-      { main: 'Building recommendations…', sub: 'Matching to your pieces' },
+      { main: 'Scanning the store catalog…', sub: 'Matching to your wardrobe', subsub: 'Silhouette compatibility' },
+      { main: 'Building the recommendation…', sub: 'Putting it all together' },
     ]
   }
   if (/compar|which.*better|vs\b|prefer|choose|pick|best one/.test(q)) {
     const isMaterial = /material|fabric|wool|cotton|cashmere|linen|silk/.test(q)
     const isColor    = /color|colour|tone|shade/.test(q)
     return [
-      { main: 'Comparing the pieces…', sub: isMaterial ? 'Reading fabric differences' : isColor ? 'Checking color contrast' : 'Style side-by-side' },
-      { main: 'Weighing the details…', sub: 'Quality & aesthetic factors', subsub: 'Checking which suits you best' },
-      { main: 'Forming a verdict…', sub: 'Final recommendation' },
+      { main: 'Reading both pieces…', sub: isMaterial ? 'Fabric & construction' : isColor ? 'Color contrast & tone' : 'Style & silhouette' },
+      { main: 'Weighing the differences…', sub: 'Quality, cut & versatility', subsub: 'Occasion fit & longevity' },
+      { main: 'Testing real-world scenarios…', sub: 'When & how you\'d wear each', subsub: 'Cost-per-wear logic' },
+      { main: 'Reaching a verdict…', sub: 'Final pick' },
     ]
   }
   if (/color|colour|combination|match|go with|pair|wear with|complement/.test(q)) {
     return [
-      { main: 'Thinking about color…', sub: 'Checking tonal harmony' },
-      { main: 'Testing combinations…', sub: 'Contrast, balance & warmth', subsub: 'Color wheel logic applied' },
-      { main: 'Building the palette…', sub: 'Proportion & color flow' },
+      { main: 'Thinking about color…', sub: 'Tonal harmony & contrast' },
+      { main: 'Checking undertones…', sub: 'Warm, cool & neutral families', subsub: 'Complementary relationships' },
+      { main: 'Testing combinations…', sub: 'Balance, proportion & pop', subsub: '60-30-10 color rule applied' },
+      { main: 'Building the palette…', sub: 'Final color story' },
     ]
   }
   if (/material|fabric|wool|cotton|linen|cashmere|silk|leather|blend/.test(q)) {
     return [
-      { main: 'Reading the fabric…', sub: 'Material composition' },
-      { main: 'Checking quality & care…', sub: 'Texture & wearability', subsub: 'Season & occasion suitability' },
-      { main: 'Forming a view…', sub: 'Comfort vs style balance' },
+      { main: 'Reading the fabric…', sub: 'Fiber composition & weight' },
+      { main: 'Checking wearability…', sub: 'Season & occasion fit', subsub: 'Care & longevity' },
+      { main: 'Comparing properties…', sub: 'Breathability & drape', subsub: 'Texture & visual weight' },
+      { main: 'Forming a view…', sub: 'Comfort vs style trade-off' },
     ]
   }
   if (/outfit|look|style|occasion|event|wear|dress|casual|formal|weekend|work/.test(q)) {
     return [
       { main: 'Reading the silhouette…', sub: 'Fit & proportion' },
-      { main: 'Checking occasion fit…', sub: 'Style level & context', subsub: 'Volume & structure balance' },
-      { main: 'Styling the look…', sub: 'Putting it together' },
+      { main: 'Checking occasion fit…', sub: 'Style register & context', subsub: 'Volume & structure balance' },
+      { main: 'Working through the layers…', sub: 'Texture & contrast pairings', subsub: 'Color harmony check' },
+      { main: 'Styling the final look…', sub: 'Putting it together' },
     ]
   }
   if (/price|cost|worth|value|expensive|cheap|budget/.test(q)) {
     return [
-      { main: 'Checking prices…', sub: 'Value analysis' },
-      { main: 'Comparing quality…', sub: 'Craftsmanship vs cost', subsub: 'Long-term wear value' },
-      { main: 'Forming a recommendation…', sub: 'Best for your budget' },
+      { main: 'Checking the numbers…', sub: 'Price per piece analysis' },
+      { main: 'Weighing quality markers…', sub: 'Materials, construction & brand', subsub: 'Market positioning' },
+      { main: 'Calculating value…', sub: 'Cost-per-wear estimate', subsub: 'Long-term investment grade' },
+      { main: 'Forming a recommendation…', sub: 'Best choice for your budget' },
     ]
   }
   return [
-    { main: 'Reading the pieces…', sub: 'Product details & context' },
-    { main: 'Thinking it through…', sub: 'Style logic', subsub: 'Brand & aesthetic context' },
-    { main: 'Almost there…', sub: 'Forming a response' },
+    { main: 'Reading the pieces…', sub: 'Silhouette, color & fabric' },
+    { main: 'Thinking it through…', sub: 'Style context & occasion', subsub: 'Brand aesthetic fit' },
+    { main: 'Considering your options…', sub: 'Versatility & wearability', subsub: 'Seasonal relevance' },
+    { main: 'Almost there…', sub: 'Forming the response' },
   ]
 }
 
@@ -1230,9 +1256,9 @@ export default function FromApp({
     }
     setStylistSubVis(false)
     setStylistSubSubVis(false)
-    const t1 = setTimeout(() => setStylistSubVis(true), 650)
-    const t2 = setTimeout(() => setStylistSubSubVis(true), 1350)
-    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 2150)
+    const t1 = setTimeout(() => setStylistSubVis(true), 700)
+    const t2 = setTimeout(() => setStylistSubSubVis(true), 1500)
+    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 2700)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
@@ -2490,14 +2516,14 @@ export default function FromApp({
                 </div>
 
                 {/* Pinned products */}
-                <div style={{ display: 'flex', gap: 10, padding: '12px 20px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
+                <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
                   {stylistProducts.map(p => (
-                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 116 }}>
-                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 116, height: 145, borderRadius: 10, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
+                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 80 }}>
+                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
                         {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </div>
-                      <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                      <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 9, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                       {stylistProducts.length > 1 && (
                         <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -2522,9 +2548,9 @@ export default function FromApp({
                   {stylistMsgs.map((m, i) => (
                     <div key={i} style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                       {m.role === 'user' && m.images && m.images.length > 0 && (
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
                           {m.images.map((url, ii) => (
-                            <div key={ii} style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                            <div key={ii} style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
                               <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                             </div>
                           ))}
@@ -2536,7 +2562,7 @@ export default function FromApp({
                         color: m.role === 'user' ? '#fff' : INK2,
                         borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
                         whiteSpace: 'pre-wrap' }}>
-                        {m.content}
+                        {m.role === 'assistant' ? renderStylistText(m.content) : m.content}
                       </div>
                       {m.comparison && m.comparison.rows.length > 0 && (
                         <div style={{ marginTop: 10, width: '100%', border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>
