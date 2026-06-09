@@ -1348,7 +1348,7 @@ export default function FromApp({
     if (!homeVisible) return
     const order = shuffledIndices(TAGLINES.length)
     tagOrderRef.current = order
-    let pos = 0
+    let pos = Math.floor(Math.random() * order.length)
     // Immediately show a random tagline so every page load feels fresh
     setTagText(TAGLINES[order[pos]])
     const id = window.setInterval(() => {
@@ -1364,17 +1364,17 @@ export default function FromApp({
     return () => window.clearInterval(id)
   }, [homeVisible])
 
-  // Rotate the search bar placeholder every 7s — only when bar is empty + unfocused
+  // Rotate the search bar placeholder every 11s — only when bar is empty + unfocused
   const [barFocused, setBarFocused] = useState(false)
   useEffect(() => {
     if (barFocused || input.length > 0) return
     const order = shuffledIndices(WITTY_PLACEHOLDERS.length)
-    let pos = 0
+    let pos = Math.floor(Math.random() * order.length)
     setBarPlaceholder(WITTY_PLACEHOLDERS[order[pos]])
     const id = window.setInterval(() => {
       pos = (pos + 1) % order.length
       setBarPlaceholder(WITTY_PLACEHOLDERS[order[pos]])
-    }, 7000)
+    }, 11000)
     return () => window.clearInterval(id)
   }, [barFocused, input.length])
 
