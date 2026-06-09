@@ -14,11 +14,32 @@ type StylistProduct = {
   options?: { name: string; values: string[] }[]
 }
 
-type StylistMessage = { role: 'user' | 'assistant'; content: string }
+type StylistMessage = {
+  role: 'user' | 'assistant'
+  content: string
+  images?: string[]
+  foundProducts?: { title: string; vendor?: string; price?: number; currency?: string }[]
+}
 
 type Comparison = {
   rows: { label: string; values: string[] }[]
   pick?: { index: number; reason: string }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function enrichHistory(messages: StylistMessage[]): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
+  const out: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = []
+  for (const m of messages) {
+    out.push({ role: m.role, content: m.content })
+    if (m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0) {
+      const summary = m.foundProducts
+        .slice(0, 6)
+        .map((p, i) => `- Product ${i + 1}: ${p.title}${p.vendor ? ` by ${p.vendor}` : ''}${p.price ? ` (${p.price} ${p.currency || 'USD'})` : ''}`)
+        .join('\n')
+      out.push({ role: 'system', content: `Products the UI showed below this reply:\n${summary}` })
+    }
+  }
+  return out
 }
 
 // ── Prompt building ─────────────────────────────────────────────────────────
@@ -176,23 +197,26 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const products: StylistProduct[] = Array.isArray(body?.products) ? body.products.slice(0, 4) : []
-    const history: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-8) : []
+    const rawHistory: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-12) : []
     const question: string = typeof body?.question === 'string' ? body.question.trim().slice(0, 500) : ''
     const images: string[] = Array.isArray(body?.images)
       ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:')).slice(0, 8)
       : []
 
-    const hasContent = products.length > 0 || images.length > 0
+    const hasContent = products.length > 0 || images.length > 0 || rawHistory.length > 0
     if (!question || !hasContent) {
       return NextResponse.json({ reply: null, comparison: null })
     }
 
     const hasImages = images.length > 0
+    const history = enrichHistory(rawHistory)
 
     // Build context block shown to the model regardless of vision/text
     const productContext = products.length > 0
       ? `STORE PRODUCTS the shopper is considering:\n\n${products.map(productBlock).join('\n\n---\n\n')}`
-      : ''
+      : rawHistory.length > 0
+        ? 'The shopper has no new product pinned. Continue the styling conversation using prior context.'
+        : ''
 
     const imageNote = hasImages
       ? `The shopper has also shared ${images.length} photo${images.length > 1 ? 's' : ''} of their own clothing. Analyze the garment(s) in the photo${images.length > 1 ? 's' : ''} and incorporate that into your advice.`
@@ -206,7 +230,7 @@ export async function POST(req: NextRequest) {
       // Build multimodal messages for vision model
       const visionMessages: VisionMessage[] = [
         { role: 'system' as const, content: contextBlock },
-        ...history.map(m => ({ role: m.role, content: m.content })),
+        ...history,
       ]
 
       // Build the final user message with text + images
@@ -223,7 +247,7 @@ export async function POST(req: NextRequest) {
       // Text-only path (no images)
       const messages = [
         { role: 'system' as const, content: contextBlock },
-        ...history.map(m => ({ role: m.role, content: m.content })),
+        ...history,
         { role: 'user' as const, content: question },
       ]
       const msg = await groqChat(messages, SYSTEM, undefined, { max_tokens: 500, temperature: 0.3 })

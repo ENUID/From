@@ -926,7 +926,7 @@ export default function FromApp({
   const [sheetSnap, setSheetSnap]     = useState<'full'|'half'>('full')
   const [isDragging, setIsDragging]   = useState(false)
   const [sidebarOpen, setSidebar]     = useState(false)
-  const [sidebarView, setSidebarView] = useState<'nav' | 'saved'>('nav')
+  const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
   const [inputHint, setInputHint]       = useState<string | null>(null)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
@@ -983,10 +983,16 @@ export default function FromApp({
 
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[] }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[] }
+  type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistOpen, setStylistOpen]       = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>([])
+  const [stylistHistory, setStylistHistory] = useState<StylistHistoryEntry[]>([])
+  const [stylistRenameId, setStylistRenameId]   = useState<string | null>(null)
+  const [stylistRenameVal, setStylistRenameVal] = useState('')
+  const [stylistCtxMenu, setStylistCtxMenu]     = useState<{ id: string; label: string; x: number; y: number; above: boolean } | null>(null)
+  const stylistRenameRef = useRef<HTMLInputElement>(null)
   const [stylistInput, setStylistInput]       = useState('')
   const [stylistLoading, setStylistLoading]   = useState(false)
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
@@ -1012,6 +1018,8 @@ export default function FromApp({
   const removeStylistProduct = (id: string) => {
     setStylistProducts(prev => prev.filter(p => p.id !== id))
   }
+  function deleteStylistEntry(id: string) { setStylistHistory(prev => prev.filter(e => e.id !== id)) }
+  function renameStylistEntry(id: string, newLabel: string) { setStylistHistory(prev => prev.map(e => e.id === id ? { ...e, label: newLabel } : e)) }
 
   const handleStylistFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -1043,11 +1051,17 @@ export default function FromApp({
     const products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
     const images   = imagesArg ?? stylistImages
-    if (!question || stylistLoading || (products.length === 0 && images.length === 0)) return
+    const hasContext = products.length > 0 || images.length > 0 || history.length > 0
+    if (!question || stylistLoading || !hasContext) return
     setStylistInput('')
     const capturedImages = images.map(i => i.url)
     setStylistImages([])
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined }])
+    const msgId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    setStylistHistory(prev => [
+      { id: msgId, label: question.slice(0, 80), createdAt: Date.now() },
+      ...prev,
+    ].slice(0, 30))
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, id: msgId, images: capturedImages.length > 0 ? capturedImages : undefined }])
     setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0))
     setStylistLoadingStep(0)
     setStylistLoading(true)
@@ -1071,7 +1085,7 @@ export default function FromApp({
       })
       const data = await res.json()
       if (data?.reply) {
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : undefined }])
       } else {
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
       }
@@ -1291,6 +1305,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
+  useEffect(() => { if (stylistRenameId && stylistRenameRef.current) { stylistRenameRef.current.focus(); stylistRenameRef.current.select() } }, [stylistRenameId])
   // Keep the stylist conversation scrolled to the latest message
   useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading])
 
@@ -1958,7 +1973,7 @@ export default function FromApp({
               </div>
 
               {/* Bag (saved products) */}
-              <div className={`fr-hi${sidebarView === 'saved' ? ' on' : ''}`} onClick={() => setSidebarView('saved')}>
+              <div className={`fr-hi${sidebarView === 'saved' ? ' on' : ''}`} onClick={() => setSidebarView(v => v === 'saved' ? 'nav' : 'saved')}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                   <line x1="3" y1="6" x2="21" y2="6"/>
@@ -1972,6 +1987,28 @@ export default function FromApp({
                 )}
               </div>
 
+              {/* Fabrics (AI stylist conversations) */}
+              <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`} onClick={() => setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics')}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                  <defs><clipPath id="fwc"><circle cx="12" cy="12" r="9.6"/></clipPath></defs>
+                  <circle cx="12" cy="12" r="9.6" stroke={INK3} strokeWidth="1.3" fill="none"/>
+                  <g clipPath="url(#fwc)" stroke={INK3} strokeWidth="1.05" strokeLinecap="butt">
+                    <line x1="2.4" y1="6" x2="21.6" y2="6"/><line x1="2.4" y1="9" x2="21.6" y2="9"/>
+                    <line x1="2.4" y1="12" x2="21.6" y2="12"/><line x1="2.4" y1="15" x2="21.6" y2="15"/>
+                    <line x1="2.4" y1="18" x2="21.6" y2="18"/>
+                    <line x1="6" y1="2.4" x2="6" y2="21.6"/><line x1="9" y1="2.4" x2="9" y2="21.6"/>
+                    <line x1="12" y1="2.4" x2="12" y2="21.6"/><line x1="15" y1="2.4" x2="15" y2="21.6"/>
+                    <line x1="18" y1="2.4" x2="18" y2="21.6"/>
+                  </g>
+                </svg>
+                Fabrics
+                {stylistHistory.length > 0 && (
+                  <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
+                    {stylistHistory.length}
+                  </span>
+                )}
+              </div>
+
 
             </div>
 
@@ -1980,7 +2017,66 @@ export default function FromApp({
 
             {/* Scrollable recents / bag content */}
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
-              {sidebarView === 'nav' ? (
+              {sidebarView === 'fabrics' ? (
+                <>
+                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
+                  {stylistHistory.length === 0 ? (
+                    <div style={{ padding: '12px 8px 4px' }}>
+                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, opacity: .45, marginBottom: 8 }}>No conversations with Fabrics yet!</p>
+                      <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, opacity: .35, lineHeight: 1.5 }}>Pin a product from your search results and ask Fabrics to style it, compare it, or find what pairs with it.</p>
+                    </div>
+                  ) : stylistHistory.map(h => (
+                    <div key={h.id} className="fr-hi"
+                      style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                      onContextMenu={e => e.preventDefault()}
+                      onClick={() => {
+                        if (wasLongPress.current) { wasLongPress.current = false; return }
+                        setStylistOpen(true)
+                      }}
+                      onPointerDown={e => {
+                        wasLongPress.current = false
+                        const { clientX, clientY } = e
+                        longPressTimer.current = setTimeout(() => {
+                          wasLongPress.current = true
+                          const menuW = 180; const menuH = 96
+                          const above = clientY + 8 + menuH > window.innerHeight
+                          const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
+                          const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                          ctxMenuOpenAt.current = Date.now()
+                          setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
+                        }, 550)
+                      }}
+                      onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                      onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                        <defs><clipPath id="fwcs"><circle cx="12" cy="12" r="9.6"/></clipPath></defs>
+                        <circle cx="12" cy="12" r="9.6" stroke={INK3} strokeWidth="1.3" fill="none"/>
+                        <g clipPath="url(#fwcs)" stroke={INK3} strokeWidth="1.05" strokeLinecap="butt">
+                          <line x1="2.4" y1="8" x2="21.6" y2="8"/><line x1="2.4" y1="12" x2="21.6" y2="12"/><line x1="2.4" y1="16" x2="21.6" y2="16"/>
+                          <line x1="8" y1="2.4" x2="8" y2="21.6"/><line x1="12" y1="2.4" x2="12" y2="21.6"/><line x1="16" y1="2.4" x2="16" y2="21.6"/>
+                        </g>
+                      </svg>
+                      {stylistRenameId === h.id
+                        ? <input ref={stylistRenameRef} value={stylistRenameVal}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => setStylistRenameVal(e.target.value)}
+                            onBlur={() => { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }}
+                            onKeyDown={e => {
+                              e.stopPropagation()
+                              if (e.key === 'Enter') { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }
+                              if (e.key === 'Escape') setStylistRenameId(null)
+                            }}
+                            style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
+                              fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
+                              transform: 'scale(0.8125)', transformOrigin: 'left center' }}
+                          />
+                        : <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.label}</span>
+                      }
+                    </div>
+                  ))}
+                </>
+              ) : sidebarView === 'nav' ? (
                 <>
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
                   {searchHistory.length === 0
@@ -2506,6 +2602,57 @@ export default function FromApp({
             </>
           )}
 
+          {/* ── Fabrics history context menu ── */}
+          {stylistCtxMenu && (
+            <>
+              <div onClick={() => setStylistCtxMenu(null)}
+                style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
+              <div style={{
+                position: 'fixed', left: stylistCtxMenu.x, top: stylistCtxMenu.y,
+                zIndex: 9001, width: 160, borderRadius: 12, overflow: 'hidden',
+                background: 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(245,245,248,0.94) 100%)',
+                boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
+                border: '0.5px solid rgba(180,180,190,0.35)',
+                animation: 'ctxIn 0.22s cubic-bezier(0.34,1.36,0.64,1)',
+                transformOrigin: stylistCtxMenu.above ? 'bottom left' : 'top left',
+              }}>
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+                  background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
+                <div onClick={() => { setStylistRenameId(stylistCtxMenu.id); setStylistRenameVal(stylistCtxMenu.label); setStylistCtxMenu(null) }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>Rename</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </div>
+                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
+                <div onClick={() => { deleteStylistEntry(stylistCtxMenu.id); setStylistCtxMenu(null) }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#FF3B30' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.08)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>Delete</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
+                </div>
+              </div>
+            </>
+          )}
+
           {/* ── Brands roster — all working brands with logo + name ── */}
           {brandsOpen && (
             <div onClick={() => setBrandsOpen(false)}
@@ -2644,6 +2791,23 @@ export default function FromApp({
                               <strong style={{ fontWeight: 600 }}>{stylistProducts[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
                             </div>
                           )}
+                        </div>
+                      )}
+                      {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (
+                        <div style={{ marginTop: 10, width: '100%' }}>
+                          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Found for you</div>
+                          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
+                            {m.foundProducts.map(p => (
+                              <div key={p.id} onClick={() => { setStylistOpen(false); setSelected(p) }}
+                                style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
+                                <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2 }}>
+                                  {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                </div>
+                                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                                <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
