@@ -1287,7 +1287,9 @@ export default function FromApp({
     if (!vv) return
     const update = () => {
       const kbH = window.innerHeight - vv.height - vv.offsetTop
-      setKeyboardOffset(Math.max(0, Math.round(kbH)))
+      // Threshold of 150px filters out false positives from browser zoom or
+      // browser-chrome resize on tablets — real keyboards are always 250px+
+      setKeyboardOffset(kbH > 150 ? Math.round(kbH) : 0)
     }
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
