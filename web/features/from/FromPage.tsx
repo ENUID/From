@@ -819,15 +819,15 @@ function renderStylistText(
             </button>
           )
         }
-        // Regular text — apply **bold** parsing
+        // Regular text — apply **bold** parsing, strip any orphan **
         const boldParts = seg.split(/\*\*([^*\n]+)\*\*/g)
-        if (boldParts.length === 1) return seg || null
+        if (boldParts.length === 1) return (seg.replace(/\*\*/g, '') || null)
         return (
           <span key={si}>
             {boldParts.map((bp, bi) =>
               bi % 2 === 1
                 ? <strong key={bi} style={{ fontWeight: 700 }}>{bp}</strong>
-                : bp || null
+                : (bp.replace(/\*\*/g, '') || null)
             )}
           </span>
         )
@@ -2066,6 +2066,21 @@ export default function FromApp({
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
               {sidebarView === 'nav' ? (
                 <>
+                  {stylistMsgs.filter(m => m.role === 'user').length > 0 && (
+                    <>
+                      <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 8px", opacity: .5 }}>Fabrics</p>
+                      {stylistMsgs.filter(m => m.role === 'user').slice(-5).reverse().map((m, i) => (
+                        <div key={i} className="fr-hi" onClick={() => { setStylistOpen(true); setSidebar(false) }}
+                          style={{ gap: 8 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+                          </svg>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.content}</span>
+                        </div>
+                      ))}
+                      <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 8px 8px" }} />
+                    </>
+                  )}
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
                   {searchHistory.length === 0
                     ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
@@ -2832,7 +2847,7 @@ export default function FromApp({
                     </button>
                     <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
-                      placeholder={stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask your stylist…'}
+                      placeholder={stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask Fabrics…'}
                       style={{ flex: 1, fontFamily: SANS, fontSize: 16, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
                     <button onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
                       style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.2)', color: '#fff', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -3077,7 +3092,7 @@ export default function FromApp({
               }}>
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
-                {/* Ask your stylist */}
+                {/* Ask Fabrics */}
                 <div onClick={() => {
                     if (Date.now() - ctxMenuOpenAt.current < 350) return
                     addBarProduct(bagCtxMenu.product)
@@ -3091,7 +3106,7 @@ export default function FromApp({
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Ask your stylist</span>
+                  <span>Ask Fabrics</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
                   </svg>
@@ -3136,7 +3151,7 @@ export default function FromApp({
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
 
-                {/* Ask your stylist — opens the conversational stylist sheet */}
+                {/* Ask Fabrics — opens the conversational stylist sheet */}
                 <div onClick={() => {
                     if (Date.now() - ctxMenuOpenAt.current < 350) return
                     addBarProduct(productCtxMenu.product)
@@ -3149,7 +3164,7 @@ export default function FromApp({
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Ask your stylist</span>
+                  <span>Ask Fabrics</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
                   </svg>
