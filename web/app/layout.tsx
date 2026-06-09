@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider'
@@ -47,10 +48,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ConvexClientProvider>
           <AuthProvider>{children}</AuthProvider>
         </ConvexClientProvider>
-        <Script 
-          src="https://s.skimresources.com/js/303928X1792065.skimlinks.js" 
-          strategy="afterInteractive" 
+        <Script
+          src="https://s.skimresources.com/js/303928X1792065.skimlinks.js"
+          strategy="afterInteractive"
         />
+        <Analytics />
       </body>
     </html>
   )
