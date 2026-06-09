@@ -1680,7 +1680,7 @@ export class GlobalCatalogService {
               console.log(`[GlobalCatalog] Timeout return for first page: ${directParsedProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
               resolve();
             }
-          }, 2000);
+          }, 800);
         });
 
         console.log(`[GlobalCatalog] Chunk 1 queries finished in ${Date.now() - startTime}ms. Fetched & parsed ${directParsedProducts.length} products.`);

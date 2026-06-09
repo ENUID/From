@@ -1215,7 +1215,7 @@ export default function FromApp({
   // Search results
   const lastProductMsg      = [...messages].reverse().find(m => m.role === 'assistant' && m.products?.length)
   const lastProductMsgIndex = lastProductMsg ? messages.lastIndexOf(lastProductMsg as any) : -1
-  const searchProducts: Product[] = (lastProductMsg?.products || []).filter((p: Product) => p.in_stock)
+  const searchProducts: Product[] = lastProductMsg?.products || []
   const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
   const showEmpty = hasConversation && searchProducts.length === 0 && !loading
   const canSend   = input.trim().length > 0 || uploadedImages.length > 0 || barProducts.length > 0
