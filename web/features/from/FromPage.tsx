@@ -877,13 +877,42 @@ export default function FromApp({
   const removeStylistProduct = (id: string) => {
     setStylistProducts(prev => prev.filter(p => p.id !== id))
   }
-  const sendStylist = async (q: string, productsArg?: Product[], historyArg?: StylistMsg[]) => {
-    const question = q.trim()
+
+  const handleStylistFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    files.slice(0, 8 - stylistImages.length).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = ev => {
+        const dataUrl = ev.target?.result as string
+        const img = new window.Image()
+        img.onload = () => {
+          const MAX = 768
+          const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+          const canvas = document.createElement('canvas')
+          canvas.width  = Math.round(img.width * ratio)
+          canvas.height = Math.round(img.height * ratio)
+          canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+          const compressed = canvas.toDataURL('image/jpeg', 0.82)
+          setStylistImages(prev => prev.length < 8 ? [...prev, { url: compressed }] : prev)
+        }
+        img.src = dataUrl
+      }
+      reader.readAsDataURL(file)
+    })
+    if (stylistFileRef.current) stylistFileRef.current.value = ''
+  }
+
+  const sendStylist = async (q: string, productsArg?: Product[], historyArg?: StylistMsg[], imagesArg?: { url: string }[]) => {
+    const question = q.trim() || (stylistImages.length > 0 ? 'What would work well with these?' : '')
     const products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
-    if (!question || stylistLoading || products.length === 0) return
+    const images   = imagesArg ?? stylistImages
+    if (!question || stylistLoading || (products.length === 0 && images.length === 0)) return
     setStylistInput('')
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question }])
+    const capturedImages = images.map(i => i.url)
+    setStylistImages([])
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined }])
     setStylistLoading(true)
     try {
       const payloadProducts = products.map(p => ({
@@ -899,6 +928,7 @@ export default function FromApp({
           products: payloadProducts,
           messages: history.map(m => ({ role: m.role, content: m.content })),
           question,
+          images: capturedImages,
           buyerCurrency: shopperContext.currency,
         }),
       })
@@ -2399,12 +2429,26 @@ export default function FromApp({
                 {/* Conversation */}
                 <div ref={stylistScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', WebkitOverflowScrolling: 'touch', minHeight: 130 } as React.CSSProperties}>
                   {stylistMsgs.length === 0 && !stylistLoading && (
-                    <p style={{ fontFamily: SERIF, fontSize: 18, color: INK3, lineHeight: 1.4 }}>
-                      Ask anything about {stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.
-                    </p>
+                    <div>
+                      <p style={{ fontFamily: SERIF, fontSize: 18, color: INK3, lineHeight: 1.4, marginBottom: 12 }}>
+                        {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Upload photos of your clothes for styling advice.'}
+                      </p>
+                      <p style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(44,18,6,0.4)', lineHeight: 1.5 }}>
+                        Tap the camera icon to share photos of your own clothes — get color matching, outfit combinations, and recommendations from the store.
+                      </p>
+                    </div>
                   )}
                   {stylistMsgs.map((m, i) => (
                     <div key={i} style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                      {m.role === 'user' && m.images && m.images.length > 0 && (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
+                          {m.images.map((url, ii) => (
+                            <div key={ii} style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                              <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div style={{ maxWidth: '88%', fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
                         padding: m.role === 'user' ? '9px 14px' : 0,
                         background: m.role === 'user' ? INK : 'transparent',
@@ -2455,15 +2499,43 @@ export default function FromApp({
                 </div>
 
                 {/* Input */}
-                <div style={{ flexShrink: 0, padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', borderTop: `1px solid ${BRD}`, display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
-                    placeholder="Ask your stylist…"
-                    style={{ flex: 1, fontFamily: SANS, fontSize: 16, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
-                  <button onClick={() => sendStylist(stylistInput)} disabled={!stylistInput.trim() || stylistLoading}
-                    style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: stylistInput.trim() && !stylistLoading ? INK : 'rgba(44,18,6,.2)', color: '#fff', cursor: stylistInput.trim() && !stylistLoading ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                  </button>
+                <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}` }}>
+                  {/* Uploaded image strip */}
+                  {stylistImages.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 16px 0', scrollbarWidth: 'none' } as React.CSSProperties}>
+                      {stylistImages.map((img, idx) => (
+                        <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
+                          <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                            <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          </div>
+                          <button type="button" onClick={() => setStylistImages(prev => prev.filter((_, i) => i !== idx))}
+                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: INK, border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                            <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '12px 16px calc(12px + env(safe-area-inset-bottom))' }}>
+                    {/* Hidden file input */}
+                    <input ref={stylistFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
+                    {/* Photo upload button */}
+                    <button type="button" onClick={() => stylistFileRef.current?.click()}
+                      disabled={stylistImages.length >= 8}
+                      style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${BRD}`, background: BG2, color: stylistImages.length >= 8 ? 'rgba(44,18,6,0.3)' : INK3, cursor: stylistImages.length >= 8 ? 'default' : 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+                      </svg>
+                    </button>
+                    <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
+                      placeholder={stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask your stylist…'}
+                      style={{ flex: 1, fontFamily: SANS, fontSize: 16, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
+                    <button onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
+                      style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.2)', color: '#fff', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
