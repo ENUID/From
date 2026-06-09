@@ -814,6 +814,7 @@ export default function FromApp({
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
+    if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
   })
   const [logoIdx, setLogoIdx] = useState(0)
@@ -978,7 +979,7 @@ export default function FromApp({
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
   useEffect(() => {
-    const check = () => setIsWide(window.innerWidth >= 768)
+    const check = () => setIsWide(window.innerWidth >= 1024)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
@@ -1460,7 +1461,7 @@ export default function FromApp({
         .fr-bar{
           position:relative;overflow:hidden;
           display:flex;flex-direction:column;gap:10px;
-          width:100%;max-width:720px;margin:0 auto;
+          width:100%;max-width:min(820px,96vw);margin:0 auto;
           border-radius:24px;border:none;
           padding:18px 18px 10px 12px;
           will-change:transform;
@@ -1520,13 +1521,14 @@ export default function FromApp({
             0 -1px 0 rgba(44,18,6,.05),
             0 -24px 64px rgba(44,18,6,.10);
         }
-        /* On tablet/desktop the sheet becomes a centred side-by-side card */
-        @media(min-width:768px){
+        /* On laptop/desktop (1024px+) the sheet becomes a centred side-by-side card.
+           iPads in portrait (<1024px) keep the familiar bottom-sheet behaviour. */
+        @media(min-width:1024px){
           .fr-sheet{
             top:50%;left:50%;
             right:auto;bottom:auto;
-            width:min(960px,90vw);
-            height:min(680px,88vh);
+            width:min(1000px,90vw);
+            height:min(700px,88vh);
             min-height:0;
             border-radius:28px;
             border:0.5px solid rgba(44,18,6,.07);
@@ -1645,8 +1647,8 @@ export default function FromApp({
                   fontFamily: SANS, fontSize: 13, fontWeight: 400, color: "#fff",
                   letterSpacing: ".01em", transition: "opacity .15s",
                 }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = ".8")}
-                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+                onPointerEnter={e => (e.currentTarget.style.opacity = ".8")}
+                onPointerLeave={e => (e.currentTarget.style.opacity = "1")}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
                 New chat
@@ -1803,8 +1805,8 @@ export default function FromApp({
                 justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
                 transition: "box-shadow .15s, transform .1s", flexShrink: 0,
               }}
-                onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
-                onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
+                onPointerEnter={e => { e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
+                onPointerLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
               >
                 <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
                 <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
@@ -1823,8 +1825,8 @@ export default function FromApp({
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", flexShrink: 0, transition: "box-shadow .15s",
               }}
-              onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
-              onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
+              onPointerEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
+              onPointerLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 20h9"/>
@@ -2037,9 +2039,9 @@ export default function FromApp({
 
             {/* Spring-animated wrapper */}
             <div style={{ transform: `scale(${barScale})`, transformOrigin: "center bottom", willChange: "transform" }}
-              onMouseDown={() => setBarPressed(true)}
-              onMouseUp={() => setBarPressed(false)}
-              onMouseLeave={() => setBarPressed(false)}
+              onPointerDown={() => setBarPressed(true)}
+              onPointerUp={() => setBarPressed(false)}
+              onPointerLeave={() => setBarPressed(false)}
             >
               <div ref={barRef} className="fr-bar">
 
@@ -2125,9 +2127,9 @@ export default function FromApp({
                     <div className="fr-bar-right">
                       {/* Send with spring */}
                       <div style={{ transform: `scale(${sendScale})`, willChange: "transform" }}
-                        onMouseDown={() => setSendPressed(true)}
-                        onMouseUp={() => setSendPressed(false)}
-                        onMouseLeave={() => setSendPressed(false)}
+                        onPointerDown={() => setSendPressed(true)}
+                        onPointerUp={() => setSendPressed(false)}
+                        onPointerLeave={() => setSendPressed(false)}
                       >
                         <button type="button" className="fr-send-btn" onClick={() => canSend && doSearch()}>
                           {loading
@@ -2148,8 +2150,8 @@ export default function FromApp({
           </div>{/* end fr-bar-wrap */}
           </div>{/* end fr-content */}
 
-          {/* ── Sheet overlay — phone taps outside to close; desktop X button does it ── */}
-          <div className={`fr-sheet-ov ${selectedProduct ? "vis" : ""}`} onClick={isWide ? undefined : () => setSelected(null)} />
+          {/* ── Sheet overlay — tap/click outside to close on all devices ── */}
+          <div className={`fr-sheet-ov ${selectedProduct ? "vis" : ""}`} onClick={() => setSelected(null)} />
 
           {/* ── History long-press context menu — Apple Liquid Glass ── */}
           {ctxMenu && (
@@ -2791,8 +2793,8 @@ export default function FromApp({
                           style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0,
                             background: 'rgba(44,18,6,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'background .15s' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.14)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.07)')}>
+                          onPointerEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.14)')}
+                          onPointerLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.07)')}>
                           <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
                             <path d="M1 1l10 10M11 1L1 11" stroke={INK} strokeWidth="1.6" strokeLinecap="round"/>
                           </svg>
