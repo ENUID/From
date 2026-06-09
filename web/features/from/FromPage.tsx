@@ -1010,7 +1010,7 @@ export default function FromApp({
 
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[] }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistOpen, setStylistOpen]       = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
@@ -1105,13 +1105,14 @@ export default function FromApp({
             question,
             images: capturedImages,
             buyerCurrency: shopperContext.currency,
+            countryCode: shopperContext.country || null,
           }),
         }),
         new Promise(r => setTimeout(r, 8000)),
       ])
       const data = await (res as Response).json()
       if (data?.reply) {
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : undefined }])
       } else {
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
       }
@@ -2735,10 +2736,10 @@ export default function FromApp({
                 </div>
 
                 {/* Pinned products */}
-                <div style={{ display: 'flex', gap: 6, padding: '8px 14px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
+                <div style={{ display: 'flex', gap: 6, padding: '6px 14px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
                   {stylistProducts.map(p => (
-                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 52 }}>
-                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 52, height: 64, borderRadius: 6, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
+                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 44 }}>
+                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 44, height: 54, borderRadius: 6, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
                         {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </div>
                       {stylistProducts.length > 1 && (
@@ -2811,6 +2812,31 @@ export default function FromApp({
                               <strong style={{ fontWeight: 600 }}>{stylistProducts[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
                             </div>
                           )}
+                        </div>
+                      )}
+                      {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (
+                        <div style={{ marginTop: 12, width: '100%' }}>
+                          <div style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: INK3, marginBottom: 8, opacity: 0.65 }}>From the store</div>
+                          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
+                            {m.foundProducts.map(fp => {
+                              const fpImg = fp.media?.[0]?.url || fp.image_url || ''
+                              const alreadyPinned = stylistProducts.some(sp => sp.id === fp.id)
+                              return (
+                                <div key={fp.id} style={{ flexShrink: 0, width: 80 }}>
+                                  <div style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}
+                                    onClick={() => { setStylistOpen(false); setSelected(fp) }}>
+                                    {fpImg && <img src={fpImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                                  </div>
+                                  <div style={{ fontFamily: SANS, fontSize: 10, color: INK2, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fp.title.replace(/^\d[\d\s\-–—]*/, '').trim()}</div>
+                                  <button onClick={e => { e.stopPropagation(); if (!alreadyPinned && stylistProducts.length < 4) setStylistProducts(prev => [...prev, fp]) }}
+                                    disabled={alreadyPinned || stylistProducts.length >= 4}
+                                    style={{ marginTop: 3, fontFamily: SANS, fontSize: 9, color: alreadyPinned ? INK3 : INK, border: `1px solid ${alreadyPinned ? 'rgba(44,18,6,0.15)' : BRD}`, borderRadius: 4, padding: '2px 6px', background: 'transparent', cursor: alreadyPinned || stylistProducts.length >= 4 ? 'default' : 'pointer', letterSpacing: '.04em', opacity: alreadyPinned || stylistProducts.length >= 4 ? 0.5 : 1 }}>
+                                    {alreadyPinned ? '✓ Added' : '+ Add'}
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, groqVisionChat, VisionMessage } from '@/lib/groq'
+import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type StylistProduct = {
@@ -37,14 +38,23 @@ function productBlock(p: StylistProduct, i: number): string {
 
 const SYSTEM = `You are Fabrics — a personal stylist. Sharp taste, genuine warmth, completely honest. You have deep mastery of color theory, outfit construction, fabric, and fashion. You can analyze clothing photos. When asked who you are, say: "I'm Fabrics — your personal stylist."
 
-━━━ CONTEXT — READ THIS CAREFULLY ━━━
-The STORE PRODUCTS block below contains the ONLY products you can see or reference. These are real listings the shopper is currently viewing in FROM, an independent fashion store platform.
-• NEVER invent, name, or describe any product not explicitly in the STORE PRODUCTS block. If it's not listed, it doesn't exist for you.
-• NEVER hallucinate a product name, brand, price, or detail. If it's not in the data, say "I can't see that in what you have open."
-• SEARCH REQUESTS — CRITICAL: If the shopper asks you to "find", "show me", "search for", "look for", or "recommend" a category of product that is NOT represented in the STORE PRODUCTS block, you MUST NOT suggest the products you have as alternatives. Instead say exactly: "I can only see [list the product names]. Use FROM's search bar to find [what they asked for] — then add it here and I'll help you style it." Do NOT pivot to what you do have. Be direct about the limitation.
-• Example: shopper has trousers in context and says "show me other trousers" — there are no other trousers in your data. Do NOT suggest shirts or other items as a replacement. Say: "I can only see [product names] right now. Search for trousers in FROM, open one, and I'll help you compare or style it."
+━━━ CONTEXT & SEARCH CAPABILITY ━━━
+The STORE PRODUCTS block below contains the products the shopper is currently viewing in FROM, an independent fashion store platform.
+• NEVER invent, name, or describe any product not in STORE PRODUCTS. Stick to what's actually there.
+• NEVER hallucinate a product name, brand, price, or detail. If it's not in the data, say so briefly.
 • NEVER mention, suggest, or link to any external website, marketplace, or brand site. FROM is the only destination.
 • These products ARE available — never say a product is unavailable or suggest going elsewhere.
+
+━━━ FINDING NEW PRODUCTS ━━━
+When the shopper asks for products NOT currently in STORE PRODUCTS (e.g. "find me matching chinos", "show me a white shirt to go with this", "what shoes would work?"), you can search the FROM catalog by ending your reply with a search command on its own final line:
+[SEARCH: brief query]
+Rules:
+• Write a concise, specific query: [SEARCH: navy chinos men] or [SEARCH: white linen shirt] or [SEARCH: leather chelsea boot]
+• Place [SEARCH: ...] on the LAST LINE of your reply — nothing after it
+• Only use it when genuinely searching for a new product type not already in STORE PRODUCTS
+• If a product IS in STORE PRODUCTS, reference it with [PRODUCT:N] — do NOT search for it again
+• Max one [SEARCH:] per reply
+Example: "Those wide-leg trousers need a fitted top to balance the volume.\n[SEARCH: fitted black t-shirt men]"
 
 ━━━ [PRODUCT:N] TOKEN — CRITICAL FORMAT RULES ━━━
 When referring to a specific product from the STORE PRODUCTS block, output the token [PRODUCT:N] where N is 0-indexed (PRODUCT 1 → [PRODUCT:0], PRODUCT 2 → [PRODUCT:1]).
@@ -148,15 +158,23 @@ After your text reply, output ONE comparison block at the very end — nothing a
 STRICT: 2–4 rows max. Short values (≤5 words each). "pick" only when clearly better. Output ONCE, last line. Never output comparison for single products or general questions.`
 
 // ── Parse reply ─────────────────────────────────────────────────────────────
-function parseReply(raw: string): { reply: string; comparison?: Comparison } {
-  const compareStart = raw.indexOf('[COMPARE:')
-  if (compareStart === -1) return { reply: raw.trim() }
+function parseReply(raw: string): { reply: string; comparison?: Comparison; searchQuery?: string } {
+  // Extract [SEARCH: query] token first (must be on a line by itself at the end)
+  let searchQuery: string | undefined
+  const stripped = raw.replace(/^\[SEARCH:\s*([^\]]+)\]\s*$/m, (_, q) => {
+    searchQuery = q.trim().slice(0, 150)
+    return ''
+  }).trim()
+  const cleanedRaw = stripped || raw.trim()
+
+  const compareStart = cleanedRaw.indexOf('[COMPARE:')
+  if (compareStart === -1) return { reply: cleanedRaw, searchQuery }
 
   let depth = 0
   let jsonStart = -1
   let jsonEnd = -1
-  for (let i = compareStart + 9; i < raw.length; i++) {
-    const ch = raw[i]
+  for (let i = compareStart + 9; i < cleanedRaw.length; i++) {
+    const ch = cleanedRaw[i]
     if (ch === '{') {
       if (jsonStart === -1) jsonStart = i
       depth++
@@ -166,13 +184,13 @@ function parseReply(raw: string): { reply: string; comparison?: Comparison } {
     }
   }
 
-  const blockEnd = jsonEnd !== -1 ? raw.indexOf(']', jsonEnd) + 1 : raw.length
-  const replyText = (raw.slice(0, compareStart) + raw.slice(blockEnd)).replace(/\s+$/, '').trim()
+  const blockEnd = jsonEnd !== -1 ? cleanedRaw.indexOf(']', jsonEnd) + 1 : cleanedRaw.length
+  const replyText = (cleanedRaw.slice(0, compareStart) + cleanedRaw.slice(blockEnd)).replace(/\s+$/, '').trim()
 
-  if (jsonStart === -1 || jsonEnd === -1) return { reply: replyText || raw.trim() }
+  if (jsonStart === -1 || jsonEnd === -1) return { reply: replyText || cleanedRaw, searchQuery }
 
   try {
-    const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1))
+    const parsed = JSON.parse(cleanedRaw.slice(jsonStart, jsonEnd + 1))
     if (Array.isArray(parsed?.rows) && parsed.rows.length > 0) {
       const rows = parsed.rows
         .filter((r: any) => r && typeof r.label === 'string' && Array.isArray(r.values))
@@ -182,10 +200,10 @@ function parseReply(raw: string): { reply: string; comparison?: Comparison } {
       if (parsed.pick && typeof parsed.pick.index === 'number') {
         comparison.pick = { index: parsed.pick.index, reason: String(parsed.pick.reason ?? '') }
       }
-      return { reply: replyText || 'Here is how they compare:', comparison }
+      return { reply: replyText || 'Here is how they compare:', comparison, searchQuery }
     }
   } catch {}
-  return { reply: replyText || raw.trim() }
+  return { reply: replyText || cleanedRaw, searchQuery }
 }
 
 // ── Route ───────────────────────────────────────────────────────────────────
@@ -198,10 +216,11 @@ export async function POST(req: NextRequest) {
     const images: string[] = Array.isArray(body?.images)
       ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:')).slice(0, 8)
       : []
+    const countryCode: string | null = typeof body?.countryCode === 'string' ? body.countryCode.trim().slice(0, 4) || null : null
 
     const hasContent = products.length > 0 || images.length > 0
     if (!question || !hasContent) {
-      return NextResponse.json({ reply: null, comparison: null })
+      return NextResponse.json({ reply: null, comparison: null, foundProducts: null })
     }
 
     const hasImages = images.length > 0
@@ -247,12 +266,26 @@ export async function POST(req: NextRequest) {
       raw = (msg?.content ?? '').trim()
     }
 
-    if (!raw) return NextResponse.json({ reply: null, comparison: null })
+    if (!raw) return NextResponse.json({ reply: null, comparison: null, foundProducts: null })
 
-    const { reply, comparison } = parseReply(raw)
-    return NextResponse.json({ reply, comparison: comparison ?? null })
+    const { reply, comparison, searchQuery } = parseReply(raw)
+
+    let foundProducts: any[] = []
+    if (searchQuery) {
+      try {
+        const results = await GlobalCatalogService.search(
+          searchQuery, null, [], countryCode, true, [], 'trust_desc', 'USD',
+          { fastFirstPage: true }
+        )
+        foundProducts = results.slice(0, 6)
+      } catch (e) {
+        console.error('[stylist] catalog search failed:', e)
+      }
+    }
+
+    return NextResponse.json({ reply, comparison: comparison ?? null, foundProducts: foundProducts.length ? foundProducts : null })
   } catch (e) {
     console.error('[stylist] error:', e)
-    return NextResponse.json({ reply: null, comparison: null })
+    return NextResponse.json({ reply: null, comparison: null, foundProducts: null })
   }
 }
