@@ -924,71 +924,6 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
   ]
 }
 
-function buildSearchLoadingPhases(query: string): StylistLoadingPhase[] {
-  const q = query.toLowerCase()
-  if (/material|fabric|wool|cotton|linen|cashmere|silk|leather|denim|merino|blend/.test(q)) {
-    return [
-      { main: 'Reading your search…', sub: 'Identifying fabric types' },
-      { main: 'Scanning materials…', sub: 'Cross-referencing fiber weights', subsub: 'Natural vs synthetic blends' },
-      { main: 'Curating the selection…', sub: 'Quality & tactile feel', subsub: 'Season & care compatibility' },
-      { main: 'Finalising…', sub: 'Sorting by relevance' },
-    ]
-  }
-  if (/under|budget|affordable|less than|£|\$|€/.test(q)) {
-    return [
-      { main: 'Parsing your budget…', sub: 'Setting price ceiling' },
-      { main: 'Scanning all stores…', sub: 'Filtering by price range', subsub: 'Checking current stock' },
-      { main: 'Ranking best value…', sub: 'Quality-to-price ratio', subsub: 'Independent brand analysis' },
-      { main: 'Finalising…', sub: 'Best picks within budget' },
-    ]
-  }
-  if (/wedding|formal|occasion|event|gala|black.?tie|cocktail/.test(q)) {
-    return [
-      { main: 'Reading the occasion…', sub: 'Dress code & formality level' },
-      { main: 'Scanning formal wear…', sub: 'Silhouette & construction', subsub: 'Fabric quality & drape' },
-      { main: 'Curating event pieces…', sub: 'Stand-out vs understated', subsub: 'Brand aesthetic match' },
-      { main: 'Finalising…', sub: 'Occasion-ready selection' },
-    ]
-  }
-  if (/summer|spring|warm|hot|beach|resort|holiday/.test(q)) {
-    return [
-      { main: 'Reading the season…', sub: 'Warmth & breathability needs' },
-      { main: 'Scanning summer pieces…', sub: 'Lightweight fabrics & cuts', subsub: 'UV & moisture performance' },
-      { main: 'Building the selection…', sub: 'Vacation & resort styles', subsub: 'Color & print direction' },
-      { main: 'Finalising…', sub: 'Ready for warm weather' },
-    ]
-  }
-  if (/winter|autumn|fall|cold|coat|jacket|knitwear|jumper|sweater/.test(q)) {
-    return [
-      { main: 'Reading the season…', sub: 'Warmth & layering needs' },
-      { main: 'Scanning outerwear…', sub: 'Insulation & construction', subsub: 'Wind & water resistance' },
-      { main: 'Building the selection…', sub: 'Layer-friendly cuts', subsub: 'Weight & packability' },
-      { main: 'Finalising…', sub: 'Cold-weather essentials' },
-    ]
-  }
-  if (/vintage|second.?hand|archive|deadstock|90s|80s|70s/.test(q)) {
-    return [
-      { main: 'Interpreting the era…', sub: 'Decade & style markers' },
-      { main: 'Scanning independent stores…', sub: 'Archive & deadstock pieces', subsub: 'Condition & authenticity signals' },
-      { main: 'Cross-referencing styles…', sub: 'Silhouette accuracy', subsub: 'Contemporary wearability' },
-      { main: 'Finalising…', sub: 'Curated archive finds' },
-    ]
-  }
-  if (/sustainable|ethical|organic|recycled|eco|conscious/.test(q)) {
-    return [
-      { main: 'Reading your values…', sub: 'Sustainability criteria' },
-      { main: 'Scanning ethical brands…', sub: 'Material sourcing & certifications', subsub: 'Supply chain transparency' },
-      { main: 'Cross-checking credentials…', sub: 'Organic & recycled fibres', subsub: 'Brand ethics score' },
-      { main: 'Finalising…', sub: 'Conscious picks only' },
-    ]
-  }
-  return [
-    { main: 'Reading your search…', sub: 'Parsing intent & style cues' },
-    { main: 'Scanning independent stores…', sub: 'Matching product catalog', subsub: 'Cross-referencing 500+ brands' },
-    { main: 'Ranking results…', sub: 'Relevance & quality scoring', subsub: 'Filtering in-stock only' },
-    { main: 'Almost ready…', sub: 'Curating your selection' },
-  ]
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FromApp({
@@ -1085,10 +1020,6 @@ export default function FromApp({
   const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
   const [stylistSubVis, setStylistSubVis]               = useState(false)
   const [stylistSubSubVis, setStylistSubSubVis]         = useState(false)
-  const [searchLoadingPhases, setSearchLoadingPhases]   = useState<StylistLoadingPhase[]>([])
-  const [searchLoadingStep, setSearchLoadingStep]       = useState(0)
-  const [searchSubVis, setSearchSubVis]                 = useState(false)
-  const [searchSubSubVis, setSearchSubSubVis]           = useState(false)
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
   const stylistFileRef                      = useRef<HTMLInputElement>(null)
   const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
@@ -1423,16 +1354,6 @@ export default function FromApp({
     const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 2700)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
-  useEffect(() => {
-    if (!loading || searchLoadingPhases.length === 0) {
-      setSearchLoadingStep(0); setSearchSubVis(false); setSearchSubSubVis(false); return
-    }
-    setSearchSubVis(false); setSearchSubSubVis(false)
-    const t1 = setTimeout(() => setSearchSubVis(true), 700)
-    const t2 = setTimeout(() => setSearchSubSubVis(true), 1500)
-    const t3 = setTimeout(() => setSearchLoadingStep(s => Math.min(s + 1, searchLoadingPhases.length - 1)), 2000)
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
-  }, [loading, searchLoadingStep, searchLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
@@ -1547,7 +1468,6 @@ export default function FromApp({
     }
     const names = uploadedImages.map(u => u.name).join(' ')
     const q = [input.trim(), names].filter(Boolean).join(' '); if (!q) return
-    setSearchLoadingPhases(buildSearchLoadingPhases(q)); setSearchLoadingStep(0)
     setShowExplore(false); setActiveBrand(null)
     sendMessage(q); setUploaded([]); setInputHint(null)
     if (fileRef.current) fileRef.current.value = ''
@@ -2317,39 +2237,9 @@ export default function FromApp({
             }
 
 
-            {/* Loading — phase text + skeleton image grid */}
+            {/* Loading — skeleton image grid */}
             {loading && (
               <>
-                <div style={{ padding: '18px 16px 14px' }}>
-                  <div key={`smain-${searchLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .22s ease' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: INK, display: 'inline-block', flexShrink: 0, animation: 'fr-bounce 1.1s 0s infinite' }} />
-                    <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 500 }}>
-                      {searchLoadingPhases[searchLoadingStep]?.main ?? 'Searching…'}
-                    </span>
-                  </div>
-                  {searchSubVis && searchLoadingPhases[searchLoadingStep]?.sub && (
-                    <div key={`ssub-${searchLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, paddingLeft: 3, animation: 'fadeUp .2s ease' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                        <div style={{ width: 1, height: 7, background: 'rgba(44,18,6,0.15)' }} />
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: INK3, display: 'inline-block' }} />
-                      </div>
-                      <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
-                        {searchLoadingPhases[searchLoadingStep]?.sub}
-                      </span>
-                    </div>
-                  )}
-                  {searchSubSubVis && searchLoadingPhases[searchLoadingStep]?.subsub && (
-                    <div key={`ssubsub-${searchLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 12, animation: 'fadeUp .2s ease' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                        <div style={{ width: 1, height: 6, background: 'rgba(44,18,6,0.10)' }} />
-                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(44,18,6,0.25)', display: 'inline-block' }} />
-                      </div>
-                      <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.7 }}>
-                        {searchLoadingPhases[searchLoadingStep]?.subsub}
-                      </span>
-                    </div>
-                  )}
-                </div>
                 <div className="fr-grid">
                   {Array.from({ length: 12 }).map((_, i) => (
                     <div key={i} style={{
