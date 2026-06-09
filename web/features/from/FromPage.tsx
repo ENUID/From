@@ -1010,10 +1010,15 @@ export default function FromApp({
 
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[] }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string }
+  type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistOpen, setStylistOpen]       = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>([])
+  const [stylistHistory, setStylistHistory] = useState<StylistHistoryEntry[]>([])
+  const [stylistCtxMenu, setStylistCtxMenu] = useState<{ id: string; label: string; x: number; y: number; above: boolean } | null>(null)
+  const [stylistRenameId, setStylistRenameId]   = useState<string | null>(null)
+  const [stylistRenameVal, setStylistRenameVal] = useState('')
   const [stylistInput, setStylistInput]       = useState('')
   const [stylistLoading, setStylistLoading]   = useState(false)
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
@@ -1074,7 +1079,12 @@ export default function FromApp({
     setStylistInput('')
     const capturedImages = images.map(i => i.url)
     setStylistImages([])
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined }])
+    const msgId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    setStylistHistory(prev => [
+      { id: msgId, label: question.slice(0, 80), createdAt: Date.now() },
+      ...prev,
+    ].slice(0, 30))
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, id: msgId, images: capturedImages.length > 0 ? capturedImages : undefined }])
     setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0))
     setStylistLoadingStep(0)
     setStylistLoading(true)
@@ -1119,6 +1129,22 @@ export default function FromApp({
     sendStylist(query, products, [])
   }
 
+  function deleteStylistEntry(id: string) {
+    setStylistHistory(prev => prev.filter(h => h.id !== id))
+    setStylistMsgs(prev => {
+      const idx = prev.findIndex(m => m.id === id)
+      if (idx === -1) return prev
+      // Remove the user message and its following assistant response
+      const next = prev[idx + 1]
+      if (next && next.role === 'assistant') return [...prev.slice(0, idx), ...prev.slice(idx + 2)]
+      return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+    })
+  }
+
+  function renameStylistEntry(id: string, newLabel: string) {
+    setStylistHistory(prev => prev.map(h => h.id === id ? { ...h, label: newLabel } : h))
+  }
+
   // Glass interaction states
   const [barPressed, setBarPressed]   = useState(false)
   const [sendPressed, setSendPressed] = useState(false)
@@ -1131,8 +1157,9 @@ export default function FromApp({
   // Specular light position tracking
   const light = useLight(barRef)
 
-  const nameRef       = useRef<HTMLInputElement>(null)
-  const renameRef     = useRef<HTMLInputElement>(null)
+  const nameRef          = useRef<HTMLInputElement>(null)
+  const renameRef        = useRef<HTMLInputElement>(null)
+  const stylistRenameRef = useRef<HTMLInputElement>(null)
   const taRef         = useRef<HTMLTextAreaElement>(null)
   const fileRef       = useRef<HTMLInputElement>(null)
   const dragHandleRef = useRef<HTMLDivElement>(null)
@@ -1335,6 +1362,7 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
+  useEffect(() => { if (stylistRenameId && stylistRenameRef.current) { stylistRenameRef.current.focus(); stylistRenameRef.current.select() } }, [stylistRenameId])
   // Keep the stylist conversation scrolled to the latest message
   useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading])
 
@@ -2028,6 +2056,66 @@ export default function FromApp({
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
               {sidebarView === 'nav' ? (
                 <>
+                  {/* ── Fabrics chat history ── */}
+                  {stylistHistory.length > 0 && (
+                    <>
+                      <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 8px", opacity: .5 }}>Fabrics</p>
+                      {stylistHistory.slice(0, 10).map(h => (
+                        <div key={h.id} className="fr-hi"
+                          style={{ gap: 8, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                          onPointerDown={e => {
+                            wasLongPress.current = false
+                            const { clientX, clientY } = e
+                            longPressTimer.current = setTimeout(() => {
+                              wasLongPress.current = true
+                              const menuW = 160; const menuH = 96
+                              const above = clientY + 8 + menuH > window.innerHeight
+                              const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
+                              const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                              ctxMenuOpenAt.current = Date.now()
+                              setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
+                            }, 550)
+                          }}
+                          onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                          onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                          onContextMenu={e => {
+                            e.preventDefault()
+                            const menuW = 160; const menuH = 96
+                            const above = e.clientY + 8 + menuH > window.innerHeight
+                            const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
+                            const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                            ctxMenuOpenAt.current = Date.now()
+                            setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
+                          }}
+                          onClick={() => {
+                            if (wasLongPress.current) { wasLongPress.current = false; return }
+                            setStylistOpen(true); setSidebar(false)
+                          }}
+                        >
+                          <FabricsIcon size={12} color={INK3} />
+                          {stylistRenameId === h.id ? (
+                            <input ref={stylistRenameRef} value={stylistRenameVal}
+                              onClick={e => e.stopPropagation()}
+                              onChange={e => setStylistRenameVal(e.target.value)}
+                              onBlur={() => { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }}
+                              onKeyDown={e => {
+                                e.stopPropagation()
+                                if (e.key === 'Enter') { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }
+                                if (e.key === 'Escape') setStylistRenameId(null)
+                              }}
+                              style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
+                                fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
+                                transform: 'scale(0.8125)', transformOrigin: 'left center' }}
+                            />
+                          ) : (
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{h.label}</span>
+                          )}
+                        </div>
+                      ))}
+                      <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 8px 8px" }} />
+                    </>
+                  )}
+
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
                   {searchHistory.length === 0
                     ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
@@ -2526,6 +2614,61 @@ export default function FromApp({
                     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                     <path d="M10 11v6M14 11v6"/>
                     <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Fabrics chat long-press context menu ── */}
+          {stylistCtxMenu && (
+            <>
+              <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 500) return; setStylistCtxMenu(null) }}
+                style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
+              <div style={{
+                position: 'fixed',
+                left: stylistCtxMenu.x, top: stylistCtxMenu.y,
+                zIndex: 9001,
+                width: 160,
+                borderRadius: 12,
+                overflow: 'hidden',
+                background: 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(245,245,248,0.94) 100%)',
+                boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
+                border: '0.5px solid rgba(180,180,190,0.35)',
+                animation: 'ctxIn 0.22s cubic-bezier(0.34,1.36,0.64,1)',
+                transformOrigin: stylistCtxMenu.above ? 'bottom left' : 'top left',
+              }}>
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+                  background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
+                {/* Rename */}
+                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; setStylistRenameId(stylistCtxMenu.id); setStylistRenameVal(stylistCtxMenu.label); setStylistCtxMenu(null) }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>Rename</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </div>
+                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
+                {/* Delete */}
+                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; deleteStylistEntry(stylistCtxMenu.id); setStylistCtxMenu(null) }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
+                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+                    fontSize: 14, fontWeight: 400, color: '#FF3B30' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.08)')}
+                  onPointerUp={e => (e.currentTarget.style.background = '')}
+                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
+                  <span>Delete</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                   </svg>
                 </div>
               </div>
