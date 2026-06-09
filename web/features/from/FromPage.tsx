@@ -1700,7 +1700,7 @@ export default function FromApp({
         }
 
         /* ── Header ── */
-        .fr-header{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
+        .fr-header{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 6px;flex-shrink:0;position:relative;z-index:100;background:#ffffff;}
 
         /* ── Content area (body + floating bar share this space) ── */
         .fr-content{flex:1;position:relative;overflow:hidden;}
@@ -2237,30 +2237,6 @@ export default function FromApp({
             }
 
 
-            {/* Loading — skeleton image grid */}
-            {loading && (
-              <>
-                <div className="fr-grid">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div key={i} style={{
-                      aspectRatio: '3/4',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      background: '#e8e4de',
-                    }}>
-                      {/* Shimmer: fade from base color → light → base color — no dark edges */}
-                      <div style={{
-                        position: 'absolute', top: 0, bottom: 0,
-                        width: '60%',
-                        background: 'linear-gradient(90deg, #e8e4de 0%, #edeae5 35%, #f0ece7 50%, #edeae5 65%, #e8e4de 100%)',
-                        animation: `sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,
-                        willChange: 'transform',
-                      }} />
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
 
             {/* Empty state */}
             {showEmpty && !loading && !showExplore && (
