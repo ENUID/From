@@ -843,6 +843,7 @@ export default function FromApp({
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
+  const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
   const [tagText, setTagText]           = useState(TAGLINES[0])  // SSR-safe hero line; randomised client-side in effect
   const [tagVis, setTagVis]             = useState(true)
@@ -1038,6 +1039,23 @@ export default function FromApp({
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Track keyboard height via visualViewport so the search bar and stylist
+  // sheet always sit above the on-screen keyboard on iOS / Android.
+  useEffect(() => {
+    const vv = (window as any).visualViewport
+    if (!vv) return
+    const update = () => {
+      const kbH = window.innerHeight - vv.height - vv.offsetTop
+      setKeyboardOffset(Math.max(0, Math.round(kbH)))
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
   }, [])
 
   // Block native browser context menu (image long-press sheet in Chrome/Brave/Firefox)
@@ -2097,7 +2115,7 @@ export default function FromApp({
           </div>
 
           {/* ── Search bar — floats above content ── */}
-          <div className="fr-bar-wrap">
+          <div className="fr-bar-wrap" style={keyboardOffset > 0 ? { bottom: keyboardOffset } : undefined}>
 
             {/* Spring-animated wrapper */}
             <div style={{ transform: `scale(${barScale})`, transformOrigin: "center bottom", willChange: "transform" }}
@@ -2323,9 +2341,9 @@ export default function FromApp({
           {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
           {stylistOpen && (
             <div onClick={() => setStylistOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
+              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', paddingBottom: keyboardOffset } as React.CSSProperties}>
               <div onClick={e => e.stopPropagation()}
-                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '90vh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)' }}>
+                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '90dvh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)' }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', borderBottom: `1px solid ${BRD}`, flexShrink: 0 }}>
@@ -2419,7 +2437,7 @@ export default function FromApp({
                   <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
                     placeholder="Ask your stylist…"
-                    style={{ flex: 1, fontFamily: SANS, fontSize: 14, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
+                    style={{ flex: 1, fontFamily: SANS, fontSize: 16, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
                   <button onClick={() => sendStylist(stylistInput)} disabled={!stylistInput.trim() || stylistLoading}
                     style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: stylistInput.trim() && !stylistLoading ? INK : 'rgba(44,18,6,.2)', color: '#fff', cursor: stylistInput.trim() && !stylistLoading ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
