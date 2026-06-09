@@ -773,21 +773,65 @@ function getCheckoutUrl(p: Product, size: string | null, color: string | null): 
   catch { return p.store_url }
 }
 
-// ── Stylist text renderer — converts **bold** to <strong>, strips list markers ─
-function renderStylistText(text: string): React.ReactNode {
+// ── Stylist text renderer — bold, list-strip, and [PRODUCT:N] tappable chips ──
+function renderStylistText(
+  text: string,
+  products: Product[],
+  liveRates: ExchangeRates,
+  onProductClick: (p: Product) => void
+): React.ReactNode {
   const cleaned = text
-    .replace(/^\s*\d+\.\s+/gm, '')   // strip "1. " list markers
-    .replace(/^\s*[-•]\s+/gm, '')    // strip "- " / "• " bullet markers
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*[-•]\s+/gm, '')
     .trim()
-  const parts = cleaned.split(/\*\*([^*\n]+)\*\*/g)
-  if (parts.length === 1) return cleaned
+
+  // Split on [PRODUCT:N] tokens
+  const segments = cleaned.split(/(\[PRODUCT:\d+\])/g)
+
   return (
     <>
-      {parts.map((part, i) =>
-        i % 2 === 1
-          ? <strong key={i} style={{ fontWeight: 700 }}>{part}</strong>
-          : part
-      )}
+      {segments.map((seg, si) => {
+        const pm = seg.match(/^\[PRODUCT:(\d+)\]$/)
+        if (pm) {
+          const idx = parseInt(pm[1], 10)
+          const p = products[idx]
+          if (!p) return null
+          const imgUrl = p.media?.[0]?.url || p.image_url || ''
+          return (
+            <button key={si} onClick={() => onProductClick(p)} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: 'rgba(44,18,6,0.04)', border: '1px solid rgba(44,18,6,0.10)',
+              borderRadius: 12, padding: '8px 12px 8px 8px',
+              cursor: 'pointer', marginTop: 10, textAlign: 'left', width: '100%',
+              transition: 'background .14s',
+            }}
+              onPointerEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.08)')}
+              onPointerLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.04)')}
+            >
+              <div style={{ width: 44, height: 56, borderRadius: 8, overflow: 'hidden', background: '#e8e4de', flexShrink: 0 }}>
+                {imgUrl && <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{p.title}</div>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 2 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                <div style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, marginTop: 3, opacity: 0.7 }}>Tap to view →</div>
+              </div>
+            </button>
+          )
+        }
+        // Regular text — apply **bold** parsing
+        const boldParts = seg.split(/\*\*([^*\n]+)\*\*/g)
+        if (boldParts.length === 1) return seg || null
+        return (
+          <span key={si}>
+            {boldParts.map((bp, bi) =>
+              bi % 2 === 1
+                ? <strong key={bi} style={{ fontWeight: 700 }}>{bp}</strong>
+                : bp || null
+            )}
+          </span>
+        )
+      })}
     </>
   )
 }
@@ -2514,7 +2558,7 @@ export default function FromApp({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', borderBottom: `1px solid ${BRD}`, flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill={INK} stroke="none"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
-                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Your Stylist</span>
+                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Fabrics</span>
                   </div>
                   <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -2568,7 +2612,7 @@ export default function FromApp({
                         color: m.role === 'user' ? '#fff' : INK2,
                         borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
                         whiteSpace: 'pre-wrap' }}>
-                        {m.role === 'assistant' ? renderStylistText(m.content) : m.content}
+                        {m.role === 'assistant' ? renderStylistText(m.content, stylistProducts, liveRates, (p) => { setStylistOpen(false); setSelected(p) }) : m.content}
                       </div>
                       {m.comparison && m.comparison.rows.length > 0 && (
                         <div style={{ marginTop: 10, width: '100%', border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>
