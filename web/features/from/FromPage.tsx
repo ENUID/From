@@ -958,7 +958,51 @@ export default function FromApp({
   // fires a synthetic click on mobile — we ignore backdrop clicks within 500ms of
   // opening so the menu doesn't vanish the instant it appears.
   const ctxMenuOpenAt  = useRef(0)
+  // Pointer-based long-press for product cards and bag items.
+  // onContextMenu doesn't fire inside scrollable containers on iOS Safari,
+  // so we use a 500ms timer started on pointerdown instead.
+  const pressTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pressStartX = useRef(0)
+  const pressStartY = useRef(0)
 
+  function cancelPressTimer() {
+    if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null }
+  }
+
+  // Shared pointer handlers for any card that should show a long-press menu.
+  // onContextMenu is kept only to block the browser's default; the actual menu
+  // is driven by a 500ms pointerdown timer so it works inside scroll containers
+  // on iOS Safari (where contextmenu often doesn't fire).
+  function makePressHandlers(onLongPress: (x: number, y: number) => void) {
+    return {
+      onContextMenu: (e: React.MouseEvent) => {
+        e.preventDefault()
+        // Desktop right-click: fire immediately (no need to wait 500ms).
+        if ((e as any).pointerType !== 'touch') {
+          cancelPressTimer()
+          onLongPress(e.clientX, e.clientY)
+        }
+      },
+      onPointerDown: (e: React.PointerEvent) => {
+        if (e.pointerType === 'mouse') return  // handled by onContextMenu
+        pressStartX.current = e.clientX
+        pressStartY.current = e.clientY
+        cancelPressTimer()
+        pressTimer.current = setTimeout(() => {
+          pressTimer.current = null
+          onLongPress(pressStartX.current, pressStartY.current)
+        }, 500)
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        if (!pressTimer.current) return
+        const dx = e.clientX - pressStartX.current
+        const dy = e.clientY - pressStartY.current
+        if (dx * dx + dy * dy > 100) cancelPressTimer()  // moved >10px — it's a scroll
+      },
+      onPointerUp:     () => cancelPressTimer(),
+      onPointerCancel: () => cancelPressTimer(),
+    }
+  }
 
   // Search results
   const lastProductMsg      = [...messages].reverse().find(m => m.role === 'assistant' && m.products?.length)
@@ -1768,16 +1812,15 @@ export default function FromApp({
                     : savedProducts.map(p => (
                         <div key={p.id} className="fr-hi"
                           style={{ gap: 10, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
-                          onContextMenu={e => {
-                            e.preventDefault()
+                          {...makePressHandlers((x, y) => {
                             wasLongPress.current = true
                             const menuW = 190; const menuH = 90
-                            const above = e.clientY + 8 + menuH > window.innerHeight
-                            const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
-                            const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                            const above = y + 8 + menuH > window.innerHeight
+                            const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                            const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
                             ctxMenuOpenAt.current = Date.now()
-                            setBagCtxMenu({ product: p, x, y, above })
-                          }}
+                            setBagCtxMenu({ product: p, x: mx, y: my, above })
+                          })}
                           onClick={() => {
                             if (wasLongPress.current) { wasLongPress.current = false; return }
                             setSelected(p); setSidebar(false)
@@ -1932,16 +1975,15 @@ export default function FromApp({
                 ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => (
                     <div key={p.id} className="fr-cell"
                       role="button" tabIndex={0}
-                      onContextMenu={e => {
-                        e.preventDefault()
+                      {...makePressHandlers((x, y) => {
                         productWasLong.current = true
                         const menuW = 200; const menuH = 160
-                        const above = e.clientY + 8 + menuH > window.innerHeight
-                        const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
-                        const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                        const above = y + 8 + menuH > window.innerHeight
+                        const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                        const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
                         ctxMenuOpenAt.current = Date.now()
-                        setProductCtxMenu({ product: p, x, y, above })
-                      }}
+                        setProductCtxMenu({ product: p, x: mx, y: my, above })
+                      })}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
@@ -1993,16 +2035,15 @@ export default function FromApp({
                   {searchProducts.map(p => (
                     <div key={p.id} className="fr-cell"
                       role="button" tabIndex={0}
-                      onContextMenu={e => {
-                        e.preventDefault()
+                      {...makePressHandlers((x, y) => {
                         productWasLong.current = true
                         const menuW = 200; const menuH = 160
-                        const above = e.clientY + 8 + menuH > window.innerHeight
-                        const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
-                        const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                        const above = y + 8 + menuH > window.innerHeight
+                        const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                        const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
                         ctxMenuOpenAt.current = Date.now()
-                        setProductCtxMenu({ product: p, x, y, above })
-                      }}
+                        setProductCtxMenu({ product: p, x: mx, y: my, above })
+                      })}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
