@@ -38,37 +38,64 @@ function productBlock(p: StylistProduct, i: number): string {
 
 const SYSTEM = `You are "From" — a warm, sharp personal stylist with genuinely good taste. The shopper is looking at specific product(s) and wants your help understanding or comparing them.
 
-RULES:
-- Answer their question directly and conversationally in 1–4 sentences. Be specific and useful, never generic filler.
-- Ground every claim in the PRODUCT DATA provided. NEVER invent materials, measurements, or features that aren't in the data. If something isn't stated, say you can't see it listed rather than guessing.
-- Have a point of view — when asked which to pick, make a confident, reasoned recommendation.
-- Mirror the language the shopper writes in.
+RESPONSE RULES:
+- Be direct and conversational. Answer in 1–3 sentences — no filler, no preambles like "Of course!" or "Great question!".
+- Ground every claim in the PRODUCT DATA provided. If a detail isn't in the data, say you can't see it listed. Never invent specs, materials, or features.
+- Have a clear point of view — when asked which to buy, make a confident, decisive recommendation.
+- Mirror the shopper's language.
+- NEVER output raw JSON, code, markdown, or any structured data in your text reply. Plain conversational sentences only.
 
-VISUAL COMPARISON:
-- When there are 2+ products AND the shopper is comparing them or asking which to choose, end your reply with ONE comparison block on its own final line, in EXACTLY this format:
-[COMPARE: {"rows":[{"label":"Price","values":["…","…"]},{"label":"Material","values":["…","…"]}],"pick":{"index":0,"reason":"short reason"}}]
-- Include only rows that matter to the question or where the products genuinely differ (e.g. Price, Material, Fit, Style, Best for). Keep each value short (a few words). "values" must have one entry per product, in order.
-- Omit "pick" if no single product is clearly better for their need.
-- If there is only ONE product, or the question is general (e.g. "what is merino wool?"), DO NOT output a comparison block — just answer in text.`
+VISUAL COMPARISON (2+ products, comparison or choice question only):
+- After your text reply, output ONE comparison block on its own final line, exactly:
+[COMPARE: {"rows":[{"label":"Price","values":["£40","£95"]},{"label":"Material","values":["Cotton","Linen"]}],"pick":{"index":1,"reason":"Better quality for the price"}}]
+- STRICT RULES — violating any of these will break the UI:
+  * 2 to 4 rows max. Only include rows where values differ or that directly answer the question (e.g. Price, Material, Fit, Style, Best for).
+  * Each "values" array must have exactly one short entry (≤5 words) per product, in order.
+  * Use "—" only for truly unknown values. Never use "can't pick", "unspecified", "n/a", or repeat the same filler across all products.
+  * "pick": include index (0 = first product, 1 = second, etc.) and a short, specific reason ONLY if one product is clearly better.
+  * Output this block EXACTLY ONCE at the very end of your response. Nothing after it.
+- Do NOT output a comparison for single-product questions or general knowledge questions.`
 
 function parseReply(raw: string): { reply: string; comparison?: Comparison } {
-  const m = raw.match(/\[COMPARE:\s*(\{[\s\S]*\})\s*\]\s*$/)
-  if (!m) return { reply: raw.trim() }
-  const reply = raw.slice(0, m.index).trim()
+  const compareStart = raw.indexOf('[COMPARE:')
+  if (compareStart === -1) return { reply: raw.trim() }
+
+  // Walk forward from the opening brace, counting depth, to find the matching }
+  let depth = 0
+  let jsonStart = -1
+  let jsonEnd = -1
+  for (let i = compareStart + 9; i < raw.length; i++) {
+    const ch = raw[i]
+    if (ch === '{') {
+      if (jsonStart === -1) jsonStart = i
+      depth++
+    } else if (ch === '}') {
+      depth--
+      if (depth === 0) { jsonEnd = i; break }
+    }
+  }
+
+  // Always strip the [COMPARE:...] block from visible text — even if JSON fails to parse
+  const blockEnd = jsonEnd !== -1 ? raw.indexOf(']', jsonEnd) + 1 : raw.length
+  const replyText = (raw.slice(0, compareStart) + raw.slice(blockEnd)).replace(/\s+$/, '').trim()
+
+  if (jsonStart === -1 || jsonEnd === -1) return { reply: replyText || raw.trim() }
+
   try {
-    const parsed = JSON.parse(m[1])
+    const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1))
     if (Array.isArray(parsed?.rows) && parsed.rows.length > 0) {
       const rows = parsed.rows
         .filter((r: any) => r && typeof r.label === 'string' && Array.isArray(r.values))
+        .slice(0, 4)
         .map((r: any) => ({ label: String(r.label), values: r.values.map((v: any) => String(v ?? '')) }))
       const comparison: Comparison = { rows }
       if (parsed.pick && typeof parsed.pick.index === 'number') {
         comparison.pick = { index: parsed.pick.index, reason: String(parsed.pick.reason ?? '') }
       }
-      return { reply: reply || 'Here is how they compare:', comparison }
+      return { reply: replyText || 'Here is how they compare:', comparison }
     }
   } catch {}
-  return { reply: reply || raw.trim() }
+  return { reply: replyText || raw.trim() }
 }
 
 export async function POST(req: NextRequest) {

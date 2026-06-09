@@ -2163,11 +2163,11 @@ export default function FromApp({
                     } as React.CSSProperties}>
                       {barProducts.map(p => (
                         <div key={p.id} style={{ position: 'relative', flexShrink: 0 }}>
-                          <div style={{ width: 56, height: 70, borderRadius: 10, overflow: 'hidden', background: BG2, border: '1px solid rgba(0,0,0,0.08)' }}>
+                          <div style={{ width: 44, height: 56, borderRadius: 8, overflow: 'hidden', background: BG2, border: '1px solid rgba(0,0,0,0.08)' }}>
                             {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
                           </div>
                           <button type="button" onClick={() => removeBarProduct(p.id)}
-                            style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#1E1A16', border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: '#1E1A16', border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
                             <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.6" strokeLinecap="round"/></svg>
                           </button>
                         </div>
