@@ -157,6 +157,31 @@ function seededShuffle(arr: string[]): string[] {
 const SHUFFLED_PALETTE = seededShuffle(LOGO_PALETTE)
 
 // ── FROM wordmark ─────────────────────────────────────────────────────────────
+function FabricsIcon({ size = 18, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <clipPath id="fwc">
+          <circle cx="12" cy="12" r="9.6"/>
+        </clipPath>
+      </defs>
+      <circle cx="12" cy="12" r="9.6" stroke={color} strokeWidth="1.3" fill="none"/>
+      <g clipPath="url(#fwc)" stroke={color} strokeWidth="1.05" strokeLinecap="butt">
+        <line x1="5.5" y1="2" x2="5.5" y2="22"/>
+        <line x1="7.8" y1="2" x2="7.8" y2="22"/>
+        <line x1="10.1" y1="2" x2="10.1" y2="22"/>
+        <line x1="12.4" y1="2" x2="12.4" y2="22"/>
+        <line x1="14.7" y1="2" x2="14.7" y2="22"/>
+        <line x1="17" y1="2" x2="17" y2="22"/>
+        <line x1="19.3" y1="2" x2="19.3" y2="22"/>
+        <line x1="2" y1="14.2" x2="22" y2="14.2"/>
+        <line x1="2" y1="16.5" x2="22" y2="16.5"/>
+        <line x1="2" y1="18.8" x2="22" y2="18.8"/>
+      </g>
+    </svg>
+  )
+}
+
 function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.25), userSelect: 'none', transition: 'color 2.4s ease' }}>
@@ -2072,9 +2097,7 @@ export default function FromApp({
                       {stylistMsgs.filter(m => m.role === 'user').slice(-5).reverse().map((m, i) => (
                         <div key={i} className="fr-hi" onClick={() => { setStylistOpen(true); setSidebar(false) }}
                           style={{ gap: 8 }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                          </svg>
+                          <FabricsIcon size={12} color={INK3} />
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.content}</span>
                         </div>
                       ))}
@@ -2688,7 +2711,7 @@ export default function FromApp({
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', borderBottom: `1px solid ${BRD}`, flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill={INK} stroke="none"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+                    <FabricsIcon size={17} color={INK} />
                     <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Fabrics</span>
                   </div>
                   <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
@@ -3107,9 +3130,7 @@ export default function FromApp({
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Ask Fabrics</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                  </svg>
+                  <FabricsIcon size={14} color="rgba(60,60,67,0.6)" />
                 </div>
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
                 {/* Remove from bag */}
@@ -3165,9 +3186,7 @@ export default function FromApp({
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Ask Fabrics</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                  </svg>
+                  <FabricsIcon size={14} color="rgba(60,60,67,0.6)" />
                 </div>
 
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
