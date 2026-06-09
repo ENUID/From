@@ -954,6 +954,10 @@ export default function FromApp({
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasLongPress   = useRef(false)
   const productWasLong = useRef(false)
+  // Timestamp when a context menu last opened. The finger-lift after a long-press
+  // fires a synthetic click on mobile — we ignore backdrop clicks within 500ms of
+  // opening so the menu doesn't vanish the instant it appears.
+  const ctxMenuOpenAt  = useRef(0)
 
 
   // Search results
@@ -1728,6 +1732,7 @@ export default function FromApp({
                               const above = clientY + 8 + menuH > window.innerHeight
                               const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
                               const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                              ctxMenuOpenAt.current = Date.now()
                               setCtxMenu({ id: h.id, query: h.query, x, y, above })
                             }, 550)
                           }}
@@ -1770,6 +1775,7 @@ export default function FromApp({
                             const above = e.clientY + 8 + menuH > window.innerHeight
                             const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
                             const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                            ctxMenuOpenAt.current = Date.now()
                             setBagCtxMenu({ product: p, x, y, above })
                           }}
                           onClick={() => {
@@ -1933,6 +1939,7 @@ export default function FromApp({
                         const above = e.clientY + 8 + menuH > window.innerHeight
                         const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
                         const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                        ctxMenuOpenAt.current = Date.now()
                         setProductCtxMenu({ product: p, x, y, above })
                       }}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
@@ -1993,6 +2000,7 @@ export default function FromApp({
                         const above = e.clientY + 8 + menuH > window.innerHeight
                         const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
                         const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                        ctxMenuOpenAt.current = Date.now()
                         setProductCtxMenu({ product: p, x, y, above })
                       }}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
@@ -2157,7 +2165,7 @@ export default function FromApp({
           {ctxMenu && (
             <>
               {/* Dismiss — invisible tap target, no blur or dim on background */}
-              <div onClick={() => setCtxMenu(null)}
+              <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 500) return; setCtxMenu(null) }}
                 style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
 
               {/* Glass menu — no backdrop-filter so nothing behind it blurs */}
@@ -2588,7 +2596,7 @@ export default function FromApp({
           {/* ── Bag item long-press menu — Ask stylist + Remove ── */}
           {bagCtxMenu && (
             <>
-              <div onClick={() => { setBagCtxMenu(null); wasLongPress.current = false }} style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
+              <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 500) return; setBagCtxMenu(null); wasLongPress.current = false }} style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
               <div style={{
                 position: 'fixed', left: bagCtxMenu.x, top: bagCtxMenu.y, zIndex: 9001,
                 width: 190, borderRadius: 12, overflow: 'hidden',
@@ -2640,7 +2648,7 @@ export default function FromApp({
           {/* ── Product card long-press context menu — Liquid Glass ── */}
           {productCtxMenu && (
             <>
-              <div onClick={() => { setProductCtxMenu(null); productWasLong.current = false }}
+              <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 500) return; setProductCtxMenu(null); productWasLong.current = false }}
                 style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
               <div style={{
                 position: 'fixed',
