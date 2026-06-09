@@ -768,6 +768,62 @@ function getCheckoutUrl(p: Product, size: string | null, color: string | null): 
   catch { return p.store_url }
 }
 
+// ── Stylist loading phases — contextual search animation ─────────────────────
+type StylistLoadingPhase = { main: string; sub: string; subsub?: string }
+
+function buildStylistLoadingPhases(question: string, hasImages: boolean): StylistLoadingPhase[] {
+  const q = question.toLowerCase()
+  if (hasImages) {
+    return [
+      { main: 'Reading your photo…', sub: 'Identifying garments & colors' },
+      { main: 'Analysing tones & textures…', sub: 'Color harmony check', subsub: 'Warm vs cool undertones' },
+      { main: 'Building recommendations…', sub: 'Matching to your pieces' },
+    ]
+  }
+  if (/compar|which.*better|vs\b|prefer|choose|pick|best one/.test(q)) {
+    const isMaterial = /material|fabric|wool|cotton|cashmere|linen|silk/.test(q)
+    const isColor    = /color|colour|tone|shade/.test(q)
+    return [
+      { main: 'Comparing the pieces…', sub: isMaterial ? 'Reading fabric differences' : isColor ? 'Checking color contrast' : 'Style side-by-side' },
+      { main: 'Weighing the details…', sub: 'Quality & aesthetic factors', subsub: 'Checking which suits you best' },
+      { main: 'Forming a verdict…', sub: 'Final recommendation' },
+    ]
+  }
+  if (/color|colour|combination|match|go with|pair|wear with|complement/.test(q)) {
+    return [
+      { main: 'Thinking about color…', sub: 'Checking tonal harmony' },
+      { main: 'Testing combinations…', sub: 'Contrast, balance & warmth', subsub: 'Color wheel logic applied' },
+      { main: 'Building the palette…', sub: 'Proportion & color flow' },
+    ]
+  }
+  if (/material|fabric|wool|cotton|linen|cashmere|silk|leather|blend/.test(q)) {
+    return [
+      { main: 'Reading the fabric…', sub: 'Material composition' },
+      { main: 'Checking quality & care…', sub: 'Texture & wearability', subsub: 'Season & occasion suitability' },
+      { main: 'Forming a view…', sub: 'Comfort vs style balance' },
+    ]
+  }
+  if (/outfit|look|style|occasion|event|wear|dress|casual|formal|weekend|work/.test(q)) {
+    return [
+      { main: 'Reading the silhouette…', sub: 'Fit & proportion' },
+      { main: 'Checking occasion fit…', sub: 'Style level & context', subsub: 'Volume & structure balance' },
+      { main: 'Styling the look…', sub: 'Putting it together' },
+    ]
+  }
+  if (/price|cost|worth|value|expensive|cheap|budget/.test(q)) {
+    return [
+      { main: 'Checking prices…', sub: 'Value analysis' },
+      { main: 'Comparing quality…', sub: 'Craftsmanship vs cost', subsub: 'Long-term wear value' },
+      { main: 'Forming a recommendation…', sub: 'Best for your budget' },
+    ]
+  }
+  return [
+    { main: 'Reading the pieces…', sub: 'Product details & context' },
+    { main: 'Thinking it through…', sub: 'Style logic', subsub: 'Brand & aesthetic context' },
+    { main: 'Almost there…', sub: 'Forming a response' },
+  ]
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FromApp({
   initialShopperContext, initialRates,
@@ -856,9 +912,13 @@ export default function FromApp({
   const [stylistOpen, setStylistOpen]       = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>([])
-  const [stylistInput, setStylistInput]     = useState('')
-  const [stylistLoading, setStylistLoading] = useState(false)
-  const stylistScrollRef                    = useRef<HTMLDivElement>(null)
+  const [stylistInput, setStylistInput]       = useState('')
+  const [stylistLoading, setStylistLoading]   = useState(false)
+  const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
+  const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
+  const [stylistSubVis, setStylistSubVis]               = useState(false)
+  const [stylistSubSubVis, setStylistSubSubVis]         = useState(false)
+  const stylistScrollRef                      = useRef<HTMLDivElement>(null)
   const stylistFileRef                      = useRef<HTMLInputElement>(null)
   const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
   // Products attached to the search bar — sending a query with these opens the stylist.
@@ -913,6 +973,8 @@ export default function FromApp({
     const capturedImages = images.map(i => i.url)
     setStylistImages([])
     setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined }])
+    setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0))
+    setStylistLoadingStep(0)
     setStylistLoading(true)
     try {
       const payloadProducts = products.map(p => ({
@@ -1156,6 +1218,23 @@ export default function FromApp({
   useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
   // Keep the stylist conversation scrolled to the latest message
   useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading])
+
+  // Drive the loading phase animation — each step shows main text, then sub fades in,
+  // then sub-sub, then advances to the next phase. Resets cleanly when loading ends.
+  useEffect(() => {
+    if (!stylistLoading || stylistLoadingPhases.length === 0) {
+      setStylistLoadingStep(0)
+      setStylistSubVis(false)
+      setStylistSubSubVis(false)
+      return
+    }
+    setStylistSubVis(false)
+    setStylistSubSubVis(false)
+    const t1 = setTimeout(() => setStylistSubVis(true), 650)
+    const t2 = setTimeout(() => setStylistSubSubVis(true), 1350)
+    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 2150)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+  }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
   useEffect(() => {
     if (taRef.current) {
@@ -2462,12 +2541,12 @@ export default function FromApp({
                           <div style={{ display: 'flex', borderBottom: `1px solid ${BRD}` }}>
                             <div style={{ width: 88, flexShrink: 0 }} />
                             {stylistProducts.map((p, ci) => (
-                              <div key={p.id} style={{ flex: 1, padding: '10px 6px', textAlign: 'center', borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
-                                <div style={{ width: 38, height: 48, margin: '0 auto', borderRadius: 6, overflow: 'hidden', background: BG2 }}>
-                                  {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                              <div key={p.id} style={{ flex: 1, padding: '8px 4px', textAlign: 'center', borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
+                                <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, color: INK2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 3px', lineHeight: 1.3 }}>
+                                  {p.title.replace(/^\d[\d\s\-–—]*/, '').trim().split(' ').slice(0, 3).join(' ') || `${ci + 1}`}
                                 </div>
                                 {m.comparison!.pick?.index === ci && (
-                                  <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: INK, marginTop: 4 }}>Best pick</div>
+                                  <div style={{ display: 'inline-block', fontFamily: SANS, fontSize: 7, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#fff', marginTop: 4, background: INK, borderRadius: 3, padding: '2px 5px' }}>★ Pick</div>
                                 )}
                               </div>
                             ))}
@@ -2492,8 +2571,38 @@ export default function FromApp({
                     </div>
                   ))}
                   {stylistLoading && (
-                    <div style={{ display: 'flex', gap: 5, padding: '4px 2px' }}>
-                      {[0, 1, 2].map(d => <span key={d} style={{ width: 7, height: 7, borderRadius: '50%', background: INK3, animation: `fr-bounce 1.2s ${d * 0.15}s infinite` }} />)}
+                    <div style={{ padding: '6px 2px 14px' }}>
+                      {/* Main phase — key forces re-mount/fade on step change */}
+                      <div key={`main-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .22s ease' }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: INK, display: 'inline-block', flexShrink: 0, animation: 'fr-bounce 1.1s 0s infinite' }} />
+                        <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 500 }}>
+                          {stylistLoadingPhases[stylistLoadingStep]?.main ?? 'Thinking…'}
+                        </span>
+                      </div>
+                      {/* Sub */}
+                      {stylistSubVis && stylistLoadingPhases[stylistLoadingStep]?.sub && (
+                        <div key={`sub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, paddingLeft: 3, animation: 'fadeUp .2s ease' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                            <div style={{ width: 1, height: 7, background: 'rgba(44,18,6,0.15)' }} />
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: INK3, display: 'inline-block' }} />
+                          </div>
+                          <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
+                            {stylistLoadingPhases[stylistLoadingStep]?.sub}
+                          </span>
+                        </div>
+                      )}
+                      {/* Sub-sub */}
+                      {stylistSubSubVis && stylistLoadingPhases[stylistLoadingStep]?.subsub && (
+                        <div key={`subsub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 12, animation: 'fadeUp .2s ease' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                            <div style={{ width: 1, height: 6, background: 'rgba(44,18,6,0.10)' }} />
+                            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(44,18,6,0.25)', display: 'inline-block' }} />
+                          </div>
+                          <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.7 }}>
+                            {stylistLoadingPhases[stylistLoadingStep]?.subsub}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
