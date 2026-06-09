@@ -184,10 +184,42 @@ function parseDirectSearchIntent(message: string, buyerCurrency: string): Search
   const isClothing = CLOTHING_TERMS.some(term => lowerQuery.includes(term))
   const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'price_asc'
 
+  // Build mandatoryConcepts so the filter pipeline enforces gender and garment type
+  const mandatoryConcepts: string[][] = []
+
+  const wantsWomen = /\b(women|woman|womens|ladies|female|girl)\b/i.test(lowerQuery)
+  const wantsMen = /\b(men|man|mens|menswear|male)\b/i.test(lowerQuery) && !wantsWomen
+  if (wantsMen) mandatoryConcepts.push(['men', 'mens', 'man', 'male', 'unisex'])
+  else if (wantsWomen) mandatoryConcepts.push(['women', 'womens', 'woman', 'ladies', 'female'])
+
+  const garmentPatterns: [RegExp, string[]][] = [
+    [/\b(t-?shirt|tee|tees)\b/, ['t-shirt', 'tshirt', 'tee', 'tees']],
+    [/\blinen\b/, ['linen']],
+    [/\bshirt\b/, ['shirt', 'shirts', 'button-up']],
+    [/\b(pants|trousers|chinos)\b/, ['pants', 'trousers', 'chinos']],
+    [/\bshoes?\b/, ['shoe', 'shoes', 'sneaker', 'sneakers', 'boot', 'boots']],
+    [/\bjacket\b/, ['jacket', 'blazer', 'coat']],
+    [/\bdress\b/, ['dress', 'dresses']],
+    [/\b(sweater|jumper|knitwear)\b/, ['sweater', 'jumper', 'knitwear', 'knit']],
+    [/\bshorts\b/, ['shorts']],
+    [/\bskirt\b/, ['skirt', 'skirts']],
+    [/\b(sock|socks)\b/, ['sock', 'socks']],
+    [/\b(boot|boots)\b/, ['boot', 'boots']],
+    [/\bcoat\b/, ['coat', 'overcoat', 'outerwear']],
+    [/\b(bag|bags|tote|backpack)\b/, ['bag', 'bags', 'tote', 'backpack']],
+  ]
+  for (const [pattern, synonyms] of garmentPatterns) {
+    if (pattern.test(lowerQuery)) {
+      mandatoryConcepts.push(synonyms)
+      break
+    }
+  }
+
   return SearchToolSchema.parse({
     searchQuery: expandDirectQuery(query),
     ...parseBudget(message, buyerCurrency),
     isClothing,
+    mandatoryConcepts: mandatoryConcepts.length > 0 ? mandatoryConcepts : undefined,
     sort,
   })
 }
@@ -416,11 +448,12 @@ searchQuery — write a rich, specific product description that captures what th
 - Language: write in the catalog's language (English for English stores; Japanese like "シャツ" for Japanese-catalog stores). Never mix languages.
 - Do NOT use OR operators or synonym padding. One clean, descriptive phrase.
 
-mandatoryConcepts — ALWAYS set this with every hard constraint the user gave, as synonym groups:
-- Product type FIRST, precise: "t-shirt" → ["t-shirt","tee","tshirt"]. "shirt" → ["shirt","button-up","oxford"]. "shoes" → ["shoe","shoes","sneaker","sneakers","boot","boots"].
-- Gender is MANDATORY when stated — it is the #1 cause of wrong results: "men" → ["men","mens","man","male","unisex"]. "women" → ["women","womens","woman","ladies","female"].
+mandatoryConcepts — CRITICAL: these are HARD FILTERS applied at the search service level. Wrong products shown = failure. Set them for EVERY search:
+- Product type is ALWAYS required for any clothing/fashion query. "t-shirt" → ["t-shirt","tee","tshirt"]. "shirt" → ["shirt","button-up","oxford"]. "shoes" → ["shoe","shoes","sneaker","sneakers","boot","boots"]. "linen shirt" → set both ["linen"] AND ["shirt","shirts","button-up"] as separate groups.
+- Gender is MANDATORY when stated (OR inferable from context) — showing wrong gender is the #1 search failure: "men" → ["men","mens","man","male","unisex"]. "women" → ["women","womens","woman","ladies","female"].
+- If query says "men linen shirt", you MUST output: mandatoryConcepts [["men","mens","man","male","unisex"],["linen"],["shirt","shirts","button-up"]] — without this, socks and women's underwear will appear.
 - Colour is MANDATORY when stated: "sky blue" → ["sky blue","light blue","blue"]. "black" → ["black"].
-- Material when stated: "linen" → ["linen"]. "leather" → ["leather","leather"].
+- Material when stated: "linen" → ["linen"]. "leather" → ["leather"].
 - Origin when stated: "Vietnam" → ["vietnam","việt nam","vietnamese"].
 - Size (XL, M, 32) is NEVER a mandatoryConcept — it is a fit detail for checkout, not a search filter.
 - On a brand-new item request, DROP old concepts entirely — only include what the user is asking for now.

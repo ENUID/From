@@ -1060,20 +1060,28 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
       return false;
     }
 
-    // mandatoryConcepts are used for trust_score ranking only, not hard filtering.
-    // Products from verified stores (already filtered by domain above) should not be
-    // excluded just because their title/description is in a different language than
-    // the AI's concept synonyms. The Shopify Catalog API query already handles relevance.
-
     return true;
   });
 
+  // Hard gender filter: when mandatoryConcepts explicitly names a gender,
+  // drop products confirmed to be the opposite gender. Unisex / unlabeled passes.
+  if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
+    const conceptStr = filters.mandatoryConcepts.flat().join(' ').toLowerCase();
+    const wantedGender = detectGender(conceptStr);
+    if (wantedGender === 'men' || wantedGender === 'women') {
+      const opposite: 'men' | 'women' = wantedGender === 'men' ? 'women' : 'men';
+      filtered = filtered.filter(p => {
+        const pText = `${p.title} ${(p.tags || []).join(' ')}`;
+        return detectGender(pText) !== opposite;
+      });
+    }
+  }
+
   // Hard-filter category mismatches. A mismatch trust_score is ≤34 (base 70-94 minus 60 penalty).
-  // Only fall back to including mismatches if they make up the entire result set (niche queries).
+  // Fall back to showing all products ONLY when zero correct-category results exist.
   const MISMATCH_THRESHOLD = 40;
   const matched = filtered.filter(p => (p.trust_score || 0) >= MISMATCH_THRESHOLD);
-  // Keep mismatches only as an absolute last resort — ensures niche/unlabeled stores still return something
-  filtered = matched.length >= 4 ? matched : filtered;
+  filtered = matched.length > 0 ? matched : filtered;
 
   // Brands from the shopper's own country come first, then everything else —
   // each tier still ordered by the chosen sort (relevance/trust/price).
