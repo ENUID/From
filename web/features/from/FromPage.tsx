@@ -2028,19 +2028,6 @@ export default function FromApp({
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
               {sidebarView === 'nav' ? (
                 <>
-                  {stylistMsgs.filter(m => m.role === 'user').length > 0 && (
-                    <>
-                      <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 8px", opacity: .5 }}>Fabrics</p>
-                      {stylistMsgs.filter(m => m.role === 'user').slice(-5).reverse().map((m, i) => (
-                        <div key={i} className="fr-hi" onClick={() => { setStylistOpen(true); setSidebar(false) }}
-                          style={{ gap: 8 }}>
-                          <FabricsIcon size={12} color={INK3} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.content}</span>
-                        </div>
-                      ))}
-                      <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 8px 8px" }} />
-                    </>
-                  )}
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
                   {searchHistory.length === 0
                     ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
@@ -2605,17 +2592,15 @@ export default function FromApp({
                 </div>
 
                 {/* Pinned products */}
-                <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
+                <div style={{ display: 'flex', gap: 6, padding: '8px 14px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
                   {stylistProducts.map(p => (
-                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 80 }}>
-                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
+                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 52 }}>
+                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 52, height: 64, borderRadius: 6, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
                         {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </div>
-                      <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                      <div style={{ fontFamily: SANS, fontSize: 9, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                       {stylistProducts.length > 1 && (
-                        <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 3, right: 3, width: 16, height: 16, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                       )}
                     </div>
