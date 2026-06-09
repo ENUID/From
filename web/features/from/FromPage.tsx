@@ -7,7 +7,7 @@ import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 import { BRAND_NAMES } from '@/lib/stores'
-import { TAGLINES, shuffledIndices } from './taglines'
+import { TAGLINES, WITTY_PLACEHOLDERS, shuffledIndices } from './taglines'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const INK   = "#2C1206"   // dark brown
@@ -1069,6 +1069,7 @@ export default function FromApp({
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
   const [tagText, setTagText]           = useState(TAGLINES[0])  // SSR-safe hero line; randomised client-side in effect
+  const [barPlaceholder, setBarPlaceholder] = useState(WITTY_PLACEHOLDERS[0])
   const [tagVis, setTagVis]             = useState(true)
   const tagOrderRef                     = useRef<number[]>([])
 
@@ -1362,6 +1363,20 @@ export default function FromApp({
     }, 13000)
     return () => window.clearInterval(id)
   }, [homeVisible])
+
+  // Rotate the search bar placeholder every 7s — only when bar is empty + unfocused
+  const [barFocused, setBarFocused] = useState(false)
+  useEffect(() => {
+    if (barFocused || input.length > 0) return
+    const order = shuffledIndices(WITTY_PLACEHOLDERS.length)
+    let pos = 0
+    setBarPlaceholder(WITTY_PLACEHOLDERS[order[pos]])
+    const id = window.setInterval(() => {
+      pos = (pos + 1) % order.length
+      setBarPlaceholder(WITTY_PLACEHOLDERS[order[pos]])
+    }, 7000)
+    return () => window.clearInterval(id)
+  }, [barFocused, input.length])
 
   // Prevent pull-to-refresh when dragging the sheet handle.
   // React touch listeners are passive by default, so we must attach directly.
@@ -2555,8 +2570,10 @@ export default function FromApp({
                   {/* Row 1: input */}
                   <div className="fr-bar-top">
                     <textarea ref={taRef} className="fr-ta" rows={1}
-                      placeholder={inputHint ?? "What are you looking for?"}
+                      placeholder={inputHint ?? barPlaceholder}
                       value={input} onChange={e => setInput(e.target.value)}
+                      onFocus={() => setBarFocused(true)}
+                      onBlur={() => setBarFocused(false)}
                       onKeyDown={kd} disabled={loading} />
                   </div>
 
