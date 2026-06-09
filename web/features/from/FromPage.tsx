@@ -969,38 +969,45 @@ export default function FromApp({
     if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null }
   }
 
-  // Shared pointer handlers for any card that should show a long-press menu.
-  // onContextMenu is kept only to block the browser's default; the actual menu
-  // is driven by a 500ms pointerdown timer so it works inside scroll containers
-  // on iOS Safari (where contextmenu often doesn't fire).
+  // Shared handlers for any card that should show a long-press menu.
+  //
+  // Uses touch events (not pointer events) for mobile because iOS Safari can
+  // cancel pointer events inside scroll containers before 500ms, killing the
+  // timer prematurely. Touch events are not cancelled for stationary holds.
+  // Desktop right-click is handled separately via onContextMenu.
   function makePressHandlers(onLongPress: (x: number, y: number) => void) {
     return {
+      // Desktop right-click — fire immediately, no timer needed.
       onContextMenu: (e: React.MouseEvent) => {
         e.preventDefault()
-        // Desktop right-click: fire immediately (no need to wait 500ms).
         if ((e as any).pointerType !== 'touch') {
           cancelPressTimer()
           onLongPress(e.clientX, e.clientY)
         }
       },
-      onPointerDown: (e: React.PointerEvent) => {
-        if (e.pointerType === 'mouse') return  // handled by onContextMenu
-        pressStartX.current = e.clientX
-        pressStartY.current = e.clientY
+      // Touch long-press (iOS / Android / iPad).
+      onTouchStart: (e: React.TouchEvent) => {
+        const t = e.touches[0]
+        if (!t) return
+        pressStartX.current = t.clientX
+        pressStartY.current = t.clientY
         cancelPressTimer()
         pressTimer.current = setTimeout(() => {
           pressTimer.current = null
           onLongPress(pressStartX.current, pressStartY.current)
         }, 500)
       },
-      onPointerMove: (e: React.PointerEvent) => {
+      onTouchMove: (e: React.TouchEvent) => {
         if (!pressTimer.current) return
-        const dx = e.clientX - pressStartX.current
-        const dy = e.clientY - pressStartY.current
-        if (dx * dx + dy * dy > 100) cancelPressTimer()  // moved >10px — it's a scroll
+        const t = e.touches[0]
+        if (!t) return
+        const dx = t.clientX - pressStartX.current
+        const dy = t.clientY - pressStartY.current
+        // >10px movement means the user is scrolling — cancel the timer.
+        if (dx * dx + dy * dy > 100) cancelPressTimer()
       },
-      onPointerUp:     () => cancelPressTimer(),
-      onPointerCancel: () => cancelPressTimer(),
+      onTouchEnd:    () => cancelPressTimer(),
+      onTouchCancel: () => cancelPressTimer(),
     }
   }
 
