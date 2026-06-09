@@ -1771,10 +1771,11 @@ export default function FromApp({
                             if (wasLongPress.current) { wasLongPress.current = false; return }
                             setSelected(p); setSidebar(false)
                           }}
-                          onPointerDown={e => {
+                          onTouchStart={e => {
+                            const t = e.touches[0]; if (!t) return
                             wasLongPress.current = false
-                            longPressStart.current = { x: e.clientX, y: e.clientY }
-                            const { clientX, clientY } = e
+                            longPressStart.current = { x: t.clientX, y: t.clientY }
+                            const { clientX, clientY } = t
                             longPressTimer.current = setTimeout(() => {
                               wasLongPress.current = true
                               const menuW = 190; const menuH = 90
@@ -1784,14 +1785,14 @@ export default function FromApp({
                               setBagCtxMenu({ product: p, x, y, above })
                             }, LONG_PRESS_MS)
                           }}
-                          onPointerMove={e => {
-                            const s = longPressStart.current
-                            if (s && longPressTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 18) {
+                          onTouchMove={e => {
+                            const t = e.touches[0]; const s = longPressStart.current
+                            if (t && s && longPressTimer.current && Math.hypot(t.clientX - s.x, t.clientY - s.y) > 18) {
                               clearTimeout(longPressTimer.current); longPressTimer.current = null
                             }
                           }}
-                          onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                          onPointerLeave={e => { if (e.pointerType !== 'touch' && longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                          onTouchEnd={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                          onTouchCancel={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
                         >
                           <div style={{ width: 34, height: 42, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: '#e8e8e8' }}>
                             {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
@@ -1943,10 +1944,11 @@ export default function FromApp({
                     <div key={p.id} className="fr-cell"
                       role="button" tabIndex={0}
                       onContextMenu={e => e.preventDefault()}
-                      onPointerDown={e => {
+                      onTouchStart={e => {
+                        const t = e.touches[0]; if (!t) return
                         productWasLong.current = false
-                        productLongStart.current = { x: e.clientX, y: e.clientY }
-                        const { clientX, clientY } = e
+                        productLongStart.current = { x: t.clientX, y: t.clientY }
+                        const { clientX, clientY } = t
                         productLongTimer.current = setTimeout(() => {
                           productWasLong.current = true
                           const menuW = 200; const menuH = 160
@@ -1956,14 +1958,14 @@ export default function FromApp({
                           setProductCtxMenu({ product: p, x, y, above })
                         }, LONG_PRESS_MS)
                       }}
-                      onPointerMove={e => {
-                        const s = productLongStart.current
-                        if (s && productLongTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 18) {
+                      onTouchMove={e => {
+                        const t = e.touches[0]; const s = productLongStart.current
+                        if (t && s && productLongTimer.current && Math.hypot(t.clientX - s.x, t.clientY - s.y) > 18) {
                           clearTimeout(productLongTimer.current); productLongTimer.current = null
                         }
                       }}
-                      onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
-                      onPointerLeave={e => { if (e.pointerType !== 'touch' && productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onTouchEnd={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onTouchCancel={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
@@ -2016,10 +2018,11 @@ export default function FromApp({
                     <div key={p.id} className="fr-cell"
                       role="button" tabIndex={0}
                       onContextMenu={e => e.preventDefault()}
-                      onPointerDown={e => {
+                      onTouchStart={e => {
+                        const t = e.touches[0]; if (!t) return
                         productWasLong.current = false
-                        productLongStart.current = { x: e.clientX, y: e.clientY }
-                        const { clientX, clientY } = e
+                        productLongStart.current = { x: t.clientX, y: t.clientY }
+                        const { clientX, clientY } = t
                         productLongTimer.current = setTimeout(() => {
                           productWasLong.current = true
                           const menuW = 200; const menuH = 160
@@ -2029,14 +2032,14 @@ export default function FromApp({
                           setProductCtxMenu({ product: p, x, y, above })
                         }, LONG_PRESS_MS)
                       }}
-                      onPointerMove={e => {
-                        const s = productLongStart.current
-                        if (s && productLongTimer.current && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 18) {
+                      onTouchMove={e => {
+                        const t = e.touches[0]; const s = productLongStart.current
+                        if (t && s && productLongTimer.current && Math.hypot(t.clientX - s.x, t.clientY - s.y) > 18) {
                           clearTimeout(productLongTimer.current); productLongTimer.current = null
                         }
                       }}
-                      onPointerUp={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
-                      onPointerLeave={e => { if (e.pointerType !== 'touch' && productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onTouchEnd={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
+                      onTouchCancel={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
