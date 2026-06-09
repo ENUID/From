@@ -159,10 +159,15 @@ const SHUFFLED_PALETTE = seededShuffle(LOGO_PALETTE)
 // ── FROM wordmark ─────────────────────────────────────────────────────────────
 function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
   return (
-    <span style={{ fontFamily: SEASON, fontSize: size, fontWeight: 400, color,
-      letterSpacing: '0.03em', lineHeight: 1, display: 'block', userSelect: 'none',
-      transition: 'color 2.4s ease' }}>
-      FROM
+    <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.22), userSelect: 'none', transition: 'color 2.4s ease' }}>
+      <span style={{ fontFamily: SEASON, fontSize: size, fontWeight: 400, color,
+        letterSpacing: '0.03em', lineHeight: 1 }}>
+        FROM
+      </span>
+      <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.46), fontWeight: 300,
+        letterSpacing: '0.13em', color, opacity: 0.38, lineHeight: 1 }}>
+        | BETA
+      </span>
     </span>
   )
 }
