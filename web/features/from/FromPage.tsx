@@ -1766,33 +1766,19 @@ export default function FromApp({
                     : savedProducts.map(p => (
                         <div key={p.id} className="fr-hi"
                           style={{ gap: 10, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
-                          onContextMenu={e => e.preventDefault()}
+                          onContextMenu={e => {
+                            e.preventDefault()
+                            wasLongPress.current = true
+                            const menuW = 190; const menuH = 90
+                            const above = e.clientY + 8 + menuH > window.innerHeight
+                            const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
+                            const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                            setBagCtxMenu({ product: p, x, y, above })
+                          }}
                           onClick={() => {
                             if (wasLongPress.current) { wasLongPress.current = false; return }
                             setSelected(p); setSidebar(false)
                           }}
-                          onTouchStart={e => {
-                            const t = e.touches[0]; if (!t) return
-                            wasLongPress.current = false
-                            longPressStart.current = { x: t.clientX, y: t.clientY }
-                            const { clientX, clientY } = t
-                            longPressTimer.current = setTimeout(() => {
-                              wasLongPress.current = true
-                              const menuW = 190; const menuH = 90
-                              const above = clientY + 8 + menuH > window.innerHeight
-                              const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
-                              const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
-                              setBagCtxMenu({ product: p, x, y, above })
-                            }, LONG_PRESS_MS)
-                          }}
-                          onTouchMove={e => {
-                            const t = e.touches[0]; const s = longPressStart.current
-                            if (t && s && longPressTimer.current && Math.hypot(t.clientX - s.x, t.clientY - s.y) > 18) {
-                              clearTimeout(longPressTimer.current); longPressTimer.current = null
-                            }
-                          }}
-                          onTouchEnd={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                          onTouchCancel={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
                         >
                           <div style={{ width: 34, height: 42, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: '#e8e8e8' }}>
                             {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
@@ -1943,29 +1929,15 @@ export default function FromApp({
                 ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => (
                     <div key={p.id} className="fr-cell"
                       role="button" tabIndex={0}
-                      onContextMenu={e => e.preventDefault()}
-                      onTouchStart={e => {
-                        const t = e.touches[0]; if (!t) return
-                        productWasLong.current = false
-                        productLongStart.current = { x: t.clientX, y: t.clientY }
-                        const { clientX, clientY } = t
-                        productLongTimer.current = setTimeout(() => {
-                          productWasLong.current = true
-                          const menuW = 200; const menuH = 160
-                          const above = clientY + 8 + menuH > window.innerHeight
-                          const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
-                          const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
-                          setProductCtxMenu({ product: p, x, y, above })
-                        }, LONG_PRESS_MS)
+                      onContextMenu={e => {
+                        e.preventDefault()
+                        productWasLong.current = true
+                        const menuW = 200; const menuH = 160
+                        const above = e.clientY + 8 + menuH > window.innerHeight
+                        const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
+                        const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                        setProductCtxMenu({ product: p, x, y, above })
                       }}
-                      onTouchMove={e => {
-                        const t = e.touches[0]; const s = productLongStart.current
-                        if (t && s && productLongTimer.current && Math.hypot(t.clientX - s.x, t.clientY - s.y) > 18) {
-                          clearTimeout(productLongTimer.current); productLongTimer.current = null
-                        }
-                      }}
-                      onTouchEnd={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
-                      onTouchCancel={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
@@ -2017,29 +1989,15 @@ export default function FromApp({
                   {searchProducts.map(p => (
                     <div key={p.id} className="fr-cell"
                       role="button" tabIndex={0}
-                      onContextMenu={e => e.preventDefault()}
-                      onTouchStart={e => {
-                        const t = e.touches[0]; if (!t) return
-                        productWasLong.current = false
-                        productLongStart.current = { x: t.clientX, y: t.clientY }
-                        const { clientX, clientY } = t
-                        productLongTimer.current = setTimeout(() => {
-                          productWasLong.current = true
-                          const menuW = 200; const menuH = 160
-                          const above = clientY + 8 + menuH > window.innerHeight
-                          const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
-                          const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
-                          setProductCtxMenu({ product: p, x, y, above })
-                        }, LONG_PRESS_MS)
+                      onContextMenu={e => {
+                        e.preventDefault()
+                        productWasLong.current = true
+                        const menuW = 200; const menuH = 160
+                        const above = e.clientY + 8 + menuH > window.innerHeight
+                        const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
+                        const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                        setProductCtxMenu({ product: p, x, y, above })
                       }}
-                      onTouchMove={e => {
-                        const t = e.touches[0]; const s = productLongStart.current
-                        if (t && s && productLongTimer.current && Math.hypot(t.clientX - s.x, t.clientY - s.y) > 18) {
-                          clearTimeout(productLongTimer.current); productLongTimer.current = null
-                        }
-                      }}
-                      onTouchEnd={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
-                      onTouchCancel={() => { if (productLongTimer.current) { clearTimeout(productLongTimer.current); productLongTimer.current = null } }}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                       {p.image_url ? (
@@ -2633,7 +2591,7 @@ export default function FromApp({
           {/* ── Bag item long-press menu — Ask stylist + Remove ── */}
           {bagCtxMenu && (
             <>
-              <div onClick={() => setBagCtxMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
+              <div onClick={() => { setBagCtxMenu(null); wasLongPress.current = false }} style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
               <div style={{
                 position: 'fixed', left: bagCtxMenu.x, top: bagCtxMenu.y, zIndex: 9001,
                 width: 190, borderRadius: 12, overflow: 'hidden',
@@ -2685,7 +2643,7 @@ export default function FromApp({
           {/* ── Product card long-press context menu — Liquid Glass ── */}
           {productCtxMenu && (
             <>
-              <div onClick={() => setProductCtxMenu(null)}
+              <div onClick={() => { setProductCtxMenu(null); productWasLong.current = false }}
                 style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
               <div style={{
                 position: 'fixed',
