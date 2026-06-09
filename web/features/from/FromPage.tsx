@@ -952,7 +952,7 @@ export default function FromApp({
   const [sheetSnap, setSheetSnap]     = useState<'full'|'half'>('full')
   const [isDragging, setIsDragging]   = useState(false)
   const [sidebarOpen, setSidebar]     = useState(false)
-  const [sidebarView, setSidebarView] = useState<'nav' | 'saved'>('nav')
+  const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
   const [inputHint, setInputHint]       = useState<string | null>(null)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
@@ -2041,7 +2041,7 @@ export default function FromApp({
               </div>
 
               {/* Bag (saved products) */}
-              <div className={`fr-hi${sidebarView === 'saved' ? ' on' : ''}`} onClick={() => setSidebarView('saved')}>
+              <div className={`fr-hi${sidebarView === 'saved' ? ' on' : ''}`} onClick={() => setSidebarView(v => v === 'saved' ? 'nav' : 'saved')}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                   <line x1="3" y1="6" x2="21" y2="6"/>
@@ -2055,6 +2055,16 @@ export default function FromApp({
                 )}
               </div>
 
+              {/* Fabrics (AI stylist history) */}
+              <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`} onClick={() => setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics')}>
+                <FabricsIcon size={17} color={INK3} />
+                Fabrics
+                {stylistHistory.length > 0 && (
+                  <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
+                    {stylistHistory.length}
+                  </span>
+                )}
+              </div>
 
             </div>
 
@@ -2065,65 +2075,7 @@ export default function FromApp({
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
               {sidebarView === 'nav' ? (
                 <>
-                  {/* ── Fabrics chat history ── */}
-                  {stylistHistory.length > 0 && (
-                    <>
-                      <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 8px", opacity: .5 }}>Fabrics</p>
-                      {stylistHistory.slice(0, 10).map(h => (
-                        <div key={h.id} className="fr-hi"
-                          style={{ gap: 8, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
-                          onPointerDown={e => {
-                            wasLongPress.current = false
-                            const { clientX, clientY } = e
-                            longPressTimer.current = setTimeout(() => {
-                              wasLongPress.current = true
-                              const menuW = 160; const menuH = 96
-                              const above = clientY + 8 + menuH > window.innerHeight
-                              const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
-                              const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
-                              ctxMenuOpenAt.current = Date.now()
-                              setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
-                            }, 550)
-                          }}
-                          onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                          onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                          onContextMenu={e => {
-                            e.preventDefault()
-                            const menuW = 160; const menuH = 96
-                            const above = e.clientY + 8 + menuH > window.innerHeight
-                            const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
-                            const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
-                            ctxMenuOpenAt.current = Date.now()
-                            setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
-                          }}
-                          onClick={() => {
-                            if (wasLongPress.current) { wasLongPress.current = false; return }
-                            setStylistOpen(true); setSidebar(false)
-                          }}
-                        >
-                          <FabricsIcon size={12} color={INK3} />
-                          {stylistRenameId === h.id ? (
-                            <input ref={stylistRenameRef} value={stylistRenameVal}
-                              onClick={e => e.stopPropagation()}
-                              onChange={e => setStylistRenameVal(e.target.value)}
-                              onBlur={() => { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }}
-                              onKeyDown={e => {
-                                e.stopPropagation()
-                                if (e.key === 'Enter') { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }
-                                if (e.key === 'Escape') setStylistRenameId(null)
-                              }}
-                              style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
-                                fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
-                                transform: 'scale(0.8125)', transformOrigin: 'left center' }}
-                            />
-                          ) : (
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{h.label}</span>
-                          )}
-                        </div>
-                      ))}
-                      <div style={{ height: 1, background: "rgba(0,0,0,.06)", margin: "4px 8px 8px" }} />
-                    </>
-                  )}
+                  {/* recent searches only in nav view — Fabrics chats have their own tab */}
 
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
                   {searchHistory.length === 0
@@ -2171,6 +2123,70 @@ export default function FromApp({
                           }
                         </div>
                       ))
+                  }
+                </>
+              ) : sidebarView === 'fabrics' ? (
+                <>
+                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
+                  {stylistHistory.length === 0
+                    ? (
+                      <div style={{ padding: '12px 8px' }}>
+                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, opacity: .4, marginBottom: 8 }}>No Fabrics chats yet</p>
+                        <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, opacity: .35, lineHeight: 1.4 }}>Pin a product and tap the Fabrics icon to start styling.</p>
+                      </div>
+                    )
+                    : stylistHistory.map(h => (
+                      <div key={h.id} className="fr-hi"
+                        style={{ gap: 8, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                        onPointerDown={e => {
+                          wasLongPress.current = false
+                          const { clientX, clientY } = e
+                          longPressTimer.current = setTimeout(() => {
+                            wasLongPress.current = true
+                            const menuW = 160; const menuH = 96
+                            const above = clientY + 8 + menuH > window.innerHeight
+                            const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
+                            const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                            ctxMenuOpenAt.current = Date.now()
+                            setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
+                          }, 550)
+                        }}
+                        onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                        onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                        onContextMenu={e => {
+                          e.preventDefault()
+                          const menuW = 160; const menuH = 96
+                          const above = e.clientY + 8 + menuH > window.innerHeight
+                          const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
+                          const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
+                          ctxMenuOpenAt.current = Date.now()
+                          setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
+                        }}
+                        onClick={() => {
+                          if (wasLongPress.current) { wasLongPress.current = false; return }
+                          setStylistOpen(true); setSidebar(false)
+                        }}
+                      >
+                        <FabricsIcon size={12} color={INK3} />
+                        {stylistRenameId === h.id ? (
+                          <input ref={stylistRenameRef} value={stylistRenameVal}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => setStylistRenameVal(e.target.value)}
+                            onBlur={() => { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }}
+                            onKeyDown={e => {
+                              e.stopPropagation()
+                              if (e.key === 'Enter') { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }
+                              if (e.key === 'Escape') setStylistRenameId(null)
+                            }}
+                            style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
+                              fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
+                              transform: 'scale(0.8125)', transformOrigin: 'left center' }}
+                          />
+                        ) : (
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{h.label}</span>
+                        )}
+                      </div>
+                    ))
                   }
                 </>
               ) : (
