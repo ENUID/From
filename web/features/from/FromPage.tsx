@@ -2259,7 +2259,7 @@ export default function FromApp({
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
 
                 {/* Rename */}
-                <div onClick={() => { setRenameId(ctxMenu.id); setRenameVal(ctxMenu.query); setCtxMenu(null) }}
+                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; setRenameId(ctxMenu.id); setRenameVal(ctxMenu.query); setCtxMenu(null) }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
                     fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
@@ -2277,7 +2277,7 @@ export default function FromApp({
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
 
                 {/* Delete */}
-                <div onClick={() => { deleteHistoryEntry(ctxMenu.id); setCtxMenu(null) }}
+                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; deleteHistoryEntry(ctxMenu.id); setCtxMenu(null) }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
                     fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
@@ -2682,6 +2682,7 @@ export default function FromApp({
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
                 {/* Ask your stylist */}
                 <div onClick={() => {
+                    if (Date.now() - ctxMenuOpenAt.current < 350) return
                     addBarProduct(bagCtxMenu.product)
                     setSidebar(false)
                     setBagCtxMenu(null)
@@ -2700,7 +2701,7 @@ export default function FromApp({
                 </div>
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
                 {/* Remove from bag */}
-                <div onClick={() => { toggleSaved(bagCtxMenu.product); setBagCtxMenu(null) }}
+                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; toggleSaved(bagCtxMenu.product); setBagCtxMenu(null) }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
                     fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
@@ -2740,6 +2741,7 @@ export default function FromApp({
 
                 {/* Ask your stylist — opens the conversational stylist sheet */}
                 <div onClick={() => {
+                    if (Date.now() - ctxMenuOpenAt.current < 350) return
                     addBarProduct(productCtxMenu.product)
                     setProductCtxMenu(null)
                   }}
@@ -2760,6 +2762,7 @@ export default function FromApp({
 
                 {/* Bag it / In your bag */}
                 <div onClick={() => {
+                    if (Date.now() - ctxMenuOpenAt.current < 350) return
                     toggleSaved(productCtxMenu.product)
                     setProductCtxMenu(null)
                   }}
