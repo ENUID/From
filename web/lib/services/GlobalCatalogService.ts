@@ -608,11 +608,26 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
     .sort((a, b) => b.length - a.length);
   if (queryColors.length > 0) {
     const wanted = new Set<string>();
-    for (const c of queryColors) { wanted.add(c); if (COLOR_BASE[c]) wanted.add(COLOR_BASE[c]); }
+    for (const c of queryColors) {
+      wanted.add(c);
+      if (COLOR_BASE[c]) wanted.add(COLOR_BASE[c]);
+      // Also add base→sub reverse: if they asked for "blue", allow "sky blue","cobalt" etc.
+      for (const [sub, base] of Object.entries(COLOR_BASE)) {
+        if (base === c || (COLOR_BASE[c] && base === COLOR_BASE[c])) wanted.add(sub);
+      }
+    }
     const hasWanted = Array.from(wanted).some(c => hasWord(searchableText, c));
     if (!hasWanted) {
+      // If product has explicit colour options, it's definitively the wrong colour
+      const colorOptionValues = (product.options || [])
+        .filter(o => /colou?r|shade/i.test(o.name))
+        .flatMap(o => o.values.map(v => v.toLowerCase()));
+      if (colorOptionValues.length > 0) {
+        return true; // product lists its colours and none match
+      }
+      // No explicit colour options — fall back: mismatch only if product has a different colour
       const productHasOtherColor = COLOR_TERMS.some(c => hasWord(searchableText, c));
-      if (productHasOtherColor) return true; // product is explicitly a different colour
+      if (productHasOtherColor) return true;
     }
   }
 
@@ -902,16 +917,17 @@ function calculateTrustScore(product: UcpProduct, mandatoryConcepts: string[][] 
   if (product.options && product.options.length > 0) baseScore += 2;
   if (product.description && product.description.length > 100) baseScore += 2;
 
-  // Concept matching bonus in Title or Vendor
+  // Concept matching bonus — check full searchable text (title, vendor, tags, options, description)
   if (mandatoryConcepts.length > 0) {
-    const titleAndVendor = `${product.title} ${vendor}`.toLowerCase();
+    const fullText = searchableProductText(product as UcpProduct);
+    let allGroupsMatched = true;
     for (const conceptGroup of mandatoryConcepts) {
       if (!conceptGroup || conceptGroup.length === 0) continue;
-      const matched = conceptGroup.some(word => titleAndVendor.includes(word.toLowerCase().trim()));
-      if (matched) {
-        baseScore += 10;
-      }
+      const matched = conceptGroup.some(word => fullText.includes(word.toLowerCase().trim()));
+      if (matched) baseScore += 10;
+      else allGroupsMatched = false;
     }
+    if (allGroupsMatched && mandatoryConcepts.length >= 2) baseScore += 10;
   }
 
   return Math.min(100, baseScore);
@@ -1077,8 +1093,27 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     }
   }
 
-  // Hard-filter category mismatches. A mismatch trust_score is ≤34 (base 70-94 minus 60 penalty).
-  // Fall back to showing all products ONLY when zero correct-category results exist.
+  // Hard-filter on ALL non-gender mandatory concept groups.
+  // Every group must have at least one matching term in the product's full searchable text.
+  // Fall back to original set only if fewer than 4 products survive (avoids empty results).
+  if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
+    const GENDER_TERMS = new Set(['men','mens','man','male','unisex','women','womens','woman','ladies','female']);
+    const nonGenderGroups = filters.mandatoryConcepts.filter(
+      g => !g.every(t => GENDER_TERMS.has(t.toLowerCase()))
+    );
+    if (nonGenderGroups.length > 0) {
+      const conceptFiltered = filtered.filter(p => {
+        const text = searchableProductText(p);
+        return nonGenderGroups.every(group =>
+          group.some(term => text.includes(term.toLowerCase()))
+        );
+      });
+      if (conceptFiltered.length >= 4) filtered = conceptFiltered;
+    }
+  }
+
+  // Hard-filter category/colour/material mismatches. A mismatch trust_score is ≤34
+  // (base 70-94 minus 60 penalty). Fall back only when zero matched products exist.
   const MISMATCH_THRESHOLD = 40;
   const matched = filtered.filter(p => (p.trust_score || 0) >= MISMATCH_THRESHOLD);
   filtered = matched.length > 0 ? matched : filtered;

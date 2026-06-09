@@ -182,21 +182,22 @@ function parseDirectSearchIntent(message: string, buyerCurrency: string): Search
   if (/\b(compare|which|what|how|why|can you|tell me|hi|hello|thanks|thank you)\b/i.test(lowerQuery)) return null
 
   const isClothing = CLOTHING_TERMS.some(term => lowerQuery.includes(term))
-  const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'price_asc'
+  const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'trust_desc'
 
-  // Build mandatoryConcepts so the filter pipeline enforces gender and garment type
+  // Build mandatoryConcepts so the filter pipeline enforces gender, garment, material, and colour
   const mandatoryConcepts: string[][] = []
 
+  // Gender
   const wantsWomen = /\b(women|woman|womens|ladies|female|girl)\b/i.test(lowerQuery)
   const wantsMen = /\b(men|man|mens|menswear|male)\b/i.test(lowerQuery) && !wantsWomen
   if (wantsMen) mandatoryConcepts.push(['men', 'mens', 'man', 'male', 'unisex'])
   else if (wantsWomen) mandatoryConcepts.push(['women', 'womens', 'woman', 'ladies', 'female'])
 
+  // Garment type — linen removed (it's a material, not a garment)
   const garmentPatterns: [RegExp, string[]][] = [
     [/\b(t-?shirt|tee|tees)\b/, ['t-shirt', 'tshirt', 'tee', 'tees']],
-    [/\blinen\b/, ['linen']],
-    [/\bshirt\b/, ['shirt', 'shirts', 'button-up']],
-    [/\b(pants|trousers|chinos)\b/, ['pants', 'trousers', 'chinos']],
+    [/\bshirt\b/, ['shirt', 'shirts', 'button-up', 'button up']],
+    [/\b(pants|trousers|chinos)\b/, ['pants', 'trousers', 'chinos', 'trouser']],
     [/\bshoes?\b/, ['shoe', 'shoes', 'sneaker', 'sneakers', 'boot', 'boots']],
     [/\bjacket\b/, ['jacket', 'blazer', 'coat']],
     [/\bdress\b/, ['dress', 'dresses']],
@@ -209,10 +210,77 @@ function parseDirectSearchIntent(message: string, buyerCurrency: string): Search
     [/\b(bag|bags|tote|backpack)\b/, ['bag', 'bags', 'tote', 'backpack']],
   ]
   for (const [pattern, synonyms] of garmentPatterns) {
-    if (pattern.test(lowerQuery)) {
-      mandatoryConcepts.push(synonyms)
-      break
-    }
+    if (pattern.test(lowerQuery)) { mandatoryConcepts.push(synonyms); break }
+  }
+
+  // Material — separate from garment so "linen shirt" adds BOTH linen AND shirt concepts
+  const materialPatterns: [RegExp, string[]][] = [
+    [/\blinen\b/, ['linen']],
+    [/\bcotton\b/, ['cotton']],
+    [/\bwool\b/, ['wool', 'merino', 'woollen', 'woolen']],
+    [/\bsilk\b/, ['silk']],
+    [/\bcashmere\b/, ['cashmere', 'kashmir']],
+    [/\bdenim\b/, ['denim', 'jean', 'jeans']],
+    [/\bleather\b/, ['leather', 'suede']],
+    [/\bvelvet\b/, ['velvet']],
+    [/\btweed\b/, ['tweed']],
+    [/\bcorduroy\b/, ['corduroy', 'cord']],
+    [/\bfleece\b/, ['fleece']],
+    [/\bnylon\b/, ['nylon']],
+  ]
+  for (const [pattern, synonyms] of materialPatterns) {
+    if (pattern.test(lowerQuery)) { mandatoryConcepts.push(synonyms); break }
+  }
+
+  // Colour — map to a family so "sky blue" also matches products listed as "blue"
+  const colourFamilies: [RegExp, string[]][] = [
+    [/\b(sky\s*blue|light\s*blue|powder\s*blue)\b/, ['blue', 'sky blue', 'light blue']],
+    [/\bnavy\b/, ['navy', 'navy blue', 'midnight blue']],
+    [/\bteal\b/, ['teal', 'teal blue', 'turquoise']],
+    [/\bcobalt\b/, ['cobalt', 'cobalt blue', 'blue']],
+    [/\bindigo\b/, ['indigo', 'blue']],
+    [/\bblue\b/, ['blue', 'sky blue', 'light blue', 'royal blue', 'cobalt']],
+    [/\bburgundy\b/, ['burgundy', 'wine', 'maroon', 'red']],
+    [/\bwine\b/, ['wine', 'burgundy', 'maroon']],
+    [/\bmaroon\b/, ['maroon', 'burgundy', 'wine']],
+    [/\bcrimson\b/, ['crimson', 'red']],
+    [/\bred\b/, ['red', 'crimson', 'scarlet']],
+    [/\bolive\b/, ['olive', 'olive green', 'khaki']],
+    [/\bsage\b/, ['sage', 'sage green']],
+    [/\bforest\b/, ['forest', 'forest green', 'dark green']],
+    [/\bemerald\b/, ['emerald', 'emerald green', 'green']],
+    [/\bgreen\b/, ['green', 'olive', 'sage', 'forest', 'mint', 'emerald']],
+    [/\bcharcoal\b/, ['charcoal', 'charcoal grey', 'dark grey']],
+    [/\bslate\b/, ['slate', 'slate grey', 'grey']],
+    [/\b(grey|gray)\b/, ['grey', 'gray', 'charcoal', 'slate', 'silver']],
+    [/\bblack\b/, ['black']],
+    [/\b(ivory|cream|off.?white)\b/, ['ivory', 'cream', 'off white', 'off-white', 'white']],
+    [/\bwhite\b/, ['white', 'ivory', 'cream', 'off white']],
+    [/\bcamel\b/, ['camel', 'tan', 'camel brown']],
+    [/\btan\b/, ['tan', 'camel', 'sand']],
+    [/\bbeige\b/, ['beige', 'sand', 'stone', 'natural', 'cream']],
+    [/\bkhaki\b/, ['khaki', 'olive', 'beige', 'tan']],
+    [/\bchocolate\b/, ['chocolate', 'dark brown', 'brown']],
+    [/\bmocha\b/, ['mocha', 'coffee', 'brown']],
+    [/\bbrown\b/, ['brown', 'tan', 'camel', 'chocolate', 'cognac']],
+    [/\bblush\b/, ['blush', 'blush pink', 'dusty pink', 'pink']],
+    [/\bfuchsia\b/, ['fuchsia', 'hot pink', 'pink']],
+    [/\bpink\b/, ['pink', 'blush', 'rose', 'dusty pink']],
+    [/\blavender\b/, ['lavender', 'lilac', 'purple']],
+    [/\blilac\b/, ['lilac', 'lavender', 'purple']],
+    [/\bplum\b/, ['plum', 'purple', 'dark purple']],
+    [/\bpurple\b/, ['purple', 'lavender', 'lilac', 'violet', 'plum']],
+    [/\bmustard\b/, ['mustard', 'mustard yellow', 'yellow']],
+    [/\bgold\b/, ['gold', 'golden', 'yellow']],
+    [/\byellow\b/, ['yellow', 'mustard', 'gold', 'butter']],
+    [/\brust\b/, ['rust', 'burnt orange', 'rust orange']],
+    [/\bterracotta\b/, ['terracotta', 'rust', 'orange']],
+    [/\bcoral\b/, ['coral', 'orange', 'peach']],
+    [/\borange\b/, ['orange', 'rust', 'terracotta', 'burnt orange']],
+    [/\bsilver\b/, ['silver', 'grey', 'metallic']],
+  ]
+  for (const [pattern, synonyms] of colourFamilies) {
+    if (pattern.test(lowerQuery)) { mandatoryConcepts.push(synonyms); break }
   }
 
   return SearchToolSchema.parse({
