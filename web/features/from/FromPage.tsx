@@ -2752,25 +2752,6 @@ export default function FromApp({
                   </svg>
                 </div>
 
-                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
-
-                {/* Find similar */}
-                <div onClick={() => {
-                    setProductCtxMenu(null)
-                    sendMessage(`Find products similar to ${productCtxMenu.product.title}`)
-                  }}
-                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
-                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
-                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
-                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
-                  onPointerUp={e => (e.currentTarget.style.background = '')}
-                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Find similar</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/>
-                  </svg>
-                </div>
               </div>
             </>
           )}
