@@ -563,6 +563,19 @@ const COLOR_TERMS: string[] = [
   'yellow', 'mustard', 'gold', 'orange', 'rust', 'terracotta', 'brown', 'chocolate', 'mocha',
   'grey', 'gray', 'charcoal', 'slate', 'silver', 'taupe',
 ];
+// Extended set for concept group detection (includes common colour phrases)
+const ALL_COLOUR_TERMS = new Set([
+  ...COLOR_TERMS,
+  'sky blue', 'light blue', 'powder blue', 'royal blue', 'cobalt blue', 'midnight blue',
+  'navy blue', 'dark blue', 'off white', 'off-white', 'dark green', 'forest green',
+  'olive green', 'sage green', 'charcoal grey', 'charcoal gray', 'dusty pink',
+  'blush pink', 'hot pink', 'burnt orange', 'rust orange', 'dark brown', 'light brown',
+].map(c => c.toLowerCase()));
+
+function isColourConceptGroup(group: string[]): boolean {
+  return group.length > 0 && group.every(term => ALL_COLOUR_TERMS.has(term.toLowerCase().trim()));
+}
+
 const COLOR_BASE: Record<string, string> = {
   'sky blue': 'blue', 'navy': 'blue', 'teal': 'blue', 'turquoise': 'blue', 'indigo': 'blue', 'cobalt': 'blue',
   'maroon': 'red', 'burgundy': 'red', 'wine': 'red', 'crimson': 'red',
@@ -579,6 +592,40 @@ const COLOR_BASE: Record<string, string> = {
 // Garment-type precision: distinguish a casual tee from a button-up/formal shirt.
 const TEE_MARKERS = ['t-shirt', 't shirt', 'tshirt', 'tee', 'tees'];
 const FORMAL_SHIRT_MARKERS = ['button-up', 'button up', 'button-down', 'button down', 'dress shirt', 'oxford shirt', 'poplin', 'flannel shirt', 'overshirt', 'camp collar', 'linen shirt'];
+
+// Returns true if product is clearly the wrong colour for the query.
+// Applied as a SOFT penalty (-15) so colour variants stay visible but sort after exact matches.
+function hasColourMismatch(product: UcpProduct, query: string): boolean {
+  const normalizedQuery = query.toLowerCase();
+  const searchableText = [
+    product.title,
+    product.description || '',
+    ...(product.tags || []),
+    ...(product.options?.flatMap(o => [o.name, ...o.values]) || []),
+  ].join(' ').toLowerCase();
+
+  const queryColors = COLOR_TERMS
+    .filter(c => hasWord(normalizedQuery, c))
+    .sort((a, b) => b.length - a.length);
+  if (queryColors.length === 0) return false;
+
+  const wanted = new Set<string>();
+  for (const c of queryColors) {
+    wanted.add(c);
+    if (COLOR_BASE[c]) wanted.add(COLOR_BASE[c]);
+    for (const [sub, base] of Object.entries(COLOR_BASE)) {
+      if (base === c || (COLOR_BASE[c] && base === COLOR_BASE[c])) wanted.add(sub);
+    }
+  }
+  const hasWanted = Array.from(wanted).some(c => hasWord(searchableText, c));
+  if (hasWanted) return false;
+
+  const colorOptionValues = (product.options || [])
+    .filter(o => /colou?r|shade/i.test(o.name))
+    .flatMap(o => o.values.map(v => v.toLowerCase()));
+  if (colorOptionValues.length > 0) return true;
+  return COLOR_TERMS.some(c => hasWord(searchableText, c));
+}
 
 function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   const normalizedQuery = query.toLowerCase();
@@ -601,20 +648,8 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
     if (pGender && pGender !== qGender) return true;
   }
 
-  // 0b. Colour check — if a colour is requested, reject products that clearly
-  // come in a DIFFERENT colour (no requested shade anywhere in title/options).
-  const queryColors = COLOR_TERMS
-    .filter(c => hasWord(normalizedQuery, c))
-    .sort((a, b) => b.length - a.length);
-  if (queryColors.length > 0) {
-    const wanted = new Set<string>();
-    for (const c of queryColors) { wanted.add(c); if (COLOR_BASE[c]) wanted.add(COLOR_BASE[c]); }
-    const hasWanted = Array.from(wanted).some(c => hasWord(searchableText, c));
-    if (!hasWanted) {
-      const productHasOtherColor = COLOR_TERMS.some(c => hasWord(searchableText, c));
-      if (productHasOtherColor) return true; // product is explicitly a different colour
-    }
-  }
+  // Note: colour check moved to hasColourMismatch() for a soft -15 penalty rather than -60.
+  // Colour variants are shown after exact matches, not removed entirely.
 
   // 0c. Garment precision — tee vs button-up/formal shirt are not interchangeable.
   const wantsTee = TEE_MARKERS.some(m => hasWord(normalizedQuery, m));
@@ -852,6 +887,7 @@ async function fetchStorefrontProducts(
     for (const p of parsed) {
       let ts = calculateTrustScore(p, mandatoryConcepts);
       if (queryForScoring && isProductQueryMismatch(p, queryForScoring)) ts = Math.max(0, ts - 60);
+      else if (queryForScoring && hasColourMismatch(p, queryForScoring)) ts = Math.max(0, ts - 15);
       p.trust_score = ts;
     }
 
@@ -902,16 +938,17 @@ function calculateTrustScore(product: UcpProduct, mandatoryConcepts: string[][] 
   if (product.options && product.options.length > 0) baseScore += 2;
   if (product.description && product.description.length > 100) baseScore += 2;
 
-  // Concept matching bonus in Title or Vendor
+  // Concept matching bonus — check full searchable text (title, vendor, tags, options, description)
   if (mandatoryConcepts.length > 0) {
-    const titleAndVendor = `${product.title} ${vendor}`.toLowerCase();
+    const fullText = searchableProductText(product as UcpProduct);
+    let allGroupsMatched = true;
     for (const conceptGroup of mandatoryConcepts) {
       if (!conceptGroup || conceptGroup.length === 0) continue;
-      const matched = conceptGroup.some(word => titleAndVendor.includes(word.toLowerCase().trim()));
-      if (matched) {
-        baseScore += 10;
-      }
+      const matched = conceptGroup.some(word => fullText.includes(word.toLowerCase().trim()));
+      if (matched) baseScore += 10;
+      else allGroupsMatched = false;
     }
+    if (allGroupsMatched && mandatoryConcepts.length >= 2) baseScore += 10;
   }
 
   return Math.min(100, baseScore);
@@ -1077,8 +1114,30 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     }
   }
 
-  // Hard-filter category mismatches. A mismatch trust_score is ≤34 (base 70-94 minus 60 penalty).
-  // Fall back to showing all products ONLY when zero correct-category results exist.
+  // Hard-filter on non-colour, non-gender mandatory concept groups (garment type + material).
+  // Colour groups are soft — they affect sort order but don't eliminate products.
+  // Fall back to original set only if fewer than 4 products survive (avoids empty results).
+  let colourGroups: string[][] = [];
+  if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
+    const GENDER_TERMS_SET = new Set(['men','mens','man','male','unisex','women','womens','woman','ladies','female']);
+    const nonGenderGroups = filters.mandatoryConcepts.filter(
+      g => !g.every(t => GENDER_TERMS_SET.has(t.toLowerCase()))
+    );
+    colourGroups = nonGenderGroups.filter(isColourConceptGroup);
+    const hardGroups = nonGenderGroups.filter(g => !isColourConceptGroup(g));
+    if (hardGroups.length > 0) {
+      const hardFiltered = filtered.filter(p => {
+        const text = searchableProductText(p);
+        return hardGroups.every(group =>
+          group.some(term => text.includes(term.toLowerCase()))
+        );
+      });
+      if (hardFiltered.length >= 4) filtered = hardFiltered;
+    }
+  }
+
+  // Hard-filter category/garment/material mismatches. A hard mismatch trust_score is ≤34
+  // (base 70-94 minus 60 penalty). Colour mismatches (-15) land at 55-79, kept above threshold.
   const MISMATCH_THRESHOLD = 40;
   const matched = filtered.filter(p => (p.trust_score || 0) >= MISMATCH_THRESHOLD);
   filtered = matched.length > 0 ? matched : filtered;
@@ -1101,6 +1160,12 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     if (userCountry) {
       const la = isLocalBrand(a), lb = isLocalBrand(b);
       if (la !== lb) return la ? -1 : 1; // same-country brands first
+    }
+    // Colour match priority: exact colour match products first, then other colours
+    if (colourGroups.length > 0) {
+      const aColour = colourGroups.every(g => g.some(t => searchableProductText(a).includes(t.toLowerCase())));
+      const bColour = colourGroups.every(g => g.some(t => searchableProductText(b).includes(t.toLowerCase())));
+      if (aColour !== bColour) return aColour ? -1 : 1;
     }
     if (sort === 'trust_desc') return (b.trust_score || 0) - (a.trust_score || 0);
     if (sort !== 'relevance') {
@@ -1317,6 +1382,8 @@ export class GlobalCatalogService {
         let trustScore = calculateTrustScore(productData as UcpProduct, mandatoryConcepts);
         if (isProductQueryMismatch(productData as UcpProduct, cleanedQuery)) {
           trustScore = Math.max(0, trustScore - 60);
+        } else if (hasColourMismatch(productData as UcpProduct, cleanedQuery)) {
+          trustScore = Math.max(0, trustScore - 15);
         }
         return {
           ...productData,
@@ -1680,7 +1747,7 @@ export class GlobalCatalogService {
               console.log(`[GlobalCatalog] Timeout return for first page: ${directParsedProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
               resolve();
             }
-          }, 2000);
+          }, 800);
         });
 
         console.log(`[GlobalCatalog] Chunk 1 queries finished in ${Date.now() - startTime}ms. Fetched & parsed ${directParsedProducts.length} products.`);
