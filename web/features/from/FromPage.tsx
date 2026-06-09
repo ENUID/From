@@ -1744,7 +1744,7 @@ export default function FromApp({
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
-        html,body{margin:0;padding:0;background:#fff;min-height:100%;width:100%;}
+        html,body{margin:0;padding:0;background:#fff;height:100%;width:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-x pan-y;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
         ::-webkit-scrollbar{display:none;}
 
@@ -1752,9 +1752,11 @@ export default function FromApp({
            The app fills the whole device — phone, tablet or laptop — rather than a
            fixed phone-width strip. Only on very large monitors do we cap the width
            and centre it so the layout never stretches absurdly wide. */
-        .fr-wrap{display:flex;align-items:stretch;justify-content:center;height:100dvh;width:100%;
-          background:#ffffff;}
-        .fr-shell{width:100%;max-width:1600px;height:100dvh;position:relative;display:flex;flex-direction:column;
+        .fr-wrap{display:flex;align-items:stretch;justify-content:center;
+          position:fixed;top:0;left:0;right:0;bottom:0;
+          height:100%;width:100%;
+          background:#ffffff;overflow:hidden;}
+        .fr-shell{width:100%;max-width:1600px;height:100%;position:relative;display:flex;flex-direction:column;
           overflow:hidden;overscroll-behavior:none;
           background:#ffffff;}
         @media(min-width:1601px){
@@ -1770,7 +1772,7 @@ export default function FromApp({
 
         /* ── Body ── */
         .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:120px;overscroll-behavior-y:contain;}
-        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;overflow-y:hidden;padding-bottom:0;touch-action:none;}
 
         /* ── Search bar wrap ── */
         .fr-bar-wrap{
