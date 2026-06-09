@@ -852,13 +852,15 @@ export default function FromApp({
 
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[] }
   const [stylistOpen, setStylistOpen]       = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>([])
   const [stylistInput, setStylistInput]     = useState('')
   const [stylistLoading, setStylistLoading] = useState(false)
   const stylistScrollRef                    = useRef<HTMLDivElement>(null)
+  const stylistFileRef                      = useRef<HTMLInputElement>(null)
+  const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
   // Products attached to the search bar — sending a query with these opens the stylist.
   const [barProducts, setBarProducts]       = useState<Product[]>([])
 
