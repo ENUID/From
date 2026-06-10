@@ -3022,13 +3022,14 @@ export default function FromApp({
                 </div>
 
                 {/* Input */}
-                <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}` }}>
-                  {/* Uploaded image strip */}
+                <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}`, padding: '10px 14px calc(10px + env(safe-area-inset-bottom, 0px))' }}>
+                  <input ref={stylistFileRef} type="file" accept="image/*,*/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
+                  {/* Attached image strip */}
                   {stylistImages.length > 0 && (
-                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 16px 0', scrollbarWidth: 'none' } as React.CSSProperties}>
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 8, scrollbarWidth: 'none' } as React.CSSProperties}>
                       {stylistImages.map((img, idx) => (
                         <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                          <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
                             <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                           </div>
                           <button type="button" onClick={() => setStylistImages(prev => prev.filter((_, i) => i !== idx))}
@@ -3039,25 +3040,27 @@ export default function FromApp({
                       ))}
                     </div>
                   )}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '12px 16px calc(12px + env(safe-area-inset-bottom))' }}>
-                    {/* Hidden file input */}
-                    <input ref={stylistFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
-                    {/* Photo upload button */}
-                    <button type="button" onClick={() => stylistFileRef.current?.click()}
-                      disabled={stylistImages.length >= 8}
-                      style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${BRD}`, background: BG2, color: stylistImages.length >= 8 ? 'rgba(44,18,6,0.3)' : INK3, cursor: stylistImages.length >= 8 ? 'default' : 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
-                      </svg>
-                    </button>
+                  {/* Bar pill — matches main search bar */}
+                  <div style={{ background: BG, borderRadius: 22, padding: '10px 10px 8px 14px', boxShadow: '0 4px 20px rgba(44,18,6,.08), 0 1px 4px rgba(44,18,6,.05), inset 0 1px 0 rgba(255,255,255,.98), inset 0 -0.5px 0 rgba(44,18,6,.04)' }}>
+                    {/* Row 1: text */}
                     <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
                       placeholder={stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask Fabrics…'}
-                      style={{ flex: 1, fontFamily: SANS, fontSize: 16, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
-                    <button onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
-                      style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.2)', color: '#fff', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                    </button>
+                      style={{ width: '100%', fontFamily: SANS, fontSize: 15, color: INK, caretColor: INK, background: 'transparent', border: 'none', outline: 'none', padding: 0, lineHeight: 1.5 }} />
+                    {/* Row 2: actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                      <button type="button" className="fr-icon-btn" onClick={() => stylistFileRef.current?.click()} disabled={stylistImages.length >= 8} title="Attach image">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                        </svg>
+                      </button>
+                      <button type="button" className="fr-send-btn" onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
+                        style={{ background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.18)', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', boxShadow: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? '0 4px 14px rgba(44,18,6,.35),0 1px 4px rgba(44,18,6,.2),inset 0 1px 0 rgba(255,255,255,.12)' : 'none' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
