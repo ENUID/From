@@ -1681,19 +1681,13 @@ export default function FromApp({
         /* ── Search bar wrap ── */
         .fr-bar-wrap{
           position:absolute;bottom:0;left:0;right:0;
+          z-index:10;
           padding:12px clamp(12px,4vw,18px) max(12px,env(safe-area-inset-bottom));
-          background:rgba(255,255,255,0.5);
-          backdrop-filter:blur(28px) saturate(160%);
-          -webkit-backdrop-filter:blur(28px) saturate(160%);
+          background:transparent;
         }
-        /* On tablet/desktop the wrap is transparent — products show through,
-           only the pill itself floats on top. Remove the extra 12px floor so there
-           is no visible strip below the pill; only respect the device safe-area. */
+        /* On tablet/desktop remove the safe-area floor — only respect device safe-area. */
         @media(min-width:768px){
           .fr-bar-wrap{
-            background:transparent;
-            backdrop-filter:none;
-            -webkit-backdrop-filter:none;
             padding-bottom:env(safe-area-inset-bottom);
           }
         }
@@ -2882,7 +2876,7 @@ export default function FromApp({
                     </button>
                     <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
-                      placeholder={stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask your stylist…'}
+                      placeholder={stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask Fabrics…'}
                       style={{ flex: 1, fontFamily: SANS, fontSize: 16, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
                     <button onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
                       style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.2)', color: '#fff', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -3141,7 +3135,7 @@ export default function FromApp({
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Ask your stylist</span>
+                  <span>Ask Fabrics</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
                   </svg>
@@ -3199,7 +3193,7 @@ export default function FromApp({
                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Ask your stylist</span>
+                  <span>Ask Fabrics</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
                   </svg>
