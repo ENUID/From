@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat, groqVisionChat, VisionMessage } from '@/lib/groq'
+import { groqChat, groqVisionChat, VisionMessage, STYLIST_MODEL } from '@/lib/groq'
+import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
+import { buildMandatoryConcepts } from '@/lib/queryParser'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type StylistProduct = {
@@ -141,7 +143,7 @@ When the shopper shares their own clothing photos:
 
 ━━━ RESPONSE RULES ━━━
 LENGTH — this is the most important rule:
-• 1–2 sentences for most answers. 3 sentences maximum. Never more. A shorter answer that nails the point beats a long one every time.
+• 1–2 sentences for most answers. 3 sentences maximum. For product comparisons or outfit builds, you may use up to 4 sentences. A shorter answer that nails the point beats a long one every time.
 • If something genuinely needs 3 sentences, earn them. Most answers need 1–2.
 
 TONE — sound like a sharp friend who knows fashion, not a consultant:
@@ -154,6 +156,20 @@ FORMATTING — strict:
 • Write in natural flowing sentences only.
 • You may use **word** to bold ONE key term per reply (a product name or the single most critical styling word). That is the only allowed formatting. No asterisks for anything else.
 • NEVER output structured data, JSON, markdown headers, or any other formatting.
+
+━━━ PRODUCT SEARCH ━━━
+When the shopper asks you to FIND, SHOW, RECOMMEND, or SEARCH FOR new items — end your reply with:
+[SEARCH: precise product query]
+
+Rules:
+• Use exact product vocabulary: garment type + gender + material + color. Examples: "men linen shirt". "women black leather boots". "silk slip dress".
+• One search per reply. Do NOT output [SEARCH:] when discussing products already shown.
+• Do NOT output both [SEARCH:] and [COMPARE:] in the same reply.
+• If no new products are needed, omit [SEARCH:] entirely.
+
+Example: "Find me something for a summer wedding"
+→ "Linen is the move — breathable and elegant."
+[SEARCH: men linen summer trousers]
 
 ━━━ VISUAL COMPARISON (2+ products, comparison/choice question only) ━━━
 After your text reply, output ONE comparison block at the very end — nothing after it:
@@ -201,6 +217,16 @@ function parseReply(raw: string): { reply: string; comparison?: Comparison } {
   return { reply: replyText || raw.trim() }
 }
 
+// ── Search token ────────────────────────────────────────────────────────────
+function parseSearchToken(text: string): { reply: string; searchQuery?: string } {
+  const match = text.match(/\[SEARCH:\s*([^\]]+)\]/i)
+  if (!match) return { reply: text.trim() }
+  return {
+    reply: text.replace(match[0], '').replace(/\n+$/, '').trim(),
+    searchQuery: match[1].trim().slice(0, 200),
+  }
+}
+
 // ── Route ───────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
@@ -211,6 +237,9 @@ export async function POST(req: NextRequest) {
     const images: string[] = Array.isArray(body?.images)
       ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:')).slice(0, 8)
       : []
+    const buyerCurrency: string = typeof body?.buyerCurrency === 'string'
+      ? body.buyerCurrency.toUpperCase()
+      : 'USD'
 
     const hasContent = products.length > 0 || images.length > 0 || rawHistory.length > 0
     if (!question || !hasContent) {
@@ -259,14 +288,32 @@ export async function POST(req: NextRequest) {
         ...history,
         { role: 'user' as const, content: question },
       ]
-      const msg = await groqChat(messages, SYSTEM, undefined, { max_tokens: 500, temperature: 0.3 })
+      const msg = await groqChat(messages, SYSTEM, undefined, { max_tokens: 600, temperature: 0.3, model: STYLIST_MODEL })
       raw = (msg?.content ?? '').trim()
     }
 
     if (!raw) return NextResponse.json({ reply: null, comparison: null })
 
-    const { reply, comparison } = parseReply(raw)
-    return NextResponse.json({ reply, comparison: comparison ?? null })
+    const { reply: replyWithSearch, comparison } = parseReply(raw)
+    const { reply, searchQuery } = parseSearchToken(replyWithSearch)
+
+    let foundProducts: any[] | null = null
+    if (searchQuery) {
+      try {
+        const concepts = buildMandatoryConcepts(searchQuery)
+        const results = await GlobalCatalogService.search(
+          searchQuery,
+          undefined, [], null, true, concepts,
+          'trust_desc', buyerCurrency,
+          { fastFirstPage: true }, []
+        )
+        if (results.length > 0) foundProducts = results.slice(0, 12)
+      } catch (e) {
+        console.error('[stylist] search error:', e)
+      }
+    }
+
+    return NextResponse.json({ reply, comparison: comparison ?? null, foundProducts })
   } catch (e) {
     console.error('[stylist] error:', e)
     return NextResponse.json({ reply: null, comparison: null })

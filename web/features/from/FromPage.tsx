@@ -1077,7 +1077,14 @@ export default function FromApp({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           products: payloadProducts,
-          messages: history.map(m => ({ role: m.role, content: m.content })),
+          messages: history.map(m => ({
+            role: m.role,
+            content: m.content,
+            foundProducts: m.foundProducts?.map(p => ({
+              title: p.title, vendor: p.vendor,
+              price: p.price, currency: p.currency,
+            })),
+          })),
           question,
           images: capturedImages,
           buyerCurrency: shopperContext.currency,
@@ -1085,7 +1092,14 @@ export default function FromApp({
       })
       const data = await res.json()
       if (data?.reply) {
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : undefined }])
+        const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : []
+        if (newProducts.length > 0) {
+          setStylistProducts(prev => {
+            const ids = new Set(prev.map(p => p.id))
+            return [...prev, ...newProducts.filter(p => !ids.has(p.id))]
+          })
+        }
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined }])
       } else {
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
       }
@@ -1322,7 +1336,7 @@ export default function FromApp({
     setStylistSubSubVis(false)
     const t1 = setTimeout(() => setStylistSubVis(true), 700)
     const t2 = setTimeout(() => setStylistSubSubVis(true), 1500)
-    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 2700)
+    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 3000)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
@@ -2703,9 +2717,16 @@ export default function FromApp({
                     <svg width="15" height="15" viewBox="0 0 24 24" fill={INK} stroke="none"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
                     <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Fabrics</span>
                   </div>
-                  <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {stylistMsgs.length > 0 && (
+                      <button onClick={() => { setStylistMsgs([]); setStylistProducts([]); setStylistImages([]) }} title="New conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+                      </button>
+                    )}
+                    <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Pinned products */}
