@@ -1090,7 +1090,7 @@ export default function FromApp({
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
       }
     } catch {
-      setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching the stylist. Give it another go in a moment.' }])
+      setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching Fabrics. Give it another go in a moment.' }])
     } finally {
       setStylistLoading(false)
     }
@@ -1687,12 +1687,14 @@ export default function FromApp({
           -webkit-backdrop-filter:blur(28px) saturate(160%);
         }
         /* On tablet/desktop the wrap is transparent — products show through,
-           only the pill itself floats on top */
+           only the pill itself floats on top. Remove the extra 12px floor so there
+           is no visible strip below the pill; only respect the device safe-area. */
         @media(min-width:768px){
           .fr-bar-wrap{
             background:transparent;
             backdrop-filter:none;
             -webkit-backdrop-filter:none;
+            padding-bottom:env(safe-area-inset-bottom);
           }
         }
 
