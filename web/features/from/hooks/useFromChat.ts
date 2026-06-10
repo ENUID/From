@@ -198,6 +198,10 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     const messageText = text ?? input.trim()
     if (!messageText || loading) return
 
+    // Only create a history entry for the first user message in a session.
+    // Follow-up messages refine the same conversation — they shouldn't add new entries.
+    const isFirstMessage = !messages.some(m => m.role === 'user')
+
     setActiveView('discover')
     setInput('')
     setLoading(true)
@@ -224,7 +228,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
         ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
         : []
 
-      if (!opts?.skipHistory) rememberSearch(messageText, products.length)
+      if (!opts?.skipHistory && isFirstMessage) rememberSearch(messageText, products.length)
       setMessages(previous => [
         ...previous,
         {

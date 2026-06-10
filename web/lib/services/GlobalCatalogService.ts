@@ -522,9 +522,10 @@ function hasWord(text: string, word: string): boolean {
 }
 
 function detectGender(text: string): 'men' | 'women' | 'kids' | null {
-  const women = /(?:^|[^a-z])(women|woman|womens|womenswear|ladies|lady|female|girls?)(?:[^a-z]|$)/i.test(text);
-  const men   = /(?:^|[^a-z])(men|man|mens|menswear|male|guys?|boys?|gentlemen)(?:[^a-z]|$)/i.test(text);
-  const kids  = /(?:^|[^a-z])(kids?|children|child|toddler|infant|baby)(?:[^a-z]|$)/i.test(text);
+  const women = /(?:^|[^a-z])(women|woman|womens|womenswear|ladies|lady|female)(?:[^a-z]|$)/i.test(text);
+  const men   = /(?:^|[^a-z])(men|man|mens|menswear|male|guys?|gentlemen)(?:[^a-z]|$)/i.test(text);
+  // boys/girls are children — keep them out of the adult gender buckets
+  const kids  = /(?:^|[^a-z])(kids?|children|child|toddler|infant|baby|boys?|girls?)(?:[^a-z]|$)/i.test(text);
   if (kids && !women && !men) return 'kids';
   if (women && !men) return 'women';
   if (men && !women) return 'men';
@@ -594,11 +595,16 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   }
 
   // 0c. Garment precision — tee vs button-up/formal shirt are not interchangeable.
+  // Bare "shirt" also means a woven/button-up shirt — tees must not appear in shirt searches.
   const wantsTee = TEE_MARKERS.some(m => hasWord(normalizedQuery, m));
-  const wantsFormalShirt = !wantsTee && FORMAL_SHIRT_MARKERS.some(m => hasWord(normalizedQuery, m));
+  const wantsShirt = !wantsTee && hasWord(normalizedQuery, 'shirt');
+  const wantsFormalShirt = !wantsTee && (wantsShirt || FORMAL_SHIRT_MARKERS.some(m => hasWord(normalizedQuery, m)));
   if (wantsTee || wantsFormalShirt) {
     const isTee = TEE_MARKERS.some(m => hasWord(searchableText, m));
-    const isFormalShirt = FORMAL_SHIRT_MARKERS.some(m => hasWord(searchableText, m));
+    // When the query is just "shirt", any product with "shirt" but not a tee counts as a shirt
+    const isFormalShirt = wantsShirt
+      ? !isTee && hasWord(searchableText, 'shirt')
+      : FORMAL_SHIRT_MARKERS.some(m => hasWord(searchableText, m));
     if (wantsTee && isFormalShirt && !isTee) return true;
     if (wantsFormalShirt && isTee && !isFormalShirt) return true;
   }
@@ -647,13 +653,17 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   return false;
 }
 
-function uniqueById<T extends { id?: string }>(items: T[]) {
-  const seen = new Set<string>();
+function uniqueById<T extends { id?: string; title?: string; vendor?: string }>(items: T[]) {
+  const seenIds = new Set<string>();
+  const seenTitleVendor = new Set<string>();
   const unique: T[] = [];
 
   for (const item of items) {
-    if (!item.id || seen.has(item.id)) continue;
-    seen.add(item.id);
+    const tvKey = `${(item.title || '').toLowerCase().trim()}|${(item.vendor || '').toLowerCase().trim()}`;
+    if (item.id && seenIds.has(item.id)) continue;
+    if (tvKey !== '|' && seenTitleVendor.has(tvKey)) continue;
+    if (item.id) seenIds.add(item.id);
+    if (tvKey !== '|') seenTitleVendor.add(tvKey);
     unique.push(item);
   }
 
@@ -1021,6 +1031,9 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
   let filtered = products.filter(product => {
     if (excludeIds.has(product.id)) return false;
 
+    // Never surface out-of-stock products
+    if (product.in_stock === false) return false;
+
     // Strict allowed store filtering with domain matching
     const storeDomain = getProductStoreDomain(product);
     const hasMatch = UCP_REGISTRY.some(s => isDomainMatch(storeDomain, s.domain));
@@ -1047,7 +1060,7 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
 
   // Hard-filter category mismatches. A mismatch trust_score is ≤34 (base 70-94 minus 60 penalty).
   // Only fall back to including mismatches if they make up the entire result set (niche queries).
-  const MISMATCH_THRESHOLD = 40;
+  const MISMATCH_THRESHOLD = 45;
   const matched = filtered.filter(p => (p.trust_score || 0) >= MISMATCH_THRESHOLD);
   // Keep mismatches only as an absolute last resort — ensures niche/unlabeled stores still return something
   filtered = matched.length >= 4 ? matched : filtered;

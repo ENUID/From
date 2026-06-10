@@ -14,12 +14,30 @@ type StylistProduct = {
   options?: { name: string; values: string[] }[]
 }
 
-type StylistMessage = { role: 'user' | 'assistant'; content: string }
+type StylistMessage = { role: 'user' | 'assistant'; content: string; foundProducts?: StylistProduct[] }
 
 // Structured comparison the UI renders as a visual card.
 type Comparison = {
   rows: { label: string; values: string[] }[]
   pick?: { index: number; reason: string }
+}
+
+// ── History enrichment ───────────────────────────────────────────────────────
+// Inject products from prior assistant turns as system context so the stylist
+// remembers what was discussed even when the shopper doesn't repin the products.
+function enrichHistory(history: StylistMessage[]): { role: 'user' | 'assistant' | 'system'; content: string }[] {
+  const enriched: { role: 'user' | 'assistant' | 'system'; content: string }[] = []
+  for (const msg of history) {
+    enriched.push({ role: msg.role, content: msg.content })
+    if (msg.role === 'assistant' && msg.foundProducts && msg.foundProducts.length > 0) {
+      const summary = msg.foundProducts
+        .slice(0, 4)
+        .map((p, i) => productBlock(p as StylistProduct, i))
+        .join('\n\n---\n\n')
+      enriched.push({ role: 'system', content: `Products the shopper saw in this turn:\n\n${summary}` })
+    }
+  }
+  return enriched
 }
 
 // ── Prompt building ─────────────────────────────────────────────────────────
@@ -75,18 +93,22 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const products: StylistProduct[] = Array.isArray(body?.products) ? body.products.slice(0, 4) : []
-    const history: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-8) : []
+    const rawHistory: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-12) : []
     const question: string = typeof body?.question === 'string' ? body.question.trim().slice(0, 500) : ''
 
-    if (!question || products.length === 0) {
+    // Allow continuation even without freshly-pinned products — rely on history context
+    const hasContent = products.length > 0 || rawHistory.length > 0
+    if (!question || !hasContent) {
       return NextResponse.json({ reply: null, comparison: null })
     }
 
-    const context = products.map(productBlock).join('\n\n---\n\n')
+    const context = products.length > 0
+      ? products.map(productBlock).join('\n\n---\n\n')
+      : 'The shopper has no new product pinned. Continue the styling conversation using prior context.'
 
     const messages = [
       { role: 'system' as const, content: `PRODUCT DATA the shopper is viewing:\n\n${context}` },
-      ...history.map(m => ({ role: m.role, content: m.content })),
+      ...enrichHistory(rawHistory),
       { role: 'user' as const, content: question },
     ]
 
