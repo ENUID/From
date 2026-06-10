@@ -1069,6 +1069,7 @@ export default function FromApp({
   const [sidebarOpen, setSidebar]     = useState(false)
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [inputHint, setInputHint]       = useState<string | null>(null)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
@@ -1285,6 +1286,8 @@ export default function FromApp({
   const renameRef     = useRef<HTMLInputElement>(null)
   const taRef         = useRef<HTMLTextAreaElement>(null)
   const fileRef       = useRef<HTMLInputElement>(null)
+  const photoLibRef   = useRef<HTMLInputElement>(null)
+  const cameraRef     = useRef<HTMLInputElement>(null)
   const dragHandleRef = useRef<HTMLDivElement>(null)
   const similarRef    = useRef<HTMLDivElement>(null)
   const sentinelRef   = useRef<HTMLDivElement>(null)
@@ -2044,7 +2047,9 @@ export default function FromApp({
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
-      <input ref={fileRef} type="file" accept="image/*,*/*" multiple style={{ display:"none" }} onChange={handleFile} />
+      <input ref={photoLibRef} type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handleFile} />
+      <input ref={cameraRef}   type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleFile} />
+      <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
 
       <div className="fr-wrap">
         <div className="fr-shell">
@@ -2667,12 +2672,42 @@ export default function FromApp({
                   {/* Row 2: actions */}
                   <div className="fr-bar-btm">
 
-                    {/* Paperclip — directly opens native file picker */}
-                    <button type="button" className="fr-icon-btn" onClick={() => fileRef.current?.click()}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                      </svg>
-                    </button>
+                    {/* Paperclip — custom ordered menu */}
+                    <div style={{ position: 'relative' }}>
+                      <button type="button" className="fr-icon-btn" onClick={() => setAttachMenuOpen(o => !o)}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                        </svg>
+                      </button>
+                      {attachMenuOpen && (
+                        <>
+                          <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={() => setAttachMenuOpen(false)} />
+                          <div style={{ position: 'absolute', bottom: 'calc(100% + 10px)', left: 0, zIndex: 301,
+                            background: '#fff', borderRadius: 14, overflow: 'hidden', minWidth: 200,
+                            boxShadow: '0 8px 28px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.07)' }}>
+                            {([
+                              { label: 'Photo Library', action: () => photoLibRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                              { label: 'Take Photo or Video', action: () => cameraRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> },
+                              { label: 'Choose Files', action: () => fileRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> },
+                            ] as { label: string; action: () => void; icon: React.ReactNode }[]).map(({ label, action, icon }, i, arr) => (
+                              <div key={label}>
+                                <button type="button" onClick={() => { action(); setAttachMenuOpen(false) }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+                                    padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
+                                    fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK, textAlign: 'left' }}
+                                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,.05)')}
+                                  onPointerUp={e => (e.currentTarget.style.background = 'none')}
+                                  onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
+                                  {icon}
+                                  {label}
+                                </button>
+                                {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(0,0,0,.08)', margin: '0 16px' }} />}
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                     {/* Fabrics — pill tag right after paperclip */}
                     <button type="button" onClick={() => setStylistOpen(true)}
                       style={{ display: 'flex', alignItems: 'center', gap: 5,
