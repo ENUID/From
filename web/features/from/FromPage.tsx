@@ -836,66 +836,182 @@ function renderStylistText(
   )
 }
 
-// ── Stylist loading phases — contextual search animation ─────────────────────
+// ── Stylist loading phases — query-aware thinking animation ──────────────────
 type StylistLoadingPhase = { main: string; sub: string; subsub?: string }
 
 function buildStylistLoadingPhases(question: string, hasImages: boolean): StylistLoadingPhase[] {
   const q = question.toLowerCase()
+
+  // ── Extract meaningful terms from the query ─────────────────────────────────
+  const GARMENT_WORDS: [RegExp, string][] = [
+    [/\bt-?shirts?\b|\btees?\b/, 't-shirt'],
+    [/\bshirts?\b/, 'shirt'],
+    [/\bjackets?\b/, 'jacket'],
+    [/\bblazer|\bblazers\b/, 'blazer'],
+    [/\bcoats?\b|\bovercoat|\bparka|\btrench\b/, 'coat'],
+    [/\bsuits?\b/, 'suit'],
+    [/\btrousers?\b|\bpants\b|\bslacks\b/, 'trousers'],
+    [/\bjeans?\b|\bdenim\b/, 'jeans'],
+    [/\bchinos?\b|\bkhakis?\b/, 'chinos'],
+    [/\bshorts?\b/, 'shorts'],
+    [/\bdresses?\b/, 'dress'],
+    [/\bskirts?\b/, 'skirt'],
+    [/\bsweater|\bjumper|\bknitwear|\bpullover/, 'knitwear'],
+    [/\bcardigan/, 'cardigan'],
+    [/\bhoodie|\bsweatshirt/, 'hoodie'],
+    [/\bboots?\b/, 'boots'],
+    [/\bsneakers?\b|\btrainers?\b/, 'sneakers'],
+    [/\bloafers?\b/, 'loafers'],
+    [/\bsandals?\b/, 'sandals'],
+    [/\bbag\b|\bhandbag|\btote\b/, 'bag'],
+  ]
+  const MATERIAL_WORDS: [RegExp, string][] = [
+    [/\blinen\b/, 'linen'], [/\bcotton\b/, 'cotton'], [/\bcashmere\b/, 'cashmere'],
+    [/\bwool\b|\bmerino\b/, 'wool'], [/\bsilk\b/, 'silk'], [/\bleather\b/, 'leather'],
+    [/\bsuede\b/, 'suede'], [/\bvelvet\b/, 'velvet'], [/\bdenim\b/, 'denim'],
+  ]
+  const OCCASION_WORDS: [RegExp, string][] = [
+    [/\bwedding\b/, 'a wedding'], [/\bwork\b|\boffice\b/, 'the office'],
+    [/\bdate\b/, 'a date'], [/\bbeach\b/, 'the beach'],
+    [/\bformal\b|\bgala\b|\bblack.?tie\b/, 'a formal evening'],
+    [/\bsummer\b/, 'summer'], [/\bwinter\b/, 'winter'],
+    [/\bweekend\b/, 'the weekend'], [/\beveryday\b|\bdaily\b/, 'everyday wear'],
+    [/\beverning\b|\bnight out\b/, 'an evening out'],
+  ]
+  const COLOR_WORDS = ['black','white','navy','cream','camel','burgundy','olive',
+    'grey','gray','beige','tan','brown','blue','green','red','rust','terracotta']
+
+  const foundGarment  = GARMENT_WORDS.find(([re]) => re.test(q))?.[1] ?? null
+  const foundMaterial = MATERIAL_WORDS.find(([re]) => re.test(q))?.[1] ?? null
+  const foundOccasion = OCCASION_WORDS.find(([re]) => re.test(q))?.[1] ?? null
+  const foundColor    = COLOR_WORDS.find(c => new RegExp(`\\b${c}\\b`).test(q)) ?? null
+
+  // Build a natural subject string from what was detected
+  const subjectParts = [foundColor, foundMaterial, foundGarment].filter(Boolean)
+  const subject = subjectParts.length > 0 ? subjectParts.join(' ') : null
+  const yours   = subject ? `your ${subject}` : 'this piece'
+
+  // ── Intent detection ─────────────────────────────────────────────────────────
+  const isCompare  = /\bcompar|\bwhich.{0,12}better\b|\bvs\b|\bprefer|\bchoose|\bpick\b|\bbest one\b|\bdifference/.test(q)
+  const isSearch   = /\bfind\b|\bshow\b|\blook for\b|\brecommend\b|\bsuggest\b|\bsearch\b/.test(q)
+  const isColor    = /\bcolou?r|\bmatch\b|\bgo with\b|\bpair\b|\bwear with\b|\bcomplement/.test(q)
+  const isMaterial = /\bmaterial\b|\bfabric\b/.test(q) || !!foundMaterial
+  const isOutfit   = /\boutfit\b|\blook\b|\bstyle\b|\bocasion\b|\boccasion\b|\bwear\b|\bcasual\b|\bformal\b/.test(q)
+  const isValue    = /\bprice\b|\bcost\b|\bworth\b|\bvalue\b|\bexpensive\b|\bcheap\b|\bbudget\b/.test(q)
+
+  // ── Phase sets ───────────────────────────────────────────────────────────────
   if (hasImages) {
     return [
-      { main: 'Reading your photo…', sub: 'Identifying garments & colors' },
-      { main: 'Analysing tones & textures…', sub: 'Color harmony check', subsub: 'Warm vs cool undertones' },
-      { main: 'Scanning the store catalog…', sub: 'Matching to your wardrobe', subsub: 'Silhouette compatibility' },
-      { main: 'Building the recommendation…', sub: 'Putting it all together' },
+      { main: 'Taking in your photo…',
+        sub: 'Reading garments, silhouette, and color' },
+      { main: 'Feeling out the tones…',
+        sub: 'Warm and cool relationships', subsub: 'Undertone and contrast' },
+      { main: 'Finding what would complete this…',
+        sub: 'What the look is missing', subsub: 'Proportion and occasion register' },
+      { main: 'Putting the picture together…',
+        sub: 'A considered recommendation' },
     ]
   }
-  if (/compar|which.*better|vs\b|prefer|choose|pick|best one/.test(q)) {
-    const isMaterial = /material|fabric|wool|cotton|cashmere|linen|silk/.test(q)
-    const isColor    = /color|colour|tone|shade/.test(q)
+
+  if (isCompare) {
+    const firstDim = foundMaterial
+      ? `${foundMaterial} weight and construction`
+      : foundGarment
+        ? `Cut and silhouette of each ${foundGarment}`
+        : 'Silhouette, fabric, and drape'
     return [
-      { main: 'Reading both pieces…', sub: isMaterial ? 'Fabric & construction' : isColor ? 'Color contrast & tone' : 'Style & silhouette' },
-      { main: 'Weighing the differences…', sub: 'Quality, cut & versatility', subsub: 'Occasion fit & longevity' },
-      { main: 'Testing real-world scenarios…', sub: 'When & how you\'d wear each', subsub: 'Cost-per-wear logic' },
-      { main: 'Reaching a verdict…', sub: 'Final pick' },
+      { main: 'Sitting with both pieces…',
+        sub: firstDim },
+      { main: 'Weighing them against each other…',
+        sub: 'Versatility and real-world wearability', subsub: 'Occasion range and longevity' },
+      { main: `Thinking about when you'd reach for each one…`,
+        sub: 'Cost-per-wear and investment value', subsub: 'What earns its place' },
+      { main: 'Settling on a view…',
+        sub: 'The honest answer' },
     ]
   }
-  if (/color|colour|combination|match|go with|pair|wear with|complement/.test(q)) {
+
+  if (isSearch) {
+    const what = subject ?? (foundOccasion ? `something for ${foundOccasion}` : 'the right piece')
     return [
-      { main: 'Thinking about color…', sub: 'Tonal harmony & contrast' },
-      { main: 'Checking undertones…', sub: 'Warm, cool & neutral families', subsub: 'Complementary relationships' },
-      { main: 'Testing combinations…', sub: 'Balance, proportion & pop', subsub: '60-30-10 color rule applied' },
-      { main: 'Building the palette…', sub: 'Final color story' },
+      { main: `Looking for ${what}…`,
+        sub: 'Moving through the catalog' },
+      { main: 'Filtering by what actually matters…',
+        sub: 'Fabric, proportion, and versatility', subsub: 'Weeding out the noise' },
+      { main: 'Narrowing it down to the best…',
+        sub: 'Quality and wearability first' },
+      { main: 'Selecting a shortlist…',
+        sub: 'A few things worth considering' },
     ]
   }
-  if (/material|fabric|wool|cotton|linen|cashmere|silk|leather|blend/.test(q)) {
+
+  if (isColor) {
+    const base = foundColor ? `${foundColor} as the base` : 'your palette'
     return [
-      { main: 'Reading the fabric…', sub: 'Fiber composition & weight' },
-      { main: 'Checking wearability…', sub: 'Season & occasion fit', subsub: 'Care & longevity' },
-      { main: 'Comparing properties…', sub: 'Breathability & drape', subsub: 'Texture & visual weight' },
-      { main: 'Forming a view…', sub: 'Comfort vs style trade-off' },
+      { main: `Thinking through ${base}…`,
+        sub: 'Tonal relationships and contrast' },
+      { main: 'Checking warm and cool families…',
+        sub: 'What bridges and what clashes', subsub: 'The 60-30-10 balance' },
+      { main: 'Finding combinations that actually hold…',
+        sub: 'Harmony without predictability' },
+      { main: 'Landing on the right palette…',
+        sub: 'Something cohesive and considered' },
     ]
   }
-  if (/outfit|look|style|occasion|event|wear|dress|casual|formal|weekend|work/.test(q)) {
+
+  if (isMaterial) {
+    const mat = foundMaterial ?? 'this fabric'
     return [
-      { main: 'Reading the silhouette…', sub: 'Fit & proportion' },
-      { main: 'Checking occasion fit…', sub: 'Style register & context', subsub: 'Volume & structure balance' },
-      { main: 'Working through the layers…', sub: 'Texture & contrast pairings', subsub: 'Color harmony check' },
-      { main: 'Styling the final look…', sub: 'Putting it together' },
+      { main: `Thinking about ${mat}…`,
+        sub: 'Weight, drape, and how it moves' },
+      { main: 'Reading the wearability…',
+        sub: 'Season, occasion, and care', subsub: 'How it ages' },
+      { main: 'Weighing the real-world feel…',
+        sub: 'Texture, structure, and visual weight', subsub: 'Comfort versus formality' },
+      { main: 'Forming a view…',
+        sub: 'What it is actually like to live in' },
     ]
   }
-  if (/price|cost|worth|value|expensive|cheap|budget/.test(q)) {
+
+  if (isValue) {
     return [
-      { main: 'Checking the numbers…', sub: 'Price per piece analysis' },
-      { main: 'Weighing quality markers…', sub: 'Materials, construction & brand', subsub: 'Market positioning' },
-      { main: 'Calculating value…', sub: 'Cost-per-wear estimate', subsub: 'Long-term investment grade' },
-      { main: 'Forming a recommendation…', sub: 'Best choice for your budget' },
+      { main: `Thinking about what ${yours} is worth…`,
+        sub: 'Price relative to quality markers' },
+      { main: 'Reading the construction…',
+        sub: 'Material, cut, and finishing', subsub: 'Brand positioning and longevity' },
+      { main: 'Calculating cost-per-wear…',
+        sub: `How often you would actually reach for it` },
+      { main: 'Weighing it up honestly…',
+        sub: 'Whether it earns its price' },
     ]
   }
+
+  if (isOutfit || foundOccasion) {
+    const occ = foundOccasion ? `for ${foundOccasion}` : ''
+    const piece = subject ?? 'the piece'
+    return [
+      { main: `Thinking about ${piece}${occ ? ` ${occ}` : ''}…`,
+        sub: 'Silhouette, proportion, and occasion register' },
+      { main: 'Working through the layers…',
+        sub: 'Color story and texture contrast', subsub: 'Volume and structure balance' },
+      { main: 'Considering what else belongs…',
+        sub: 'Shoes, outerwear, and the finishing details' },
+      { main: 'Pulling the look together…',
+        sub: 'A complete and considered picture' },
+    ]
+  }
+
+  // ── Default — use whatever we extracted ──────────────────────────────────────
   return [
-    { main: 'Reading the pieces…', sub: 'Silhouette, color & fabric' },
-    { main: 'Thinking it through…', sub: 'Style context & occasion', subsub: 'Brand aesthetic fit' },
-    { main: 'Considering your options…', sub: 'Versatility & wearability', subsub: 'Seasonal relevance' },
-    { main: 'Almost there…', sub: 'Forming the response' },
+    { main: `Thinking about ${yours}…`,
+      sub: 'Silhouette, color, and fabric' },
+    { main: 'Considering style and context…',
+      sub: foundOccasion ? `What works for ${foundOccasion}` : 'When and how you would wear it',
+      subsub: 'Seasonal relevance and versatility' },
+    { main: 'Working through the options…',
+      sub: 'What is worth knowing' },
+    { main: 'Almost there…',
+      sub: 'A considered answer on its way' },
   ]
 }
 
@@ -1344,9 +1460,9 @@ export default function FromApp({
     }
     setStylistSubVis(false)
     setStylistSubSubVis(false)
-    const t1 = setTimeout(() => setStylistSubVis(true), 700)
-    const t2 = setTimeout(() => setStylistSubSubVis(true), 1500)
-    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 4500)
+    const t1 = setTimeout(() => setStylistSubVis(true), 900)
+    const t2 = setTimeout(() => setStylistSubSubVis(true), 2300)
+    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 6500)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
