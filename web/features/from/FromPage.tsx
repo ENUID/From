@@ -1199,8 +1199,7 @@ export default function FromApp({
     const products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
     const images   = imagesArg ?? stylistImages
-    const hasContext = products.length > 0 || images.length > 0 || history.length > 0
-    if (!question || stylistLoading || !hasContext) return
+    if (!question || stylistLoading) return
     setStylistInput('')
     const capturedImages = images.map(i => i.url)
     setStylistImages([])
@@ -2971,10 +2970,10 @@ export default function FromApp({
                   {stylistMsgs.length === 0 && !stylistLoading && (
                     <div>
                       <p style={{ fontFamily: SERIF, fontSize: 18, color: INK3, lineHeight: 1.4, marginBottom: 12 }}>
-                        {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Upload photos of your clothes for styling advice.'}
+                        {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Ask me anything about style.'}
                       </p>
                       <p style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(44,18,6,0.4)', lineHeight: 1.5 }}>
-                        Tap the camera icon to share photos of your own clothes — get color matching, outfit combinations, and recommendations from the store.
+                        Get outfit ideas, styling advice, and recommendations — or share photos of your own clothes for colour matching and combinations.
                       </p>
                     </div>
                   )}
