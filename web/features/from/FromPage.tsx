@@ -1001,6 +1001,7 @@ export default function FromApp({
   const [stylistSubSubVis, setStylistSubSubVis]         = useState(false)
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
   const stylistFileRef                      = useRef<HTMLInputElement>(null)
+  const stylistSessionId                    = useRef<string | null>(null)
   const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
   // Products attached to the search bar — sending a query with these opens the stylist.
   const [barProducts, setBarProducts]       = useState<Product[]>([])
@@ -1060,12 +1061,16 @@ export default function FromApp({
     setStylistInput('')
     const capturedImages = images.map(i => i.url)
     setStylistImages([])
-    const msgId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    setStylistHistory(prev => [
-      { id: msgId, label: question.slice(0, 80), createdAt: Date.now() },
-      ...prev,
-    ].slice(0, 30))
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, id: msgId, images: capturedImages.length > 0 ? capturedImages : undefined }])
+    const isNewSession = history.length === 0
+    if (isNewSession) {
+      const sessionId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      stylistSessionId.current = sessionId
+      setStylistHistory(prev => [
+        { id: sessionId, label: question.slice(0, 80), createdAt: Date.now() },
+        ...prev,
+      ].slice(0, 30))
+    }
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined }])
     setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0))
     setStylistLoadingStep(0)
     setStylistLoading(true)
@@ -1115,6 +1120,7 @@ export default function FromApp({
   }
   // Open the stylist page with attached products and immediately ask the query.
   const openStylistWith = (products: Product[], query: string) => {
+    stylistSessionId.current = null
     setStylistProducts(products)
     setStylistMsgs([])
     setStylistOpen(true)
@@ -2739,7 +2745,7 @@ export default function FromApp({
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {stylistMsgs.length > 0 && (
-                      <button onClick={() => { setStylistMsgs([]); setStylistProducts([]); setStylistImages([]) }} title="New conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                      <button onClick={() => { setStylistMsgs([]); setStylistProducts([]); setStylistImages([]); stylistSessionId.current = null }} title="New conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
