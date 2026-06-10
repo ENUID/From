@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const products: StylistProduct[] = Array.isArray(body?.products) ? body.products.slice(0, 4) : []
-    const rawHistory: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-12) : []
+    const rawHistory: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-20) : []
     const question: string = typeof body?.question === 'string' ? body.question.trim().slice(0, 500) : ''
     const images: string[] = Array.isArray(body?.images)
       ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:')).slice(0, 8)

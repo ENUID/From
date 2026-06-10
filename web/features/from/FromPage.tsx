@@ -1018,6 +1018,10 @@ export default function FromApp({
   const removeStylistProduct = (id: string) => {
     setStylistProducts(prev => prev.filter(p => p.id !== id))
   }
+  const addStylistProduct = (p: Product) => {
+    setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 8) ? prev : [...prev, p])
+    setStylistOpen(true)
+  }
   function deleteStylistEntry(id: string) { setStylistHistory(prev => prev.filter(e => e.id !== id)) }
   function renameStylistEntry(id: string, newLabel: string) { setStylistHistory(prev => prev.map(e => e.id === id ? { ...e, label: newLabel } : e)) }
 
@@ -1336,7 +1340,7 @@ export default function FromApp({
     setStylistSubSubVis(false)
     const t1 = setTimeout(() => setStylistSubVis(true), 700)
     const t2 = setTimeout(() => setStylistSubSubVis(true), 1500)
-    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 3000)
+    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 4500)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
@@ -1886,6 +1890,7 @@ export default function FromApp({
         @keyframes toastIn{0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(0.88);}60%{opacity:1;transform:translateX(-50%) translateY(-4px) scale(1.03);}80%{transform:translateX(-50%) translateY(2px) scale(0.99);}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
         @keyframes toastOut{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.88);}}
         @keyframes sheetUp{0%{transform:translateY(100%);}100%{transform:translateY(0);}}
+        @keyframes fadeScale{0%{opacity:0;transform:scale(0.94);}100%{opacity:1;transform:scale(1);}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
@@ -2519,6 +2524,12 @@ export default function FromApp({
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                       </svg>
                     </button>
+                    {/* Fabrics — open the AI stylist directly */}
+                    <button type="button" className="fr-icon-btn" onClick={() => setStylistOpen(true)} title="Ask Fabrics">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                        <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+                      </svg>
+                    </button>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
                       <div style={{ transform: `scale(${sendScale})`, willChange: "transform" }}
@@ -2707,9 +2718,18 @@ export default function FromApp({
           {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
           {stylistOpen && (
             <div onClick={() => setStylistOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', paddingBottom: keyboardOffset } as React.CSSProperties}>
+              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isWide ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', paddingBottom: isWide ? 0 : keyboardOffset } as React.CSSProperties}>
               <div onClick={e => e.stopPropagation()}
-                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '90dvh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)' }}>
+                style={isWide ? {
+                  width: 'min(760px, 88vw)', height: 'min(680px, 88vh)',
+                  background: '#fff', borderRadius: 24, display: 'flex', flexDirection: 'column',
+                  boxShadow: '0 0 0 0.5px rgba(44,18,6,.06), 0 8px 40px rgba(44,18,6,.18), 0 32px 80px rgba(44,18,6,.12)',
+                  animation: 'fadeScale .3s cubic-bezier(.32,.72,0,1)',
+                } : {
+                  width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff',
+                  borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column',
+                  maxHeight: '90dvh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)',
+                }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', borderBottom: `1px solid ${BRD}`, flexShrink: 0 }}>
@@ -2720,7 +2740,10 @@ export default function FromApp({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {stylistMsgs.length > 0 && (
                       <button onClick={() => { setStylistMsgs([]); setStylistProducts([]); setStylistImages([]) }} title="New conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
                       </button>
                     )}
                     <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
@@ -3204,7 +3227,11 @@ export default function FromApp({
                 {/* Ask your stylist — opens the conversational stylist sheet */}
                 <div onClick={() => {
                     if (Date.now() - ctxMenuOpenAt.current < 350) return
-                    addBarProduct(productCtxMenu.product)
+                    if (stylistOpen && stylistMsgs.length > 0) {
+                      addStylistProduct(productCtxMenu.product)
+                    } else {
+                      addBarProduct(productCtxMenu.product)
+                    }
                     setProductCtxMenu(null)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',

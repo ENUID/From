@@ -36,7 +36,7 @@ const _resolved = PROVIDER_DEFAULTS[ACTIVE_PROVIDER] ?? PROVIDER_DEFAULTS.groq
 export const GROQ_BASE = process.env.LLM_BASE_URL ?? _resolved.base
 export const GROQ_API_KEY = process.env.LLM_API_KEY ?? _resolved.key
 export const CHAT_MODEL = process.env.LLM_CHAT_MODEL ?? _resolved.model
-export const STYLIST_MODEL = process.env.GROQ_STYLIST_MODEL ?? CHAT_MODEL
+export const STYLIST_MODEL = process.env.GROQ_STYLIST_MODEL ?? 'llama-3.3-70b-versatile'
 
 // DeepSeek/Kimi are a touch slower than Groq's tiny model — give them headroom.
 const LLM_TIMEOUT_MS = Number(
