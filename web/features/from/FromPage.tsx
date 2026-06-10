@@ -1125,7 +1125,7 @@ export default function FromApp({
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
       }
     } catch {
-      setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching the stylist. Give it another go in a moment.' }])
+      setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching Fabrics. Give it another go in a moment.' }])
     } finally {
       setStylistLoading(false)
     }
