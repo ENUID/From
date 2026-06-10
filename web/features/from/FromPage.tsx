@@ -1090,6 +1090,7 @@ export default function FromApp({
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
+  const [isMedium, setIsMedium]         = useState(false)
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
@@ -1361,6 +1362,7 @@ export default function FromApp({
   useEffect(() => {
     const check = () => {
       setIsWide(window.innerWidth >= 1024)
+      setIsMedium(window.innerWidth >= 768)
       setWindowWidth(window.innerWidth)
     }
     check()
@@ -1815,7 +1817,7 @@ export default function FromApp({
         .fr-content{flex:1;position:relative;overflow:hidden;}
 
         /* ── Body ── */
-        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:120px;overscroll-behavior-y:contain;}
+        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:calc(max(80px, env(safe-area-inset-bottom, 0px) + 72px));overscroll-behavior-y:contain;}
         .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
         /* ── Search bar wrap ── */
@@ -2840,16 +2842,24 @@ export default function FromApp({
           {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
           {stylistOpen && (
             <div onClick={() => setStylistOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isWide ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', paddingBottom: isWide ? 0 : keyboardOffset } as React.CSSProperties}>
+              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', paddingBottom: isMedium ? 0 : keyboardOffset } as React.CSSProperties}>
               <div onClick={e => e.stopPropagation()}
                 style={isWide ? {
                   width: 'min(760px, 88vw)', height: 'min(680px, 88vh)',
                   background: '#fff', borderRadius: 24, display: 'flex', flexDirection: 'column',
+                  overflow: 'hidden',
+                  boxShadow: '0 0 0 0.5px rgba(44,18,6,.06), 0 8px 40px rgba(44,18,6,.18), 0 32px 80px rgba(44,18,6,.12)',
+                  animation: 'fadeScale .3s cubic-bezier(.32,.72,0,1)',
+                } : isMedium ? {
+                  width: 'min(680px, 92vw)', height: 'min(660px, 88vh)',
+                  background: '#fff', borderRadius: 20, display: 'flex', flexDirection: 'column',
+                  overflow: 'hidden',
                   boxShadow: '0 0 0 0.5px rgba(44,18,6,.06), 0 8px 40px rgba(44,18,6,.18), 0 32px 80px rgba(44,18,6,.12)',
                   animation: 'fadeScale .3s cubic-bezier(.32,.72,0,1)',
                 } : {
                   width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff',
                   borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column',
+                  overflow: 'hidden',
                   maxHeight: '90dvh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)',
                 }}>
 
