@@ -12,6 +12,7 @@ import {
   buildCategoryTaxonomy,
   buildVibeGlossary,
 } from '@/lib/stores'
+import { augmentConcepts, buildMandatoryConcepts } from '@/lib/queryParser'
 
 
 const CHAT_WINDOW_MS = 60_000
@@ -184,36 +185,9 @@ function parseDirectSearchIntent(message: string, buyerCurrency: string): Search
   const isClothing = CLOTHING_TERMS.some(term => lowerQuery.includes(term))
   const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'price_asc'
 
-  // Build mandatoryConcepts so the filter pipeline enforces gender and garment type
-  const mandatoryConcepts: string[][] = []
-
-  const wantsWomen = /\b(women|woman|womens|ladies|female|girl)\b/i.test(lowerQuery)
-  const wantsMen = /\b(men|man|mens|menswear|male)\b/i.test(lowerQuery) && !wantsWomen
-  if (wantsMen) mandatoryConcepts.push(['men', 'mens', 'man', 'male', 'unisex'])
-  else if (wantsWomen) mandatoryConcepts.push(['women', 'womens', 'woman', 'ladies', 'female'])
-
-  const garmentPatterns: [RegExp, string[]][] = [
-    [/\b(t-?shirt|tee|tees)\b/, ['t-shirt', 'tshirt', 'tee', 'tees']],
-    [/\blinen\b/, ['linen']],
-    [/\bshirt\b/, ['shirt', 'shirts', 'button-up']],
-    [/\b(pants|trousers|chinos)\b/, ['pants', 'trousers', 'chinos']],
-    [/\bshoes?\b/, ['shoe', 'shoes', 'sneaker', 'sneakers', 'boot', 'boots']],
-    [/\bjacket\b/, ['jacket', 'blazer', 'coat']],
-    [/\bdress\b/, ['dress', 'dresses']],
-    [/\b(sweater|jumper|knitwear)\b/, ['sweater', 'jumper', 'knitwear', 'knit']],
-    [/\bshorts\b/, ['shorts']],
-    [/\bskirt\b/, ['skirt', 'skirts']],
-    [/\b(sock|socks)\b/, ['sock', 'socks']],
-    [/\b(boot|boots)\b/, ['boot', 'boots']],
-    [/\bcoat\b/, ['coat', 'overcoat', 'outerwear']],
-    [/\b(bag|bags|tote|backpack)\b/, ['bag', 'bags', 'tote', 'backpack']],
-  ]
-  for (const [pattern, synonyms] of garmentPatterns) {
-    if (pattern.test(lowerQuery)) {
-      mandatoryConcepts.push(synonyms)
-      break
-    }
-  }
+  // Build mandatoryConcepts using the deterministic query parser.
+  // This covers gender, garment type, and material for every word in the query.
+  const mandatoryConcepts = buildMandatoryConcepts(query)
 
   return SearchToolSchema.parse({
     searchQuery: expandDirectQuery(query),
@@ -482,6 +456,52 @@ DO NOT search if:
 • User is greeting, asking for help, or asking a non-product question → reply in text, invite them to search
 • Pagination ("more", "show me more") → use EXACT same query + concepts as previous search, no modifications
 
+━━━ mandatoryConcepts — CRITICAL HARD FILTERS ━━━
+RULE: every significant word in the query = one concept group. The catalog filters OUT any product missing even one group.
+Set ALL that apply. Wrong or missing concepts = wrong products shown.
+
+GARMENT TYPE — always required for any item search (pick the matching one):
+shirt → ["shirt","shirts","button-up","button-down","dress shirt","oxford shirt"]
+t-shirt/tee → ["t-shirt","tshirt","tee","tees"]
+trouser/pants → ["trouser","trousers","pants","slacks"]
+jeans → ["jean","jeans","denim"]
+dress → ["dress","dresses"]
+skirt → ["skirt","skirts"]
+shorts → ["shorts"]
+jacket → ["jacket"]
+blazer → ["blazer"]
+coat → ["coat","overcoat","trench"]
+sweater/jumper → ["sweater","jumper","pullover","knitwear"]
+hoodie → ["hoodie","sweatshirt"]
+cardigan → ["cardigan"]
+blouse → ["blouse","blouses"]
+sneaker/trainer → ["sneaker","sneakers","trainer","trainers"]
+boot → ["boot","boots","chelsea","ankle boot"]
+loafer → ["loafer","loafers","moccasin"]
+sandal → ["sandal","sandals","slide"]
+heel/pump → ["heel","heels","pump","pumps"]
+bag → ["bag","handbag","tote","clutch","purse"]
+backpack → ["backpack","rucksack"]
+hat/cap → ["hat","cap","beanie"]
+belt → ["belt","belts"]
+sock → ["sock","socks"]
+
+MATERIAL — add as its own group whenever stated:
+linen → ["linen"]   silk → ["silk","satin"]   wool → ["wool","merino","woolen"]
+leather → ["leather"]   cotton → ["cotton"]   denim → ["denim"]
+cashmere → ["cashmere"]   suede → ["suede"]   velvet → ["velvet"]   fleece → ["fleece"]
+
+GENDER — always add when stated or clearly inferable from context:
+men/men's → ["men","mens","man","male","unisex"]
+women/women's → ["women","womens","woman","ladies","female"]
+
+EXAMPLE — "men linen shirt":
+mandatoryConcepts: [["men","mens","man","male","unisex"],["shirt","shirts","button-up","button-down","dress shirt","oxford shirt"],["linen"]]
+→ a "linen trouser" fails (no shirt synonym) ✓   a "women linen shirt" fails (wrong gender) ✓
+
+NEVER mix material and garment in the same group. Each is its own separate array.
+SIZE is NEVER a mandatoryConcept.
+
 OUTPUT RULES:
 - NEVER manually list products, prices, URLs, or product details — the UI renders cards automatically. Write only a short conversational lead-in.
 - NEVER output raw JSON, structured data, code blocks, or any technical syntax in your reply. Plain prose only.
@@ -655,6 +675,10 @@ export async function POST(req: NextRequest) {
       if (toolCall.function.name === 'search_ucp') {
         try {
           const args = parseSearchToolArguments(toolCall.function.arguments)
+          // Verify and fill in any concepts the LLM may have missed.
+          // augmentConcepts adds gender/garment/material groups that are present
+          // in the searchQuery but absent from the LLM-generated mandatoryConcepts.
+          args.mandatoryConcepts = augmentConcepts(args.mandatoryConcepts || [], args.searchQuery)
           activeSearchQuery = args.searchQuery
           activeBudgetMax = args.budgetMax
           activeBudgetCurrency = (args.budgetCurrency || activeBuyerCurrency).toUpperCase()
