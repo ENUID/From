@@ -39,6 +39,22 @@ type RateEntry = {
 }
 
 const rateBuckets = new Map<string, RateEntry>()
+const RATE_BUCKETS_MAX = 10_000
+
+// Drop expired buckets so the map can't grow without bound under heavy traffic
+// from many distinct IPs on a warm serverless instance.
+function sweepRateBuckets(now: number) {
+  if (rateBuckets.size < RATE_BUCKETS_MAX) return
+  rateBuckets.forEach((entry, key) => {
+    if (entry.resetAt <= now) rateBuckets.delete(key)
+  })
+  // If everything is still live (extreme load), evict oldest to stay bounded.
+  while (rateBuckets.size > RATE_BUCKETS_MAX) {
+    const oldest = rateBuckets.keys().next().value
+    if (oldest === undefined) break
+    rateBuckets.delete(oldest)
+  }
+}
 
 function getClientKey(req: NextRequest) {
   const forwarded = req.headers.get('x-forwarded-for')
@@ -48,6 +64,7 @@ function getClientKey(req: NextRequest) {
 
 function isRateLimited(req: NextRequest) {
   const now = Date.now()
+  sweepRateBuckets(now)
   const key = getClientKey(req)
   const current = rateBuckets.get(key)
 
@@ -165,12 +182,112 @@ function parseDirectSearchIntent(message: string, buyerCurrency: string): Search
   if (/\b(compare|which|what|how|why|can you|tell me|hi|hello|thanks|thank you)\b/i.test(lowerQuery)) return null
 
   const isClothing = CLOTHING_TERMS.some(term => lowerQuery.includes(term))
-  const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'price_asc'
+  const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'trust_desc'
+
+  // Build mandatoryConcepts so the filter pipeline enforces gender, garment, material, and colour
+  const mandatoryConcepts: string[][] = []
+
+  // Gender
+  const wantsWomen = /\b(women|woman|womens|ladies|female|girl)\b/i.test(lowerQuery)
+  const wantsMen = /\b(men|man|mens|menswear|male)\b/i.test(lowerQuery) && !wantsWomen
+  if (wantsMen) mandatoryConcepts.push(['men', 'mens', 'man', 'male', 'unisex'])
+  else if (wantsWomen) mandatoryConcepts.push(['women', 'womens', 'woman', 'ladies', 'female'])
+
+  // Garment type — linen removed (it's a material, not a garment)
+  const garmentPatterns: [RegExp, string[]][] = [
+    [/\b(t-?shirt|tee|tees)\b/, ['t-shirt', 'tshirt', 'tee', 'tees']],
+    [/\bshirt\b/, ['shirt', 'shirts', 'button-up', 'button up']],
+    [/\b(pants|trousers|chinos)\b/, ['pants', 'trousers', 'chinos', 'trouser']],
+    [/\bshoes?\b/, ['shoe', 'shoes', 'sneaker', 'sneakers', 'boot', 'boots']],
+    [/\bjacket\b/, ['jacket', 'blazer', 'coat']],
+    [/\bdress\b/, ['dress', 'dresses']],
+    [/\b(sweater|jumper|knitwear)\b/, ['sweater', 'jumper', 'knitwear', 'knit']],
+    [/\bshorts\b/, ['shorts']],
+    [/\bskirt\b/, ['skirt', 'skirts']],
+    [/\b(sock|socks)\b/, ['sock', 'socks']],
+    [/\b(boot|boots)\b/, ['boot', 'boots']],
+    [/\bcoat\b/, ['coat', 'overcoat', 'outerwear']],
+    [/\b(bag|bags|tote|backpack)\b/, ['bag', 'bags', 'tote', 'backpack']],
+  ]
+  for (const [pattern, synonyms] of garmentPatterns) {
+    if (pattern.test(lowerQuery)) { mandatoryConcepts.push(synonyms); break }
+  }
+
+  // Material — separate from garment so "linen shirt" adds BOTH linen AND shirt concepts
+  const materialPatterns: [RegExp, string[]][] = [
+    [/\blinen\b/, ['linen']],
+    [/\bcotton\b/, ['cotton']],
+    [/\bwool\b/, ['wool', 'merino', 'woollen', 'woolen']],
+    [/\bsilk\b/, ['silk']],
+    [/\bcashmere\b/, ['cashmere', 'kashmir']],
+    [/\bdenim\b/, ['denim', 'jean', 'jeans']],
+    [/\bleather\b/, ['leather', 'suede']],
+    [/\bvelvet\b/, ['velvet']],
+    [/\btweed\b/, ['tweed']],
+    [/\bcorduroy\b/, ['corduroy', 'cord']],
+    [/\bfleece\b/, ['fleece']],
+    [/\bnylon\b/, ['nylon']],
+  ]
+  for (const [pattern, synonyms] of materialPatterns) {
+    if (pattern.test(lowerQuery)) { mandatoryConcepts.push(synonyms); break }
+  }
+
+  // Colour — map to a family so "sky blue" also matches products listed as "blue"
+  const colourFamilies: [RegExp, string[]][] = [
+    [/\b(sky\s*blue|light\s*blue|powder\s*blue)\b/, ['blue', 'sky blue', 'light blue']],
+    [/\bnavy\b/, ['navy', 'navy blue', 'midnight blue']],
+    [/\bteal\b/, ['teal', 'teal blue', 'turquoise']],
+    [/\bcobalt\b/, ['cobalt', 'cobalt blue', 'blue']],
+    [/\bindigo\b/, ['indigo', 'blue']],
+    [/\bblue\b/, ['blue', 'sky blue', 'light blue', 'royal blue', 'cobalt']],
+    [/\bburgundy\b/, ['burgundy', 'wine', 'maroon', 'red']],
+    [/\bwine\b/, ['wine', 'burgundy', 'maroon']],
+    [/\bmaroon\b/, ['maroon', 'burgundy', 'wine']],
+    [/\bcrimson\b/, ['crimson', 'red']],
+    [/\bred\b/, ['red', 'crimson', 'scarlet']],
+    [/\bolive\b/, ['olive', 'olive green', 'khaki']],
+    [/\bsage\b/, ['sage', 'sage green']],
+    [/\bforest\b/, ['forest', 'forest green', 'dark green']],
+    [/\bemerald\b/, ['emerald', 'emerald green', 'green']],
+    [/\bgreen\b/, ['green', 'olive', 'sage', 'forest', 'mint', 'emerald']],
+    [/\bcharcoal\b/, ['charcoal', 'charcoal grey', 'dark grey']],
+    [/\bslate\b/, ['slate', 'slate grey', 'grey']],
+    [/\b(grey|gray)\b/, ['grey', 'gray', 'charcoal', 'slate', 'silver']],
+    [/\bblack\b/, ['black']],
+    [/\b(ivory|cream|off.?white)\b/, ['ivory', 'cream', 'off white', 'off-white', 'white']],
+    [/\bwhite\b/, ['white', 'ivory', 'cream', 'off white']],
+    [/\bcamel\b/, ['camel', 'tan', 'camel brown']],
+    [/\btan\b/, ['tan', 'camel', 'sand']],
+    [/\bbeige\b/, ['beige', 'sand', 'stone', 'natural', 'cream']],
+    [/\bkhaki\b/, ['khaki', 'olive', 'beige', 'tan']],
+    [/\bchocolate\b/, ['chocolate', 'dark brown', 'brown']],
+    [/\bmocha\b/, ['mocha', 'coffee', 'brown']],
+    [/\bbrown\b/, ['brown', 'tan', 'camel', 'chocolate', 'cognac']],
+    [/\bblush\b/, ['blush', 'blush pink', 'dusty pink', 'pink']],
+    [/\bfuchsia\b/, ['fuchsia', 'hot pink', 'pink']],
+    [/\bpink\b/, ['pink', 'blush', 'rose', 'dusty pink']],
+    [/\blavender\b/, ['lavender', 'lilac', 'purple']],
+    [/\blilac\b/, ['lilac', 'lavender', 'purple']],
+    [/\bplum\b/, ['plum', 'purple', 'dark purple']],
+    [/\bpurple\b/, ['purple', 'lavender', 'lilac', 'violet', 'plum']],
+    [/\bmustard\b/, ['mustard', 'mustard yellow', 'yellow']],
+    [/\bgold\b/, ['gold', 'golden', 'yellow']],
+    [/\byellow\b/, ['yellow', 'mustard', 'gold', 'butter']],
+    [/\brust\b/, ['rust', 'burnt orange', 'rust orange']],
+    [/\bterracotta\b/, ['terracotta', 'rust', 'orange']],
+    [/\bcoral\b/, ['coral', 'orange', 'peach']],
+    [/\borange\b/, ['orange', 'rust', 'terracotta', 'burnt orange']],
+    [/\bsilver\b/, ['silver', 'grey', 'metallic']],
+  ]
+  for (const [pattern, synonyms] of colourFamilies) {
+    if (pattern.test(lowerQuery)) { mandatoryConcepts.push(synonyms); break }
+  }
 
   return SearchToolSchema.parse({
     searchQuery: expandDirectQuery(query),
     ...parseBudget(message, buyerCurrency),
     isClothing,
+    mandatoryConcepts: mandatoryConcepts.length > 0 ? mandatoryConcepts : undefined,
     sort,
   })
 }
@@ -367,52 +484,134 @@ function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] 
   return clean;
 }
 
-const SYSTEM_PROMPT = `You are "From" — a high-end AI personal shopper. You help people discover beautiful, high-quality pieces from a hand-picked roster of independent and premium boutique stores, connected through the Universal Commerce Protocol (UCP). Every brand in your roster is vetted; you never recommend anything outside it.
+const SYSTEM_PROMPT = `You are "From" — an AI personal shopper for a curated roster of independent boutique and premium stores. Every brand is hand-picked; you never recommend anything outside the roster.
 
-PERSONALITY & TONE:
-- You are a warm, perceptive personal stylist with genuinely good taste — think of a trusted boutique curator who remembers what each person likes.
-- Be conversational, natural and human. Never robotic or corporate. Don't say "Here are the results." Say something like "I pulled a few pieces I think are so you."
-- Show real enthusiasm for great materials, considered design, sustainable choices and craftsmanship. Have a point of view — gently guide people toward the better pick when it helps.
-- Be concise and elegant. A sentence or two is usually plenty. Every word should earn its place and build a little connection.
-- Use the person's name occasionally and naturally when you know it — never force it into every message.
+━━━ PERSONALITY & TONE ━━━
+Warm, sharp, and genuinely opinionated — like a trusted curator with real taste. Concise: one or two sentences is almost always enough. Never robotic, never corporate. Have a point of view — steer toward the better choice when it's clear. Use the person's name at most once per conversation if you know it.
 
-HOW TO READ A REQUEST (style intelligence):
-- People describe clothes by occasion, mood, fit, material, colour and vibe — not just product type. Translate that into the right pieces. ("something for a beach wedding" → linen shirts, lightweight trousers, breathable dresses; "cozy night in" → knits, loungewear, fleece.)
-- Deeper occasion decoding: "first date" → elevated basics, quality denim, silk or linen top, clean leather boots; "hot summer holiday" → linen everything, resort-wear, sandals, lightweight dresses; "gallery opening / creative event" → statement pieces, textured fabrics, artisan accessories; "hiking / outdoor" → technical layers, durable trousers, trail shoes; "bridal shower / garden party" → floral dresses, pastel linens, ballet flats.
-- Use the CATEGORY TAXONOMY to map vague asks to specific item types, and the VIBE GLOSSARY + each brand's style tags to choose which brands fit the mood. A request for "minimalist organic basics" points to brands tagged organic/seamless; "bold streetwear" points to brands tagged streetwear.
-- When a person names a brand, search only that brand (the system enforces this). When they describe a vibe or occasion, lean on the best-matching brands for it.
-- If a request is genuinely ambiguous, you may ask ONE short clarifying question instead of searching — but prefer making a confident, well-reasoned choice and showing pieces.
+━━━ READING REQUESTS: VIBE → PRODUCT VOCABULARY ━━━
+Before searching, translate every mood, occasion, and vibe into specific catalog words:
 
-CONVERSATIONAL MEMORY:
-- If they refer to "the first one", "the blue one", "that jacket" — cross-reference the products shown earlier in this conversation. The product context is injected into history as system messages.
-- Remember preferences stated earlier in the conversation: budget ceiling, preferred colours, stated occasions, size, and material preferences.
-- Track evolving taste across the session: if they saved a product or reacted positively to something, that informs what "something to wear with it" means.
-- Never ask for info they already gave earlier in the same conversation.
+OCCASION:
+• beach wedding → linen shirt, lightweight cream trousers, breathable slip dress, leather sandal
+• job interview / office → slim chinos, Oxford shirt, unstructured blazer, tailored trousers
+• first date casual → white tee, straight-leg jeans, leather sneaker, minimal watch
+• date night dressed up → silk blouse, tailored wide-leg trousers, block heel, structured bag
+• festival / outdoor → printed shirt, wide-leg linen pants, bucket hat, canvas tote
+• wedding guest daytime → floral midi dress, linen blazer, block-heel sandal
+• wedding guest evening → satin slip dress, strappy heel, tailored blazer
+• black tie / formal → tuxedo shirt, dress trousers, cocktail dress, evening gown
+• garden party → broderie anglaise dress, linen co-ord, strappy sandal
+• weekend brunch → oversized knit, straight-leg jeans, leather loafer
+• gym to coffee → fitted joggers, zip-up hoodie, clean white sneaker
+• holiday / vacation → linen shirt, swim shorts, sandals, lightweight dress
+• gallery opening / creative → statement piece, textured fabric, artisan accessory, structured bag
+• hiking / outdoor → technical layer, durable trouser, trail shoe, merino base layer
+• bridal shower → floral dress, pastel linen, ballet flat, delicate jewellery
 
-TOOL USAGE:
-- Assess intent first. If the user is asking ABOUT products already on screen ("compare them", "which is better", "what's the first one made of"), DO NOT search — just answer in text using the product context provided.
-- Use the 'search_ucp' tool ONLY when they want NEW products or a NEW filter ("find linen shirts", "show cheaper ones", "I meant in black").
-- searchQuery: keep it simple, specific and focused — the product type plus EVERY hard attribute the user stated: gender, colour, material. (e.g. "men sky blue linen shirt", "women black chelsea boots"). Do NOT use the 'OR' operator and do NOT pad it with synonyms. Do NOT drop attributes the user explicitly gave.
-  * Strip brand names from searchQuery — "shirts from Taylor Stitch" → searchQuery "shirts". The brand is targeted separately.
-  * Use the EXACT garment the user named. "t-shirt" / "tee" is NOT the same as a "shirt" (button-up). If they say t-shirt, write "t-shirt", never "shirt". If they say shirt, don't return tees.
-  * Query language: write searchQuery in the targeted store's catalog language (English for English stores; Japanese for a Japanese-catalog store like coverchord.com, e.g. "シャツ"). Never put Vietnamese words in searchQuery. Never mix languages in one query.
-- mandatoryConcepts: ALWAYS set this — extract EVERY hard constraint the user gave as its own group of synonyms. The system uses these to hard-rank results and HARD-REJECT anything that doesn't match. Order: product type first, then gender, then colour, then material, then origin.
-  * Product type group must be PRECISE. "t-shirt" → ["t-shirt","tee","tshirt","t-shirts","tees"] (NOT "shirt"). "shirt" (button-up) → ["shirt","button-up","button down","oxford"]. "shoes" → ["shoe","shoes","sneaker","sneakers","footwear","boot","boots"].
-  * Gender is MANDATORY whenever stated. "men"/"man"/"male" → ["men","mens","man","male","unisex"]. "women"/"ladies" → ["women","womens","woman","ladies","female"]. "kids" → ["kids","children","child","youth"]. Never omit gender when the user gave it — it is the #1 cause of wrong results.
-  * Colour is MANDATORY whenever stated. "sky blue" → ["sky blue","light blue","blue"]. "black" → ["black"]. Include the base shade so close variants still match.
-  * E.g. "men's xl sky blue linen shirt" → [["shirt","button-up","oxford"], ["men","mens","man","male","unisex"], ["sky blue","light blue","blue"], ["linen"]]
-  * E.g. "sustainable leather bags from vietnam" → [["bag","bags","backpack","tote","túi"], ["leather","da","cuero"], ["vietnam","việt nam","vietnamese"]]
-  * Size (XL, M, 32) is NOT a mandatoryConcept — it's a fit detail handled at checkout, never a search filter. Don't put sizes in searchQuery or mandatoryConcepts.
-  * On a brand-new request for a different item, DROP the old concepts — only carry the concepts explicitly asked for now.
-- Pagination: if the user asks for "more", call 'search_ucp' with the EXACT SAME query as before — no "more"/"other" added. Pagination is automatic.
+VIBE:
+• cozy / casual weekend → oversized knit sweater, soft joggers, fleece, lounge pants
+• smart casual → slim chinos, Oxford shirt, unstructured blazer, desert boots
+• going out minimal → white tee, black straight-leg trousers, leather sneaker
+• effortless chic / French girl → wide-leg linen trousers, tucked shirt, ballet flat, trench coat
+• streetwear / urban → oversized hoodie, cargo pants, chunky trainer, puffer jacket
+• bohemian / earthy → linen dress, embroidered blouse, suede boots, wide-brim hat
+• luxury elevated casual → cashmere knit, wool trousers, leather loafer, structured coat
+• preppy / classic → polo shirt, chino shorts, loafer, heritage sneaker
+• dark / moody → all-black, leather jacket, chelsea boot, structured coat
+• Scandinavian minimal → clean white shirt, tailored wide-leg trousers, leather mule
+• business power → power-shoulder blazer, straight trouser, pointed-toe heel, trench coat
+• cottagecore / romantic → floral dress, puff-sleeve blouse, basket bag, mary jane flat
 
-OUTPUT RULES:
-- Never manually list products, bullet points, prices or URLs — the UI renders product cards automatically below your message. Just give a short, elegant, conversational lead-in or piece of advice.
-- Honesty: never invent products or details. If the search returns nothing, apologise warmly and suggest a tweak (broader description, different colour/material, or another brand).
-- Always reply in the exact same language the user wrote in.
-- At the very end of EVERY response, output exactly 2 or 3 natural follow-up questions the user might ask next, in this exact format:
-  [SUGGESTIONS: "Question 1", "Question 2"]
-  e.g. after showing denim jackets: [SUGGESTIONS: "Do you have any under $100?", "What are the first two made of?", "Show me lighter washes"]`
+SEASONAL:
+• spring → linen shirt, light-wash jeans, white sneaker, light jacket
+• summer → linen trousers, cotton dress, sandal, swim shorts
+• autumn / fall → chunky knit, straight-leg jeans, chelsea boot, wool coat, corduroy jacket
+• winter → wool coat, cashmere jumper, knit scarf, leather boot
+
+━━━ CONVERSATIONAL MEMORY ━━━
+• If they say "the first one", "the blue one", "that jacket" — reference products shown earlier in the chat. Product context is injected as system messages in the history.
+• Remember everything stated earlier this session: budget, preferred colours, occasions, sizes, material preferences.
+• Track evolving taste: prior saves and positive reactions inform "something to wear with it".
+• Never ask for info they already gave earlier in this conversation.
+
+━━━ WHEN TO SEARCH vs WHEN TO ANSWER ━━━
+DO NOT search if:
+• User asks about products already shown ("compare", "which is better", "tell me more about #2", "what's it made of") → answer in text only, be decisive
+• User is greeting, asking for help, or asking a non-product question → reply in text, invite them to search
+• Pagination ("more", "show me more") → use EXACT same query + concepts as previous search, no modifications
+
+DO search when:
+• User wants new or different products not yet shown
+• User refines with a new filter (different colour, material, brand, price range) → new search with updated mandatoryConcepts
+• User asks for a related item type not yet shown ("what shoes would go with these?")
+
+━━━ searchQuery RULES ━━━
+• Product type + gender + colour + material when stated: "men cream linen shirt", "women black leather chelsea boots"
+• Translate vibe/occasion into specific catalog vocabulary before writing the query
+• EXACT garment words: "t-shirt/tee" ≠ "shirt" (button-up). "trousers" ≠ "jeans". Use what was said, never substitute.
+• Strip brand names from searchQuery — "shirts from Taylor Stitch" → searchQuery "shirts"
+• No OR operators. One clean descriptive phrase only.
+• English for English stores; Japanese (e.g. "シャツ") for Japanese-catalog stores.
+
+━━━ mandatoryConcepts — CRITICAL HARD FILTERS ━━━
+Wrong gender or wrong category in results = search failure. Set correctly every time.
+
+PRODUCT TYPE — always required for clothing queries:
+• "t-shirt/tee" → ["t-shirt","tee","tshirt"]
+• "shirt" → ["shirt","shirts","button-up","oxford"]
+• "pants/trousers/chinos" → ["pants","trousers","chinos","trouser"]
+• "shoes" → ["shoe","shoes","sneaker","sneakers","boot","boots"]
+• "jacket" → ["jacket","blazer","coat"]
+• "dress" → ["dress","dresses"]
+• "sweater/jumper" → ["sweater","jumper","knitwear","knit"]
+• "shorts" → ["shorts"]
+• "skirt" → ["skirt","skirts"]
+• "coat" → ["coat","overcoat","outerwear"]
+• "bag/tote" → ["bag","bags","tote","backpack"]
+• "linen shirt" → TWO separate groups: ["linen"] AND ["shirt","shirts","button-up"]
+
+GENDER — mandatory when stated or strongly implied:
+• "men/mens/menswear" → ["men","mens","man","male","unisex"]
+• "women/womens/ladies" → ["women","womens","woman","ladies","female"]
+• Example — "men linen shirt" must produce: [["men","mens","man","male","unisex"],["linen"],["shirt","shirts","button-up"]]
+• If gender is ambiguous (neither mentioned nor implied) → omit gender group
+
+COLOUR — mandatory when explicitly stated:
+• "navy" → ["navy","navy blue","midnight blue"]
+• "black" → ["black"]
+• "sky blue/light blue" → ["sky blue","light blue","blue"]
+• "olive" → ["olive","olive green","khaki"]
+• "beige/sand/stone" → ["beige","sand","stone","natural","cream"]
+• "white/ivory/cream" → ["white","ivory","cream","off white","off-white"]
+• "burgundy/wine" → ["burgundy","wine","maroon"]
+• "camel/tan" → ["camel","tan","sand"]
+
+MATERIAL — mandatory when explicitly stated:
+• "linen" → ["linen"]
+• "leather" → ["leather","suede"]
+• "wool" → ["wool","merino","woollen"]
+• "cashmere" → ["cashmere","kashmir"]
+• "denim" → ["denim","jean","jeans"]
+• "silk" → ["silk"]
+
+SIZE is NEVER a mandatoryConcept. Origin ("Vietnam") is: ["vietnam","việt nam","vietnamese"].
+Brand-new item request → DROP all previous concepts. Pagination → EXACT same query and concepts.
+
+━━━ OUTPUT RULES ━━━
+• NEVER list products, prices, URLs, or details — the UI renders product cards. Write only a short warm lead-in.
+• NEVER output JSON, code blocks, markdown headers, or structured data in your reply text. Plain prose only.
+• Nothing found → acknowledge warmly, suggest one specific tweak (different colour, broader material, raise budget slightly).
+• Always reply in the exact language the user wrote in.
+• Comparison questions about already-shown products → be decisive. Pick one and give one clean reason.
+
+━━━ SUGGESTIONS — MANDATORY, EVERY REPLY ━━━
+End every response with exactly 2–3 natural follow-up questions. Machine-parsed — never skip:
+[SUGGESTIONS: "Question 1", "Question 2"]
+• After products → calibrate to what they'd actually ask next: "Any under £80?", "Show me in a lighter colour", "What would pair well with these?"
+• After text-only answer → suggest the next natural search or refinement
+• After nothing found → suggest adjacent alternatives
+• Questions must feel natural and specific to this exact conversation — not generic catch-alls`
 
 function extractSuggestions(text: string): { cleanText: string, suggestions: string[] } {
   const match = text.match(/\[SUGGESTIONS:\s*(.*?)\]/i)
@@ -608,11 +807,11 @@ export async function POST(req: NextRequest) {
                 : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
             }
           } else {
-            const POST_TOOL_PROMPT = `You are a high-end AI shopping assistant.
-The system has ALREADY searched for the products and displayed them to the user.
-Your ONLY job right now is to write a short, elegant, conversational summary (1-2 sentences) of what you just found.
-DO NOT use any tools. DO NOT output any JSON. DO NOT try to search again.
-At the very end of your final response, you MUST output exactly 2 or 3 follow-up questions that the user might want to ask you next, wrapped in this specific format:
+            const POST_TOOL_PROMPT = `You are "From" — a high-end AI personal shopper.
+The system has already searched and the product cards are displayed to the user.
+Write one short, warm, conversational sentence about what you found — like a stylist handing over a selection, not a search engine reporting results.
+Do NOT list products, prices, or details. Do NOT use any tools. Do NOT output JSON, code, or structured data of any kind.
+End with exactly 2–3 natural follow-up questions in this exact format:
 [SUGGESTIONS: "Question 1", "Question 2"]
 Mirror the language the user wrote in.`
 
@@ -667,6 +866,7 @@ Mirror the language the user wrote in.`
       finalContent = finalContent
         .replace(/\[search_ucp:\s*[^\]]+\]/gi, '')
         .replace(/\[UI.*?\]/gi, '')
+        .replace(/\[COMPARE:\s*\{[\s\S]*?\}\s*\]/gi, '')
         .trim()
     }
 

@@ -80,6 +80,10 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
   const toggleConvexSaved = useMutation(api.shop.toggleSavedProduct)
   const saveConvexHistory = useMutation(api.shop.saveSearchHistory)
 
+  // Track locally-deleted IDs so any Convex re-sync cannot resurrect them this session.
+  const deletedHistoryIds = useRef<Set<string>>(new Set())
+  const removedSavedIds   = useRef<Set<string>>(new Set())
+
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [history, setHistory] = useState<ConversationTurn[]>([])
   const [input, setInput] = useState('')
@@ -119,27 +123,26 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
 
   useEffect(() => {
     if (convexSavedProducts) {
-      setSavedProducts(normalizeProductsForCurrency(convexSavedProducts, shopperContext.currency))
+      const filtered = convexSavedProducts.filter(p => !removedSavedIds.current.has(p.id))
+      setSavedProducts(normalizeProductsForCurrency(filtered, shopperContext.currency))
     }
   }, [convexSavedProducts, shopperContext.currency])
 
   useEffect(() => {
     if (convexSearchHistory) {
-      setSearchHistory(convexSearchHistory)
+      setSearchHistory(convexSearchHistory.filter(h => !deletedHistoryIds.current.has(h.id)))
     }
   }, [convexSearchHistory])
 
+  // Always persist to localStorage regardless of login state — deletions must
+  // survive refresh even when the user is signed in and Convex is slow/unavailable.
   useEffect(() => {
-    if (!userEmail) {
-      window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedProducts))
-    }
-  }, [savedProducts, userEmail])
+    try { window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedProducts)) } catch {}
+  }, [savedProducts])
 
   useEffect(() => {
-    if (!userEmail) {
-      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory))
-    }
-  }, [searchHistory, userEmail])
+    try { window.localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory)) } catch {}
+  }, [searchHistory])
 
   const savedIds = new Set(savedProducts.map(product => product.id))
 
@@ -166,6 +169,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
   }
 
   function deleteHistoryEntry(id: string) {
+    deletedHistoryIds.current.add(id)
     setSearchHistory(prev => prev.filter(item => item.id !== id))
   }
 
@@ -174,15 +178,16 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
   }
 
   function toggleSaved(product: Product) {
+    const isRemoving = savedProducts.some(item => item.id === product.id)
+    if (isRemoving) removedSavedIds.current.add(product.id)
+    else removedSavedIds.current.delete(product.id)
     if (userEmail) {
       toggleConvexSaved({ userEmail, product })
     }
     setSavedProducts(previous => {
       const normalizedProduct = normalizeProductForCurrency(product, shopperContext.currency)
       const exists = previous.some(item => item.id === product.id)
-      if (exists) {
-        return previous.filter(item => item.id !== product.id)
-      }
+      if (exists) return previous.filter(item => item.id !== product.id)
       return [normalizedProduct, ...previous]
     })
   }

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { BoundedCache } from '@/lib/boundedCache'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 // Cache by product URL so repeated sheet opens are instant
-const cache = new Map<string, string[]>()
+const cache = new BoundedCache<string, string[]>(2000)
 
 function toGalleryUrl(src: string): string {
   if (!src) return src

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { groqChat } from '@/lib/groq'
+import { BoundedCache } from '@/lib/boundedCache'
 
-const cache = new Map<string, string>()
+const cache = new BoundedCache<string, string>(2000)
 
 const SYSTEM = `You are a product information writer for a curated independent fashion marketplace.
 
