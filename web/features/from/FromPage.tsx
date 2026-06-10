@@ -2673,9 +2673,15 @@ export default function FromApp({
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                       </svg>
                     </button>
-                    {/* Fabrics — open the AI stylist directly */}
-                    <button type="button" className="fr-icon-btn" onClick={() => setStylistOpen(true)} title="Ask Fabrics">
-                      <FabricsIcon size={15} strokeWidth={1.1}/>
+                    {/* Fabrics — pill tag right after paperclip */}
+                    <button type="button" onClick={() => setStylistOpen(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '4px 9px 4px 7px', borderRadius: 20,
+                        border: `1px solid rgba(44,18,6,.18)`, background: 'transparent',
+                        cursor: 'pointer', flexShrink: 0 }}>
+                      <FabricsIcon size={13} stroke={INK} strokeWidth={1.05}/>
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 400,
+                        color: INK, letterSpacing: '.01em', lineHeight: 1 }}>Fabrics</span>
                     </button>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
