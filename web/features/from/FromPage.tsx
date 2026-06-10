@@ -1015,6 +1015,31 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
   ]
 }
 
+function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeLinecap="round">
+      <circle cx="12" cy="12" r="9.5" strokeWidth={strokeWidth * 1.2}/>
+      {/* vertical warp lines */}
+      <line x1="4.4"  y1="6.30"  x2="4.4"  y2="17.70" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="6.3"  y1="4.40"  x2="6.3"  y2="19.60" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="8.2"  y1="3.29"  x2="8.2"  y2="20.71" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="10.1" y1="2.69"  x2="10.1" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="12"   y1="2.50"  x2="12"   y2="21.50" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="13.9" y1="2.69"  x2="13.9" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="15.8" y1="3.29"  x2="15.8" y2="20.71" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="17.7" y1="4.40"  x2="17.7" y2="19.60" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="19.6" y1="6.30"  x2="19.6" y2="17.70" strokeWidth={strokeWidth * 0.85}/>
+      {/* horizontal weft lines — lower woven area */}
+      <line x1="2.62" y1="13.5"  x2="21.38" y2="13.5"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="2.92" y1="14.8"  x2="21.08" y2="14.8"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="3.43" y1="16.1"  x2="20.57" y2="16.1"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="4.18" y1="17.4"  x2="19.82" y2="17.4"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="5.27" y1="18.7"  x2="18.73" y2="18.7"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="6.88" y1="20.0"  x2="17.12" y2="20.0"  strokeWidth={strokeWidth * 0.85}/>
+    </svg>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FromApp({
   initialShopperContext, initialRates,
@@ -2650,9 +2675,7 @@ export default function FromApp({
                     </button>
                     {/* Fabrics — open the AI stylist directly */}
                     <button type="button" className="fr-icon-btn" onClick={() => setStylistOpen(true)} title="Ask Fabrics">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                        <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                      </svg>
+                      <FabricsIcon size={15} strokeWidth={1.1}/>
                     </button>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
@@ -2866,7 +2889,7 @@ export default function FromApp({
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', borderBottom: `1px solid ${BRD}`, flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill={INK} stroke="none"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+                    <FabricsIcon size={15} stroke={INK} strokeWidth={1.1}/>
                     <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Fabrics</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -3315,9 +3338,7 @@ export default function FromApp({
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Ask Fabrics</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                  </svg>
+                  <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.1}/>
                 </div>
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
                 {/* Remove from bag */}
@@ -3377,9 +3398,7 @@ export default function FromApp({
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Ask Fabrics</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                  </svg>
+                  <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.1}/>
                 </div>
 
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
