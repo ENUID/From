@@ -2671,6 +2671,8 @@ export default function FromApp({
                   {/* Row 2: actions */}
                   <div className="fr-bar-btm">
 
+                    {/* Left group: paperclip + Fabrics pill */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {/* Paperclip — custom ordered menu */}
                     <div style={{ position: 'relative' }}>
                       <button type="button" className="fr-icon-btn" onClick={() => setAttachMenuOpen(o => !o)}>
@@ -2717,6 +2719,7 @@ export default function FromApp({
                       <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 400,
                         color: INK, letterSpacing: '.01em', lineHeight: 1 }}>Fabrics</span>
                     </button>
+                    </div>{/* end left group */}
                     <div className="fr-bar-right">
                       {/* Send with spring */}
                       <div style={{ transform: `scale(${sendScale})`, willChange: "transform" }}
