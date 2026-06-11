@@ -2,7 +2,6 @@ import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { ConvexHttpClient } from 'convex/browser'
-import bcrypt from 'bcryptjs'
 import { api } from '../convex/_generated/api'
 
 function getConvex() {
@@ -50,25 +49,32 @@ function makeCookies(): NextAuthOptions['cookies'] {
 
 export const authOptions: NextAuthOptions = {
   providers: [
+    // Email OTP (verification code) sign-in
     CredentialsProvider({
-      name: 'credentials',
+      id: 'email-otp',
+      name: 'Email OTP',
       credentials: {
         email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        code: { label: 'Code', type: 'text' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error('Please enter email and password')
+        if (!credentials?.email || !credentials?.code) {
+          throw new Error('Email and code required')
         }
         try {
           const convex = getConvex()
+          const valid = await convex.mutation(api.verificationCodes.verifyAndConsumeCode, {
+            email: credentials.email.toLowerCase().trim(),
+            code: credentials.code.trim(),
+          })
+          if (!valid) throw new Error('Invalid or expired code')
+          await convex.mutation(api.users.ensureUser, {
+            email: credentials.email.toLowerCase().trim(),
+          })
           const user = await convex.query(api.users.getUserByEmail, {
             email: credentials.email.toLowerCase().trim(),
           }) as any
-          if (!user) throw new Error('No account found with this email')
-          const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash)
-          if (!isPasswordValid) throw new Error('Invalid password')
-          return { id: user._id, name: user.name, email: user.email }
+          return { id: user?._id ?? credentials.email, name: user?.name ?? null, email: credentials.email.toLowerCase().trim() }
         } catch (err: any) {
           throw new Error(err.message || 'Authentication failed')
         }

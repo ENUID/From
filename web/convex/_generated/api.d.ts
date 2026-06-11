@@ -13,6 +13,7 @@ import type * as stylistMemory from "../stylistMemory.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as tasteProfile from "../tasteProfile.js";
 import type * as users from "../users.js";
+import type * as verificationCodes from "../verificationCodes.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   subscriptions: typeof subscriptions;
   tasteProfile: typeof tasteProfile;
   users: typeof users;
+  verificationCodes: typeof verificationCodes;
 }>;
 
 /**

@@ -54,4 +54,11 @@ export default defineSchema({
     summary: v.string(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  verification_codes: defineTable({
+    email: v.string(),
+    code: v.string(),
+    expiresAt: v.number(),
+    used: v.boolean(),
+  }).index("by_email", ["email"]),
 });

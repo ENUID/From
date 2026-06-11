@@ -1142,6 +1142,20 @@ export default function FromApp({
   const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number; above: boolean } | null>(null)
   const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   const [bagCtxMenu, setBagCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
+  // ── Email OTP sign-in state ─────────────────────────────────────────────────
+  const [otpEmail, setOtpEmail]         = useState('')
+  const [otpCode, setOtpCode]           = useState('')
+  const [otpStep, setOtpStep]           = useState<'email' | 'code'>('email')
+  const [otpSending, setOtpSending]     = useState(false)
+  const [otpVerifying, setOtpVerifying] = useState(false)
+  const [otpError, setOtpError]         = useState<string | null>(null)
+  const [otpResendIn, setOtpResendIn]   = useState(0)
+  useEffect(() => {
+    if (otpResendIn <= 0) return
+    const t = setTimeout(() => setOtpResendIn(s => Math.max(0, s - 1)), 1000)
+    return () => clearTimeout(t)
+  }, [otpResendIn])
+
   const [brandsOpen, setBrandsOpen]     = useState(false)
   const [brandQuery, setBrandQuery]     = useState('')
   const [activeBrand, setActiveBrand]   = useState<{ name: string; domain: string } | null>(null)
@@ -2343,13 +2357,139 @@ export default function FromApp({
                       Sign out
                     </button>
                   </>) : (<>
-                    {/* Not signed in */}
+                    {/* Not signed in — email OTP + Google */}
                     <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK, marginBottom: 6, textAlign: 'center' }}>
-                      Sign in
+                      {otpStep === 'code' ? 'Check your email' : 'Sign in'}
                     </div>
-                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 28, lineHeight: 1.5 }}>
-                      Save your searches and bag items across devices.
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 22, lineHeight: 1.5 }}>
+                      {otpStep === 'code'
+                        ? `We sent a 6-digit code to ${otpEmail}`
+                        : 'Save your searches and bag across devices.'}
                     </div>
+
+                    {otpStep === 'email' ? (
+                      <form onSubmit={async e => {
+                        e.preventDefault()
+                        if (!otpEmail.trim() || otpSending) return
+                        setOtpError(null)
+                        setOtpSending(true)
+                        try {
+                          const r = await fetch('/api/auth/send-code', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: otpEmail.trim() }),
+                          })
+                          const d = await r.json()
+                          if (!r.ok) throw new Error(d.error || 'Failed to send code')
+                          setOtpStep('code')
+                          setOtpResendIn(60)
+                        } catch (err: any) {
+                          setOtpError(err.message)
+                        } finally {
+                          setOtpSending(false)
+                        }
+                      }}>
+                        <input
+                          type="email" value={otpEmail} placeholder="your@email.com"
+                          onChange={e => setOtpEmail(e.target.value)}
+                          autoComplete="email"
+                          style={{
+                            width: '100%', boxSizing: 'border-box',
+                            padding: '11px 14px', borderRadius: 10, marginBottom: 10,
+                            border: `1px solid ${BRD}`, fontFamily: SANS, fontSize: 14, color: INK,
+                            background: BG2, outline: 'none',
+                          }}
+                        />
+                        {otpError && (
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 10 }}>{otpError}</div>
+                        )}
+                        <button type="submit" disabled={otpSending || !otpEmail.trim()} style={{
+                          width: '100%', padding: '12px', borderRadius: 10, marginBottom: 10,
+                          background: INK, color: '#fff', border: 'none', cursor: otpSending ? 'default' : 'pointer',
+                          fontFamily: SANS, fontSize: 14, fontWeight: 600, opacity: otpSending || !otpEmail.trim() ? 0.5 : 1,
+                        }}>
+                          {otpSending ? 'Sending…' : 'Continue with email'}
+                        </button>
+                      </form>
+                    ) : (
+                      <form onSubmit={async e => {
+                        e.preventDefault()
+                        if (!otpCode.trim() || otpVerifying) return
+                        setOtpError(null)
+                        setOtpVerifying(true)
+                        try {
+                          const result = await signIn('email-otp', {
+                            email: otpEmail.trim(),
+                            code: otpCode.trim(),
+                            redirect: false,
+                          })
+                          if (result?.error) throw new Error('Invalid or expired code — try again')
+                          setOtpStep('email')
+                          setOtpCode('')
+                        } catch (err: any) {
+                          setOtpError(err.message)
+                        } finally {
+                          setOtpVerifying(false)
+                        }
+                      }}>
+                        <input
+                          type="text" value={otpCode} placeholder="000000"
+                          onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          inputMode="numeric" autoComplete="one-time-code" autoFocus
+                          style={{
+                            width: '100%', boxSizing: 'border-box',
+                            padding: '11px 14px', borderRadius: 10, marginBottom: 10,
+                            border: `1px solid ${BRD}`, fontFamily: SANS, fontSize: 22,
+                            fontWeight: 600, letterSpacing: '0.3em', color: INK,
+                            background: BG2, outline: 'none', textAlign: 'center',
+                          }}
+                        />
+                        {otpError && (
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 10 }}>{otpError}</div>
+                        )}
+                        <button type="submit" disabled={otpCode.length < 6 || otpVerifying} style={{
+                          width: '100%', padding: '12px', borderRadius: 10, marginBottom: 10,
+                          background: INK, color: '#fff', border: 'none', cursor: otpCode.length < 6 || otpVerifying ? 'default' : 'pointer',
+                          fontFamily: SANS, fontSize: 14, fontWeight: 600, opacity: otpCode.length < 6 || otpVerifying ? 0.5 : 1,
+                        }}>
+                          {otpVerifying ? 'Verifying…' : 'Verify code'}
+                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <button type="button" onClick={() => { setOtpStep('email'); setOtpCode(''); setOtpError(null) }}
+                            style={{ background: 'none', border: 'none', fontFamily: SANS, fontSize: 12, color: INK3, cursor: 'pointer', padding: 0 }}>
+                            ← Change email
+                          </button>
+                          <button type="button" disabled={otpResendIn > 0} onClick={async () => {
+                            if (otpResendIn > 0) return
+                            setOtpError(null)
+                            setOtpSending(true)
+                            try {
+                              const r = await fetch('/api/auth/send-code', {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email: otpEmail.trim() }),
+                              })
+                              const d = await r.json()
+                              if (!r.ok) throw new Error(d.error || 'Failed')
+                              setOtpResendIn(60)
+                            } catch (err: any) {
+                              setOtpError(err.message)
+                            } finally {
+                              setOtpSending(false)
+                            }
+                          }} style={{ background: 'none', border: 'none', fontFamily: SANS, fontSize: 12, color: otpResendIn > 0 ? INK3 : INK, cursor: otpResendIn > 0 ? 'default' : 'pointer', padding: 0, opacity: otpResendIn > 0 ? 0.45 : 1 }}>
+                            {otpResendIn > 0 ? `Resend in ${otpResendIn}s` : 'Resend code'}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Divider */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '4px 0 12px' }}>
+                      <div style={{ flex: 1, height: 1, background: BRD }} />
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, opacity: 0.5 }}>or</span>
+                      <div style={{ flex: 1, height: 1, background: BRD }} />
+                    </div>
+
+                    {/* Google */}
                     <button
                       type="button"
                       onClick={() => signIn('google', { callbackUrl: window.location.origin + '/' })}
