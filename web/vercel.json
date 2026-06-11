@@ -2,11 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "crons": [
-    {
-      "path": "/api/cron/price-check",
-      "schedule": "0 9 * * *"
-    }
-  ]
+  "installCommand": "npm install"
 }

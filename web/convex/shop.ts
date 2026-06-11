@@ -112,32 +112,3 @@ export const getSearchHistory = query({
     }));
   },
 });
-
-// ── Price-check cron helper ───────────────────────────────────────────────────
-// Returns all saved products for premium users (for nightly price-drop check).
-export const getPremiumSavedProductsForCron = query({
-  args: {},
-  handler: async (ctx) => {
-    const premiumSubs = await ctx.db
-      .query("subscriptions")
-      .collect()
-    const now = Date.now()
-    const premiumUserIds = premiumSubs
-      .filter((s: any) => s.plan === 'premium' && (!s.currentPeriodEnd || s.currentPeriodEnd > now))
-      .map((s: any) => s.userId)
-
-    const result: { email: string; products: any[] }[] = []
-    for (const userId of premiumUserIds) {
-      const user = await ctx.db.get(userId)
-      if (!user) continue
-      const saved = await ctx.db
-        .query("saved_products")
-        .withIndex("by_user", (q: any) => q.eq("userId", userId))
-        .collect()
-      if (saved.length > 0) {
-        result.push({ email: (user as any).email, products: saved.map((s: any) => s.product) })
-      }
-    }
-    return result
-  },
-})
