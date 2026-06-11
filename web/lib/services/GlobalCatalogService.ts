@@ -961,6 +961,12 @@ function calculateTrustScore(product: UcpProduct, mandatoryConcepts: string[][] 
       else allGroupsMatched = false;
     }
     if (allGroupsMatched && mandatoryConcepts.length >= 2) baseScore += 10;
+
+    // Extra lift for concepts found directly in the product title
+    const titleLower = (product.title || '').toLowerCase();
+    const allKeywords = mandatoryConcepts.flat();
+    const titleHits = allKeywords.filter(w => titleLower.includes(w.toLowerCase().trim())).length;
+    baseScore += titleHits * 5;
   }
 
   return Math.min(100, baseScore);
@@ -1158,7 +1164,7 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
 
   // Hard-filter category/garment/material mismatches. A hard mismatch trust_score is ≤34
   // (base 70-94 minus 60 penalty). Colour mismatches (-15) land at 55-79, kept above threshold.
-  const MISMATCH_THRESHOLD = 45;
+  const MISMATCH_THRESHOLD = 55;
   const matched = filtered.filter(p => (p.trust_score || 0) >= MISMATCH_THRESHOLD);
   filtered = matched.length > 0 ? matched : filtered;
 
