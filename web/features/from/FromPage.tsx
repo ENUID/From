@@ -2147,21 +2147,16 @@ export default function FromApp({
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
               }}>
                 {/* Drag handle */}
-                <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(44,18,6,0.15)', marginBottom: 28 }} />
+                <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(44,18,6,0.15)', marginBottom: 32 }} />
 
                 {/* Wordmark */}
-                <div style={{ fontFamily: SEASON, fontSize: 26, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 20 }}>
+                <div style={{ fontFamily: SEASON, fontSize: 28, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 6 }}>
                   FROM
                 </div>
 
-                {/* Heading */}
-                <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 400, color: INK, marginBottom: 6, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
-                  Welcome back
-                </div>
-
-                {/* Subtitle */}
-                <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 28, letterSpacing: '0.01em' }}>
-                  Sign in to continue shopping
+                {/* Tagline */}
+                <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 13, color: INK3, marginBottom: 32, letterSpacing: '0.01em' }}>
+                  Fashion worth finding.
                 </div>
 
                 {/* Google button */}
@@ -2185,25 +2180,20 @@ export default function FromApp({
             <div style={{
               background: CARD_BG,
               borderRadius: 24,
-              width: '100%', maxWidth: 380,
-              padding: '44px 40px 36px',
+              width: '100%', maxWidth: 360,
+              padding: '44px 36px 36px',
               boxShadow: CARD_SHD,
               animation: 'fadeScale 0.28s cubic-bezier(0.34,1.2,0.64,1) forwards',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
             }}>
               {/* Wordmark */}
-              <div style={{ fontFamily: SEASON, fontSize: 32, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 22 }}>
+              <div style={{ fontFamily: SEASON, fontSize: 34, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 8 }}>
                 FROM
               </div>
 
-              {/* Heading */}
-              <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 400, color: INK, marginBottom: 7, letterSpacing: '-0.01em' }}>
-                Welcome back
-              </div>
-
-              {/* Subtitle */}
-              <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 32, letterSpacing: '0.01em' }}>
-                Sign in to continue shopping
+              {/* Tagline */}
+              <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 14, color: INK3, marginBottom: 36, letterSpacing: '0.01em' }}>
+                Fashion worth finding.
               </div>
 
               {/* Thin rule */}
