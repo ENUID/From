@@ -2240,7 +2240,7 @@ export default function FromApp({
                       display: 'flex', alignItems: 'center', gap: 7,
                     }}>
                       <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: isPremium ? '#3d7a3a' : INK3 }}>
-                        {isPremium ? 'Premium' : 'Free plan'}
+                        {isPremium ? 'Community Member' : 'Free plan'}
                       </span>
                       {!isPremium && (
                         <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
@@ -2261,7 +2261,7 @@ export default function FromApp({
                           cursor: 'pointer', marginBottom: 10, letterSpacing: '.01em',
                         }}
                       >
-                        Upgrade to Premium
+                        Join the Community
                       </button>
                     )}
 
@@ -3521,8 +3521,8 @@ export default function FromApp({
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                   <div>
-                    <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>FROM Premium</div>
-                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginTop: 5 }}>AI-powered search, unlimited.</div>
+                    <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>FROM Community</div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginTop: 5 }}>One payment. Everything, forever.</div>
                   </div>
                   <button onClick={() => setShowUpgradeSheet(false)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: INK3 }}>
@@ -3532,14 +3532,18 @@ export default function FromApp({
                   </button>
                 </div>
 
+                {/* Community pitch */}
+                <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, marginBottom: 20, fontWeight: 300 }}>
+                  FROM is built independently — no VC, no team. One person building the shopping OS independent fashion deserved. Join the founding community and get lifetime access to everything FROM ever ships. No subscriptions. No upgrades. Never pay again.
+                </p>
+
                 {/* Benefits */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
                   {[
-                    ['Unlimited searches', 'No daily cap — search as much as you want'],
-                    ['Full AI re-ranking', 'Every result scored by LLM for genuine relevance'],
-                    ['Persistent taste profile', 'FROM learns your style across every session'],
-                    ['Fabrics with memory', 'Your stylist remembers your sizes, budget, and taste'],
-                    ['Price drop alerts', 'Email when saved items drop 10% or more'],
+                    ['Unlimited AI search', 'Every result ranked by agents, not algorithms'],
+                    ['Everything that ships', 'Agentic checkout, try-ons, tracking — all of it, forever'],
+                    ['Founding member status', 'Locked in before FROM is finished'],
+                    ['Direct access', 'Shape what gets built — your feedback goes straight to the builder'],
                   ].map(([title, desc]) => (
                     <div key={title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#e8f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
@@ -3562,13 +3566,13 @@ export default function FromApp({
                       const r = await fetch('/api/billing/checkout', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ interval: 'month' }),
+                        body: JSON.stringify({}),
                       })
                       const { url, error } = await r.json()
                       if (error) throw new Error(error)
                       window.location.href = url
                     } catch {
-                      // fall through — user will be redirected
+                      // fall through
                     }
                   }}
                   style={{
@@ -3578,10 +3582,10 @@ export default function FromApp({
                     border: 'none', cursor: 'pointer',
                   }}
                 >
-                  Get FROM Premium — $9/mo
+                  Join the Community — $149
                 </button>
                 <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 10, opacity: 0.55 }}>
-                  Cancel anytime. Billed monthly by Stripe.
+                  One-time payment. Lifetime access. When it's full, it's gone.
                 </p>
               </div>
             </>

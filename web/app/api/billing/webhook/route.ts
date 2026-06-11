@@ -34,51 +34,15 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
-        if (session.mode !== 'subscription') break
         const userEmail = session.metadata?.userEmail
         if (!userEmail) break
 
-        const rawSub = await stripe.subscriptions.retrieve(session.subscription as string)
-        const sub = rawSub as any
-
+        // One-time payment — lifetime community access, no expiry
         await convex.mutation(api.subscriptions.upgradeSubscription, {
           userEmail,
           stripeCustomerId: session.customer as string,
-          stripeSubscriptionId: sub.id,
-          currentPeriodEnd: getPeriodEnd(sub),
-        })
-        break
-      }
-
-      case 'customer.subscription.updated': {
-        const sub = event.data.object as any
-        const customerId = sub.customer as string
-        if (sub.status === 'active') {
-          // First cancel existing record, then re-upgrade with fresh period end
-          await convex.mutation(api.subscriptions.cancelSubscriptionByStripeCustomer, {
-            stripeCustomerId: customerId,
-          })
-          const userEmail = sub.metadata?.userEmail as string | undefined
-          if (userEmail) {
-            await convex.mutation(api.subscriptions.upgradeSubscription, {
-              userEmail,
-              stripeCustomerId: customerId,
-              stripeSubscriptionId: sub.id as string,
-              currentPeriodEnd: getPeriodEnd(sub),
-            })
-          }
-        } else if (['canceled', 'unpaid', 'past_due'].includes(sub.status)) {
-          await convex.mutation(api.subscriptions.cancelSubscriptionByStripeCustomer, {
-            stripeCustomerId: customerId,
-          })
-        }
-        break
-      }
-
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object as any
-        await convex.mutation(api.subscriptions.cancelSubscriptionByStripeCustomer, {
-          stripeCustomerId: sub.customer as string,
+          stripeSubscriptionId: session.id,
+          currentPeriodEnd: 99999999999999, // lifetime — never expires
         })
         break
       }
