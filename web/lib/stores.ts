@@ -2244,6 +2244,399 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "items": ["diamond ring", "engagement ring", "necklace", "earrings", "bracelet", "wedding band"],
     "about": "Ethical fine jewellery — conflict-free diamonds, recycled gold, lab-grown stones"
   },
+  // ── Men's Specialty ────────────────────────────────────────────────────────
+  {
+    "domain": "3sixteen.com",
+    "name": "3sixteen",
+    "categories": ["bottom", "top", "accessory"],
+    "vibe": ["heritage-workwear", "japanese", "minimalist", "casual"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["selvedge jeans", "chino", "tee", "flannel shirt", "bomber jacket", "cap"],
+    "about": "NYC selvedge denim brand — Japanese fabrics, raw denim cuts, clean American menswear"
+  },
+  {
+    "domain": "astorflex.it",
+    "name": "Astorflex",
+    "categories": ["footwear"],
+    "vibe": ["heritage-workwear", "minimalist", "casual"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["desert boot", "chukka boot", "slip-on", "moccasin", "leather sneaker"],
+    "about": "Italian heritage boot brand — Vibram-soled desert boots crafted in Civitanova Marche since 1904"
+  },
+  {
+    "domain": "bather.com",
+    "name": "Bather",
+    "categories": ["swimwear", "top", "bottom"],
+    "vibe": ["coastal", "resort", "casual", "preppy"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["swim trunk", "board short", "camp shirt", "casual short", "tee"],
+    "about": "Canadian swim brand — refined trunks with bold prints, from the pool to the patio"
+  },
+  {
+    "domain": "chupsocks.com",
+    "name": "CHUP Socks",
+    "categories": ["accessory"],
+    "vibe": ["japanese", "casual", "artistic"],
+    "gender": ["men", "unisex"],
+    "priceRange": "premium",
+    "items": ["wool sock", "cotton crew sock", "patterned sock", "ankle sock"],
+    "about": "Japanese-inspired fine socks — bold patterns from Finnish and Japanese textile traditions"
+  },
+  {
+    "domain": "corridornyc.com",
+    "name": "Corridor",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["minimalist", "heritage-workwear", "casual", "preppy"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["sport coat", "trouser", "shirt", "overshirt", "shorts", "jacket"],
+    "about": "NYC menswear — refined sport coats, easy trousers, and natural fabrics for modern American dressing"
+  },
+  {
+    "domain": "marcoliani.it",
+    "name": "Marcoliani",
+    "categories": ["accessory"],
+    "vibe": ["minimalist", "old-money", "preppy"],
+    "gender": ["men"],
+    "priceRange": "luxury",
+    "items": ["dress sock", "cashmere sock", "wool sock", "pima cotton sock", "over-the-calf sock"],
+    "about": "Milanese luxury hosiery — fine-gauge socks in cashmere, pima cotton, and silk since 1946"
+  },
+  {
+    "domain": "merzbschwanen.com",
+    "name": "Merz b. Schwanen",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["heritage-workwear", "minimalist", "sustainable", "casual"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["loop-wheeled sweatshirt", "pocket tee", "hoodie", "jogger", "work pant", "henley"],
+    "about": "German heritage knitwear — loop-wheeled cotton sweatshirts and tees from Albstadt since 1911"
+  },
+  {
+    "domain": "momotaro-jeans.com",
+    "name": "Momotaro Jeans",
+    "categories": ["bottom", "top", "accessory"],
+    "vibe": ["japanese", "heritage-workwear", "minimalist"],
+    "gender": ["men"],
+    "priceRange": "luxury",
+    "items": ["selvedge jeans", "denim jacket", "work shirt", "cap", "bag"],
+    "about": "Japanese selvedge denim from Kojima — handcrafted jeans using Okayama's finest indigo-dyed cotton"
+  },
+  {
+    "domain": "outclass.ca",
+    "name": "Outclass",
+    "categories": ["accessory", "top"],
+    "vibe": ["casual", "preppy", "minimalist"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["sock", "boxer brief", "tee", "polo"],
+    "about": "Canadian accessories brand — well-made socks and basics for the detail-conscious man"
+  },
+  {
+    "domain": "portugueseflannel.com",
+    "name": "Portuguese Flannel",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["heritage-workwear", "artisan", "casual", "minimalist"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["flannel shirt", "linen shirt", "overshirt", "trouser", "worker jacket", "shorts"],
+    "about": "Porto flannel shirts — woven and sewn in Portugal using traditional Portuguese textile craft"
+  },
+  {
+    "domain": "purebluejapan.jp",
+    "name": "Pure Blue Japan",
+    "categories": ["bottom", "top", "accessory"],
+    "vibe": ["japanese", "heritage-workwear", "minimalist"],
+    "gender": ["men"],
+    "priceRange": "luxury",
+    "items": ["selvedge jeans", "denim jacket", "work shirt", "tote", "indigo-dyed piece"],
+    "about": "Okayama selvedge denim atelier — hand-dyed indigo jeans and Japanese workwear, made in Japan"
+  },
+  {
+    "domain": "saxxunderwear.com",
+    "name": "SAXX",
+    "categories": ["underwear"],
+    "vibe": ["active", "casual", "sport"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["boxer brief", "trunk", "brief", "lounge pant", "active short"],
+    "about": "Canadian performance underwear — patented BallPark Pouch support, the benchmark in men's briefs"
+  },
+  {
+    "domain": "thefryecompany.com",
+    "name": "The Frye Company",
+    "categories": ["footwear", "accessory"],
+    "vibe": ["heritage-workwear", "casual", "vintage"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["cowboy boot", "harness boot", "chukka", "oxford", "leather bag", "wallet"],
+    "about": "America's oldest continual shoe brand — handcrafted leather boots with Western heritage since 1863"
+  },
+  {
+    "domain": "waxlondon.com",
+    "name": "Wax London",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "heritage-workwear", "artisan", "preppy"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt", "trouser", "jacket", "chino", "overshirt", "shorts"],
+    "about": "London menswear — natural fabrics and easy silhouettes with quiet British craft at accessible prices"
+  },
+  {
+    "domain": "wonderlooper.com",
+    "name": "Wonder Looper",
+    "categories": ["top"],
+    "vibe": ["vintage", "casual", "artistic"],
+    "gender": ["men", "unisex"],
+    "priceRange": "mid",
+    "items": ["vintage tee", "graphic tee", "sweatshirt"],
+    "about": "Independent vintage-inspired tees — archive prints and original graphics in premium ring-spun cotton"
+  },
+  // ── Unisex / Both Genders ──────────────────────────────────────────────────
+  {
+    "domain": "agjeans.com",
+    "name": "AG Jeans",
+    "categories": ["bottom", "top", "outerwear"],
+    "vibe": ["casual", "minimalist", "preppy"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["slim jeans", "skinny jeans", "straight jeans", "crop jean", "tee", "trucker jacket"],
+    "about": "LA premium denim — stretch-forward jeans in clean silhouettes for everyday wardrobe building"
+  },
+  {
+    "domain": "citizensofhumanity.com",
+    "name": "Citizens of Humanity",
+    "categories": ["bottom", "top", "outerwear"],
+    "vibe": ["casual", "minimalist", "sustainable"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["straight jeans", "high-waist jeans", "wide-leg jeans", "tee", "trucker jacket", "cord trouser"],
+    "about": "Premium LA denim — relaxed fits, sustainable practices, elevated everyday quality"
+  },
+  {
+    "domain": "colorfulstandard.com",
+    "name": "Colorful Standard",
+    "categories": ["top", "bottom", "accessory", "underwear"],
+    "vibe": ["minimalist", "sustainable", "casual"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "mid",
+    "items": ["sweatshirt", "tee", "hoodie", "sock", "shorts", "polo", "bucket hat"],
+    "about": "Copenhagen basics label — organic cotton in 30+ vibrant colours, the benchmark sustainable basics brand"
+  },
+  {
+    "domain": "howlin.be",
+    "name": "Howlin'",
+    "categories": ["top", "outerwear"],
+    "vibe": ["bohemian", "artistic", "casual", "vintage"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["wool sweater", "cardigan", "wool jacket", "chunky knit", "vest"],
+    "about": "Antwerp knitwear — handcrafted wool sweaters in bold patterns inspired by music and folklore"
+  },
+  {
+    "domain": "nakedandfamousdenim.com",
+    "name": "Naked & Famous Denim",
+    "categories": ["bottom", "top"],
+    "vibe": ["heritage-workwear", "japanese", "casual", "streetwear"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["selvedge jeans", "raw denim", "skinny jean", "slim jean", "weird guy cut", "tee"],
+    "about": "Montreal selvedge denim — Japanese fabric, the most comprehensive raw denim range in North America"
+  },
+  {
+    "domain": "norseprojects.com",
+    "name": "Norse Projects",
+    "categories": ["top", "bottom", "outerwear", "footwear", "accessory"],
+    "vibe": ["minimalist", "heritage-workwear", "casual", "gorpcore"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["nylon jacket", "hoodie", "merino knit", "trouser", "tee", "sneaker", "cap"],
+    "about": "Copenhagen utility brand — technical fabrics meet Scandinavian minimalism, from nylon shells to merino knitwear"
+  },
+  {
+    "domain": "nudiejeans.com",
+    "name": "Nudie Jeans",
+    "categories": ["bottom", "top", "accessory"],
+    "vibe": ["heritage-workwear", "sustainable", "casual", "vintage"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["slim jeans", "straight-leg jeans", "raw denim", "tee", "jacket", "shirt"],
+    "about": "Swedish sustainable denim — organic cotton raw jeans with free lifetime repairs and trade-in program"
+  },
+  {
+    "domain": "patrickassaraf.com",
+    "name": "Patrick Assaraf",
+    "categories": ["top", "outerwear"],
+    "vibe": ["quiet-luxury", "minimalist", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "luxury",
+    "items": ["cashmere sweater", "modal tee", "zip-up hoodie", "crew neck", "v-neck"],
+    "about": "Montreal luxury knitwear — ultra-fine pima cotton and cashmere for quietly elevated everyday layering"
+  },
+  {
+    "domain": "reigningchamp.com",
+    "name": "Reigning Champ",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear", "active", "casual", "heritage-workwear"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["sweatshirt", "jogger", "hoodie", "tee", "shorts", "zip-up"],
+    "about": "Vancouver athletic brand — fleece made in Canada, the original premium sweatshirt brand"
+  },
+  {
+    "domain": "schottnyc.com",
+    "name": "Schott NYC",
+    "categories": ["outerwear", "top", "bottom"],
+    "vibe": ["heritage-workwear", "vintage", "streetwear"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["leather moto jacket", "perfecto jacket", "pea coat", "bomber jacket", "jean jacket", "jeans"],
+    "about": "NYC outerwear icon — the original Perfecto motorcycle jacket, handcrafted in USA since 1913"
+  },
+  {
+    "domain": "tigerofsweden.com",
+    "name": "Tiger of Sweden",
+    "categories": ["top", "bottom", "outerwear", "footwear", "accessory"],
+    "vibe": ["minimalist", "formal", "casual", "preppy"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["suit", "blazer", "dress shirt", "trouser", "chino", "sneaker", "boot"],
+    "about": "Swedish fashion house — sharp tailoring meets Nordic minimalism for the polished urban dresser"
+  },
+  {
+    "domain": "veja-store.com",
+    "name": "VEJA",
+    "categories": ["footwear"],
+    "vibe": ["sustainable", "minimalist", "casual", "french"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "premium",
+    "items": ["sneaker", "running shoe", "leather trainer", "canvas shoe"],
+    "about": "French sustainable sneakers — organic cotton, wild Amazonian rubber, transparent supply chain"
+  },
+  // ── Women's Specialty ──────────────────────────────────────────────────────
+  {
+    "domain": "agolde.com",
+    "name": "AGOLDE",
+    "categories": ["bottom", "top"],
+    "vibe": ["casual", "minimalist", "streetwear"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["wide-leg jeans", "straight jeans", "low-rise jeans", "shorts", "crop tee", "denim jacket"],
+    "about": "LA premium denim — directional silhouettes and raw-edge finishes, the cooler sibling of Citizens of Humanity"
+  },
+  {
+    "domain": "alohas.com",
+    "name": "Alohas",
+    "categories": ["footwear"],
+    "vibe": ["minimalist", "casual", "preppy", "coastal"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["mule", "loafer", "sandal", "boot", "sneaker", "ballet flat"],
+    "about": "Barcelona sustainable footwear — made-to-order shoes in natural leathers with a zero-waste approach"
+  },
+  {
+    "domain": "autumncashmere.com",
+    "name": "Autumn Cashmere",
+    "categories": ["top", "outerwear"],
+    "vibe": ["quiet-luxury", "minimalist", "casual", "preppy"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["cashmere sweater", "cashmere cardigan", "cashmere hoodie", "cashmere tee", "knit dress"],
+    "about": "NYC luxury cashmere — playful takes on classic knitwear in fine cashmere since 1999"
+  },
+  {
+    "domain": "bleuforet.fr",
+    "name": "Bleuforêt",
+    "categories": ["accessory"],
+    "vibe": ["minimalist", "french", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["sock", "wool sock", "tights", "legging"],
+    "about": "French hosiery brand — fine socks, tights, and legwear crafted in Troyes since 1923"
+  },
+  {
+    "domain": "echonewyork.com",
+    "name": "Echo New York",
+    "categories": ["accessory"],
+    "vibe": ["bohemian", "casual", "coastal", "maximalist"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["scarf", "wrap", "blanket scarf", "headband", "gloves"],
+    "about": "NYC accessories brand — expressive scarves and wraps in bold prints and luxurious textures since 1923"
+  },
+  {
+    "domain": "frame-store.com",
+    "name": "FRAME",
+    "categories": ["bottom", "top", "dress", "outerwear"],
+    "vibe": ["minimalist", "quiet-luxury", "french", "casual"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["straight-leg jeans", "flare jeans", "silk blouse", "blazer", "dress", "shorts"],
+    "about": "LA French-inspired denim and luxury basics — silk blouses, clean-cut jeans, effortless California-meets-Paris dressing"
+  },
+  {
+    "domain": "ganni.com",
+    "name": "GANNI",
+    "categories": ["top", "bottom", "dress", "outerwear", "footwear", "accessory"],
+    "vibe": ["maximalist", "bohemian", "casual", "sustainable", "artistic"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["floral dress", "smocked dress", "blazer", "knitwear", "printed blouse", "boot", "bag"],
+    "about": "Copenhagen's most-copied brand — playful prints, responsible practices, and Danish irreverence"
+  },
+  {
+    "domain": "hestragloves.com",
+    "name": "Hestra",
+    "categories": ["accessory"],
+    "vibe": ["outdoor", "casual", "heritage-workwear", "minimalist"],
+    "gender": ["women", "unisex"],
+    "priceRange": "premium",
+    "items": ["leather glove", "ski glove", "winter glove", "work glove", "dress glove", "mitten"],
+    "about": "Swedish glove makers since 1936 — handcrafted leather gloves from Åseda, the gold standard in hand protection"
+  },
+  {
+    "domain": "intentionallyblank.us",
+    "name": "Intentionally Blank",
+    "categories": ["footwear"],
+    "vibe": ["minimalist", "casual", "streetwear"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["sneaker", "boot", "slide", "mule", "loafer", "platform shoe"],
+    "about": "Minimal footwear brand — clean logo-free sneakers and boots with an architectural edge"
+  },
+  {
+    "domain": "lineknitwear.com",
+    "name": "LINE Knitwear",
+    "categories": ["top", "outerwear"],
+    "vibe": ["casual", "coastal", "minimalist"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["knit sweater", "cardigan", "poncho", "vest", "knit jacket"],
+    "about": "Canadian knitwear — relaxed coastal knits in earth tones, easy layering from beach to city"
+  },
+  {
+    "domain": "samsoe.com",
+    "name": "Samsøe Samsøe",
+    "categories": ["top", "bottom", "dress", "outerwear", "accessory"],
+    "vibe": ["minimalist", "casual", "sustainable", "preppy"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["shirt", "trouser", "blazer", "knit sweater", "dress", "jacket", "scarf"],
+    "about": "Copenhagen fashion brand — clean Scandinavian design with sustainable focus, refined everyday dressing"
+  },
+  {
+    "domain": "whiteandwarren.com",
+    "name": "White + Warren",
+    "categories": ["top", "outerwear", "accessory"],
+    "vibe": ["quiet-luxury", "minimalist", "casual", "preppy"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["cashmere sweater", "cashmere cardigan", "cashmere wrap", "cashmere hoodie", "knit scarf"],
+    "about": "American cashmere brand — lightweight breathable cashmere in seasonless neutrals for everyday luxury"
+  },
 ];
 
 // ── Brand directory ───────────────────────────────────────────────────────────
