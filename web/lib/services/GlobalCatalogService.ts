@@ -1102,6 +1102,12 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
     // Never surface out-of-stock products
     if (product.in_stock === false) return false;
 
+    // Hard-exclude non-fashion items (books, posters, stationery, home decor, etc.)
+    // that sometimes appear in multi-category stores. This is unconditional — no fallback.
+    const titleLc = (product.title || '').toLowerCase();
+    const NON_FASHION_RE = /\bbooks?\b|\bhardcover\b|\bpaperback\b|\bnotebook\b|\bposter\b|\bwall art\b|\bart print\b|\bstickers?\b|\bcandles?\b|\bcalendars?\b|\bfigurines?\b|\bplush\b|\bphone case\b|\bmug\b|\bzine\b/;
+    if (NON_FASHION_RE.test(titleLc)) return false;
+
     // Strict allowed store filtering with domain matching
     const storeDomain = getProductStoreDomain(product);
     const hasMatch = UCP_REGISTRY.some(s => isDomainMatch(storeDomain, s.domain));
