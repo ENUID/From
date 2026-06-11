@@ -147,8 +147,13 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
+      // Allow redirect to any enuid.com subdomain (covers from.enuid.com, etc.)
       if (url.startsWith(baseUrl)) return url
       if (url.startsWith('/')) return `${baseUrl}${url}`
+      try {
+        const u = new URL(url)
+        if (u.hostname === 'from.enuid.com' || u.hostname.endsWith('.enuid.com')) return url
+      } catch {}
       return getSafeDefaultRedirect(baseUrl)
     },
   },

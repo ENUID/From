@@ -2087,7 +2087,7 @@ export default function FromApp({
           <button
             type="button"
             disabled={signingIn}
-            onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: '/' }) }}
+            onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: window.location.origin + '/' }) }}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               padding: '13px 20px', borderRadius: 100,
