@@ -25,8 +25,8 @@ jobs:
         run: npm ci
         working-directory: web
 
-      - name: Install older Convex CLI globally
-        run: npm install -g convex@1.17.4
+      - name: Install Convex CLI
+        run: npm install -g convex@1.25.0
 
       - name: Deploy Convex
         run: convex deploy --typecheck disable
