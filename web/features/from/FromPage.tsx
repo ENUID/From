@@ -2164,7 +2164,7 @@ export default function FromApp({
 
               {/* Sub-copy */}
               <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginBottom: 34, textAlign: 'center', lineHeight: 1.65, letterSpacing: '0.02em' }}>
-                Independent boutiques from the brands<br/>that actually mean something.
+                Independent brands. Wear what<br/>makes you different.
               </div>
 
               {/* ── Google button ── */}
