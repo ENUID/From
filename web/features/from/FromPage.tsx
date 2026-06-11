@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import MiniSearch from 'minisearch'
 import { useFromChat } from './hooks/useFromChat'
 import { formatMoney } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
@@ -1116,7 +1115,6 @@ export default function FromApp({
   const [isWide, setIsWide]             = useState(false)
   const [isMedium, setIsMedium]         = useState(false)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
-  const [gridFilter, setGridFilter]     = useState('')
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
@@ -1369,31 +1367,6 @@ export default function FromApp({
   const lastProductMsgIndex = lastProductMsg ? messages.lastIndexOf(lastProductMsg as any) : -1
   const searchProducts: Product[] = (lastProductMsg?.products || []).filter((p: Product) => p.in_stock)
 
-  // Build a MiniSearch index whenever the product set changes, then apply gridFilter
-  const miniSearchIndex = useMemo(() => {
-    if (searchProducts.length === 0) return null
-    const ms = new MiniSearch<Product>({
-      idField: 'id',
-      fields: ['title', 'vendor', 'tagsStr'],
-      searchOptions: { prefix: true, fuzzy: 0.1, boost: { title: 3, vendor: 2, tagsStr: 1 } },
-    })
-    ms.addAll(searchProducts.map(p => ({
-      ...p,
-      tagsStr: Array.isArray((p as any).tags) ? (p as any).tags.join(' ') : '',
-    })))
-    return ms
-  }, [searchProducts])
-
-  const filteredProducts = useMemo(() => {
-    const q = gridFilter.trim()
-    if (!q || !miniSearchIndex) return searchProducts
-    const results = miniSearchIndex.search(q)
-    const idSet = new Map(results.map(r => [r.id, r.score]))
-    return searchProducts
-      .filter(p => idSet.has(p.id))
-      .sort((a, b) => (idSet.get(b.id) ?? 0) - (idSet.get(a.id) ?? 0))
-  }, [gridFilter, miniSearchIndex, searchProducts])
-
   const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
   const showEmpty = hasConversation && searchProducts.length === 0 && !loading
   const canSend   = input.trim().length > 0 || uploadedImages.length > 0 || barProducts.length > 0
@@ -1412,8 +1385,6 @@ export default function FromApp({
   }, [])
 
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
-  // Clear grid filter whenever the result set changes (new search)
-  useEffect(() => { setGridFilter('') }, [lastProductMsgIndex])
   useEffect(() => {
     const check = () => {
       setIsWide(window.innerWidth >= 1024)
@@ -1432,7 +1403,10 @@ export default function FromApp({
     if (!vv) return
     const update = () => {
       const kbH = window.innerHeight - vv.height - vv.offsetTop
-      setKeyboardOffset(Math.max(0, Math.round(kbH)))
+      // Only treat as keyboard if the viewport shrank by >150px.
+      // Safari's URL-bar/toolbar hide/show causes small dvh changes (~80px)
+      // that shouldn't push the search bar up when no keyboard is open.
+      setKeyboardOffset(kbH > 150 ? Math.round(kbH) : 0)
     }
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
@@ -1871,7 +1845,7 @@ export default function FromApp({
           flex-shrink:0;z-index:10;}
 
         /* ── Content area (body + floating bar share this space) ── */
-        .fr-content{flex:1;position:relative;overflow:hidden;}
+        .fr-content{flex:1;min-height:0;position:relative;overflow:hidden;}
 
         /* ── Body ── */
         .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:calc(max(80px, env(safe-area-inset-bottom, 0px) + 72px));overscroll-behavior-y:contain;}
@@ -1881,7 +1855,7 @@ export default function FromApp({
         .fr-bar-wrap{
           position:absolute;bottom:0;left:0;right:0;
           z-index:10;
-          padding:12px clamp(12px,4vw,18px) max(12px,env(safe-area-inset-bottom));
+          padding:12px clamp(12px,4vw,18px) max(28px,env(safe-area-inset-bottom,0px));
           background:transparent;
         }
         /* On tablet/desktop remove the safe-area floor — only respect device safe-area. */
@@ -2567,38 +2541,8 @@ export default function FromApp({
             {/* Product grid */}
             {(hasConversation || showExplore) && !loading && searchProducts.length > 0 && (
               <>
-                {/* Inline filter bar */}
-                <div style={{ padding: '0 12px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6,
-                    background: BG2, borderRadius: 20, padding: '6px 12px',
-                    border: `1px solid ${BRD}` }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                    <input
-                      type="text"
-                      value={gridFilter}
-                      onChange={e => setGridFilter(e.target.value)}
-                      placeholder="Filter results…"
-                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent',
-                        fontFamily: SANS, fontSize: 13, color: INK, lineHeight: 1 }}
-                    />
-                    {gridFilter && (
-                      <button type="button" onClick={() => setGridFilter('')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                          display: 'flex', color: INK3, lineHeight: 1 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    )}
-                  </div>
-                  {gridFilter && (
-                    <span style={{ fontFamily: SANS, fontSize: 12, color: INK3, flexShrink: 0 }}>
-                      {filteredProducts.length}
-                    </span>
-                  )}
-                </div>
                 <div className="fr-grid">
-                  {filteredProducts.map(p => (
+                  {searchProducts.map(p => (
                     <div key={p.id} className="fr-cell"
                       role="button" tabIndex={0}
                       {...makePressHandlers((x, y) => {
