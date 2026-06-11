@@ -157,27 +157,25 @@ function seededShuffle(arr: string[]): string[] {
 const SHUFFLED_PALETTE = seededShuffle(LOGO_PALETTE)
 
 // ── FROM wordmark ─────────────────────────────────────────────────────────────
-function FabricsIcon({ size = 18, color = INK }: { size?: number; color?: string }) {
+function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <clipPath id="fwc">
-          <circle cx="12" cy="12" r="9.6"/>
-        </clipPath>
-      </defs>
-      <circle cx="12" cy="12" r="9.6" stroke={color} strokeWidth="1.3" fill="none"/>
-      <g clipPath="url(#fwc)" stroke={color} strokeWidth="1.05" strokeLinecap="butt">
-        <line x1="5.5" y1="2" x2="5.5" y2="22"/>
-        <line x1="7.8" y1="2" x2="7.8" y2="22"/>
-        <line x1="10.1" y1="2" x2="10.1" y2="22"/>
-        <line x1="12.4" y1="2" x2="12.4" y2="22"/>
-        <line x1="14.7" y1="2" x2="14.7" y2="22"/>
-        <line x1="17" y1="2" x2="17" y2="22"/>
-        <line x1="19.3" y1="2" x2="19.3" y2="22"/>
-        <line x1="2" y1="14.2" x2="22" y2="14.2"/>
-        <line x1="2" y1="16.5" x2="22" y2="16.5"/>
-        <line x1="2" y1="18.8" x2="22" y2="18.8"/>
-      </g>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeLinecap="round">
+      <circle cx="12" cy="12" r="9.5" strokeWidth={strokeWidth * 1.2}/>
+      <line x1="4.4"  y1="6.30"  x2="4.4"  y2="17.70" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="6.3"  y1="4.40"  x2="6.3"  y2="19.60" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="8.2"  y1="3.29"  x2="8.2"  y2="20.71" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="10.1" y1="2.69"  x2="10.1" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="12"   y1="2.50"  x2="12"   y2="21.50" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="13.9" y1="2.69"  x2="13.9" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="15.8" y1="3.29"  x2="15.8" y2="20.71" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="17.7" y1="4.40"  x2="17.7" y2="19.60" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="19.6" y1="6.30"  x2="19.6" y2="17.70" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="2.62" y1="13.5"  x2="21.38" y2="13.5"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="2.92" y1="14.8"  x2="21.08" y2="14.8"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="3.43" y1="16.1"  x2="20.57" y2="16.1"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="4.18" y1="17.4"  x2="19.82" y2="17.4"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="5.27" y1="18.7"  x2="18.73" y2="18.7"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="6.88" y1="20.0"  x2="17.12" y2="20.0"  strokeWidth={strokeWidth * 0.85}/>
     </svg>
   )
 }
@@ -1000,6 +998,8 @@ export default function FromApp({
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
+  const [isMedium, setIsMedium]         = useState(false)
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
@@ -1075,7 +1075,7 @@ export default function FromApp({
     const products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
     const images   = imagesArg ?? stylistImages
-    if (!question || stylistLoading || (products.length === 0 && images.length === 0)) return
+    if (!question || stylistLoading) return
     setStylistInput('')
     const capturedImages = images.map(i => i.url)
     setStylistImages([])
@@ -1171,6 +1171,8 @@ export default function FromApp({
   const stylistRenameRef = useRef<HTMLInputElement>(null)
   const taRef         = useRef<HTMLTextAreaElement>(null)
   const fileRef       = useRef<HTMLInputElement>(null)
+  const photoLibRef   = useRef<HTMLInputElement>(null)
+  const cameraRef     = useRef<HTMLInputElement>(null)
   const dragHandleRef = useRef<HTMLDivElement>(null)
   const similarRef    = useRef<HTMLDivElement>(null)
   const sentinelRef   = useRef<HTMLDivElement>(null)
@@ -1273,6 +1275,7 @@ export default function FromApp({
   useEffect(() => {
     const check = () => {
       setIsWide(window.innerWidth >= 1024)
+      setIsMedium(window.innerWidth >= 768)
       setWindowWidth(window.innerWidth)
     }
     check()
@@ -1827,8 +1830,8 @@ export default function FromApp({
 
         /* Textarea */
         .fr-bar-top{display:flex;align-items:flex-end;gap:8px;}
-        .fr-bar-btm{display:flex;align-items:center;justify-content:space-between;}
-        .fr-bar-right{display:flex;align-items:center;gap:8px;}
+        .fr-bar-btm{display:flex;align-items:center;gap:6px;}
+        .fr-bar-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
         .fr-ta{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;
           font-size:16px;color:${INK};caret-color:${INK};resize:none;overflow:hidden;
           min-height:24px;max-height:120px;line-height:1.55;padding:0;display:block;outline:none;width:100%;}
@@ -1948,11 +1951,14 @@ export default function FromApp({
         @keyframes toastIn{0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(0.88);}60%{opacity:1;transform:translateX(-50%) translateY(-4px) scale(1.03);}80%{transform:translateX(-50%) translateY(2px) scale(0.99);}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
         @keyframes toastOut{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.88);}}
         @keyframes sheetUp{0%{transform:translateY(100%);}100%{transform:translateY(0);}}
+        @keyframes fadeScale{0%{opacity:0;transform:scale(0.94);}100%{opacity:1;transform:scale(1);}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
-      <input ref={fileRef} type="file" accept="image/*,*/*" multiple style={{ display:"none" }} onChange={handleFile} />
+      <input ref={photoLibRef} type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handleFile} />
+      <input ref={cameraRef}   type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleFile} />
+      <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
 
       <div className="fr-wrap">
         <div className="fr-shell">
@@ -2061,7 +2067,7 @@ export default function FromApp({
 
               {/* Fabrics (AI stylist history) */}
               <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`} onClick={() => setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics')}>
-                <FabricsIcon size={17} color={INK3} />
+                <FabricsIcon size={17} stroke={INK3} strokeWidth={1.05}/>
                 Fabrics
                 {stylistHistory.length > 0 && (
                   <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
@@ -2171,7 +2177,7 @@ export default function FromApp({
                           setStylistOpen(true); setSidebar(false)
                         }}
                       >
-                        <FabricsIcon size={12} color={INK3} />
+                        <FabricsIcon size={12} stroke={INK3} strokeWidth={1.05}/>
                         {stylistRenameId === h.id ? (
                           <input ref={stylistRenameRef} value={stylistRenameVal}
                             onClick={e => e.stopPropagation()}
@@ -2550,11 +2556,50 @@ export default function FromApp({
                   {/* Row 2: actions */}
                   <div className="fr-bar-btm">
 
-                    {/* Paperclip — directly opens native file picker */}
-                    <button type="button" className="fr-icon-btn" onClick={() => fileRef.current?.click()}>
+                    {/* Paperclip — custom ordered attach menu */}
+                    <div style={{ position: 'relative' }}>
+                    <button type="button" className="fr-icon-btn" onClick={() => setAttachMenuOpen(o => !o)}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                       </svg>
+                    </button>
+                      {attachMenuOpen && (
+                        <>
+                          <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={() => setAttachMenuOpen(false)} />
+                          <div style={{ position: 'absolute', bottom: 'calc(100% + 10px)', left: 0, zIndex: 301,
+                            background: '#fff', borderRadius: 14, overflow: 'hidden', minWidth: 200,
+                            boxShadow: '0 8px 28px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.07)' }}>
+                            {([
+                              { label: 'Photo Library', action: () => photoLibRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                              { label: 'Take Photo or Video', action: () => cameraRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> },
+                              { label: 'Choose Files', action: () => fileRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> },
+                            ] as { label: string; action: () => void; icon: React.ReactNode }[]).map(({ label, action, icon }, i, arr) => (
+                              <div key={label}>
+                                <button type="button" onClick={() => { action(); setAttachMenuOpen(false) }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+                                    padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
+                                    fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK, textAlign: 'left' }}
+                                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,.05)')}
+                                  onPointerUp={e => (e.currentTarget.style.background = 'none')}
+                                  onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
+                                  {icon}{label}
+                                </button>
+                                {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(0,0,0,.08)', margin: '0 16px' }} />}
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {/* Fabrics pill — icon + label, left-aligned after paperclip */}
+                    <button type="button" onClick={() => setStylistOpen(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '4px 9px 4px 7px', borderRadius: 20,
+                        border: `1px solid rgba(44,18,6,.18)`, background: 'transparent',
+                        cursor: 'pointer', flexShrink: 0 }}>
+                      <FabricsIcon size={13} stroke={INK2} strokeWidth={1.05}/>
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 400,
+                        color: INK, letterSpacing: '.01em', lineHeight: 1 }}>Fabrics</span>
                     </button>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
@@ -2748,14 +2793,25 @@ export default function FromApp({
           {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
           {stylistOpen && (
             <div onClick={() => setStylistOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', paddingBottom: keyboardOffset } as React.CSSProperties}>
+              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
               <div onClick={e => e.stopPropagation()}
-                style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '90dvh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)' }}>
+                style={isMedium ? {
+                  width: 'min(680px, 92vw)', height: 'min(660px, 88vh)',
+                  background: '#fff', borderRadius: 20,
+                  display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                  boxShadow: '0 24px 80px rgba(0,0,0,.22), 0 8px 24px rgba(0,0,0,.12)',
+                  animation: 'fadeScale .3s cubic-bezier(.32,.72,0,1)',
+                } : {
+                  width: '100%', maxWidth: 680, margin: '0 auto',
+                  background: '#fff', borderRadius: '18px 18px 0 0',
+                  display: 'flex', flexDirection: 'column', maxHeight: '90dvh',
+                  animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)',
+                }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', borderBottom: `1px solid ${BRD}`, flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <FabricsIcon size={17} color={INK} />
+                    <FabricsIcon size={15} stroke={INK} strokeWidth={1.1}/>
                     <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Fabrics</span>
                   </div>
                   <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
@@ -2784,7 +2840,7 @@ export default function FromApp({
                   {stylistMsgs.length === 0 && !stylistLoading && (
                     <div>
                       <p style={{ fontFamily: SERIF, fontSize: 18, color: INK3, lineHeight: 1.4, marginBottom: 12 }}>
-                        {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Upload photos of your clothes for styling advice.'}
+                        {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Ask me anything about style.'}
                       </p>
                       <p style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(44,18,6,0.4)', lineHeight: 1.5 }}>
                         Tap the camera icon to share photos of your own clothes — get color matching, outfit combinations, and recommendations from the store.
@@ -3197,7 +3253,7 @@ export default function FromApp({
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Ask Fabrics</span>
-                  <FabricsIcon size={14} color="rgba(60,60,67,0.6)" />
+                  <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.05}/>
                 </div>
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
                 {/* Remove from bag */}
@@ -3253,7 +3309,7 @@ export default function FromApp({
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Ask Fabrics</span>
-                  <FabricsIcon size={14} color="rgba(60,60,67,0.6)" />
+                  <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.05}/>
                 </div>
 
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
