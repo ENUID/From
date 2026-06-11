@@ -4092,37 +4092,6 @@ export default function FromApp({
                         </a>
                       </div>
 
-                      {/* Find more like this */}
-                      <div style={{ padding: '12px 24px 0' }}>
-                        <button
-                          onClick={() => {
-                            if (!isPremium) { setSelected(null); setShowUpgradeSheet(true); return }
-                            const p = selectedProduct
-                            const tags = (p.tags || []).filter(t => !isInternalTag(t)).slice(0, 3).join(', ')
-                            const query = `Find me more like: ${p.title}${p.vendor ? ` by ${p.vendor}` : ''}${tags ? ` — ${tags}` : ''}`
-                            setSelected(null)
-                            setSidebar(false)
-                            sendMessage(query)
-                          }}
-                          style={{
-                            width: '100%', padding: '11px', borderRadius: 10,
-                            background: 'transparent', border: `1px solid ${BRD}`,
-                            fontFamily: SANS, fontSize: 13, color: INK, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          }}
-                        >
-                          Find more like this
-                          {!isPremium && (
-                            <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: '#3d7a3a', background: '#e8f0e8', padding: '2px 5px', borderRadius: 4 }}>
-                              Community
-                            </span>
-                          )}
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-                          </svg>
-                        </button>
-                      </div>
-
                       <div key={selectedProduct.id} style={{ padding: '16px 24px 0' }}>
                         {(sheetDesc || sheetDescHtml) && (
                           <Accordion label="Description & Fit" defaultOpen>
@@ -4349,36 +4318,6 @@ export default function FromApp({
                         style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, textDecoration: "underline", textUnderlineOffset: 3 }}>
                         Visit store
                       </a>
-                    </div>
-
-                    <div style={{ padding: "12px 20px 0" }}>
-                      <button
-                        onClick={() => {
-                          if (!isPremium) { setSelected(null); setShowUpgradeSheet(true); return }
-                          const p = selectedProduct
-                          const tags = (p.tags || []).filter(t => !isInternalTag(t)).slice(0, 3).join(', ')
-                          const query = `Find me more like: ${p.title}${p.vendor ? ` by ${p.vendor}` : ''}${tags ? ` — ${tags}` : ''}`
-                          setSelected(null)
-                          setSidebar(false)
-                          sendMessage(query)
-                        }}
-                        style={{
-                          width: '100%', padding: '11px', borderRadius: 10,
-                          background: 'transparent', border: `1px solid ${BRD}`,
-                          fontFamily: SANS, fontSize: 13, color: INK, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        }}
-                      >
-                        Find more like this
-                        {!isPremium && (
-                          <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: '#3d7a3a', background: '#e8f0e8', padding: '2px 5px', borderRadius: 4 }}>
-                            Community
-                          </span>
-                        )}
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-                        </svg>
-                      </button>
                     </div>
 
                     <div key={selectedProduct.id} style={{ padding: "22px 20px 0" }}>
