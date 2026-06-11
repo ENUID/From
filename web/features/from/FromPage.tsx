@@ -1054,6 +1054,17 @@ export default function FromApp({
   // ── Auth gate ────────────────────────────────────────────────────────────────
   const { status: authStatus } = useSession()
   const [signingIn, setSigningIn] = useState(false)
+  const [glassLight, setGlassLight] = useState({ x: 35, y: 28 })
+  const glassCardRef = useRef<HTMLDivElement>(null)
+  const handleGlassMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = glassCardRef.current
+    if (!card) return
+    const r = card.getBoundingClientRect()
+    setGlassLight({
+      x: Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100)),
+      y: Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100)),
+    })
+  }
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState(() => {
@@ -2061,6 +2072,9 @@ export default function FromApp({
         @keyframes toastOut{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.88);}}
         @keyframes sheetUp{0%{transform:translateY(100%);}100%{transform:translateY(0);}}
         @keyframes fadeScale{0%{opacity:0;transform:scale(0.94);}100%{opacity:1;transform:scale(1);}}
+        @keyframes glassSpring{0%{opacity:0;transform:scale(0.82) translateY(28px);}45%{opacity:1;transform:scale(1.035) translateY(-7px);}65%{transform:scale(0.978) translateY(4px);}80%{transform:scale(1.012) translateY(-2px);}91%{transform:scale(0.994) translateY(1px);}100%{opacity:1;transform:scale(1) translateY(0);}}
+        @keyframes glassSweep{0%{transform:translateX(-120%) skewX(-20deg);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateX(350%) skewX(-20deg);opacity:0;}}
+        @keyframes glassFloat{0%,100%{transform:translateY(0px);}50%{transform:translateY(-4px);}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
@@ -2069,71 +2083,131 @@ export default function FromApp({
       <input ref={cameraRef}   type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleFile} />
       <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
 
-      {/* ── Forced login gate ─────────────────────────────────────────────── */}
+      {/* ── Forced login gate — liquid glass ──────────────────────────────── */}
       {authStatus !== 'authenticated' && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 99999,
-          background: 'rgba(20,16,12,0.42)',
-          backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '20px',
-        }}>
-          <div style={{
-            background: '#FEFCFA',
-            borderRadius: 22,
-            padding: '44px 36px 32px',
-            width: '100%', maxWidth: 340,
-            boxShadow: '0 8px 60px rgba(0,0,0,0.22), 0 1px 0 rgba(255,255,255,0.9) inset',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
-            animation: 'fadeScale 0.42s cubic-bezier(0.34,1.36,0.64,1) forwards',
-          }}>
-            {/* Wordmark */}
-            <div style={{ fontFamily: SEASON, fontSize: 40, letterSpacing: '0.04em', color: INK, lineHeight: 1, marginBottom: 10 }}>
-              FROM
-            </div>
-            {/* Tagline */}
-            <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 15, color: INK2, marginBottom: 6, textAlign: 'center', letterSpacing: '0.01em' }}>
-              Fashion worth finding.
-            </div>
-            <div style={{ fontFamily: SANS, fontSize: 12.5, color: INK3, marginBottom: 30, textAlign: 'center', lineHeight: 1.55 }}>
-              Independent boutiques, curated in one place.
-            </div>
+        <div
+          onMouseMove={handleGlassMove}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 99999,
+            background: 'rgba(14,10,8,0.38)',
+            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          {/* ── Glass card ── */}
+          <div
+            ref={glassCardRef}
+            style={{
+              position: 'relative',
+              width: '100%', maxWidth: 360,
+              borderRadius: 26,
+              overflow: 'hidden',
+              background: 'rgba(253,250,246,0.96)',
+              backdropFilter: 'blur(48px) saturate(180%) brightness(104%)',
+              WebkitBackdropFilter: 'blur(48px) saturate(180%) brightness(104%)',
+              boxShadow: [
+                '0 0 0 0.5px rgba(255,255,255,0.8)',
+                '0 0 0 1px rgba(44,18,6,0.06)',
+                '0 4px 16px rgba(0,0,0,0.10)',
+                '0 16px 48px rgba(0,0,0,0.14)',
+                '0 40px 80px rgba(0,0,0,0.10)',
+                'inset 0 1.5px 0 rgba(255,255,255,1)',
+                'inset 0 -0.5px 0 rgba(44,18,6,0.06)',
+                'inset 1.5px 0 0 rgba(255,255,255,0.7)',
+                'inset -1.5px 0 0 rgba(255,255,255,0.4)',
+              ].join(','),
+              animation: 'glassSpring 0.72s cubic-bezier(0.34,1.36,0.64,1) forwards',
+            }}
+          >
+            {/* ── Ambient light — top-left corner ── */}
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+              background: 'linear-gradient(140deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 35%, transparent 60%)',
+            }} />
 
-            {/* Google button */}
-            <button
-              type="button"
-              disabled={signingIn || authStatus === 'loading'}
-              onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: '/' }) }}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                padding: '13px 20px', borderRadius: 12,
-                background: '#fff', border: '1px solid rgba(44,18,6,0.14)',
-                fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK,
-                cursor: signingIn ? 'default' : 'pointer',
-                opacity: signingIn ? 0.6 : 1,
-                transition: 'all 0.15s', boxShadow: '0 1px 3px rgba(44,18,6,0.06)',
-              }}
-              onMouseEnter={e => { if (!signingIn) (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 10px rgba(44,18,6,0.12)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(44,18,6,0.06)' }}
-            >
-              {signingIn ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
-                  <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-                  <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
-                  <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
-                  <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
-                </svg>
-              )}
-              {signingIn ? 'Signing in…' : 'Continue with Google'}
-            </button>
+            {/* ── Dynamic specular — follows mouse ── */}
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
+              background: `radial-gradient(ellipse 55% 45% at ${glassLight.x}% ${glassLight.y}%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 50%, transparent 70%)`,
+              transition: 'background 0.05s linear',
+            }} />
 
-            {/* Footer */}
-            <div style={{ marginTop: 20, fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', lineHeight: 1.5 }}>
-              By continuing you agree to our Terms &amp; Privacy Policy
+            {/* ── Entry shimmer sweep ── */}
+            <div style={{
+              position: 'absolute', top: 0, bottom: 0, width: '30%', pointerEvents: 'none', zIndex: 2,
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)',
+              animation: 'glassSweep 1.2s ease-out 0.25s both',
+            }} />
+
+            {/* ── Bottom refraction ── */}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0, height: 48, pointerEvents: 'none', zIndex: 0,
+              background: 'linear-gradient(to top, rgba(255,255,255,0.3), transparent)',
+            }} />
+
+            {/* ── Content ── */}
+            <div style={{ position: 'relative', zIndex: 3, padding: '50px 40px 36px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+              {/* Wordmark */}
+              <div style={{ fontFamily: SEASON, fontSize: 48, letterSpacing: '0.05em', color: INK, lineHeight: 1, marginBottom: 12, textShadow: '0 1px 0 rgba(255,255,255,0.9)' }}>
+                FROM
+              </div>
+
+              {/* Thin rule */}
+              <div style={{ width: 32, height: 1, background: 'rgba(44,18,6,0.15)', marginBottom: 14 }} />
+
+              {/* Headline */}
+              <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 16, color: INK, marginBottom: 6, textAlign: 'center', letterSpacing: '0.015em', lineHeight: 1.4 }}>
+                Fashion worth finding.
+              </div>
+
+              {/* Sub-copy */}
+              <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginBottom: 34, textAlign: 'center', lineHeight: 1.65, letterSpacing: '0.02em' }}>
+                Independent boutiques from the brands<br/>that actually mean something.
+              </div>
+
+              {/* ── Google button ── */}
+              <button
+                type="button"
+                disabled={signingIn || authStatus === 'loading'}
+                onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: '/' }) }}
+                style={{
+                  position: 'relative', overflow: 'hidden',
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11,
+                  padding: '14px 24px', borderRadius: 13,
+                  background: 'rgba(255,255,255,0.85)',
+                  border: '1px solid rgba(44,18,6,0.10)',
+                  boxShadow: ['0 1px 0 rgba(255,255,255,1) inset','0 -1px 0 rgba(44,18,6,0.05) inset','0 1px 4px rgba(0,0,0,0.07)','0 4px 16px rgba(0,0,0,0.06)'].join(','),
+                  fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, letterSpacing: '0.01em',
+                  cursor: signingIn ? 'default' : 'pointer',
+                  opacity: signingIn ? 0.6 : 1,
+                  transition: 'transform 0.16s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.16s ease, opacity 0.16s ease',
+                }}
+                onMouseEnter={e => { if (!signingIn) { const el = e.currentTarget as HTMLElement; el.style.transform = 'translateY(-1.5px)'; el.style.boxShadow = ['0 1px 0 rgba(255,255,255,1) inset','0 -1px 0 rgba(44,18,6,0.05) inset','0 2px 8px rgba(0,0,0,0.10)','0 8px 24px rgba(0,0,0,0.09)'].join(',') }}}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ''; el.style.boxShadow = ['0 1px 0 rgba(255,255,255,1) inset','0 -1px 0 rgba(44,18,6,0.05) inset','0 1px 4px rgba(0,0,0,0.07)','0 4px 16px rgba(0,0,0,0.06)'].join(',') }}
+                onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.975) translateY(0)' }}
+                onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1.5px)' }}
+              >
+                {signingIn ? (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2.2" strokeLinecap="round" style={{ animation: 'spin 0.75s linear infinite', flexShrink: 0 }}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
+                    <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                    <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                    <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
+                    <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
+                  </svg>
+                )}
+                {signingIn ? 'Signing in…' : 'Continue with Google'}
+              </button>
+
+              {/* Footer */}
+              <div style={{ marginTop: 18, fontFamily: SANS, fontSize: 10.5, color: INK3, textAlign: 'center', lineHeight: 1.6, letterSpacing: '0.01em' }}>
+                By continuing you agree to our Terms &amp; Privacy Policy
+              </div>
             </div>
           </div>
         </div>
