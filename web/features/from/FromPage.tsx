@@ -2083,16 +2083,16 @@ export default function FromApp({
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               padding: '13px 20px', borderRadius: 100,
-              background: '#FFFFFF',
-              border: '1px solid rgba(44,18,6,0.14)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)',
+              background: 'rgba(255,255,255,0.82)',
+              border: '1px solid rgba(44,18,6,0.10)',
+              boxShadow: '0 4px 16px rgba(44,18,6,.08), 0 1px 4px rgba(44,18,6,.05), inset 0 1px 0 rgba(255,255,255,.98)',
               fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, letterSpacing: '0.01em',
               cursor: signingIn ? 'default' : 'pointer',
               opacity: signingIn ? 0.6 : 1,
               transition: 'box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
             }}
-            onMouseEnter={e => { if (!signingIn) (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.08)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)' }}
+            onMouseEnter={e => { if (!signingIn) (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 28px rgba(44,18,6,.12), 0 2px 8px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.98)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(44,18,6,.08), 0 1px 4px rgba(44,18,6,.05), inset 0 1px 0 rgba(255,255,255,.98)' }}
             onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)' }}
             onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = '' }}
           >
@@ -2118,21 +2118,25 @@ export default function FromApp({
           </div>
         )
 
+        const CARD_BG  = 'rgba(255,255,255,0.92)'
+        const CARD_SHD = '0 8px 32px rgba(44,18,6,.10), 0 2px 8px rgba(44,18,6,.06), inset 0 1.5px 0 rgba(255,255,255,.98), inset 0 -0.5px 0 rgba(44,18,6,.04)'
+
         if (mobile) {
           /* ── Mobile: bottom sheet slides up ── */
           return (
             <div style={{
               position: 'fixed', inset: 0, zIndex: 99999,
-              background: 'rgba(10,7,5,0.45)',
+              background: 'rgba(10,7,5,0.38)',
               backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
               display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
             }}>
               <div style={{
-                background: '#F7F4F2',
+                background: CARD_BG,
                 borderRadius: '24px 24px 0 0',
-                padding: '12px 28px 40px',
+                boxShadow: CARD_SHD,
+                padding: '12px 28px max(40px,env(safe-area-inset-bottom,20px))',
                 animation: 'sheetUp 0.38s cubic-bezier(0.32,0.72,0,1) forwards',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
               }}>
                 {/* Drag handle */}
                 <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(44,18,6,0.15)', marginBottom: 28 }} />
@@ -2165,17 +2169,17 @@ export default function FromApp({
         return (
           <div style={{
             position: 'fixed', inset: 0, zIndex: 99999,
-            background: 'rgba(10,7,5,0.45)',
+            background: 'rgba(10,7,5,0.38)',
             backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 16,
           }}>
             <div style={{
-              background: '#F7F4F2',
+              background: CARD_BG,
               borderRadius: 24,
               width: '100%', maxWidth: 380,
               padding: '44px 40px 36px',
-              boxShadow: '0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)',
+              boxShadow: CARD_SHD,
               animation: 'fadeScale 0.28s cubic-bezier(0.34,1.2,0.64,1) forwards',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
             }}>
