@@ -24,4 +24,34 @@ export default defineSchema({
     resultCount: v.number(),
     createdAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  subscriptions: defineTable({
+    userId: v.id("users"),
+    plan: v.union(v.literal("free"), v.literal("premium")),
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    currentPeriodEnd: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_stripe_customer", ["stripeCustomerId"])
+    .index("by_stripe_subscription", ["stripeSubscriptionId"]),
+
+  taste_profile: defineTable({
+    userId: v.id("users"),
+    styles: v.optional(v.array(v.string())),
+    budgetMin: v.optional(v.number()),
+    budgetMax: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    sizes: v.optional(v.any()),
+    colors: v.optional(v.array(v.string())),
+    occasions: v.optional(v.array(v.string())),
+    notes: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  stylist_memory: defineTable({
+    userId: v.id("users"),
+    summary: v.string(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
 });

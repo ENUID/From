@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useSession, signIn, signOut } from 'next-auth/react'
 import { useFromChat } from './hooks/useFromChat'
 import { formatMoney } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
@@ -157,6 +158,29 @@ function seededShuffle(arr: string[]): string[] {
 const SHUFFLED_PALETTE = seededShuffle(LOGO_PALETTE)
 
 // ── FROM wordmark ─────────────────────────────────────────────────────────────
+function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeLinecap="round">
+      <circle cx="12" cy="12" r="9.5" strokeWidth={strokeWidth * 1.2}/>
+      <line x1="4.4"  y1="6.30"  x2="4.4"  y2="17.70" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="6.3"  y1="4.40"  x2="6.3"  y2="19.60" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="8.2"  y1="3.29"  x2="8.2"  y2="20.71" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="10.1" y1="2.69"  x2="10.1" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="12"   y1="2.50"  x2="12"   y2="21.50" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="13.9" y1="2.69"  x2="13.9" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="15.8" y1="3.29"  x2="15.8" y2="20.71" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="17.7" y1="4.40"  x2="17.7" y2="19.60" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="19.6" y1="6.30"  x2="19.6" y2="17.70" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="2.62" y1="13.5"  x2="21.38" y2="13.5"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="2.92" y1="14.8"  x2="21.08" y2="14.8"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="3.43" y1="16.1"  x2="20.57" y2="16.1"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="4.18" y1="17.4"  x2="19.82" y2="17.4"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="5.27" y1="18.7"  x2="18.73" y2="18.7"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="6.88" y1="20.0"  x2="17.12" y2="20.0"  strokeWidth={strokeWidth * 0.85}/>
+    </svg>
+  )
+}
+
 function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.25), userSelect: 'none', transition: 'color 2.4s ease' }}>
@@ -1015,31 +1039,6 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
   ]
 }
 
-function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeLinecap="round">
-      <circle cx="12" cy="12" r="9.5" strokeWidth={strokeWidth * 1.2}/>
-      {/* vertical warp lines */}
-      <line x1="4.4"  y1="6.30"  x2="4.4"  y2="17.70" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="6.3"  y1="4.40"  x2="6.3"  y2="19.60" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="8.2"  y1="3.29"  x2="8.2"  y2="20.71" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="10.1" y1="2.69"  x2="10.1" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="12"   y1="2.50"  x2="12"   y2="21.50" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="13.9" y1="2.69"  x2="13.9" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="15.8" y1="3.29"  x2="15.8" y2="20.71" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="17.7" y1="4.40"  x2="17.7" y2="19.60" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="19.6" y1="6.30"  x2="19.6" y2="17.70" strokeWidth={strokeWidth * 0.85}/>
-      {/* horizontal weft lines — lower woven area */}
-      <line x1="2.62" y1="13.5"  x2="21.38" y2="13.5"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="2.92" y1="14.8"  x2="21.08" y2="14.8"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="3.43" y1="16.1"  x2="20.57" y2="16.1"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="4.18" y1="17.4"  x2="19.82" y2="17.4"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="5.27" y1="18.7"  x2="18.73" y2="18.7"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="6.88" y1="20.0"  x2="17.12" y2="20.0"  strokeWidth={strokeWidth * 0.85}/>
-    </svg>
-  )
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FromApp({
   initialShopperContext, initialRates,
@@ -1050,7 +1049,12 @@ export default function FromApp({
     savedIds, savedProducts, searchHistory, shopperContext, rates,
     sendMessage, toggleSaved, resetConversation, loadMoreProducts,
     deleteHistoryEntry, renameHistoryEntry,
+    isPremium, dailySearchesRemaining,
+    showUpgradeSheet, setShowUpgradeSheet,
   } = useFromChat(initialShopperContext, initialRates)
+
+  // ── Auth (optional — profile view only) ─────────────────────────────────────
+  const { status: authStatus, data: session } = useSession()
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState(() => {
@@ -1067,9 +1071,8 @@ export default function FromApp({
   const [sheetSnap, setSheetSnap]     = useState<'full'|'half'>('full')
   const [isDragging, setIsDragging]   = useState(false)
   const [sidebarOpen, setSidebar]     = useState(false)
-  const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics'>('nav')
+  const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics' | 'profile'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
-  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [inputHint, setInputHint]       = useState<string | null>(null)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
@@ -1086,6 +1089,7 @@ export default function FromApp({
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
+  const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
@@ -1117,6 +1121,7 @@ export default function FromApp({
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(false)
   const [isMedium, setIsMedium]         = useState(false)
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
@@ -1199,8 +1204,7 @@ export default function FromApp({
     const products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
     const images   = imagesArg ?? stylistImages
-    const hasContext = products.length > 0 || images.length > 0 || history.length > 0
-    if (!question || stylistLoading || !hasContext) return
+    if (!question || stylistLoading) return
     setStylistInput('')
     const capturedImages = images.map(i => i.url)
     setStylistImages([])
@@ -1369,6 +1373,7 @@ export default function FromApp({
   const lastProductMsg      = [...messages].reverse().find(m => m.role === 'assistant' && m.products?.length)
   const lastProductMsgIndex = lastProductMsg ? messages.lastIndexOf(lastProductMsg as any) : -1
   const searchProducts: Product[] = (lastProductMsg?.products || []).filter((p: Product) => p.in_stock)
+
   const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
   const showEmpty = hasConversation && searchProducts.length === 0 && !loading
   const canSend   = input.trim().length > 0 || uploadedImages.length > 0 || barProducts.length > 0
@@ -1403,15 +1408,21 @@ export default function FromApp({
   useEffect(() => {
     const vv = (window as any).visualViewport
     if (!vv) return
-    const update = () => {
+    const check = () => {
       const kbH = window.innerHeight - vv.height - vv.offsetTop
-      setKeyboardOffset(Math.max(0, Math.round(kbH)))
+      setKeyboardOffset(kbH > 150 ? Math.round(kbH) : 0)
     }
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
+    // focusout fires when the keyboard dismisses (any input/textarea loses focus).
+    // visualViewport resize doesn't always fire on iPad after keyboard close,
+    // so this is the reliable fallback reset.
+    const onFocusOut = () => setTimeout(check, 150)
+    vv.addEventListener('resize', check)
+    vv.addEventListener('scroll', check)
+    document.addEventListener('focusout', onFocusOut)
     return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
+      vv.removeEventListener('resize', check)
+      vv.removeEventListener('scroll', check)
+      document.removeEventListener('focusout', onFocusOut)
     }
   }, [])
 
@@ -1513,7 +1524,7 @@ export default function FromApp({
           loadMoreRef.current(lastProductMsgIndex)
         }
       },
-      { rootMargin: '4000px', threshold: 0 }
+      { rootMargin: '600px', threshold: 0 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
@@ -1677,9 +1688,16 @@ export default function FromApp({
     const w = 460, h = 760
     const left = Math.round(window.screenX + Math.max(0, (window.outerWidth - w) / 2))
     const top  = Math.round(window.screenY + Math.max(0, (window.outerHeight - h) / 2))
-    const popup = window.open(url, 'fromCheckout', `popup=yes,width=${w},height=${h},left=${left},top=${top}`)
-    if (popup) { try { popup.opener = null } catch {} popup.focus?.() }
-    else window.open(url, '_blank', 'noopener,noreferrer') // popup blocked → fall back to a tab
+    // Empty string name = new unnamed window every click (not '_blank' which ignores features).
+    // Minimal features: popup=yes + dimensions is all modern browsers need.
+    const win = window.open(url, '', `popup=yes,width=${w},height=${h},left=${left},top=${top}`)
+    if (win) {
+      win.focus()
+    } else {
+      // Popup was blocked — store URL so the toast can offer a fallback link.
+      setPopupBlockedUrl(url)
+      setTimeout(() => setPopupBlockedUrl(null), 8000)
+    }
   }
   // Link straight to this product's own page so the shopper lands on the exact
   // item (where the brand's own size guide / fit info lives), not a generic page.
@@ -1839,10 +1857,12 @@ export default function FromApp({
         }
 
         /* ── Header ── */
-        .fr-header{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
+        .fr-header{display:flex;align-items:center;justify-content:space-between;
+          padding:max(10px,env(safe-area-inset-top,0px)) max(16px,calc(env(safe-area-inset-right,0px) + 12px)) 6px max(16px,calc(env(safe-area-inset-left,0px) + 12px));
+          flex-shrink:0;z-index:10;}
 
         /* ── Content area (body + floating bar share this space) ── */
-        .fr-content{flex:1;position:relative;overflow:hidden;}
+        .fr-content{flex:1;min-height:0;position:relative;overflow:hidden;}
 
         /* ── Body ── */
         .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:calc(max(80px, env(safe-area-inset-bottom, 0px) + 72px));overscroll-behavior-y:contain;}
@@ -1852,13 +1872,12 @@ export default function FromApp({
         .fr-bar-wrap{
           position:absolute;bottom:0;left:0;right:0;
           z-index:10;
-          padding:12px clamp(12px,4vw,18px) max(12px,env(safe-area-inset-bottom));
+          padding:12px clamp(12px,4vw,18px) max(28px,env(safe-area-inset-bottom,0px));
           background:transparent;
         }
-        /* On tablet/desktop remove the safe-area floor — only respect device safe-area. */
         @media(min-width:768px){
           .fr-bar-wrap{
-            padding-bottom:env(safe-area-inset-bottom);
+            padding-bottom:max(16px,env(safe-area-inset-bottom,0px));
           }
         }
 
@@ -1921,8 +1940,8 @@ export default function FromApp({
 
         /* Textarea */
         .fr-bar-top{display:flex;align-items:flex-end;gap:8px;}
-        .fr-bar-btm{display:flex;align-items:center;justify-content:space-between;}
-        .fr-bar-right{display:flex;align-items:center;gap:8px;}
+        .fr-bar-btm{display:flex;align-items:center;gap:6px;}
+        .fr-bar-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
         .fr-ta{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;
           font-size:16px;color:${INK};caret-color:${INK};resize:none;overflow:hidden;
           min-height:24px;max-height:120px;line-height:1.55;padding:0;display:block;outline:none;width:100%;}
@@ -2043,6 +2062,9 @@ export default function FromApp({
         @keyframes toastOut{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.88);}}
         @keyframes sheetUp{0%{transform:translateY(100%);}100%{transform:translateY(0);}}
         @keyframes fadeScale{0%{opacity:0;transform:scale(0.94);}100%{opacity:1;transform:scale(1);}}
+        @keyframes glassSpring{0%{opacity:0;transform:scale(0.82) translateY(28px);}45%{opacity:1;transform:scale(1.035) translateY(-7px);}65%{transform:scale(0.978) translateY(4px);}80%{transform:scale(1.012) translateY(-2px);}91%{transform:scale(0.994) translateY(1px);}100%{opacity:1;transform:scale(1) translateY(0);}}
+        @keyframes glassSweep{0%{transform:translateX(-120%) skewX(-20deg);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateX(350%) skewX(-20deg);opacity:0;}}
+        @keyframes glassFloat{0%,100%{transform:translateY(0px);}50%{transform:translateY(-4px);}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
@@ -2050,6 +2072,7 @@ export default function FromApp({
       <input ref={photoLibRef} type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handleFile} />
       <input ref={cameraRef}   type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleFile} />
       <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
+
 
       <div className="fr-wrap">
         <div className="fr-shell">
@@ -2067,19 +2090,24 @@ export default function FromApp({
               flexShrink: 0,
             }}>
               <FromLogo size={24} color={SHUFFLED_PALETTE[logoIdx]} />
-              <div style={{
-                width: 38, height: 38, borderRadius: "50%",
-                background: "#ffffff",
-                boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", flexShrink: 0, userSelect: "none",
-              }}>
-                {hasName ? (
-                  <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK }}>
-                    {userName.charAt(0).toUpperCase()}
+              <div
+                onClick={() => setSidebarView(v => v === 'profile' ? 'nav' : 'profile')}
+                style={{
+                  width: 38, height: 38, borderRadius: "50%",
+                  background: sidebarView === 'profile' ? INK : "#ffffff",
+                  boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0, userSelect: "none",
+                  overflow: "hidden", transition: "background 0.18s",
+                }}>
+                {session?.user?.image ? (
+                  <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : hasName ? (
+                  <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: sidebarView === 'profile' ? '#fff' : INK }}>
+                    {(session?.user?.name || userName).charAt(0).toUpperCase()}
                   </span>
                 ) : (
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.7" strokeLinecap="round">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={sidebarView === 'profile' ? '#fff' : INK3} strokeWidth="1.7" strokeLinecap="round">
                     <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                   </svg>
                 )}
@@ -2158,18 +2186,7 @@ export default function FromApp({
 
               {/* Fabrics (AI stylist conversations) */}
               <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`} onClick={() => setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics')}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-                  <defs><clipPath id="fwc"><circle cx="12" cy="12" r="9.6"/></clipPath></defs>
-                  <circle cx="12" cy="12" r="9.6" stroke={INK3} strokeWidth="1.3" fill="none"/>
-                  <g clipPath="url(#fwc)" stroke={INK3} strokeWidth="1.05" strokeLinecap="butt">
-                    <line x1="2.4" y1="6" x2="21.6" y2="6"/><line x1="2.4" y1="9" x2="21.6" y2="9"/>
-                    <line x1="2.4" y1="12" x2="21.6" y2="12"/><line x1="2.4" y1="15" x2="21.6" y2="15"/>
-                    <line x1="2.4" y1="18" x2="21.6" y2="18"/>
-                    <line x1="6" y1="2.4" x2="6" y2="21.6"/><line x1="9" y1="2.4" x2="9" y2="21.6"/>
-                    <line x1="12" y1="2.4" x2="12" y2="21.6"/><line x1="15" y1="2.4" x2="15" y2="21.6"/>
-                    <line x1="18" y1="2.4" x2="18" y2="21.6"/>
-                  </g>
-                </svg>
+                <FabricsIcon size={17} stroke={INK3} strokeWidth={1.05}/>
                 Fabrics
                 {stylistHistory.length > 0 && (
                   <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
@@ -2186,7 +2203,125 @@ export default function FromApp({
 
             {/* Scrollable recents / bag content */}
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
-              {sidebarView === 'fabrics' ? (
+              {sidebarView === 'profile' ? (
+                <div style={{ padding: '32px 16px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+                  {authStatus === 'authenticated' ? (<>
+                    {/* Avatar */}
+                    <div style={{
+                      width: 80, height: 80, borderRadius: '50%', overflow: 'hidden',
+                      background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: 16, flexShrink: 0,
+                    }}>
+                      {session?.user?.image ? (
+                        <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontFamily: SANS, fontSize: 28, fontWeight: 500, color: '#fff' }}>
+                          {(session?.user?.name || userName || '?').charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Name */}
+                    <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK, marginBottom: 4, textAlign: 'center', letterSpacing: '-0.01em' }}>
+                      {session?.user?.name || userName || 'Your account'}
+                    </div>
+
+                    {/* Email */}
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 28 }}>
+                      {session?.user?.email || ''}
+                    </div>
+
+                    {/* Plan badge */}
+                    <div style={{
+                      padding: '8px 14px', borderRadius: 20, marginBottom: 20,
+                      background: isPremium ? 'rgba(60,110,55,0.08)' : 'rgba(44,18,6,0.04)',
+                      border: `1px solid ${isPremium ? 'rgba(60,110,55,0.18)' : 'rgba(44,18,6,0.08)'}`,
+                      display: 'flex', alignItems: 'center', gap: 7,
+                    }}>
+                      <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: isPremium ? '#3d7a3a' : INK3 }}>
+                        {isPremium ? 'Premium' : 'Free plan'}
+                      </span>
+                      {!isPremium && (
+                        <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
+                          · {dailySearchesRemaining} search{dailySearchesRemaining !== 1 ? 'es' : ''} left today
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Upgrade button for free users */}
+                    {!isPremium && (
+                      <button
+                        type="button"
+                        onClick={() => { setSidebarView('nav'); setSidebar(false); setShowUpgradeSheet(true) }}
+                        style={{
+                          width: '100%', padding: '11px 16px', borderRadius: 10,
+                          background: INK, border: 'none',
+                          fontFamily: SANS, fontSize: 13, fontWeight: 600, color: '#fff',
+                          cursor: 'pointer', marginBottom: 10, letterSpacing: '.01em',
+                        }}
+                      >
+                        Upgrade to Premium
+                      </button>
+                    )}
+
+                    {/* Divider */}
+                    <div style={{ width: '100%', height: 1, background: 'rgba(44,18,6,0.07)', marginBottom: 16 }} />
+
+                    {/* Sign out */}
+                    <button
+                      type="button"
+                      onClick={() => signOut({ callbackUrl: window.location.origin + '/' })}
+                      style={{
+                        width: '100%', padding: '11px 16px', borderRadius: 10,
+                        background: 'transparent', border: 'none',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK3,
+                        cursor: 'pointer', transition: 'background 0.12s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.05)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                      </svg>
+                      Sign out
+                    </button>
+                  </>) : (<>
+                    {/* Not signed in */}
+                    <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK, marginBottom: 6, textAlign: 'center' }}>
+                      Sign in
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 28, lineHeight: 1.5 }}>
+                      Save your searches and bag items across devices.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => signIn('google', { callbackUrl: window.location.origin + '/' })}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+                        padding: '11px 16px', borderRadius: 10,
+                        background: 'rgba(44,18,6,0.04)', border: '1px solid rgba(44,18,6,0.08)',
+                        fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK,
+                        cursor: 'pointer', transition: 'background 0.12s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.08)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.04)')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
+                        <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                        <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                        <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
+                        <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
+                      </svg>
+                      Continue with Google
+                    </button>
+                  </>)}
+
+                </div>
+              ) : sidebarView === 'fabrics' ? (
                 <>
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
                   {stylistHistory.length === 0 ? (
@@ -2578,8 +2713,14 @@ export default function FromApp({
                 </div>
                 <div ref={sentinelRef} style={{ height: 1 }} />
                 {lastProductMsg?.loadingMore && (
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0 10px' }}>
-                    <div style={{ display: "flex", gap: 4 }}>{[0,.2,.4].map((d,i) => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: INK, animation: `fr-bounce 1.2s ${d}s ease-in-out infinite` }}/>)}</div>
+                  <div className="fr-grid" style={{ paddingTop: 0 }}>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="fr-cell" style={{ background: '#e8e4de', overflow: 'hidden' }}>
+                        <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
+                          background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
+                          animation:`sk-sweep 2s ${i * 0.1}s ease-in-out infinite`,willChange:'transform' }} />
+                      </div>
+                    ))}
                   </div>
                 )}
               </>
@@ -2672,13 +2813,13 @@ export default function FromApp({
                   {/* Row 2: actions */}
                   <div className="fr-bar-btm">
 
-                    {/* Paperclip — custom ordered menu */}
+                    {/* Paperclip — custom ordered attach menu */}
                     <div style={{ position: 'relative' }}>
-                      <button type="button" className="fr-icon-btn" onClick={() => setAttachMenuOpen(o => !o)}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                        </svg>
-                      </button>
+                    <button type="button" className="fr-icon-btn" onClick={() => setAttachMenuOpen(o => !o)}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                      </svg>
+                    </button>
                       {attachMenuOpen && (
                         <>
                           <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={() => setAttachMenuOpen(false)} />
@@ -2686,9 +2827,9 @@ export default function FromApp({
                             background: '#fff', borderRadius: 14, overflow: 'hidden', minWidth: 200,
                             boxShadow: '0 8px 28px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.07)' }}>
                             {([
-                              { label: 'Photo Library', action: () => photoLibRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
-                              { label: 'Take Photo or Video', action: () => cameraRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> },
-                              { label: 'Choose Files', action: () => fileRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> },
+                              { label: 'Photo Library', action: () => photoLibRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                              { label: 'Take Photo or Video', action: () => cameraRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> },
+                              { label: 'Choose Files', action: () => fileRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> },
                             ] as { label: string; action: () => void; icon: React.ReactNode }[]).map(({ label, action, icon }, i, arr) => (
                               <div key={label}>
                                 <button type="button" onClick={() => { action(); setAttachMenuOpen(false) }}
@@ -2698,8 +2839,7 @@ export default function FromApp({
                                   onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,.05)')}
                                   onPointerUp={e => (e.currentTarget.style.background = 'none')}
                                   onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
-                                  {icon}
-                                  {label}
+                                  {icon}{label}
                                 </button>
                                 {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(0,0,0,.08)', margin: '0 16px' }} />}
                               </div>
@@ -2708,13 +2848,13 @@ export default function FromApp({
                         </>
                       )}
                     </div>
-                    {/* Fabrics — pill tag right after paperclip */}
+                    {/* Fabrics pill — icon + label, left-aligned after paperclip */}
                     <button type="button" onClick={() => setStylistOpen(true)}
                       style={{ display: 'flex', alignItems: 'center', gap: 5,
                         padding: '4px 9px 4px 7px', borderRadius: 20,
                         border: `1px solid rgba(44,18,6,.18)`, background: 'transparent',
                         cursor: 'pointer', flexShrink: 0 }}>
-                      <FabricsIcon size={13} stroke={INK} strokeWidth={1.05}/>
+                      <FabricsIcon size={13} stroke={INK2} strokeWidth={1.05}/>
                       <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 400,
                         color: INK, letterSpacing: '.01em', lineHeight: 1 }}>Fabrics</span>
                     </button>
@@ -2906,25 +3046,19 @@ export default function FromApp({
           {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
           {stylistOpen && (
             <div onClick={() => setStylistOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', paddingBottom: isMedium ? 0 : keyboardOffset } as React.CSSProperties}>
+              style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
               <div onClick={e => e.stopPropagation()}
-                style={isWide ? {
-                  width: 'min(760px, 88vw)', height: 'min(680px, 88vh)',
-                  background: '#fff', borderRadius: 24, display: 'flex', flexDirection: 'column',
-                  overflow: 'hidden',
-                  boxShadow: '0 0 0 0.5px rgba(44,18,6,.06), 0 8px 40px rgba(44,18,6,.18), 0 32px 80px rgba(44,18,6,.12)',
-                  animation: 'fadeScale .3s cubic-bezier(.32,.72,0,1)',
-                } : isMedium ? {
+                style={isMedium ? {
                   width: 'min(680px, 92vw)', height: 'min(660px, 88vh)',
-                  background: '#fff', borderRadius: 20, display: 'flex', flexDirection: 'column',
-                  overflow: 'hidden',
-                  boxShadow: '0 0 0 0.5px rgba(44,18,6,.06), 0 8px 40px rgba(44,18,6,.18), 0 32px 80px rgba(44,18,6,.12)',
+                  background: '#fff', borderRadius: 20,
+                  display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                  boxShadow: '0 24px 80px rgba(0,0,0,.22), 0 8px 24px rgba(0,0,0,.12)',
                   animation: 'fadeScale .3s cubic-bezier(.32,.72,0,1)',
                 } : {
-                  width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff',
-                  borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column',
-                  overflow: 'hidden',
-                  maxHeight: '90dvh', animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)',
+                  width: '100%', maxWidth: 680, margin: '0 auto',
+                  background: '#fff', borderRadius: '18px 18px 0 0',
+                  display: 'flex', flexDirection: 'column', maxHeight: '90dvh',
+                  animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)',
                 }}>
 
                 {/* Header */}
@@ -2971,10 +3105,10 @@ export default function FromApp({
                   {stylistMsgs.length === 0 && !stylistLoading && (
                     <div>
                       <p style={{ fontFamily: SERIF, fontSize: 18, color: INK3, lineHeight: 1.4, marginBottom: 12 }}>
-                        {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Upload photos of your clothes for styling advice.'}
+                        {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Ask me anything about style.'}
                       </p>
                       <p style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(44,18,6,0.4)', lineHeight: 1.5 }}>
-                        Tap the camera icon to share photos of your own clothes — get color matching, outfit combinations, and recommendations from the store.
+                        Get outfit ideas, styling advice, and recommendations — or share photos of your own clothes for colour matching and combinations.
                       </p>
                     </div>
                   )}
@@ -3349,6 +3483,110 @@ export default function FromApp({
             </div>
           )}
 
+          {/* ── Popup-blocked toast ── */}
+          {popupBlockedUrl && (
+            <div style={{ position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+              background: INK, color: '#fff', borderRadius: 16,
+              padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 12,
+              fontFamily: SANS, fontSize: 13, fontWeight: 400, letterSpacing: '.01em',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.28)', maxWidth: 'calc(100vw - 40px)',
+              animation: 'toastIn 0.42s cubic-bezier(0.34,1.36,0.64,1) forwards',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .7, flexShrink: 0 }}>
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/>
+              </svg>
+              <span>Popup blocked — allow popups for this site in your browser, then try again.</span>
+              <a href={popupBlockedUrl} target="_blank" rel="noopener noreferrer"
+                onClick={() => setPopupBlockedUrl(null)}
+                style={{ color: '#aed6b8', whiteSpace: 'nowrap', textDecoration: 'underline', fontWeight: 500 }}>
+                Open in tab
+              </a>
+            </div>
+          )}
+
+          {/* ── Premium upgrade sheet ── */}
+          {showUpgradeSheet && (
+            <>
+              <div
+                onClick={() => setShowUpgradeSheet(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(44,18,6,0.35)', backdropFilter: 'blur(2px)' }}
+              />
+              <div style={{
+                position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9101,
+                background: BG, borderRadius: '20px 20px 0 0',
+                padding: '32px 24px 40px',
+                boxShadow: '0 -8px 48px rgba(44,18,6,0.18)',
+                animation: 'sheetUp .32s cubic-bezier(0.32,0.72,0,1)',
+                maxWidth: 480, margin: '0 auto',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>FROM Premium</div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginTop: 5 }}>AI-powered search, unlimited.</div>
+                  </div>
+                  <button onClick={() => setShowUpgradeSheet(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: INK3 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Benefits */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+                  {[
+                    ['Unlimited searches', 'No daily cap — search as much as you want'],
+                    ['Full AI re-ranking', 'Every result scored by LLM for genuine relevance'],
+                    ['Persistent taste profile', 'FROM learns your style across every session'],
+                    ['Fabrics with memory', 'Your stylist remembers your sizes, budget, and taste'],
+                    ['Price drop alerts', 'Email when saved items drop 10% or more'],
+                  ].map(([title, desc]) => (
+                    <div key={title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#e8f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3d7a3a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: INK }}>{title}</div>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 1 }}>{desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* CTA */}
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/billing/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ interval: 'month' }),
+                      })
+                      const { url, error } = await r.json()
+                      if (error) throw new Error(error)
+                      window.location.href = url
+                    } catch {
+                      // fall through — user will be redirected
+                    }
+                  }}
+                  style={{
+                    width: '100%', padding: '15px', borderRadius: 12,
+                    background: INK, color: '#fff',
+                    fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: '.01em',
+                    border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  Get FROM Premium — $9/mo
+                </button>
+                <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 10, opacity: 0.55 }}>
+                  Cancel anytime. Billed monthly by Stripe.
+                </p>
+              </div>
+            </>
+          )}
+
           {/* ── Bag item long-press menu — Ask stylist + Remove ── */}
           {bagCtxMenu && (
             <>
@@ -3379,7 +3617,7 @@ export default function FromApp({
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Ask Fabrics</span>
-                  <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.1}/>
+                  <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.05}/>
                 </div>
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
                 {/* Remove from bag */}
@@ -3439,7 +3677,7 @@ export default function FromApp({
                   onPointerUp={e => (e.currentTarget.style.background = '')}
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Ask Fabrics</span>
-                  <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.1}/>
+                  <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.05}/>
                 </div>
 
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
@@ -3632,12 +3870,11 @@ export default function FromApp({
                       )}
 
                       <div style={{ padding: '16px 24px 0' }}>
-                        <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                          target="_blank" rel="noopener noreferrer"
+                        <button type="button"
                           className={`fr-add${sheetSizes.length > 0 && !selectedSize ? ' warn' : ''}`}
-                          onClick={e => { e.preventDefault(); if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
+                          onClick={() => { if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
                           {sheetSizes.length > 0 && !selectedSize ? 'Select a size' : 'Checkout'}
-                        </a>
+                        </button>
                       </div>
 
                       <div style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -3861,12 +4098,11 @@ export default function FromApp({
                     )}
 
                     <div style={{ padding: "16px 20px 0" }}>
-                      <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                        target="_blank" rel="noopener noreferrer"
+                      <button type="button"
                         className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
-                        onClick={e => { e.preventDefault(); if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
+                        onClick={() => { if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
                         {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Checkout"}
-                      </a>
+                      </button>
                     </div>
 
                     <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

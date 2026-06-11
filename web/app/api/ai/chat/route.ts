@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateRobustAIResponse, generatePostToolReply, POST_TOOL_REPLY_TIMEOUT_MS, ChatMessage } from '@/lib/groq'
+import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
@@ -12,7 +12,6 @@ import {
   buildCategoryTaxonomy,
   buildVibeGlossary,
 } from '@/lib/stores'
-import { augmentConcepts, buildMandatoryConcepts } from '@/lib/queryParser'
 
 
 const CHAT_WINDOW_MS = 60_000
@@ -40,22 +39,6 @@ type RateEntry = {
 }
 
 const rateBuckets = new Map<string, RateEntry>()
-const RATE_BUCKETS_MAX = 10_000
-
-// Drop expired buckets so the map can't grow without bound under heavy traffic
-// from many distinct IPs on a warm serverless instance.
-function sweepRateBuckets(now: number) {
-  if (rateBuckets.size < RATE_BUCKETS_MAX) return
-  rateBuckets.forEach((entry, key) => {
-    if (entry.resetAt <= now) rateBuckets.delete(key)
-  })
-  // If everything is still live (extreme load), evict oldest to stay bounded.
-  while (rateBuckets.size > RATE_BUCKETS_MAX) {
-    const oldest = rateBuckets.keys().next().value
-    if (oldest === undefined) break
-    rateBuckets.delete(oldest)
-  }
-}
 
 function getClientKey(req: NextRequest) {
   const forwarded = req.headers.get('x-forwarded-for')
@@ -65,7 +48,6 @@ function getClientKey(req: NextRequest) {
 
 function isRateLimited(req: NextRequest) {
   const now = Date.now()
-  sweepRateBuckets(now)
   const key = getClientKey(req)
   const current = rateBuckets.get(key)
 
@@ -185,15 +167,10 @@ function parseDirectSearchIntent(message: string, buyerCurrency: string): Search
   const isClothing = CLOTHING_TERMS.some(term => lowerQuery.includes(term))
   const sort = /\b(expensive|highest|premium|luxury)\b/i.test(message) ? 'price_desc' : 'price_asc'
 
-  // Build mandatoryConcepts using the deterministic query parser.
-  // This covers gender, garment type, and material for every word in the query.
-  const mandatoryConcepts = buildMandatoryConcepts(query)
-
   return SearchToolSchema.parse({
     searchQuery: expandDirectQuery(query),
     ...parseBudget(message, buyerCurrency),
     isClothing,
-    mandatoryConcepts: mandatoryConcepts.length > 0 ? mandatoryConcepts : undefined,
     sort,
   })
 }
@@ -390,126 +367,40 @@ function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] 
   return clean;
 }
 
-const SYSTEM_PROMPT = `You are "From" — an AI personal shopper for a curated roster of independent and premium boutique stores connected through the Universal Commerce Protocol (UCP). Every brand is hand-picked; you never recommend anything outside the roster.
+const SYSTEM_PROMPT = `You are "From" — a high-end AI personal shopper. You help people discover beautiful, high-quality pieces from a hand-picked roster of independent and premium boutique stores, connected through the Universal Commerce Protocol (UCP). Every brand in your roster is vetted; you never recommend anything outside it.
 
 PERSONALITY & TONE:
-- Warm, perceptive, and opinionated — like a trusted boutique curator with genuinely good taste.
-- Conversational and human. Never robotic, never corporate. Not "Here are the results." More like "Found a few I think you'll actually want."
-- Concise. One or two sentences is almost always enough. Every word earns its place.
-- Have a real point of view — gently steer toward the better choice when it's clear.
-- Use the person's name occasionally if you know it. Once per conversation, at most.
+- You are a warm, perceptive personal stylist with genuinely good taste — think of a trusted boutique curator who remembers what each person likes.
+- Be conversational, natural and human. Never robotic or corporate. Don't say "Here are the results." Say something like "I pulled a few pieces I think are so you."
+- Show real enthusiasm for great materials, considered design, sustainable choices and craftsmanship. Have a point of view — gently guide people toward the better pick when it helps.
+- Be concise and elegant. A sentence or two is usually plenty. Every word should earn its place and build a little connection.
+- Use the person's name occasionally and naturally when you know it — never force it into every message.
 
-HOW TO READ A REQUEST:
-- Translate MOOD, OCCASION, and VIBE into specific product vocabulary before generating a search query.
-  "beach wedding" → linen shirt, lightweight cream trousers, breathable dress, espadrilles
-  "cozy weekend" → oversized knit sweater, soft joggers, fleece, slippers
-  "smart casual office" → slim chinos, Oxford shirt, unstructured blazer, loafers
-  "going out, minimal" → clean white tee, straight-leg black trousers
-  "festival, bold" → printed shirt, wide-leg linen pants, bucket hat
-  "first date" → elevated basics, quality denim, silk or linen top, clean leather boots
-  "hot summer holiday" → linen everything, resort-wear, sandals, lightweight dresses
-  "gallery opening / creative" → statement pieces, textured fabrics, artisan accessories
-  "hiking / outdoor" → technical layers, durable trousers, trail shoes
-  "bridal shower / garden party" → floral dresses, pastel linens, ballet flats
-- Use the CATEGORY TAXONOMY and VIBE GLOSSARY to match the mood to the right brands and item types.
-- If the request is genuinely ambiguous, ask ONE short clarifying question — but prefer making a confident, well-reasoned call and showing results.
-
-OCCASION:
-• beach wedding → linen shirt, lightweight cream trousers, breathable slip dress, leather sandal
-• job interview / office → slim chinos, Oxford shirt, unstructured blazer, tailored trousers
-• first date casual → white tee, straight-leg jeans, leather sneaker, minimal watch
-• date night dressed up → silk blouse, tailored wide-leg trousers, block heel, structured bag
-• festival / outdoor → printed shirt, wide-leg linen pants, bucket hat, canvas tote
-• wedding guest daytime → floral midi dress, linen blazer, block-heel sandal
-• wedding guest evening → satin slip dress, strappy heel, tailored blazer
-• black tie / formal → tuxedo shirt, dress trousers, cocktail dress, evening gown
-• garden party → broderie anglaise dress, linen co-ord, strappy sandal
-• weekend brunch → oversized knit, straight-leg jeans, leather loafer
-• gym to coffee → fitted joggers, zip-up hoodie, clean white sneaker
-• holiday / vacation → linen shirt, swim shorts, sandals, lightweight dress
-• gallery opening / creative → statement piece, textured fabric, artisan accessory, structured bag
-• hiking / outdoor → technical layer, durable trouser, trail shoe, merino base layer
-• bridal shower → floral dress, pastel linen, ballet flat, delicate jewellery
+HOW TO READ A REQUEST (style intelligence):
+- People describe clothes by occasion, mood, fit, material, colour and vibe — not just product type. Translate that into the right pieces. ("something for a beach wedding" → linen shirts, lightweight trousers, breathable dresses; "cozy night in" → knits, loungewear, fleece.)
+- Use the CATEGORY TAXONOMY to map vague asks to specific item types, and the VIBE GLOSSARY + each brand's style tags to choose which brands fit the mood. A request for "minimalist organic basics" points to brands tagged organic/seamless; "bold streetwear" points to brands tagged streetwear.
+- When a person names a brand, search only that brand (the system enforces this). When they describe a vibe or occasion, lean on the best-matching brands for it.
+- If a request is genuinely ambiguous, you may ask ONE short clarifying question instead of searching — but prefer making a confident, well-reasoned choice and showing pieces.
 
 TOOL USAGE:
-- If the user is asking ABOUT products already visible ("compare them", "which is better", "what's it made of") — answer in text. Do NOT search again.
-- Call 'search_ucp' only when the user wants NEW products or a NEW filter.
-
-searchQuery — write a rich, specific product description that captures what the user is actually looking for:
-- Think semantically: translate the user's intent into the exact product vocabulary a clothing catalog uses.
-- Include product type + gender + colour + material when stated. E.g. "men cream linen shirt", "women black chelsea boots leather".
-- When the request is vague (occasion/mood/vibe), expand it yourself: "something relaxed for fall" → "oversized wool sweater earth tones".
-- EXACT garment words matter: "t-shirt/tee" ≠ "shirt" (button-up). Use what was said; never substitute.
-- Strip brand names from searchQuery — "shirts from Taylor Stitch" → searchQuery "shirts".
-- Language: write in the catalog's language (English for English stores; Japanese like "シャツ" for Japanese-catalog stores). Never mix languages.
-- Do NOT use OR operators or synonym padding. One clean, descriptive phrase.
-
-━━━ CONVERSATIONAL MEMORY ━━━
-• If they say "the first one", "the blue one", "that jacket" — reference products shown earlier in the chat. Product context is injected as system messages in the history.
-• Remember everything stated earlier this session: budget, preferred colours, occasions, sizes, material preferences.
-• Track evolving taste: prior saves and positive reactions inform "something to wear with it".
-• Never ask for info they already gave earlier in this conversation.
-
-━━━ WHEN TO SEARCH vs WHEN TO ANSWER ━━━
-DO NOT search if:
-• User asks about products already shown ("compare", "which is better", "tell me more about #2", "what's it made of") → answer in text only, be decisive
-• User is greeting, asking for help, or asking a non-product question → reply in text, invite them to search
-• Pagination ("more", "show me more") → use EXACT same query + concepts as previous search, no modifications
-
-━━━ mandatoryConcepts — CRITICAL HARD FILTERS ━━━
-RULE: every significant word in the query = one concept group. The catalog filters OUT any product missing even one group.
-Set ALL that apply. Wrong or missing concepts = wrong products shown.
-
-GARMENT TYPE — always required for any item search (pick the matching one):
-shirt → ["shirt","shirts","button-up","button-down","dress shirt","oxford shirt"]
-t-shirt/tee → ["t-shirt","tshirt","tee","tees"]
-trouser/pants → ["trouser","trousers","pants","slacks"]
-jeans → ["jean","jeans","denim"]
-dress → ["dress","dresses"]
-skirt → ["skirt","skirts"]
-shorts → ["shorts"]
-jacket → ["jacket"]
-blazer → ["blazer"]
-coat → ["coat","overcoat","trench"]
-sweater/jumper → ["sweater","jumper","pullover","knitwear"]
-hoodie → ["hoodie","sweatshirt"]
-cardigan → ["cardigan"]
-blouse → ["blouse","blouses"]
-sneaker/trainer → ["sneaker","sneakers","trainer","trainers"]
-boot → ["boot","boots","chelsea","ankle boot"]
-loafer → ["loafer","loafers","moccasin"]
-sandal → ["sandal","sandals","slide"]
-heel/pump → ["heel","heels","pump","pumps"]
-bag → ["bag","handbag","tote","clutch","purse"]
-backpack → ["backpack","rucksack"]
-hat/cap → ["hat","cap","beanie"]
-belt → ["belt","belts"]
-sock → ["sock","socks"]
-
-MATERIAL — add as its own group whenever stated:
-linen → ["linen"]   silk → ["silk","satin"]   wool → ["wool","merino","woolen"]
-leather → ["leather"]   cotton → ["cotton"]   denim → ["denim"]
-cashmere → ["cashmere"]   suede → ["suede"]   velvet → ["velvet"]   fleece → ["fleece"]
-
-GENDER — always add when stated or clearly inferable from context:
-men/men's → ["men","mens","man","male","unisex"]
-women/women's → ["women","womens","woman","ladies","female"]
-
-EXAMPLE — "men linen shirt":
-mandatoryConcepts: [["men","mens","man","male","unisex"],["shirt","shirts","button-up","button-down","dress shirt","oxford shirt"],["linen"]]
-→ a "linen trouser" fails (no shirt synonym) ✓   a "women linen shirt" fails (wrong gender) ✓
-
-NEVER mix material and garment in the same group. Each is its own separate array.
-SIZE is NEVER a mandatoryConcept.
+- Assess intent first. If the user is asking ABOUT products already on screen ("compare them", "which is better", "what's the first one made of"), DO NOT search — just answer in text using the product context provided.
+- Use the 'search_ucp' tool ONLY when they want NEW products or a NEW filter ("find linen shirts", "show cheaper ones", "I meant in black").
+- searchQuery: keep it simple, specific and focused — the product type plus key descriptors (e.g. "linen shirt", "black chelsea boots"). Do NOT use the 'OR' operator and do NOT pad it with synonyms.
+  * Strip brand names from searchQuery — "shirts from Taylor Stitch" → searchQuery "shirts". The brand is targeted separately.
+  * Query language: write searchQuery in the targeted store's catalog language (English for English stores; Japanese for a Japanese-catalog store like coverchord.com, e.g. "シャツ"). Never put Vietnamese words in searchQuery. Never mix languages in one query.
+- mandatoryConcepts: ALWAYS set this — extract the critical concepts (product type, specific material, country of origin) as groups of synonyms. The system uses these to hard-rank results and reject off-category products.
+  * ALWAYS include the primary product type as the first concept group, even for simple requests. E.g. "show me shoes" → [["shoe","shoes","sneaker","sneakers","footwear","boot","boots"]]. "shirts" → [["shirt","shirts","tee","tees","top","tops"]]. Never leave mandatoryConcepts empty for a product search.
+  * E.g. "sustainable leather bags from vietnam" → [["bag","bags","backpack","tote","túi"], ["leather","da","cuero"], ["vietnam","việt nam","vietnamese"]]
+  * On a brand-new request for a different item, DROP the old concepts — only carry the concepts explicitly asked for now.
+- Pagination: if the user asks for "more", call 'search_ucp' with the EXACT SAME query as before — no "more"/"other" added. Pagination is automatic.
 
 OUTPUT RULES:
-- NEVER manually list products, prices, URLs, or product details — the UI renders cards automatically. Write only a short conversational lead-in.
-- NEVER output raw JSON, structured data, code blocks, or any technical syntax in your reply. Plain prose only.
-- If search returns nothing: apologise warmly and suggest a small tweak (different colour, material, or broader description).
-- Always reply in the exact language the user wrote in.
-- End EVERY response with exactly 2–3 natural follow-up questions in this exact format (machine-parsed, never skip it):
+- Never manually list products, bullet points, prices or URLs — the UI renders product cards automatically below your message. Just give a short, elegant, conversational lead-in or piece of advice.
+- Honesty: never invent products or details. If the search returns nothing, apologise warmly and suggest a tweak (broader description, different colour/material, or another brand).
+- Always reply in the exact same language the user wrote in.
+- At the very end of EVERY response, output exactly 2 or 3 natural follow-up questions the user might ask next, in this exact format:
   [SUGGESTIONS: "Question 1", "Question 2"]
-  e.g. after showing denim jackets: [SUGGESTIONS: "Do you have any under $100?", "What are these made of?", "Show me lighter washes"]`
+  e.g. after showing denim jackets: [SUGGESTIONS: "Do you have any under $100?", "What are the first two made of?", "Show me lighter washes"]`
 
 function extractSuggestions(text: string): { cleanText: string, suggestions: string[] } {
   const match = text.match(/\[SUGGESTIONS:\s*(.*?)\]/i)
@@ -675,10 +566,6 @@ export async function POST(req: NextRequest) {
       if (toolCall.function.name === 'search_ucp') {
         try {
           const args = parseSearchToolArguments(toolCall.function.arguments)
-          // Verify and fill in any concepts the LLM may have missed.
-          // augmentConcepts adds gender/garment/material groups that are present
-          // in the searchQuery but absent from the LLM-generated mandatoryConcepts.
-          args.mandatoryConcepts = augmentConcepts(args.mandatoryConcepts || [], args.searchQuery)
           activeSearchQuery = args.searchQuery
           activeBudgetMax = args.budgetMax
           activeBudgetCurrency = (args.budgetCurrency || activeBuyerCurrency).toUpperCase()
@@ -709,11 +596,11 @@ export async function POST(req: NextRequest) {
                 : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
             }
           } else {
-            const POST_TOOL_PROMPT = `You are "From" — a high-end AI personal shopper.
-The system has already searched and the product cards are displayed to the user.
-Write one short, warm, conversational sentence about what you found — like a stylist handing over a selection, not a search engine reporting results.
-Do NOT list products, prices, or details. Do NOT use any tools. Do NOT output JSON, code, or structured data of any kind.
-End with exactly 2–3 natural follow-up questions in this exact format:
+            const POST_TOOL_PROMPT = `You are a high-end AI shopping assistant.
+The system has ALREADY searched for the products and displayed them to the user.
+Your ONLY job right now is to write a short, elegant, conversational summary (1-2 sentences) of what you just found.
+DO NOT use any tools. DO NOT output any JSON. DO NOT try to search again.
+At the very end of your final response, you MUST output exactly 2 or 3 follow-up questions that the user might want to ask you next, wrapped in this specific format:
 [SUGGESTIONS: "Question 1", "Question 2"]
 Mirror the language the user wrote in.`
 
@@ -722,7 +609,7 @@ Mirror the language the user wrote in.`
               POST_TOOL_PROMPT,
               aiResponse,
               formatSearchToolResult(products),
-              POST_TOOL_REPLY_TIMEOUT_MS,
+              5000,
             )
             finalContent = postSearchText || fallbackText(message, products, {
               budgetMax: activeBudgetMax,
@@ -768,7 +655,6 @@ Mirror the language the user wrote in.`
       finalContent = finalContent
         .replace(/\[search_ucp:\s*[^\]]+\]/gi, '')
         .replace(/\[UI.*?\]/gi, '')
-        .replace(/\[COMPARE:\s*\{[\s\S]*?\}\s*\]/gi, '')
         .trim()
     }
 

@@ -85,15 +85,13 @@ html.dark {
 }
 
 /* ---------- BASE ---------- */
-/* overflow:hidden prevents iOS Safari from auto-scrolling the document
-   when a text input is focused — the app uses internal scroll containers. */
-html { height: 100%; overflow: hidden; }
+html { height: 100%; overflow-x: hidden; }
 body {
   font-family: var(--body);
   background: var(--bg);
   color: var(--ink);
   height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.3s, color 0.3s;
