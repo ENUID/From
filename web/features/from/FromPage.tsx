@@ -2150,13 +2150,18 @@ export default function FromApp({
                 <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(44,18,6,0.15)', marginBottom: 32 }} />
 
                 {/* Wordmark */}
-                <div style={{ fontFamily: SEASON, fontSize: 28, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 6 }}>
+                <div style={{ fontFamily: SEASON, fontSize: 28, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 18 }}>
                   FROM
                 </div>
 
-                {/* Tagline */}
-                <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 13, color: INK3, marginBottom: 32, letterSpacing: '0.01em' }}>
-                  Fashion worth finding.
+                {/* Heading */}
+                <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK, marginBottom: 6, letterSpacing: '-0.01em' }}>
+                  Sign in to continue
+                </div>
+
+                {/* Subtitle */}
+                <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 28, letterSpacing: '0.01em' }}>
+                  Discover fashion worth finding.
                 </div>
 
                 {/* Google button */}
@@ -2187,13 +2192,18 @@ export default function FromApp({
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
             }}>
               {/* Wordmark */}
-              <div style={{ fontFamily: SEASON, fontSize: 34, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 8 }}>
+              <div style={{ fontFamily: SEASON, fontSize: 34, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 20 }}>
                 FROM
               </div>
 
-              {/* Tagline */}
-              <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 14, color: INK3, marginBottom: 36, letterSpacing: '0.01em' }}>
-                Fashion worth finding.
+              {/* Heading */}
+              <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 600, color: INK, marginBottom: 6, letterSpacing: '-0.01em' }}>
+                Sign in to continue
+              </div>
+
+              {/* Subtitle */}
+              <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 32, letterSpacing: '0.01em' }}>
+                Discover fashion worth finding.
               </div>
 
               {/* Thin rule */}
