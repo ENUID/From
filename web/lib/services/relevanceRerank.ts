@@ -130,13 +130,15 @@ type LLMScore = { score: number; reason: string }
 async function llmRelevanceScores(
   query: string,
   products: UcpProduct[],
+  tasteProfile?: string,
 ): Promise<Map<string, LLMScore> | null> {
   if (!products.length) return null
 
   const productLines = products.map((p, i) => compactProduct(p, i)).join('\n')
+  const profileLine = tasteProfile ? `\nShopper profile: ${tasteProfile}\n` : ''
 
   const system = `You are a fashion search relevance judge.
-Given a shopper's query and numbered candidate products, score how well each satisfies the shopper's INTENT — not just keyword overlap. Consider garment type, material, colour, style/vibe, occasion, and gender. Wrong garment type or gender → score near 0.
+Given a shopper's query and numbered candidate products, score how well each satisfies the shopper's INTENT — not just keyword overlap. Consider garment type, material, colour, style/vibe, occasion, and gender. Wrong garment type or gender → score near 0.${profileLine}
 Output ONLY a JSON array, one object per product, no prose, no markdown:
 [{"i":0,"s":87,"r":"linen camp shirt, beach wedding"},...]
 - "i" = product index exactly as given
@@ -202,6 +204,7 @@ Return an entry for EVERY index. No trailing text.`
 export async function rerankByRelevance(
   query: string,
   products: UcpProduct[],
+  tasteProfile?: string,
 ): Promise<UcpProduct[]> {
   if (products.length <= 1) return products
 
@@ -236,7 +239,7 @@ export async function rerankByRelevance(
   }
 
   // Stage 2: LLM batch score
-  const llm = await llmRelevanceScores(query, topN)
+  const llm = await llmRelevanceScores(query, topN, tasteProfile)
 
   if (!llm) {
     // Fallback to BM25 order
