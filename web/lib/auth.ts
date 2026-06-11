@@ -13,6 +13,41 @@ function getConvex() {
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30
 
+// Cookie name prefix — set NEXTAUTH_COOKIE_PREFIX in env to customise (e.g. "from", "myapp").
+// Leave unset to use NextAuth defaults.
+const COOKIE_PREFIX = process.env.NEXTAUTH_COOKIE_PREFIX
+const isProd = process.env.NODE_ENV === 'production'
+
+// Cookie domain — set NEXTAUTH_COOKIE_DOMAIN in env (e.g. ".enuid.com" for all subdomains).
+// Leave unset to let the browser use the current hostname automatically.
+const COOKIE_DOMAIN = process.env.NEXTAUTH_COOKIE_DOMAIN || undefined
+
+function makeCookies(): NextAuthOptions['cookies'] {
+  if (!COOKIE_PREFIX) return undefined
+  const secure = isProd ? '__Secure-' : ''
+  const opts = (httpOnly: boolean) => ({
+    httpOnly,
+    sameSite: 'lax' as const,
+    path: '/',
+    secure: isProd,
+    ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
+  })
+  return {
+    sessionToken: {
+      name: `${secure}${COOKIE_PREFIX}.session-token`,
+      options: opts(true),
+    },
+    callbackUrl: {
+      name: `${secure}${COOKIE_PREFIX}.callback-url`,
+      options: opts(false),
+    },
+    csrfToken: {
+      name: `${COOKIE_PREFIX}.csrf-token`,
+      options: opts(false),
+    },
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -70,6 +105,8 @@ export const authOptions: NextAuthOptions = {
   jwt: {
     maxAge: SESSION_MAX_AGE,
   },
+
+  cookies: makeCookies(),
 
   callbacks: {
     async signIn({ user }) {
