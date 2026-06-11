@@ -641,11 +641,13 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   const queryKeywords = getProductKeywords(normalizedQuery);
   if (queryKeywords.length === 0) return false;
 
-  // 0a. Gender check — an explicit gender request must never return the opposite
-  // gender. Products with no gender marker (unisex/unlabeled) are allowed through.
+  // 0a. Gender check — an explicit adult gender request must never return the
+  // opposite gender OR kids products. Unisex/unlabeled is allowed through.
   const qGender = detectGender(normalizedQuery);
   if (qGender === 'men' || qGender === 'women') {
     const pGender = detectGender(searchableText);
+    // Kids products are never a substitute for adult searches
+    if (pGender === 'kids') return true;
     if (pGender && pGender !== qGender) return true;
   }
 
@@ -1114,7 +1116,9 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
   });
 
   // Hard gender filter: when mandatoryConcepts explicitly names a gender,
-  // drop products confirmed to be the opposite gender. Unisex / unlabeled passes.
+  // drop products confirmed to be the opposite gender. Also drop kids products
+  // from adult (men/women) searches — kids items are never substitutes.
+  // Unisex / unlabeled passes.
   if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
     const conceptStr = filters.mandatoryConcepts.flat().join(' ').toLowerCase();
     const wantedGender = detectGender(conceptStr);
@@ -1122,14 +1126,15 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
       const opposite: 'men' | 'women' = wantedGender === 'men' ? 'women' : 'men';
       filtered = filtered.filter(p => {
         const pText = `${p.title} ${(p.tags || []).join(' ')}`;
-        return detectGender(pText) !== opposite;
+        const pg = detectGender(pText);
+        return pg !== opposite && pg !== 'kids';
       });
     }
   }
 
   // Hard-filter on non-colour, non-gender mandatory concept groups (garment type + material).
   // Colour groups are soft — they affect sort order but don't eliminate products.
-  // Fall back to original set only if fewer than 4 products survive (avoids empty results).
+  // Fall back to original set ONLY if zero products survive (avoids completely empty results).
   let colourGroups: string[][] = [];
   if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
     const GENDER_TERMS_SET = new Set(['men','mens','man','male','unisex','women','womens','woman','ladies','female']);
@@ -1145,7 +1150,9 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
           group.some(term => text.includes(term.toLowerCase()))
         );
       });
-      if (hardFiltered.length >= 4) filtered = hardFiltered;
+      // Use the filtered set as long as at least 1 product survives.
+      // Only fall back to the full set when nothing matched at all.
+      if (hardFiltered.length >= 1) filtered = hardFiltered;
     }
   }
 

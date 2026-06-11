@@ -7,7 +7,7 @@ import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 import { BRAND_NAMES } from '@/lib/stores'
-import { TAGLINES, WITTY_PLACEHOLDERS, shuffledIndices } from './taglines'
+import { TAGLINES, shuffledIndices } from './taglines'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const INK   = "#2C1206"   // dark brown
@@ -842,15 +842,15 @@ function renderStylistText(
             </button>
           )
         }
-        // Regular text — apply **bold** parsing, strip any orphan **
+        // Regular text — apply **bold** parsing
         const boldParts = seg.split(/\*\*([^*\n]+)\*\*/g)
-        if (boldParts.length === 1) return (seg.replace(/\*\*/g, '') || null)
+        if (boldParts.length === 1) return seg || null
         return (
           <span key={si}>
             {boldParts.map((bp, bi) =>
               bi % 2 === 1
                 ? <strong key={bi} style={{ fontWeight: 700 }}>{bp}</strong>
-                : (bp.replace(/\*\*/g, '') || null)
+                : bp || null
             )}
           </span>
         )
@@ -859,69 +859,209 @@ function renderStylistText(
   )
 }
 
-// ── Stylist loading phases — contextual search animation ─────────────────────
+// ── Stylist loading phases — query-aware thinking animation ──────────────────
 type StylistLoadingPhase = { main: string; sub: string; subsub?: string }
 
 function buildStylistLoadingPhases(question: string, hasImages: boolean): StylistLoadingPhase[] {
   const q = question.toLowerCase()
+
+  // ── Extract meaningful terms from the query ─────────────────────────────────
+  const GARMENT_WORDS: [RegExp, string][] = [
+    [/\bt-?shirts?\b|\btees?\b/, 't-shirt'],
+    [/\bshirts?\b/, 'shirt'],
+    [/\bjackets?\b/, 'jacket'],
+    [/\bblazer|\bblazers\b/, 'blazer'],
+    [/\bcoats?\b|\bovercoat|\bparka|\btrench\b/, 'coat'],
+    [/\bsuits?\b/, 'suit'],
+    [/\btrousers?\b|\bpants\b|\bslacks\b/, 'trousers'],
+    [/\bjeans?\b|\bdenim\b/, 'jeans'],
+    [/\bchinos?\b|\bkhakis?\b/, 'chinos'],
+    [/\bshorts?\b/, 'shorts'],
+    [/\bdresses?\b/, 'dress'],
+    [/\bskirts?\b/, 'skirt'],
+    [/\bsweater|\bjumper|\bknitwear|\bpullover/, 'knitwear'],
+    [/\bcardigan/, 'cardigan'],
+    [/\bhoodie|\bsweatshirt/, 'hoodie'],
+    [/\bboots?\b/, 'boots'],
+    [/\bsneakers?\b|\btrainers?\b/, 'sneakers'],
+    [/\bloafers?\b/, 'loafers'],
+    [/\bsandals?\b/, 'sandals'],
+    [/\bbag\b|\bhandbag|\btote\b/, 'bag'],
+  ]
+  const MATERIAL_WORDS: [RegExp, string][] = [
+    [/\blinen\b/, 'linen'], [/\bcotton\b/, 'cotton'], [/\bcashmere\b/, 'cashmere'],
+    [/\bwool\b|\bmerino\b/, 'wool'], [/\bsilk\b/, 'silk'], [/\bleather\b/, 'leather'],
+    [/\bsuede\b/, 'suede'], [/\bvelvet\b/, 'velvet'], [/\bdenim\b/, 'denim'],
+  ]
+  const OCCASION_WORDS: [RegExp, string][] = [
+    [/\bwedding\b/, 'a wedding'], [/\bwork\b|\boffice\b/, 'the office'],
+    [/\bdate\b/, 'a date'], [/\bbeach\b/, 'the beach'],
+    [/\bformal\b|\bgala\b|\bblack.?tie\b/, 'a formal evening'],
+    [/\bsummer\b/, 'summer'], [/\bwinter\b/, 'winter'],
+    [/\bweekend\b/, 'the weekend'], [/\beveryday\b|\bdaily\b/, 'everyday wear'],
+    [/\beverning\b|\bnight out\b/, 'an evening out'],
+  ]
+  const COLOR_WORDS = ['black','white','navy','cream','camel','burgundy','olive',
+    'grey','gray','beige','tan','brown','blue','green','red','rust','terracotta']
+
+  const foundGarment  = GARMENT_WORDS.find(([re]) => re.test(q))?.[1] ?? null
+  const foundMaterial = MATERIAL_WORDS.find(([re]) => re.test(q))?.[1] ?? null
+  const foundOccasion = OCCASION_WORDS.find(([re]) => re.test(q))?.[1] ?? null
+  const foundColor    = COLOR_WORDS.find(c => new RegExp(`\\b${c}\\b`).test(q)) ?? null
+
+  // Build a natural subject string from what was detected
+  const subjectParts = [foundColor, foundMaterial, foundGarment].filter(Boolean)
+  const subject = subjectParts.length > 0 ? subjectParts.join(' ') : null
+  const yours   = subject ? `your ${subject}` : 'this piece'
+
+  // ── Intent detection ─────────────────────────────────────────────────────────
+  const isCompare  = /\bcompar|\bwhich.{0,12}better\b|\bvs\b|\bprefer|\bchoose|\bpick\b|\bbest one\b|\bdifference/.test(q)
+  const isSearch   = /\bfind\b|\bshow\b|\blook for\b|\brecommend\b|\bsuggest\b|\bsearch\b/.test(q)
+  const isColor    = /\bcolou?r|\bmatch\b|\bgo with\b|\bpair\b|\bwear with\b|\bcomplement/.test(q)
+  const isMaterial = /\bmaterial\b|\bfabric\b/.test(q) || !!foundMaterial
+  const isOutfit   = /\boutfit\b|\blook\b|\bstyle\b|\bocasion\b|\boccasion\b|\bwear\b|\bcasual\b|\bformal\b/.test(q)
+  const isValue    = /\bprice\b|\bcost\b|\bworth\b|\bvalue\b|\bexpensive\b|\bcheap\b|\bbudget\b/.test(q)
+
+  // ── Phase sets ───────────────────────────────────────────────────────────────
   if (hasImages) {
     return [
-      { main: 'Reading your photo…', sub: 'Identifying garments & colors' },
-      { main: 'Analysing tones & textures…', sub: 'Color harmony check', subsub: 'Warm vs cool undertones' },
-      { main: 'Scanning the store catalog…', sub: 'Matching to your wardrobe', subsub: 'Silhouette compatibility' },
-      { main: 'Building the recommendation…', sub: 'Putting it all together' },
+      { main: 'Taking in your photo…',
+        sub: 'Reading garments, silhouette, and color' },
+      { main: 'Feeling out the tones…',
+        sub: 'Warm and cool relationships', subsub: 'Undertone and contrast' },
+      { main: 'Finding what would complete this…',
+        sub: 'What the look is missing', subsub: 'Proportion and occasion register' },
+      { main: 'Putting the picture together…',
+        sub: 'A considered recommendation' },
     ]
   }
-  if (/compar|which.*better|vs\b|prefer|choose|pick|best one/.test(q)) {
-    const isMaterial = /material|fabric|wool|cotton|cashmere|linen|silk/.test(q)
-    const isColor    = /color|colour|tone|shade/.test(q)
+
+  if (isCompare) {
+    const firstDim = foundMaterial
+      ? `${foundMaterial} weight and construction`
+      : foundGarment
+        ? `Cut and silhouette of each ${foundGarment}`
+        : 'Silhouette, fabric, and drape'
     return [
-      { main: 'Reading both pieces…', sub: isMaterial ? 'Fabric & construction' : isColor ? 'Color contrast & tone' : 'Style & silhouette' },
-      { main: 'Weighing the differences…', sub: 'Quality, cut & versatility', subsub: 'Occasion fit & longevity' },
-      { main: 'Testing real-world scenarios…', sub: 'When & how you\'d wear each', subsub: 'Cost-per-wear logic' },
-      { main: 'Reaching a verdict…', sub: 'Final pick' },
+      { main: 'Sitting with both pieces…',
+        sub: firstDim },
+      { main: 'Weighing them against each other…',
+        sub: 'Versatility and real-world wearability', subsub: 'Occasion range and longevity' },
+      { main: `Thinking about when you'd reach for each one…`,
+        sub: 'Cost-per-wear and investment value', subsub: 'What earns its place' },
+      { main: 'Settling on a view…',
+        sub: 'The honest answer' },
     ]
   }
-  if (/color|colour|combination|match|go with|pair|wear with|complement/.test(q)) {
+
+  if (isSearch) {
+    const what = subject ?? (foundOccasion ? `something for ${foundOccasion}` : 'the right piece')
     return [
-      { main: 'Thinking about color…', sub: 'Tonal harmony & contrast' },
-      { main: 'Checking undertones…', sub: 'Warm, cool & neutral families', subsub: 'Complementary relationships' },
-      { main: 'Testing combinations…', sub: 'Balance, proportion & pop', subsub: '60-30-10 color rule applied' },
-      { main: 'Building the palette…', sub: 'Final color story' },
+      { main: `Looking for ${what}…`,
+        sub: 'Moving through the catalog' },
+      { main: 'Filtering by what actually matters…',
+        sub: 'Fabric, proportion, and versatility', subsub: 'Weeding out the noise' },
+      { main: 'Narrowing it down to the best…',
+        sub: 'Quality and wearability first' },
+      { main: 'Selecting a shortlist…',
+        sub: 'A few things worth considering' },
     ]
   }
-  if (/material|fabric|wool|cotton|linen|cashmere|silk|leather|blend/.test(q)) {
+
+  if (isColor) {
+    const base = foundColor ? `${foundColor} as the base` : 'your palette'
     return [
-      { main: 'Reading the fabric…', sub: 'Fiber composition & weight' },
-      { main: 'Checking wearability…', sub: 'Season & occasion fit', subsub: 'Care & longevity' },
-      { main: 'Comparing properties…', sub: 'Breathability & drape', subsub: 'Texture & visual weight' },
-      { main: 'Forming a view…', sub: 'Comfort vs style trade-off' },
+      { main: `Thinking through ${base}…`,
+        sub: 'Tonal relationships and contrast' },
+      { main: 'Checking warm and cool families…',
+        sub: 'What bridges and what clashes', subsub: 'The 60-30-10 balance' },
+      { main: 'Finding combinations that actually hold…',
+        sub: 'Harmony without predictability' },
+      { main: 'Landing on the right palette…',
+        sub: 'Something cohesive and considered' },
     ]
   }
-  if (/outfit|look|style|occasion|event|wear|dress|casual|formal|weekend|work/.test(q)) {
+
+  if (isMaterial) {
+    const mat = foundMaterial ?? 'this fabric'
     return [
-      { main: 'Reading the silhouette…', sub: 'Fit & proportion' },
-      { main: 'Checking occasion fit…', sub: 'Style register & context', subsub: 'Volume & structure balance' },
-      { main: 'Working through the layers…', sub: 'Texture & contrast pairings', subsub: 'Color harmony check' },
-      { main: 'Styling the final look…', sub: 'Putting it together' },
+      { main: `Thinking about ${mat}…`,
+        sub: 'Weight, drape, and how it moves' },
+      { main: 'Reading the wearability…',
+        sub: 'Season, occasion, and care', subsub: 'How it ages' },
+      { main: 'Weighing the real-world feel…',
+        sub: 'Texture, structure, and visual weight', subsub: 'Comfort versus formality' },
+      { main: 'Forming a view…',
+        sub: 'What it is actually like to live in' },
     ]
   }
-  if (/price|cost|worth|value|expensive|cheap|budget/.test(q)) {
+
+  if (isValue) {
     return [
-      { main: 'Checking the numbers…', sub: 'Price per piece analysis' },
-      { main: 'Weighing quality markers…', sub: 'Materials, construction & brand', subsub: 'Market positioning' },
-      { main: 'Calculating value…', sub: 'Cost-per-wear estimate', subsub: 'Long-term investment grade' },
-      { main: 'Forming a recommendation…', sub: 'Best choice for your budget' },
+      { main: `Thinking about what ${yours} is worth…`,
+        sub: 'Price relative to quality markers' },
+      { main: 'Reading the construction…',
+        sub: 'Material, cut, and finishing', subsub: 'Brand positioning and longevity' },
+      { main: 'Calculating cost-per-wear…',
+        sub: `How often you would actually reach for it` },
+      { main: 'Weighing it up honestly…',
+        sub: 'Whether it earns its price' },
     ]
   }
+
+  if (isOutfit || foundOccasion) {
+    const occ = foundOccasion ? `for ${foundOccasion}` : ''
+    const piece = subject ?? 'the piece'
+    return [
+      { main: `Thinking about ${piece}${occ ? ` ${occ}` : ''}…`,
+        sub: 'Silhouette, proportion, and occasion register' },
+      { main: 'Working through the layers…',
+        sub: 'Color story and texture contrast', subsub: 'Volume and structure balance' },
+      { main: 'Considering what else belongs…',
+        sub: 'Shoes, outerwear, and the finishing details' },
+      { main: 'Pulling the look together…',
+        sub: 'A complete and considered picture' },
+    ]
+  }
+
+  // ── Default — use whatever we extracted ──────────────────────────────────────
   return [
-    { main: 'Reading the pieces…', sub: 'Silhouette, color & fabric' },
-    { main: 'Thinking it through…', sub: 'Style context & occasion', subsub: 'Brand aesthetic fit' },
-    { main: 'Considering your options…', sub: 'Versatility & wearability', subsub: 'Seasonal relevance' },
-    { main: 'Almost there…', sub: 'Forming the response' },
+    { main: `Thinking about ${yours}…`,
+      sub: 'Silhouette, color, and fabric' },
+    { main: 'Considering style and context…',
+      sub: foundOccasion ? `What works for ${foundOccasion}` : 'When and how you would wear it',
+      subsub: 'Seasonal relevance and versatility' },
+    { main: 'Working through the options…',
+      sub: 'What is worth knowing' },
+    { main: 'Almost there…',
+      sub: 'A considered answer on its way' },
   ]
 }
 
+function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeLinecap="round">
+      <circle cx="12" cy="12" r="9.5" strokeWidth={strokeWidth * 1.2}/>
+      {/* vertical warp lines */}
+      <line x1="4.4"  y1="6.30"  x2="4.4"  y2="17.70" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="6.3"  y1="4.40"  x2="6.3"  y2="19.60" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="8.2"  y1="3.29"  x2="8.2"  y2="20.71" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="10.1" y1="2.69"  x2="10.1" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="12"   y1="2.50"  x2="12"   y2="21.50" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="13.9" y1="2.69"  x2="13.9" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="15.8" y1="3.29"  x2="15.8" y2="20.71" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="17.7" y1="4.40"  x2="17.7" y2="19.60" strokeWidth={strokeWidth * 0.85}/>
+      <line x1="19.6" y1="6.30"  x2="19.6" y2="17.70" strokeWidth={strokeWidth * 0.85}/>
+      {/* horizontal weft lines — lower woven area */}
+      <line x1="2.62" y1="13.5"  x2="21.38" y2="13.5"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="2.92" y1="14.8"  x2="21.08" y2="14.8"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="3.43" y1="16.1"  x2="20.57" y2="16.1"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="4.18" y1="17.4"  x2="19.82" y2="17.4"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="5.27" y1="18.7"  x2="18.73" y2="18.7"  strokeWidth={strokeWidth * 0.85}/>
+      <line x1="6.88" y1="20.0"  x2="17.12" y2="20.0"  strokeWidth={strokeWidth * 0.85}/>
+    </svg>
+  )
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FromApp({
@@ -952,6 +1092,7 @@ export default function FromApp({
   const [sidebarOpen, setSidebar]     = useState(false)
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [inputHint, setInputHint]       = useState<string | null>(null)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
@@ -1004,7 +1145,6 @@ export default function FromApp({
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
   const [tagText, setTagText]           = useState(TAGLINES[0])  // SSR-safe hero line; randomised client-side in effect
-  const [barPlaceholder, setBarPlaceholder] = useState(WITTY_PLACEHOLDERS[0])
   const [tagVis, setTagVis]             = useState(true)
   const tagOrderRef                     = useRef<number[]>([])
 
@@ -1016,9 +1156,10 @@ export default function FromApp({
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>([])
   const [stylistHistory, setStylistHistory] = useState<StylistHistoryEntry[]>([])
-  const [stylistCtxMenu, setStylistCtxMenu] = useState<{ id: string; label: string; x: number; y: number; above: boolean } | null>(null)
   const [stylistRenameId, setStylistRenameId]   = useState<string | null>(null)
   const [stylistRenameVal, setStylistRenameVal] = useState('')
+  const [stylistCtxMenu, setStylistCtxMenu]     = useState<{ id: string; label: string; x: number; y: number; above: boolean } | null>(null)
+  const stylistRenameRef = useRef<HTMLInputElement>(null)
   const [stylistInput, setStylistInput]       = useState('')
   const [stylistLoading, setStylistLoading]   = useState(false)
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
@@ -1027,6 +1168,7 @@ export default function FromApp({
   const [stylistSubSubVis, setStylistSubSubVis]         = useState(false)
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
   const stylistFileRef                      = useRef<HTMLInputElement>(null)
+  const stylistSessionId                    = useRef<string | null>(null)
   const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
   // Products attached to the search bar — sending a query with these opens the stylist.
   const [barProducts, setBarProducts]       = useState<Product[]>([])
@@ -1044,6 +1186,12 @@ export default function FromApp({
   const removeStylistProduct = (id: string) => {
     setStylistProducts(prev => prev.filter(p => p.id !== id))
   }
+  const addStylistProduct = (p: Product) => {
+    setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 8) ? prev : [...prev, p])
+    setStylistOpen(true)
+  }
+  function deleteStylistEntry(id: string) { setStylistHistory(prev => prev.filter(e => e.id !== id)) }
+  function renameStylistEntry(id: string, newLabel: string) { setStylistHistory(prev => prev.map(e => e.id === id ? { ...e, label: newLabel } : e)) }
 
   const handleStylistFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -1079,12 +1227,16 @@ export default function FromApp({
     setStylistInput('')
     const capturedImages = images.map(i => i.url)
     setStylistImages([])
-    const msgId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    setStylistHistory(prev => [
-      { id: msgId, label: question.slice(0, 80), createdAt: Date.now() },
-      ...prev,
-    ].slice(0, 30))
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, id: msgId, images: capturedImages.length > 0 ? capturedImages : undefined }])
+    const isNewSession = history.length === 0
+    if (isNewSession) {
+      const sessionId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      stylistSessionId.current = sessionId
+      setStylistHistory(prev => [
+        { id: sessionId, label: question.slice(0, 80), createdAt: Date.now() },
+        ...prev,
+      ].slice(0, 30))
+    }
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined }])
     setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0))
     setStylistLoadingStep(0)
     setStylistLoading(true)
@@ -1096,31 +1248,33 @@ export default function FromApp({
         tags: (p.tags || []).filter(t => !isInternalTag(t)).slice(0, 20),
         options: p.options,
       }))
-      const [res] = await Promise.all([
-        fetch('/api/ai/stylist', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            products: payloadProducts,
-            messages: history.map(m => ({
-              role: m.role,
-              content: m.content,
-              ...(m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 ? {
-                foundProducts: m.foundProducts.slice(0, 4).map(p => ({
-                  title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
-                })),
-              } : {}),
+      const res = await fetch('/api/ai/stylist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          products: payloadProducts,
+          messages: history.map(m => ({
+            role: m.role,
+            content: m.content,
+            foundProducts: m.foundProducts?.map(p => ({
+              title: p.title, vendor: p.vendor,
+              price: p.price, currency: p.currency,
             })),
-            question,
-            images: capturedImages,
-            buyerCurrency: shopperContext.currency,
-            countryCode: shopperContext.country || null,
-          }),
+          })),
+          question,
+          images: capturedImages,
+          buyerCurrency: shopperContext.currency,
         }),
-        new Promise(r => setTimeout(r, 8000)),
-      ])
-      const data = await (res as Response).json()
+      })
+      const data = await res.json()
       if (data?.reply) {
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : undefined }])
+        const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : []
+        if (newProducts.length > 0) {
+          setStylistProducts(prev => {
+            const ids = new Set(prev.map(p => p.id))
+            return [...prev, ...newProducts.filter(p => !ids.has(p.id))]
+          })
+        }
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined }])
       } else {
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
       }
@@ -1132,26 +1286,11 @@ export default function FromApp({
   }
   // Open the stylist page with attached products and immediately ask the query.
   const openStylistWith = (products: Product[], query: string) => {
+    stylistSessionId.current = null
     setStylistProducts(products)
     setStylistMsgs([])
     setStylistOpen(true)
     sendStylist(query, products, [])
-  }
-
-  function deleteStylistEntry(id: string) {
-    setStylistHistory(prev => prev.filter(h => h.id !== id))
-    setStylistMsgs(prev => {
-      const idx = prev.findIndex(m => m.id === id)
-      if (idx === -1) return prev
-      // Remove the user message and its following assistant response
-      const next = prev[idx + 1]
-      if (next && next.role === 'assistant') return [...prev.slice(0, idx), ...prev.slice(idx + 2)]
-      return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
-    })
-  }
-
-  function renameStylistEntry(id: string, newLabel: string) {
-    setStylistHistory(prev => prev.map(h => h.id === id ? { ...h, label: newLabel } : h))
   }
 
   // Glass interaction states
@@ -1166,9 +1305,8 @@ export default function FromApp({
   // Specular light position tracking
   const light = useLight(barRef)
 
-  const nameRef          = useRef<HTMLInputElement>(null)
-  const renameRef        = useRef<HTMLInputElement>(null)
-  const stylistRenameRef = useRef<HTMLInputElement>(null)
+  const nameRef       = useRef<HTMLInputElement>(null)
+  const renameRef     = useRef<HTMLInputElement>(null)
   const taRef         = useRef<HTMLTextAreaElement>(null)
   const fileRef       = useRef<HTMLInputElement>(null)
   const photoLibRef   = useRef<HTMLInputElement>(null)
@@ -1253,7 +1391,7 @@ export default function FromApp({
   // Search results
   const lastProductMsg      = [...messages].reverse().find(m => m.role === 'assistant' && m.products?.length)
   const lastProductMsgIndex = lastProductMsg ? messages.lastIndexOf(lastProductMsg as any) : -1
-  const searchProducts: Product[] = lastProductMsg?.products || []
+  const searchProducts: Product[] = (lastProductMsg?.products || []).filter((p: Product) => p.in_stock)
   const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
   const showEmpty = hasConversation && searchProducts.length === 0 && !loading
   const canSend   = input.trim().length > 0 || uploadedImages.length > 0 || barProducts.length > 0
@@ -1290,9 +1428,7 @@ export default function FromApp({
     if (!vv) return
     const update = () => {
       const kbH = window.innerHeight - vv.height - vv.offsetTop
-      // Threshold of 150px filters out false positives from browser zoom or
-      // browser-chrome resize on tablets — real keyboards are always 250px+
-      setKeyboardOffset(kbH > 150 ? Math.round(kbH) : 0)
+      setKeyboardOffset(Math.max(0, Math.round(kbH)))
     }
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
@@ -1320,7 +1456,7 @@ export default function FromApp({
     if (!homeVisible) return
     const order = shuffledIndices(TAGLINES.length)
     tagOrderRef.current = order
-    let pos = Math.floor(Math.random() * order.length)
+    let pos = 0
     // Immediately show a random tagline so every page load feels fresh
     setTagText(TAGLINES[order[pos]])
     const id = window.setInterval(() => {
@@ -1335,20 +1471,6 @@ export default function FromApp({
     }, 13000)
     return () => window.clearInterval(id)
   }, [homeVisible])
-
-  // Rotate the search bar placeholder every 11s — only when bar is empty + unfocused
-  const [barFocused, setBarFocused] = useState(false)
-  useEffect(() => {
-    if (barFocused || input.length > 0) return
-    const order = shuffledIndices(WITTY_PLACEHOLDERS.length)
-    let pos = Math.floor(Math.random() * order.length)
-    setBarPlaceholder(WITTY_PLACEHOLDERS[order[pos]])
-    const id = window.setInterval(() => {
-      pos = (pos + 1) % order.length
-      setBarPlaceholder(WITTY_PLACEHOLDERS[order[pos]])
-    }, 11000)
-    return () => window.clearInterval(id)
-  }, [barFocused, input.length])
 
   // Prevent pull-to-refresh when dragging the sheet handle.
   // React touch listeners are passive by default, so we must attach directly.
@@ -1391,9 +1513,9 @@ export default function FromApp({
     }
     setStylistSubVis(false)
     setStylistSubSubVis(false)
-    const t1 = setTimeout(() => setStylistSubVis(true), 700)
-    const t2 = setTimeout(() => setStylistSubSubVis(true), 1500)
-    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 2700)
+    const t1 = setTimeout(() => setStylistSubVis(true), 900)
+    const t2 = setTimeout(() => setStylistSubSubVis(true), 2300)
+    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 6500)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
@@ -1721,7 +1843,7 @@ export default function FromApp({
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
-        html,body{margin:0;padding:0;background:#fff;height:100%;width:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-x pan-y;}
+        html,body{margin:0;padding:0;background:#fff;min-height:100%;width:100%;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;margin:0;padding:0;}
         ::-webkit-scrollbar{display:none;}
 
@@ -1729,11 +1851,9 @@ export default function FromApp({
            The app fills the whole device — phone, tablet or laptop — rather than a
            fixed phone-width strip. Only on very large monitors do we cap the width
            and centre it so the layout never stretches absurdly wide. */
-        .fr-wrap{display:flex;align-items:stretch;justify-content:center;
-          position:fixed;top:0;left:0;right:0;bottom:0;
-          height:100%;width:100%;
-          background:#ffffff;overflow:hidden;}
-        .fr-shell{width:100%;max-width:1600px;height:100%;position:relative;display:flex;flex-direction:column;
+        .fr-wrap{display:flex;align-items:stretch;justify-content:center;height:100dvh;width:100%;
+          background:#ffffff;}
+        .fr-shell{width:100%;max-width:1600px;height:100dvh;position:relative;display:flex;flex-direction:column;
           overflow:hidden;overscroll-behavior:none;
           background:#ffffff;}
         @media(min-width:1601px){
@@ -1742,31 +1862,25 @@ export default function FromApp({
         }
 
         /* ── Header ── */
-        .fr-header{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 6px;flex-shrink:0;position:relative;z-index:100;background:#ffffff;}
+        .fr-header{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
 
         /* ── Content area (body + floating bar share this space) ── */
         .fr-content{flex:1;position:relative;overflow:hidden;}
 
         /* ── Body ── */
-        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:120px;overscroll-behavior-y:contain;}
-        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;overflow-y:hidden;padding-bottom:0;touch-action:none;}
+        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:calc(max(80px, env(safe-area-inset-bottom, 0px) + 72px));overscroll-behavior-y:contain;}
+        .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
         /* ── Search bar wrap ── */
         .fr-bar-wrap{
           position:absolute;bottom:0;left:0;right:0;
+          z-index:10;
           padding:12px clamp(12px,4vw,18px) max(12px,env(safe-area-inset-bottom));
-          background:rgba(255,255,255,0.5);
-          backdrop-filter:blur(28px) saturate(160%);
-          -webkit-backdrop-filter:blur(28px) saturate(160%);
+          background:transparent;
         }
-        /* On tablet/desktop the wrap is transparent — products show through,
-           only the pill itself floats on top. Remove the extra 12px floor so there
-           is no visible strip below the pill; only respect the device safe-area. */
+        /* On tablet/desktop remove the safe-area floor — only respect device safe-area. */
         @media(min-width:768px){
           .fr-bar-wrap{
-            background:transparent;
-            backdrop-filter:none;
-            -webkit-backdrop-filter:none;
             padding-bottom:env(safe-area-inset-bottom);
           }
         }
@@ -2065,7 +2179,7 @@ export default function FromApp({
                 )}
               </div>
 
-              {/* Fabrics (AI stylist history) */}
+              {/* Fabrics (AI stylist conversations) */}
               <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`} onClick={() => setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics')}>
                 <FabricsIcon size={17} stroke={INK3} strokeWidth={1.05}/>
                 Fabrics
@@ -2076,6 +2190,7 @@ export default function FromApp({
                 )}
               </div>
 
+
             </div>
 
             {/* Divider */}
@@ -2083,10 +2198,67 @@ export default function FromApp({
 
             {/* Scrollable recents / bag content */}
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
-              {sidebarView === 'nav' ? (
+              {sidebarView === 'fabrics' ? (
                 <>
-                  {/* recent searches only in nav view — Fabrics chats have their own tab */}
-
+                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
+                  {stylistHistory.length === 0 ? (
+                    <div style={{ padding: '12px 8px 4px' }}>
+                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, opacity: .45, marginBottom: 8 }}>No conversations with Fabrics yet!</p>
+                      <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, opacity: .35, lineHeight: 1.5 }}>Pin a product from your search results and ask Fabrics to style it, compare it, or find what pairs with it.</p>
+                    </div>
+                  ) : stylistHistory.map(h => (
+                    <div key={h.id} className="fr-hi"
+                      style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                      onContextMenu={e => e.preventDefault()}
+                      onClick={() => {
+                        if (wasLongPress.current) { wasLongPress.current = false; return }
+                        setStylistOpen(true)
+                      }}
+                      onPointerDown={e => {
+                        wasLongPress.current = false
+                        const { clientX, clientY } = e
+                        longPressTimer.current = setTimeout(() => {
+                          wasLongPress.current = true
+                          const menuW = 180; const menuH = 96
+                          const above = clientY + 8 + menuH > window.innerHeight
+                          const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
+                          const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
+                          ctxMenuOpenAt.current = Date.now()
+                          setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
+                        }, 550)
+                      }}
+                      onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                      onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                        <defs><clipPath id="fwcs"><circle cx="12" cy="12" r="9.6"/></clipPath></defs>
+                        <circle cx="12" cy="12" r="9.6" stroke={INK3} strokeWidth="1.3" fill="none"/>
+                        <g clipPath="url(#fwcs)" stroke={INK3} strokeWidth="1.05" strokeLinecap="butt">
+                          <line x1="2.4" y1="8" x2="21.6" y2="8"/><line x1="2.4" y1="12" x2="21.6" y2="12"/><line x1="2.4" y1="16" x2="21.6" y2="16"/>
+                          <line x1="8" y1="2.4" x2="8" y2="21.6"/><line x1="12" y1="2.4" x2="12" y2="21.6"/><line x1="16" y1="2.4" x2="16" y2="21.6"/>
+                        </g>
+                      </svg>
+                      {stylistRenameId === h.id
+                        ? <input ref={stylistRenameRef} value={stylistRenameVal}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => setStylistRenameVal(e.target.value)}
+                            onBlur={() => { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }}
+                            onKeyDown={e => {
+                              e.stopPropagation()
+                              if (e.key === 'Enter') { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }
+                              if (e.key === 'Escape') setStylistRenameId(null)
+                            }}
+                            style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
+                              fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
+                              transform: 'scale(0.8125)', transformOrigin: 'left center' }}
+                          />
+                        : <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.label}</span>
+                      }
+                    </div>
+                  ))}
+                </>
+              ) : sidebarView === 'nav' ? (
+                <>
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
                   {searchHistory.length === 0
                     ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
@@ -2347,6 +2519,28 @@ export default function FromApp({
             }
 
 
+            {/* Loading — skeleton image grid */}
+            {loading && (
+              <div className="fr-grid">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} style={{
+                    aspectRatio: '3/4',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    background: '#e8e4de',
+                  }}>
+                    {/* Shimmer: fade from base color → light → base color — no dark edges */}
+                    <div style={{
+                      position: 'absolute', top: 0, bottom: 0,
+                      width: '60%',
+                      background: 'linear-gradient(90deg, #e8e4de 0%, #edeae5 35%, #f0ece7 50%, #edeae5 65%, #e8e4de 100%)',
+                      animation: `sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,
+                      willChange: 'transform',
+                    }} />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Empty state */}
             {showEmpty && !loading && !showExplore && (
@@ -2546,10 +2740,8 @@ export default function FromApp({
                   {/* Row 1: input */}
                   <div className="fr-bar-top">
                     <textarea ref={taRef} className="fr-ta" rows={1}
-                      placeholder={inputHint ?? barPlaceholder}
+                      placeholder={inputHint ?? "What are you looking for?"}
                       value={input} onChange={e => setInput(e.target.value)}
-                      onFocus={() => setBarFocused(true)}
-                      onBlur={() => setBarFocused(false)}
                       onKeyDown={kd} disabled={loading} />
                   </div>
 
@@ -2694,18 +2886,14 @@ export default function FromApp({
             </>
           )}
 
-          {/* ── Fabrics chat long-press context menu ── */}
+          {/* ── Fabrics history context menu ── */}
           {stylistCtxMenu && (
             <>
-              <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 500) return; setStylistCtxMenu(null) }}
+              <div onClick={() => setStylistCtxMenu(null)}
                 style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
               <div style={{
-                position: 'fixed',
-                left: stylistCtxMenu.x, top: stylistCtxMenu.y,
-                zIndex: 9001,
-                width: 160,
-                borderRadius: 12,
-                overflow: 'hidden',
+                position: 'fixed', left: stylistCtxMenu.x, top: stylistCtxMenu.y,
+                zIndex: 9001, width: 160, borderRadius: 12, overflow: 'hidden',
                 background: 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(245,245,248,0.94) 100%)',
                 boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
                 border: '0.5px solid rgba(180,180,190,0.35)',
@@ -2714,8 +2902,7 @@ export default function FromApp({
               }}>
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
-                {/* Rename */}
-                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; setStylistRenameId(stylistCtxMenu.id); setStylistRenameVal(stylistCtxMenu.label); setStylistCtxMenu(null) }}
+                <div onClick={() => { setStylistRenameId(stylistCtxMenu.id); setStylistRenameVal(stylistCtxMenu.label); setStylistCtxMenu(null) }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
                     fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
@@ -2730,8 +2917,7 @@ export default function FromApp({
                   </svg>
                 </div>
                 <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
-                {/* Delete */}
-                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; deleteStylistEntry(stylistCtxMenu.id); setStylistCtxMenu(null) }}
+                <div onClick={() => { deleteStylistEntry(stylistCtxMenu.id); setStylistCtxMenu(null) }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
                     fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
@@ -2741,8 +2927,10 @@ export default function FromApp({
                   onPointerLeave={e => (e.currentTarget.style.background = '')}>
                   <span>Delete</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                   </svg>
                 </div>
               </div>
@@ -2814,21 +3002,33 @@ export default function FromApp({
                     <FabricsIcon size={15} stroke={INK} strokeWidth={1.1}/>
                     <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Fabrics</span>
                   </div>
-                  <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {stylistMsgs.length > 0 && (
+                      <button onClick={() => { setStylistMsgs([]); setStylistProducts([]); setStylistImages([]); stylistSessionId.current = null }} title="New conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                    )}
+                    <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Pinned products */}
-                <div style={{ display: 'flex', gap: 6, padding: '6px 14px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
+                <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
                   {stylistProducts.map(p => (
-                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 44 }}>
-                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 44, height: 54, borderRadius: 6, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
+                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 80 }}>
+                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
                         {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </div>
+                      <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 9, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                       {stylistProducts.length > 1 && (
-                        <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 3, right: 3, width: 16, height: 16, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                       )}
                     </div>
@@ -2843,7 +3043,7 @@ export default function FromApp({
                         {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Ask me anything about style.'}
                       </p>
                       <p style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(44,18,6,0.4)', lineHeight: 1.5 }}>
-                        Tap the camera icon to share photos of your own clothes — get color matching, outfit combinations, and recommendations from the store.
+                        Get outfit ideas, styling advice, and recommendations — or share photos of your own clothes for colour matching and combinations.
                       </p>
                     </div>
                   )}
@@ -2899,27 +3099,19 @@ export default function FromApp({
                         </div>
                       )}
                       {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (
-                        <div style={{ marginTop: 12, width: '100%' }}>
-                          <div style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: INK3, marginBottom: 8, opacity: 0.65 }}>From the store</div>
+                        <div style={{ marginTop: 10, width: '100%' }}>
+                          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Found for you</div>
                           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
-                            {m.foundProducts.map(fp => {
-                              const fpImg = fp.media?.[0]?.url || fp.image_url || ''
-                              const alreadyPinned = stylistProducts.some(sp => sp.id === fp.id)
-                              return (
-                                <div key={fp.id} style={{ flexShrink: 0, width: 80 }}>
-                                  <div style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}
-                                    onClick={() => { setStylistOpen(false); setSelected(fp) }}>
-                                    {fpImg && <img src={fpImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
-                                  </div>
-                                  <div style={{ fontFamily: SANS, fontSize: 10, color: INK2, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fp.title.replace(/^\d[\d\s\-–—]*/, '').trim()}</div>
-                                  <button onClick={e => { e.stopPropagation(); if (!alreadyPinned && stylistProducts.length < 4) setStylistProducts(prev => [...prev, fp]) }}
-                                    disabled={alreadyPinned || stylistProducts.length >= 4}
-                                    style={{ marginTop: 3, fontFamily: SANS, fontSize: 9, color: alreadyPinned ? INK3 : INK, border: `1px solid ${alreadyPinned ? 'rgba(44,18,6,0.15)' : BRD}`, borderRadius: 4, padding: '2px 6px', background: 'transparent', cursor: alreadyPinned || stylistProducts.length >= 4 ? 'default' : 'pointer', letterSpacing: '.04em', opacity: alreadyPinned || stylistProducts.length >= 4 ? 0.5 : 1 }}>
-                                    {alreadyPinned ? '✓ Added' : '+ Add'}
-                                  </button>
+                            {m.foundProducts.map(p => (
+                              <div key={p.id} onClick={() => { setStylistOpen(false); setSelected(p) }}
+                                style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
+                                <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2 }}>
+                                  {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                 </div>
-                              )
-                            })}
+                                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                                <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
@@ -2963,13 +3155,14 @@ export default function FromApp({
                 </div>
 
                 {/* Input */}
-                <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}` }}>
-                  {/* Uploaded image strip */}
+                <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}`, padding: '10px 14px calc(10px + env(safe-area-inset-bottom, 0px))' }}>
+                  <input ref={stylistFileRef} type="file" accept="image/*,*/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
+                  {/* Attached image strip */}
                   {stylistImages.length > 0 && (
-                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 16px 0', scrollbarWidth: 'none' } as React.CSSProperties}>
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 8, scrollbarWidth: 'none' } as React.CSSProperties}>
                       {stylistImages.map((img, idx) => (
                         <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                          <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
                             <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                           </div>
                           <button type="button" onClick={() => setStylistImages(prev => prev.filter((_, i) => i !== idx))}
@@ -2980,25 +3173,27 @@ export default function FromApp({
                       ))}
                     </div>
                   )}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '12px 16px calc(12px + env(safe-area-inset-bottom))' }}>
-                    {/* Hidden file input */}
-                    <input ref={stylistFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
-                    {/* Photo upload button */}
-                    <button type="button" onClick={() => stylistFileRef.current?.click()}
-                      disabled={stylistImages.length >= 8}
-                      style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${BRD}`, background: BG2, color: stylistImages.length >= 8 ? 'rgba(44,18,6,0.3)' : INK3, cursor: stylistImages.length >= 8 ? 'default' : 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
-                      </svg>
-                    </button>
+                  {/* Bar pill — matches main search bar */}
+                  <div style={{ background: BG, borderRadius: 22, padding: '10px 10px 8px 14px', boxShadow: '0 4px 20px rgba(44,18,6,.08), 0 1px 4px rgba(44,18,6,.05), inset 0 1px 0 rgba(255,255,255,.98), inset 0 -0.5px 0 rgba(44,18,6,.04)' }}>
+                    {/* Row 1: text */}
                     <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
                       placeholder={stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask Fabrics…'}
-                      style={{ flex: 1, fontFamily: SANS, fontSize: 16, color: INK, border: `1px solid ${BRD}`, borderRadius: 22, padding: '11px 16px', outline: 'none', background: BG2 }} />
-                    <button onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
-                      style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.2)', color: '#fff', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                    </button>
+                      style={{ width: '100%', fontFamily: SANS, fontSize: 15, color: INK, caretColor: INK, background: 'transparent', border: 'none', outline: 'none', padding: 0, lineHeight: 1.5 }} />
+                    {/* Row 2: actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                      <button type="button" className="fr-icon-btn" onClick={() => stylistFileRef.current?.click()} disabled={stylistImages.length >= 8} title="Attach image">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                        </svg>
+                      </button>
+                      <button type="button" className="fr-send-btn" onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
+                        style={{ background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.18)', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', boxShadow: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? '0 4px 14px rgba(44,18,6,.35),0 1px 4px rgba(44,18,6,.2),inset 0 1px 0 rgba(255,255,255,.12)' : 'none' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3238,7 +3433,7 @@ export default function FromApp({
               }}>
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
-                {/* Ask Fabrics */}
+                {/* Ask your stylist */}
                 <div onClick={() => {
                     if (Date.now() - ctxMenuOpenAt.current < 350) return
                     addBarProduct(bagCtxMenu.product)
@@ -3295,10 +3490,14 @@ export default function FromApp({
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
 
-                {/* Ask Fabrics — opens the conversational stylist sheet */}
+                {/* Ask your stylist — opens the conversational stylist sheet */}
                 <div onClick={() => {
                     if (Date.now() - ctxMenuOpenAt.current < 350) return
-                    addBarProduct(productCtxMenu.product)
+                    if (stylistOpen && stylistMsgs.length > 0) {
+                      addStylistProduct(productCtxMenu.product)
+                    } else {
+                      addBarProduct(productCtxMenu.product)
+                    }
                     setProductCtxMenu(null)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
