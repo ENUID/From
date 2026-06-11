@@ -2088,7 +2088,7 @@ export default function FromApp({
       <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
 
       {/* ── Forced login gate — liquid glass ──────────────────────────────── */}
-      {authStatus !== 'authenticated' && (
+      {authStatus === 'unauthenticated' && (
         <div
           onMouseMove={handleGlassMove}
           onTouchMove={handleGlassTouch}
@@ -2189,7 +2189,7 @@ export default function FromApp({
               {/* ── Google button ── */}
               <button
                 type="button"
-                disabled={signingIn || authStatus === 'loading'}
+                disabled={signingIn}
                 onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: '/' }) }}
                 style={{
                   position: 'relative', overflow: 'hidden',
