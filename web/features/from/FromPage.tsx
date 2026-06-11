@@ -1059,6 +1059,13 @@ export default function FromApp({
   const { status: authStatus, data: session } = useSession()
   const onboardEmail = session?.user?.email ?? undefined
 
+  // ── Stylist memory (Fabrics persistent context) ─────────────────────────────
+  const stylistMemoryData = useQuery(
+    api.stylistMemory.getStylistMemory,
+    onboardEmail ? { userEmail: onboardEmail } : 'skip'
+  )
+  const stylistMemorySummary = stylistMemoryData?.summary ?? undefined
+
   // ── Taste profile (onboarding) ──────────────────────────────────────────────
   const tasteProfileData = useQuery(
     api.tasteProfile.getTasteProfile,
@@ -1281,6 +1288,7 @@ export default function FromApp({
           question,
           images: capturedImages,
           buyerCurrency: shopperContext.currency,
+          memorySummary: stylistMemorySummary,
         }),
       })
       const data = await res.json()
@@ -1292,7 +1300,15 @@ export default function FromApp({
             return [...prev, ...newProducts.filter(p => !ids.has(p.id))]
           })
         }
+        const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined }])
+        // Background memory compression — non-blocking, premium users only
+        if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
+          fetch('/api/ai/stylist-memory', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: updatedMsgs }),
+          }).catch(() => {})
+        }
       } else {
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
       }

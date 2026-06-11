@@ -260,6 +260,9 @@ export async function POST(req: NextRequest) {
     const buyerCurrency: string = typeof body?.buyerCurrency === 'string'
       ? body.buyerCurrency.toUpperCase()
       : 'USD'
+    const memorySummary: string | undefined = typeof body?.memorySummary === 'string' && body.memorySummary.trim()
+      ? body.memorySummary.trim()
+      : undefined
 
     if (!question) {
       return NextResponse.json({ reply: null, comparison: null })
@@ -279,7 +282,10 @@ export async function POST(req: NextRequest) {
       ? `The shopper has also shared ${images.length} photo${images.length > 1 ? 's' : ''} of their own clothing. Analyze the garment(s) in the photo${images.length > 1 ? 's' : ''} and incorporate that into your advice.`
       : ''
 
-    const contextBlock = [productContext, imageNote].filter(Boolean).join('\n\n')
+    const memoryBlock = memorySummary
+      ? `SHOPPER MEMORY (from previous Fabrics sessions):\n${memorySummary}`
+      : ''
+    const contextBlock = [memoryBlock, productContext, imageNote].filter(Boolean).join('\n\n')
 
     let raw = ''
 
