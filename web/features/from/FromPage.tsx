@@ -1681,9 +1681,10 @@ export default function FromApp({
     const w = 460, h = 760
     const left = Math.round(window.screenX + Math.max(0, (window.outerWidth - w) / 2))
     const top  = Math.round(window.screenY + Math.max(0, (window.outerHeight - h) / 2))
-    const popup = window.open(url, 'fromCheckout', `popup=yes,width=${w},height=${h},left=${left},top=${top}`)
-    if (popup) { try { popup.opener = null } catch {} popup.focus?.() }
-    else window.open(url, '_blank', 'noopener,noreferrer') // popup blocked → fall back to a tab
+    // '_blank' always opens a NEW context so the named-window reuse bug can't happen.
+    const popup = window.open(url, '_blank', `popup=yes,width=${w},height=${h},left=${left},top=${top},toolbar=0,location=0,menubar=0,scrollbars=1,resizable=1`)
+    if (popup) popup.focus?.()
+    else window.open(url, '_blank', 'noopener,noreferrer')
   }
   // Link straight to this product's own page so the shopper lands on the exact
   // item (where the brand's own size guide / fit info lives), not a generic page.
