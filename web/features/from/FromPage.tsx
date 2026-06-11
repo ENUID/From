@@ -1054,6 +1054,14 @@ export default function FromApp({
   // ── Auth gate ────────────────────────────────────────────────────────────────
   const { status: authStatus } = useSession()
   const [signingIn, setSigningIn] = useState(false)
+  // Latch: once gate opens it stays open until 'authenticated' — prevents flicker
+  // caused by loading→unauthenticated→loading→authenticated transitions on mobile.
+  const [gateVisible, setGateVisible] = useState(false)
+  useEffect(() => {
+    if (authStatus === 'unauthenticated') setGateVisible(true)
+    else if (authStatus === 'authenticated') setGateVisible(false)
+    // leave 'loading' unchanged — don't flicker
+  }, [authStatus])
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState(() => {
@@ -2073,7 +2081,7 @@ export default function FromApp({
       <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
 
       {/* ── Forced login gate ──────────────────────────────────────────────── */}
-      {authStatus === 'unauthenticated' && (() => {
+      {gateVisible && (() => {
         const mobile = windowWidth > 0 && windowWidth < 640
         const googleBtn = (
           <button
