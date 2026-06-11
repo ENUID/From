@@ -2102,80 +2102,88 @@ export default function FromApp({
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-          {/* ── Glass card ── */}
+          {/* ── Glass card — water droplet ── */}
           <div
             ref={glassCardRef}
             style={{
               position: 'relative',
-              width: '100%',
-              maxWidth: 360,
-              maxHeight: 'calc(100dvh - 32px)',
-              overflowY: 'auto',
-              borderRadius: 26,
-              overflow: 'hidden',
-              // Translucent glass — low opacity so blur shows through
-              background: 'rgba(255,252,248,0.68)',
-              backdropFilter: 'blur(48px) saturate(190%) brightness(106%)',
-              WebkitBackdropFilter: 'blur(48px) saturate(190%) brightness(106%)',
+              width: '100%', maxWidth: 360,
+              maxHeight: 'calc(100dvh - 32px)', overflowY: 'auto',
+              borderRadius: 28, overflow: 'hidden',
+              // Water-droplet glass: very transparent with cool tint
+              background: 'rgba(228,240,255,0.22)',
+              backdropFilter: 'blur(56px) saturate(200%) brightness(115%)',
+              WebkitBackdropFilter: 'blur(56px) saturate(200%) brightness(115%)',
               boxShadow: [
-                '0 0 0 0.5px rgba(255,255,255,0.85)',
-                '0 0 0 1px rgba(44,18,6,0.05)',
-                '0 2px 8px rgba(0,0,0,0.08)',
-                '0 8px 32px rgba(0,0,0,0.13)',
-                '0 32px 72px rgba(0,0,0,0.12)',
-                'inset 0 1.5px 0 rgba(255,255,255,1)',
-                'inset 0 -0.5px 0 rgba(255,255,255,0.3)',
-                'inset 1.5px 0 0 rgba(255,255,255,0.65)',
-                'inset -1.5px 0 0 rgba(255,255,255,0.35)',
+                // Bright rim — characteristic water droplet edge
+                '0 0 0 1px rgba(255,255,255,0.70)',
+                // Depth shadows — droplet sitting above surface
+                '0 4px 6px rgba(0,0,0,0.08)',
+                '0 12px 28px rgba(0,0,0,0.20)',
+                '0 28px 56px rgba(0,0,0,0.18)',
+                '0 48px 96px rgba(0,0,0,0.14)',
+                // Inner edge highlights — light refracting at edges
+                'inset 0 2px 0 rgba(255,255,255,1)',
+                'inset 0 -1px 0 rgba(255,255,255,0.55)',
+                'inset 2px 0 0 rgba(255,255,255,0.80)',
+                'inset -2px 0 0 rgba(255,255,255,0.45)',
+                // Subtle inner bottom darkness (depth inside droplet)
+                'inset 0 -40px 60px rgba(0,0,0,0.04)',
               ].join(','),
               animation: 'glassSpring 0.72s cubic-bezier(0.34,1.36,0.64,1) forwards',
             }}
           >
-            {/* ── Ambient light — top-left corner ── */}
+            {/* ── Caustic top-left — where light focuses through a droplet ── */}
             <div style={{
               position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-              background: 'linear-gradient(140deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 35%, transparent 60%)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.60) 0%, rgba(255,255,255,0.18) 28%, transparent 52%)',
             }} />
 
-            {/* ── Dynamic specular — follows mouse ── */}
+            {/* ── Secondary caustic — lower right lens effect ── */}
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+              background: 'radial-gradient(ellipse 50% 40% at 80% 85%, rgba(255,255,255,0.22) 0%, transparent 65%)',
+            }} />
+
+            {/* ── Dynamic specular — finger/mouse tracks light ── */}
             <div style={{
               position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
-              background: `radial-gradient(ellipse 55% 45% at ${glassLight.x}% ${glassLight.y}%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 50%, transparent 70%)`,
-              transition: 'background 0.05s linear',
+              background: `radial-gradient(ellipse 52% 42% at ${glassLight.x}% ${glassLight.y}%, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)`,
+              transition: 'background 0.04s linear',
             }} />
 
             {/* ── Entry shimmer sweep ── */}
             <div style={{
-              position: 'absolute', top: 0, bottom: 0, width: '30%', pointerEvents: 'none', zIndex: 2,
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)',
-              animation: 'glassSweep 1.2s ease-out 0.25s both',
+              position: 'absolute', top: 0, bottom: 0, width: '28%', pointerEvents: 'none', zIndex: 2,
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)',
+              animation: 'glassSweep 1.1s ease-out 0.2s both',
             }} />
 
-            {/* ── Bottom refraction ── */}
+            {/* ── Bottom refraction band ── */}
             <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, height: 48, pointerEvents: 'none', zIndex: 0,
-              background: 'linear-gradient(to top, rgba(255,255,255,0.3), transparent)',
+              position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, pointerEvents: 'none', zIndex: 0,
+              background: 'linear-gradient(to top, rgba(200,225,255,0.25), transparent)',
             }} />
 
             {/* ── Content ── */}
             <div style={{ position: 'relative', zIndex: 3, padding: 'clamp(36px,6vw,50px) clamp(24px,6vw,40px) clamp(28px,5vw,36px)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
               {/* Wordmark */}
-              <div style={{ fontFamily: SEASON, fontSize: 'clamp(38px,8vw,48px)', letterSpacing: '0.05em', color: INK, lineHeight: 1, marginBottom: 12, textShadow: '0 1px 0 rgba(255,255,255,0.9)' }}>
+              <div style={{ fontFamily: SEASON, fontSize: 'clamp(38px,8vw,50px)', letterSpacing: '0.05em', color: INK, lineHeight: 1, marginBottom: 6, textShadow: '0 2px 4px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.9)' }}>
                 FROM
               </div>
 
-              {/* Thin rule */}
-              <div style={{ width: 32, height: 1, background: 'rgba(44,18,6,0.15)', marginBottom: 14 }} />
-
-              {/* Headline */}
-              <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 'clamp(14px,3.5vw,16px)', color: INK, marginBottom: 6, textAlign: 'center', letterSpacing: '0.015em', lineHeight: 1.4 }}>
-                Fashion worth finding.
+              {/* Be Different badge */}
+              <div style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: INK3, marginBottom: 16, opacity: 0.8 }}>
+                Be Different
               </div>
 
-              {/* Sub-copy */}
-              <div style={{ fontFamily: SANS, fontSize: 'clamp(11px,2.8vw,12px)', color: INK3, marginBottom: 'clamp(24px,5vw,34px)', textAlign: 'center', lineHeight: 1.65, letterSpacing: '0.02em' }}>
-                Independent brands. Wear what makes you different.
+              {/* Thin rule */}
+              <div style={{ width: 28, height: 0.5, background: 'rgba(44,18,6,0.18)', marginBottom: 16 }} />
+
+              {/* Headline */}
+              <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 'clamp(14px,3.5vw,16px)', color: INK, marginBottom: 'clamp(24px,5vw,32px)', textAlign: 'center', letterSpacing: '0.015em', lineHeight: 1.5, textShadow: '0 1px 0 rgba(255,255,255,0.7)' }}>
+                Fashion worth finding.
               </div>
 
               {/* ── Google button ── */}
