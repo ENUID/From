@@ -1055,16 +1055,31 @@ export default function FromApp({
   const { status: authStatus, data: session } = useSession()
   const [signingIn, setSigningIn] = useState(false)
   const [gateVisible, setGateVisible] = useState(false)
+
+  // Helpers — store sign-in flag in both cookie (survives ITP) and localStorage
+  function markAuthed() {
+    try { localStorage.setItem('from_authed', '1') } catch {}
+    try {
+      const exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString()
+      document.cookie = `from_authed=1; expires=${exp}; path=/; SameSite=Lax`
+    } catch {}
+  }
+  function clearAuthed() {
+    try { localStorage.removeItem('from_authed') } catch {}
+    try { document.cookie = 'from_authed=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/' } catch {}
+  }
+  function hasAuthed() {
+    try { if (localStorage.getItem('from_authed') === '1') return true } catch {}
+    try { if (document.cookie.split(';').some(c => c.trim().startsWith('from_authed=1'))) return true } catch {}
+    return false
+  }
+
   useEffect(() => {
     if (authStatus === 'authenticated') {
-      // User is signed in — persist flag so the gate never re-fires in this browser
-      try { localStorage.setItem('from_authed', '1') } catch {}
+      markAuthed()
       setGateVisible(false)
     } else if (authStatus === 'unauthenticated') {
-      // Only show gate if they have never authenticated in this browser
-      let hasAuthed = false
-      try { hasAuthed = localStorage.getItem('from_authed') === '1' } catch {}
-      if (!hasAuthed) setGateVisible(true)
+      if (!hasAuthed()) setGateVisible(true)
     }
     // leave 'loading' unchanged — don't flicker
   }, [authStatus])
@@ -2387,7 +2402,7 @@ export default function FromApp({
                   {/* Sign out */}
                   <button
                     type="button"
-                    onClick={() => { try { localStorage.removeItem('from_authed') } catch {}; signOut({ callbackUrl: window.location.origin + '/' }) }}
+                    onClick={() => { clearAuthed(); signOut({ callbackUrl: window.location.origin + '/' }) }}
                     style={{
                       width: '100%', padding: '11px 16px', borderRadius: 10,
                       background: 'transparent', border: 'none',
