@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useSession, signIn } from 'next-auth/react'
 import { useFromChat } from './hooks/useFromChat'
 import { formatMoney } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
@@ -1050,6 +1051,10 @@ export default function FromApp({
     deleteHistoryEntry, renameHistoryEntry,
   } = useFromChat(initialShopperContext, initialRates)
 
+  // ── Auth gate ────────────────────────────────────────────────────────────────
+  const { status: authStatus } = useSession()
+  const [signingIn, setSigningIn] = useState(false)
+
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState(() => {
     if (typeof window === 'undefined') return ""
@@ -2063,6 +2068,73 @@ export default function FromApp({
       <input ref={photoLibRef} type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handleFile} />
       <input ref={cameraRef}   type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleFile} />
       <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
+
+      {/* ── Forced login gate ─────────────────────────────────────────────── */}
+      {authStatus !== 'authenticated' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999,
+          background: 'rgba(247,244,242,0.92)',
+          backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 20,
+            padding: '44px 36px 36px',
+            width: '100%', maxWidth: 360,
+            boxShadow: '0 2px 40px rgba(44,18,6,0.10), 0 1px 4px rgba(44,18,6,0.06)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
+            animation: 'fadeScale 0.38s cubic-bezier(0.34,1.36,0.64,1) forwards',
+          }}>
+            {/* Wordmark */}
+            <div style={{ fontFamily: SEASON, fontSize: 38, letterSpacing: '0.04em', color: INK, lineHeight: 1, marginBottom: 10 }}>
+              FROM
+            </div>
+            {/* Tagline */}
+            <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 15, color: INK3, marginBottom: 32, textAlign: 'center' }}>
+              Shop independent stores
+            </div>
+
+            {/* Google button */}
+            <button
+              type="button"
+              disabled={signingIn || authStatus === 'loading'}
+              onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: '/' }) }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                padding: '13px 20px', borderRadius: 12,
+                background: '#fff', border: '1px solid rgba(44,18,6,0.14)',
+                fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK,
+                cursor: signingIn ? 'default' : 'pointer',
+                opacity: signingIn ? 0.6 : 1,
+                transition: 'all 0.15s', boxShadow: '0 1px 3px rgba(44,18,6,0.06)',
+              }}
+              onMouseEnter={e => { if (!signingIn) (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 10px rgba(44,18,6,0.12)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(44,18,6,0.06)' }}
+            >
+              {signingIn ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
+                  <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                  <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                  <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
+                  <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
+                </svg>
+              )}
+              {signingIn ? 'Signing in…' : 'Continue with Google'}
+            </button>
+
+            {/* Footer */}
+            <div style={{ marginTop: 20, fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', lineHeight: 1.5 }}>
+              By continuing you agree to our Terms &amp; Privacy Policy
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="fr-wrap">
         <div className="fr-shell">
