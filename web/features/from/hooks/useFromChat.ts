@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -78,6 +78,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
 
   const convexSavedProducts = useQuery(api.shop.getSavedProducts, userEmail ? { userEmail } : "skip")
   const convexSearchHistory = useQuery(api.shop.getSearchHistory, userEmail ? { userEmail } : "skip")
+  const tasteProfileData = useQuery(api.tasteProfile.getTasteProfile, userEmail ? { userEmail } : "skip")
   const toggleConvexSaved = useMutation(api.shop.toggleSavedProduct)
   const saveConvexHistory = useMutation(api.shop.saveSearchHistory)
 
@@ -86,6 +87,28 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
   const removedSavedIds   = useRef<Set<string>>(new Set())
 
   const { isPremium, canSearch, dailySearchesRemaining } = useSubscription()
+
+  // Compact taste profile string for premium users — injected into search API
+  const tasteProfileText = useMemo(() => {
+    if (!isPremium || !tasteProfileData) return undefined
+    const parts: string[] = []
+    if (tasteProfileData.styles?.length) parts.push(`styles: ${tasteProfileData.styles.join(', ')}`)
+    if (tasteProfileData.budgetMin !== undefined || tasteProfileData.budgetMax !== undefined) {
+      const min = tasteProfileData.budgetMin ?? 0
+      const max = tasteProfileData.budgetMax ?? 9999
+      parts.push(`budget: $${min}–${max === 9999 ? '∞' : '$' + max}`)
+    }
+    if (tasteProfileData.sizes) {
+      const s = tasteProfileData.sizes as Record<string, string>
+      const sizeStr = [
+        s.tops     && `tops ${s.tops}`,
+        s.bottoms  && `bottoms ${s.bottoms}`,
+        s.shoes    && `shoes ${s.shoes}`,
+      ].filter(Boolean).join(', ')
+      if (sizeStr) parts.push(`sizes: ${sizeStr}`)
+    }
+    return parts.length > 0 ? parts.join(' | ') : undefined
+  }, [isPremium, tasteProfileData])
 
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [history, setHistory] = useState<ConversationTurn[]>([])
@@ -230,6 +253,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
           buyerCurrency: shopperContext.currency,
           userName: typeof window !== 'undefined' ? (window.localStorage.getItem('from_user_name') || undefined) : undefined,
           recentSearches: searchHistory.slice(0, 8).map(entry => entry.query),
+          tasteProfile: tasteProfileText,
         }),
         signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
       })

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 import { useFromChat } from './hooks/useFromChat'
 import { formatMoney } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
@@ -1055,6 +1057,48 @@ export default function FromApp({
 
   // ── Auth (optional — profile view only) ─────────────────────────────────────
   const { status: authStatus, data: session } = useSession()
+  const onboardEmail = session?.user?.email ?? undefined
+
+  // ── Stylist memory (Fabrics persistent context) ─────────────────────────────
+  const stylistMemoryData = useQuery(
+    api.stylistMemory.getStylistMemory,
+    onboardEmail ? { userEmail: onboardEmail } : 'skip'
+  )
+  const stylistMemorySummary = stylistMemoryData?.summary ?? undefined
+
+  // ── Taste profile (onboarding) ──────────────────────────────────────────────
+  const tasteProfileData = useQuery(
+    api.tasteProfile.getTasteProfile,
+    onboardEmail ? { userEmail: onboardEmail } : 'skip'
+  )
+  const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
+  const [showOnboarding, setShowOnboarding]     = useState(false)
+  const [onboardingStep, setOnboardingStep]     = useState(0)
+  const [selectedStyles, setSelectedStyles]     = useState<string[]>([])
+  const [onboardSizes, setOnboardSizes]         = useState({ tops: '', bottoms: '', shoes: '' })
+  const [selectedBudget, setSelectedBudget]     = useState<number | null>(null)
+
+  useEffect(() => {
+    if (authStatus === 'authenticated' && tasteProfileData === null) {
+      setShowOnboarding(true)
+    }
+  }, [authStatus, tasteProfileData])
+
+  async function finishOnboarding(skip = false) {
+    if (!onboardEmail) { setShowOnboarding(false); return }
+    const BUDGET_RANGES = [[0, 50], [50, 150], [150, 400], [400, 9999]]
+    try {
+      await upsertProfile({
+        userEmail: onboardEmail,
+        styles: skip ? [] : selectedStyles,
+        budgetMin: (!skip && selectedBudget !== null) ? BUDGET_RANGES[selectedBudget][0] : undefined,
+        budgetMax: (!skip && selectedBudget !== null) ? BUDGET_RANGES[selectedBudget][1] : undefined,
+        sizes: (!skip && (onboardSizes.tops || onboardSizes.bottoms || onboardSizes.shoes))
+          ? onboardSizes : undefined,
+      })
+    } catch { /* ignore */ }
+    setShowOnboarding(false)
+  }
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState(() => {
@@ -1258,6 +1302,7 @@ export default function FromApp({
           question,
           images: capturedImages,
           buyerCurrency: shopperContext.currency,
+          memorySummary: stylistMemorySummary,
         }),
       })
       const data = await res.json()
@@ -1269,7 +1314,15 @@ export default function FromApp({
             return [...prev, ...newProducts.filter(p => !ids.has(p.id))]
           })
         }
+        const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined }])
+        // Background memory compression — non-blocking, premium users only
+        if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
+          fetch('/api/ai/stylist-memory', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: updatedMsgs }),
+          }).catch(() => {})
+        }
       } else {
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
       }
@@ -3727,6 +3780,154 @@ export default function FromApp({
                 <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 10, opacity: 0.55 }}>
                   One-time payment. Lifetime access. When it's full, it's gone.
                 </p>
+              </div>
+            </>
+          )}
+
+          {/* ── Style onboarding sheet ── */}
+          {showOnboarding && (
+            <>
+              <div
+                onClick={() => finishOnboarding(true)}
+                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(44,18,6,0.35)', backdropFilter: 'blur(2px)' }}
+              />
+              <div style={{
+                position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9101,
+                background: BG, borderRadius: '20px 20px 0 0',
+                padding: '28px 24px 40px',
+                boxShadow: '0 -8px 48px rgba(44,18,6,0.18)',
+                animation: 'sheetUp .32s cubic-bezier(0.32,0.72,0,1)',
+                maxWidth: 480, margin: '0 auto',
+              }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <div>
+                    <div style={{ fontFamily: SEASON, fontSize: 22, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>
+                      {onboardingStep === 0 ? 'Your aesthetic' : onboardingStep === 1 ? 'Your sizes' : 'Your budget'}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 4 }}>
+                      Step {onboardingStep + 1} of 3 — helps FROM find the right fit
+                    </div>
+                  </div>
+                  <button onClick={() => finishOnboarding(true)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: INK3 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Progress dots */}
+                <div style={{ display: 'flex', gap: 5, marginBottom: 22 }}>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} style={{
+                      height: 3, flex: 1, borderRadius: 2,
+                      background: i <= onboardingStep ? INK : BRD,
+                      transition: 'background .2s',
+                    }} />
+                  ))}
+                </div>
+
+                {/* Step 0 — aesthetic tiles */}
+                {onboardingStep === 0 && (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 22 }}>
+                      {['Minimal', 'Streetwear', 'Bohemian', 'Preppy', 'Workwear', 'Oversized'].map(style => {
+                        const active = selectedStyles.includes(style)
+                        return (
+                          <button key={style} onClick={() => setSelectedStyles(prev =>
+                            active ? prev.filter(s => s !== style)
+                                   : prev.length < 3 ? [...prev, style] : prev
+                          )} style={{
+                            padding: '12px 6px', borderRadius: 10, border: `1.5px solid ${active ? INK : BRD}`,
+                            background: active ? INK : 'transparent', cursor: 'pointer',
+                            fontFamily: SANS, fontSize: 12, fontWeight: active ? 600 : 400,
+                            color: active ? '#fff' : INK, transition: 'all .14s',
+                          }}>
+                            {style}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 16, textAlign: 'center' }}>
+                      Pick up to 3
+                    </div>
+                  </>
+                )}
+
+                {/* Step 1 — sizes */}
+                {onboardingStep === 1 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 22 }}>
+                    {[
+                      { label: 'Tops', key: 'tops', placeholder: 'XS, S, M, L…' },
+                      { label: 'Bottoms', key: 'bottoms', placeholder: '28, 30, 32…' },
+                      { label: 'Shoes', key: 'shoes', placeholder: '8, 9, 10, 42…' },
+                    ].map(({ label, key, placeholder }) => (
+                      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontFamily: SANS, fontSize: 12, color: INK2, width: 60, flexShrink: 0 }}>{label}</span>
+                        <input
+                          value={onboardSizes[key as 'tops' | 'bottoms' | 'shoes']}
+                          onChange={e => setOnboardSizes(prev => ({ ...prev, [key]: e.target.value }))}
+                          placeholder={placeholder}
+                          style={{
+                            flex: 1, padding: '9px 12px', borderRadius: 8, border: `1px solid ${BRD}`,
+                            fontFamily: SANS, fontSize: 13, color: INK, background: BG2,
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Step 2 — budget */}
+                {onboardingStep === 2 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22 }}>
+                    {[
+                      { label: 'Under $50', sub: 'Finds the hidden gems' },
+                      { label: '$50–150', sub: 'The sweet spot' },
+                      { label: '$150–400', sub: 'Investment pieces' },
+                      { label: '$400+', sub: 'No ceiling' },
+                    ].map((opt, i) => {
+                      const active = selectedBudget === i
+                      return (
+                        <button key={i} onClick={() => setSelectedBudget(i)} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${active ? INK : BRD}`,
+                          background: active ? INK : 'transparent', cursor: 'pointer', textAlign: 'left',
+                          transition: 'all .14s',
+                        }}>
+                          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: active ? '#fff' : INK }}>{opt.label}</span>
+                          <span style={{ fontFamily: SANS, fontSize: 11, color: active ? 'rgba(255,255,255,0.6)' : INK3 }}>{opt.sub}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => {
+                    if (onboardingStep < 2) setOnboardingStep(s => s + 1)
+                    else finishOnboarding(false)
+                  }} style={{
+                    flex: 1, padding: '13px', borderRadius: 10,
+                    background: INK, color: '#fff',
+                    fontFamily: SANS, fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer',
+                  }}>
+                    {onboardingStep < 2 ? 'Next' : 'Done'}
+                  </button>
+                  <button onClick={() => {
+                    if (onboardingStep < 2) setOnboardingStep(s => s + 1)
+                    else finishOnboarding(true)
+                  }} style={{
+                    padding: '13px 18px', borderRadius: 10,
+                    background: 'transparent', color: INK3,
+                    fontFamily: SANS, fontSize: 13, border: `1px solid ${BRD}`, cursor: 'pointer',
+                  }}>
+                    Skip
+                  </button>
+                </div>
               </div>
             </>
           )}

@@ -64,7 +64,7 @@ function isRateLimited(req: NextRequest) {
 function normalizeSort(value: unknown) {
   return typeof value === 'string' && SORT_VALUES.has(value)
     ? value as 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc'
-    : 'trust_desc'
+    : 'relevance'
 }
 
 function collectProductIds(history: any[] = [], extraIds: unknown = []) {
@@ -185,6 +185,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   debug?: CatalogSearchDebug;
   /** Pre-detected brand domains from the user message — skip re-detection inside the service. */
   brandDomains?: string[];
+  tasteProfile?: string;
 }) {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
@@ -203,7 +204,8 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
       loadMore: options.loadMore,
       debug: options.debug,
     },
-    options.brandDomains || []
+    options.brandDomains || [],
+    options.tasteProfile,
   )
 
   return {
@@ -420,7 +422,7 @@ function extractSuggestions(text: string): { cleanText: string, suggestions: str
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort, userName, recentSearches } = await req.json()
+    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile } = await req.json()
     if (!message) throw new Error('No message provided')
     const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
     const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
@@ -504,6 +506,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (typeof tasteProfile === 'string' && tasteProfile.trim()) {
+      personalLines.push(`- Taste profile: ${tasteProfile.trim()}. Use this to bias search results and recommendations toward their preferred styles, sizes, and budget.`)
+    }
+
     if (personalLines.length > 0) {
       dynamicSystemPrompt += `\n\nABOUT THIS SHOPPER (personalize for them — weave taste signals in subtly, let the current request lead):\n${personalLines.join('\n')}`;
     }
@@ -537,6 +543,7 @@ export async function POST(req: NextRequest) {
         excludeIds: collectProductIds(history || []),
         fastFirstPage: true,
         brandDomains: detectedBrandDomains,
+        tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
       })
 
       const diagnostics = formatSearchDiagnostics(fallbackIntent, {
@@ -552,7 +559,7 @@ export async function POST(req: NextRequest) {
         ...result,
       })
     }
-    
+
     let products: UcpProduct[] = []
     let finalContent = aiResponse.content
     let activeSearchQuery: string | undefined = undefined
@@ -583,6 +590,7 @@ export async function POST(req: NextRequest) {
             excludeIds: collectProductIds(history || []),
             fastFirstPage: true,
             brandDomains: detectedBrandDomains,
+            tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
           })
           products = result.products
           activeBudgetCurrency = result.budgetCurrency
@@ -626,6 +634,7 @@ Mirror the language the user wrote in.`
               excludeIds: collectProductIds(history || []),
               fastFirstPage: true,
               brandDomains: detectedBrandDomains,
+              tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
             })
 
             const diagnostics = formatSearchDiagnostics(fallbackIntent, {

@@ -3,16 +3,22 @@ import Script from 'next/script'
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export const metadata: Metadata = {
-  title: 'From - Shop Independent',
+  title: 'From - Be Different',
   description: 'Search across independent stores through natural language. Describe what you need and discover unique finds from verified shops.',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions)
+
   return (
     <html lang="en">
       <head>
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
         {/* Preload TAN Meringue so it's ready before first paint — eliminates fallback flash */}
         <link rel="preload" href="/fonts/TANMeringue.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link
@@ -26,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ConvexClientProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider session={session}>{children}</AuthProvider>
         </ConvexClientProvider>
         <Script 
           src="https://s.skimresources.com/js/303928X1792065.skimlinks.js" 
