@@ -2073,27 +2073,27 @@ export default function FromApp({
       {authStatus !== 'authenticated' && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99999,
-          background: 'rgba(247,244,242,0.92)',
-          backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+          background: 'rgba(20,16,12,0.48)',
+          backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '20px',
         }}>
           <div style={{
-            background: '#fff',
-            borderRadius: 20,
-            padding: '44px 36px 36px',
-            width: '100%', maxWidth: 360,
-            boxShadow: '0 2px 40px rgba(44,18,6,0.10), 0 1px 4px rgba(44,18,6,0.06)',
+            background: '#FEFCFA',
+            borderRadius: 22,
+            padding: '44px 36px 32px',
+            width: '100%', maxWidth: 340,
+            boxShadow: '0 8px 60px rgba(0,0,0,0.22), 0 1px 0 rgba(255,255,255,0.9) inset',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
-            animation: 'fadeScale 0.38s cubic-bezier(0.34,1.36,0.64,1) forwards',
+            animation: 'fadeScale 0.42s cubic-bezier(0.34,1.36,0.64,1) forwards',
           }}>
             {/* Wordmark */}
-            <div style={{ fontFamily: SEASON, fontSize: 38, letterSpacing: '0.04em', color: INK, lineHeight: 1, marginBottom: 10 }}>
+            <div style={{ fontFamily: SEASON, fontSize: 40, letterSpacing: '0.04em', color: INK, lineHeight: 1, marginBottom: 8 }}>
               FROM
             </div>
             {/* Tagline */}
-            <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 15, color: INK3, marginBottom: 32, textAlign: 'center' }}>
-              Shop independent stores
+            <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 14.5, color: INK3, marginBottom: 30, textAlign: 'center', letterSpacing: '0.01em' }}>
+              Wear something different.
             </div>
 
             {/* Google button */}
