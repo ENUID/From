@@ -3,15 +3,14 @@ import Stripe from 'stripe'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
-const COMMUNITY_PRICE_ID = process.env.STRIPE_COMMUNITY_PRICE_ID!
-
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+  const COMMUNITY_PRICE_ID = process.env.STRIPE_COMMUNITY_PRICE_ID!
 
   try {
     const checkoutSession = await stripe.checkout.sessions.create({

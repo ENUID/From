@@ -5,9 +5,6 @@ import { api } from '@/convex/_generated/api'
 
 export const runtime = 'nodejs'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
-
 function getPeriodEnd(sub: any): number {
   // Field name changed across Stripe API versions; fall back to 30 days from now
   const ts: number =
@@ -18,6 +15,9 @@ function getPeriodEnd(sub: any): number {
 }
 
 export async function POST(req: NextRequest) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
+
   const body = await req.text()
   const sig = req.headers.get('stripe-signature')
   if (!sig) return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
