@@ -1051,38 +1051,8 @@ export default function FromApp({
     deleteHistoryEntry, renameHistoryEntry,
   } = useFromChat(initialShopperContext, initialRates)
 
-  // ── Auth gate ────────────────────────────────────────────────────────────────
+  // ── Auth (optional — profile view only) ─────────────────────────────────────
   const { status: authStatus, data: session } = useSession()
-  const [signingIn, setSigningIn] = useState(false)
-  const [gateVisible, setGateVisible] = useState(false)
-
-  // Helpers — store sign-in flag in both cookie (survives ITP) and localStorage
-  function markAuthed() {
-    try { localStorage.setItem('from_authed', '1') } catch {}
-    try {
-      const exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString()
-      document.cookie = `from_authed=1; expires=${exp}; path=/; SameSite=Lax`
-    } catch {}
-  }
-  function clearAuthed() {
-    try { localStorage.removeItem('from_authed') } catch {}
-    try { document.cookie = 'from_authed=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/' } catch {}
-  }
-  function hasAuthed() {
-    try { if (localStorage.getItem('from_authed') === '1') return true } catch {}
-    try { if (document.cookie.split(';').some(c => c.trim().startsWith('from_authed=1'))) return true } catch {}
-    return false
-  }
-
-  useEffect(() => {
-    if (authStatus === 'authenticated') {
-      markAuthed()
-      setGateVisible(false)
-    } else if (authStatus === 'unauthenticated') {
-      if (!hasAuthed()) setGateVisible(true)
-    }
-    // leave 'loading' unchanged — don't flicker
-  }, [authStatus])
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState(() => {
@@ -2101,143 +2071,6 @@ export default function FromApp({
       <input ref={cameraRef}   type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleFile} />
       <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
 
-      {/* ── Forced login gate ──────────────────────────────────────────────── */}
-      {gateVisible && (() => {
-        const mobile = windowWidth > 0 && windowWidth < 640
-        const googleBtn = (
-          <button
-            type="button"
-            disabled={signingIn}
-            onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: window.location.origin + '/' }) }}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              padding: '13px 20px', borderRadius: 100,
-              background: 'rgba(255,255,255,0.82)',
-              border: '1px solid rgba(44,18,6,0.10)',
-              boxShadow: '0 4px 16px rgba(44,18,6,.08), 0 1px 4px rgba(44,18,6,.05), inset 0 1px 0 rgba(255,255,255,.98)',
-              fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, letterSpacing: '0.01em',
-              cursor: signingIn ? 'default' : 'pointer',
-              opacity: signingIn ? 0.6 : 1,
-              transition: 'box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
-            }}
-            onMouseEnter={e => { if (!signingIn) (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 28px rgba(44,18,6,.12), 0 2px 8px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.98)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(44,18,6,.08), 0 1px 4px rgba(44,18,6,.05), inset 0 1px 0 rgba(255,255,255,.98)' }}
-            onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)' }}
-            onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = '' }}
-          >
-            {signingIn ? (
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2.2" strokeLinecap="round" style={{ animation: 'spin 0.75s linear infinite', flexShrink: 0 }}>
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
-                <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-                <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
-                <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
-                <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
-              </svg>
-            )}
-            {signingIn ? 'Signing in…' : 'Continue with Google'}
-          </button>
-        )
-
-        const footer = (
-          <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', lineHeight: 1.6, letterSpacing: '0.01em' }}>
-            By continuing you agree to our Terms &amp; Privacy Policy
-          </div>
-        )
-
-        const CARD_BG  = 'rgba(255,255,255,0.92)'
-        const CARD_SHD = '0 8px 32px rgba(44,18,6,.10), 0 2px 8px rgba(44,18,6,.06), inset 0 1.5px 0 rgba(255,255,255,.98), inset 0 -0.5px 0 rgba(44,18,6,.04)'
-
-        if (mobile) {
-          /* ── Mobile: bottom sheet slides up ── */
-          return (
-            <div style={{
-              position: 'fixed', inset: 0, zIndex: 99999,
-              background: 'rgba(10,7,5,0.38)',
-              backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
-              display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-            }}>
-              <div style={{
-                background: CARD_BG,
-                borderRadius: '24px 24px 0 0',
-                boxShadow: CARD_SHD,
-                padding: '12px 28px max(40px,env(safe-area-inset-bottom,20px))',
-                animation: 'sheetUp 0.38s cubic-bezier(0.32,0.72,0,1) forwards',
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-              }}>
-                {/* Drag handle */}
-                <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(44,18,6,0.15)', marginBottom: 32 }} />
-
-                {/* Wordmark */}
-                <div style={{ fontFamily: SEASON, fontSize: 28, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 18 }}>
-                  FROM
-                </div>
-
-                {/* Heading */}
-                <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 400, color: INK, marginBottom: 8, letterSpacing: '-0.02em', lineHeight: 1.25, textAlign: 'center' }}>
-                  Dress like no one else.
-                </div>
-
-                {/* Subtitle */}
-                <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 28, letterSpacing: '0.01em', textAlign: 'center', lineHeight: 1.5 }}>
-                  Brands the world hasn't caught up to yet.
-                </div>
-
-                {/* Google button */}
-                <div style={{ width: '100%', marginBottom: 20 }}>{googleBtn}</div>
-
-                {footer}
-              </div>
-            </div>
-          )
-        }
-
-        /* ── Desktop: centered card ── */
-        return (
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 99999,
-            background: 'rgba(10,7,5,0.38)',
-            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 16,
-          }}>
-            <div style={{
-              background: CARD_BG,
-              borderRadius: 24,
-              width: '100%', maxWidth: 360,
-              padding: '44px 36px 36px',
-              boxShadow: CARD_SHD,
-              animation: 'fadeScale 0.28s cubic-bezier(0.34,1.2,0.64,1) forwards',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
-            }}>
-              {/* Wordmark */}
-              <div style={{ fontFamily: SEASON, fontSize: 34, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 20 }}>
-                FROM
-              </div>
-
-              {/* Heading */}
-              <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 400, color: INK, marginBottom: 8, letterSpacing: '-0.02em', lineHeight: 1.25, textAlign: 'center' }}>
-                Dress like no one else.
-              </div>
-
-              {/* Subtitle */}
-              <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 32, letterSpacing: '0.01em', textAlign: 'center', lineHeight: 1.5 }}>
-                Brands the world hasn't caught up to yet.
-              </div>
-
-              {/* Thin rule */}
-              <div style={{ width: '100%', height: 1, background: 'rgba(44,18,6,0.07)', marginBottom: 28 }} />
-
-              {/* Google button */}
-              <div style={{ width: '100%', marginBottom: 22 }}>{googleBtn}</div>
-
-              {footer}
-            </div>
-          </div>
-        )
-      })()}
 
       <div className="fr-wrap">
         <div className="fr-shell">
@@ -2371,55 +2204,86 @@ export default function FromApp({
               {sidebarView === 'profile' ? (
                 <div style={{ padding: '32px 16px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-                  {/* Avatar */}
-                  <div style={{
-                    width: 80, height: 80, borderRadius: '50%', overflow: 'hidden',
-                    background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: 16, flexShrink: 0,
-                  }}>
-                    {session?.user?.image ? (
-                      <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ fontFamily: SANS, fontSize: 28, fontWeight: 500, color: '#fff' }}>
-                        {(session?.user?.name || userName || '?').charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
+                  {authStatus === 'authenticated' ? (<>
+                    {/* Avatar */}
+                    <div style={{
+                      width: 80, height: 80, borderRadius: '50%', overflow: 'hidden',
+                      background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: 16, flexShrink: 0,
+                    }}>
+                      {session?.user?.image ? (
+                        <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontFamily: SANS, fontSize: 28, fontWeight: 500, color: '#fff' }}>
+                          {(session?.user?.name || userName || '?').charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Name */}
-                  <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK, marginBottom: 4, textAlign: 'center', letterSpacing: '-0.01em' }}>
-                    {session?.user?.name || userName || 'Your account'}
-                  </div>
+                    {/* Name */}
+                    <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK, marginBottom: 4, textAlign: 'center', letterSpacing: '-0.01em' }}>
+                      {session?.user?.name || userName || 'Your account'}
+                    </div>
 
-                  {/* Email */}
-                  <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 28 }}>
-                    {session?.user?.email || ''}
-                  </div>
+                    {/* Email */}
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 28 }}>
+                      {session?.user?.email || ''}
+                    </div>
 
-                  {/* Divider */}
-                  <div style={{ width: '100%', height: 1, background: 'rgba(44,18,6,0.07)', marginBottom: 16 }} />
+                    {/* Divider */}
+                    <div style={{ width: '100%', height: 1, background: 'rgba(44,18,6,0.07)', marginBottom: 16 }} />
 
-                  {/* Sign out */}
-                  <button
-                    type="button"
-                    onClick={() => { clearAuthed(); signOut({ callbackUrl: window.location.origin + '/' }) }}
-                    style={{
-                      width: '100%', padding: '11px 16px', borderRadius: 10,
-                      background: 'transparent', border: 'none',
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK3,
-                      cursor: 'pointer', transition: 'background 0.12s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.05)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                      <polyline points="16 17 21 12 16 7"/>
-                      <line x1="21" y1="12" x2="9" y2="12"/>
-                    </svg>
-                    Sign out
-                  </button>
+                    {/* Sign out */}
+                    <button
+                      type="button"
+                      onClick={() => signOut({ callbackUrl: window.location.origin + '/' })}
+                      style={{
+                        width: '100%', padding: '11px 16px', borderRadius: 10,
+                        background: 'transparent', border: 'none',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK3,
+                        cursor: 'pointer', transition: 'background 0.12s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.05)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                      </svg>
+                      Sign out
+                    </button>
+                  </>) : (<>
+                    {/* Not signed in */}
+                    <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK, marginBottom: 6, textAlign: 'center' }}>
+                      Sign in
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 28, lineHeight: 1.5 }}>
+                      Save your searches and bag items across devices.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => signIn('google', { callbackUrl: window.location.origin + '/' })}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+                        padding: '11px 16px', borderRadius: 10,
+                        background: 'rgba(44,18,6,0.04)', border: '1px solid rgba(44,18,6,0.08)',
+                        fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK,
+                        cursor: 'pointer', transition: 'background 0.12s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.08)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.04)')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
+                        <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                        <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                        <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
+                        <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
+                      </svg>
+                      Continue with Google
+                    </button>
+                  </>)}
 
                 </div>
               ) : sidebarView === 'fabrics' ? (
