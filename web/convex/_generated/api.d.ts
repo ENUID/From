@@ -10,6 +10,7 @@
 
 import type * as shop from "../shop.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as tasteProfile from "../tasteProfile.js";
 import type * as users from "../users.js";
 
 import type {
@@ -21,6 +22,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   shop: typeof shop;
   subscriptions: typeof subscriptions;
+  tasteProfile: typeof tasteProfile;
   users: typeof users;
 }>;
 
