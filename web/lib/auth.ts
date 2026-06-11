@@ -13,37 +13,6 @@ function getConvex() {
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30
 
-function getCookieDomain() {
-  const explicit = process.env.NEXTAUTH_COOKIE_DOMAIN?.trim()
-  if (explicit) return explicit
-
-  const baseUrl = process.env.NEXTAUTH_URL?.trim()
-  if (!baseUrl) return undefined
-
-  try {
-    const hostname = new URL(baseUrl).hostname
-    if (
-      hostname === 'localhost' ||
-      /^\d+\.\d+\.\d+\.\d+$/.test(hostname) ||
-      hostname.endsWith('.vercel.app')
-    ) {
-      return undefined
-    }
-
-    const parts = hostname.split('.')
-    if (parts.length < 2) return undefined
-    return `.${parts.slice(-2).join('.')}`
-  } catch {
-    return undefined
-  }
-}
-
-const cookieDomain = getCookieDomain()
-
-function getSafeDefaultRedirect(baseUrl: string) {
-  return `${baseUrl}/`
-}
-
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -56,31 +25,15 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Please enter email and password')
         }
-
         try {
           const convex = getConvex()
           const user = await convex.query(api.users.getUserByEmail, {
             email: credentials.email.toLowerCase().trim(),
           }) as any
-
-          if (!user) {
-            throw new Error('No account found with this email')
-          }
-
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password,
-            user.passwordHash
-          )
-
-          if (!isPasswordValid) {
-            throw new Error('Invalid password')
-          }
-
-          return {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-          }
+          if (!user) throw new Error('No account found with this email')
+          const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash)
+          if (!isPasswordValid) throw new Error('Invalid password')
+          return { id: user._id, name: user.name, email: user.email }
         } catch (err: any) {
           throw new Error(err.message || 'Authentication failed')
         }
@@ -119,8 +72,8 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async signIn({ user, account, profile }) {
-      if (user && user.email) {
+    async signIn({ user }) {
+      if (user?.email) {
         try {
           const convex = getConvex()
           await convex.mutation(api.users.ensureUser, {
@@ -135,65 +88,21 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id ?? token.id ?? token.sub
-      }
+      if (user) token.id = user.id ?? token.id ?? token.sub
       return token
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = (token.id ?? token.sub) as string
-      }
+      if (session.user) session.user.id = (token.id ?? token.sub) as string
       return session
     },
     async redirect({ url, baseUrl }) {
-      // Allow redirect to any enuid.com subdomain (covers from.enuid.com, etc.)
-      if (url.startsWith(baseUrl)) return url
       if (url.startsWith('/')) return `${baseUrl}${url}`
+      if (url.startsWith(baseUrl)) return url
       try {
-        const u = new URL(url)
-        if (u.hostname === 'from.enuid.com' || u.hostname.endsWith('.enuid.com')) return url
+        const { hostname } = new URL(url)
+        if (hostname === 'from.enuid.com' || hostname.endsWith('.enuid.com')) return url
       } catch {}
-      return getSafeDefaultRedirect(baseUrl)
-    },
-  },
-
-  cookies: {
-    sessionToken: {
-      name: process.env.NODE_ENV === 'production'
-        ? '__Secure-from.session-token'
-        : 'from.session-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        domain: cookieDomain,
-      },
-    },
-    callbackUrl: {
-      name: process.env.NODE_ENV === 'production'
-        ? '__Secure-from.callback-url'
-        : 'from.callback-url',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        domain: cookieDomain,
-      },
-    },
-    csrfToken: {
-      name: process.env.NODE_ENV === 'production'
-        ? '__Secure-from.csrf-token'
-        : 'from.csrf-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        domain: cookieDomain,
-      },
+      return `${baseUrl}/`
     },
   },
 
