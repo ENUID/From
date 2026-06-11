@@ -14,10 +14,6 @@ export const metadata: Metadata = {
     title: 'From',
   },
   formatDetection: { telephone: false },
-  icons: {
-    icon: '/icon.png',
-    apple: '/icon.png',
-  },
 }
 
 // Mobile-correct viewport: fill the screen edge-to-edge on notched devices
@@ -37,6 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
         {/* Preload TAN Meringue so it's ready before first paint — eliminates fallback flash */}
         <link rel="preload" href="/fonts/TANMeringue.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link
