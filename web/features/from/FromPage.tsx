@@ -2527,19 +2527,6 @@ export default function FromApp({
               </div>
             )}
 
-            {/* Skeleton grid while initial search is loading */}
-            {loading && (hasConversation || showExplore) && (
-              <div className="fr-grid">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="fr-cell" style={{ background: '#e8e4de', overflow: 'hidden' }}>
-                    <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
-                      background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
-                      animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
-                  </div>
-                ))}
-              </div>
-            )}
-
             {/* Product grid */}
             {(hasConversation || showExplore) && !loading && searchProducts.length > 0 && (
               <>
