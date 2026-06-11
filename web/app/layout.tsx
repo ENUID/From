@@ -6,7 +6,7 @@ import AuthProvider from '@/components/AuthProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider'
 
 export const metadata: Metadata = {
-  title: 'From - Shop Independent',
+  title: 'From - Be Different',
   description: 'Search across independent stores through natural language. Describe what you need and discover unique finds from verified shops.',
   appleWebApp: {
     capable: true,
@@ -14,6 +14,10 @@ export const metadata: Metadata = {
     title: 'From',
   },
   formatDetection: { telephone: false },
+  icons: {
+    icon: '/icon.png',
+    apple: '/icon.png',
+  },
 }
 
 // Mobile-correct viewport: fill the screen edge-to-edge on notched devices
