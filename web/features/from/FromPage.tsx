@@ -1083,6 +1083,7 @@ export default function FromApp({
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
+  const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
@@ -1681,15 +1682,16 @@ export default function FromApp({
     const w = 460, h = 760
     const left = Math.round(window.screenX + Math.max(0, (window.outerWidth - w) / 2))
     const top  = Math.round(window.screenY + Math.max(0, (window.outerHeight - h) / 2))
-    // Unique name per click — avoids tab-reuse; NOT '_blank' (that keyword makes
-    // browsers ignore the features string and always open a regular tab).
-    const win = window.open(
-      url,
-      `co_${Date.now()}`,
-      `width=${w},height=${h},left=${left},top=${top},popup=yes,toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes`
-    )
-    if (win) win.focus()
-    else window.open(url, '_blank', 'noopener,noreferrer')
+    // Empty string name = new unnamed window every click (not '_blank' which ignores features).
+    // Minimal features: popup=yes + dimensions is all modern browsers need.
+    const win = window.open(url, '', `popup=yes,width=${w},height=${h},left=${left},top=${top}`)
+    if (win) {
+      win.focus()
+    } else {
+      // Popup was blocked — store URL so the toast can offer a fallback link.
+      setPopupBlockedUrl(url)
+      setTimeout(() => setPopupBlockedUrl(null), 8000)
+    }
   }
   // Link straight to this product's own page so the shopper lands on the exact
   // item (where the brand's own size guide / fit info lives), not a generic page.
@@ -3348,6 +3350,27 @@ export default function FromApp({
             </div>
           )}
 
+          {/* ── Popup-blocked toast ── */}
+          {popupBlockedUrl && (
+            <div style={{ position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+              background: INK, color: '#fff', borderRadius: 16,
+              padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 12,
+              fontFamily: SANS, fontSize: 13, fontWeight: 400, letterSpacing: '.01em',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.28)', maxWidth: 'calc(100vw - 40px)',
+              animation: 'toastIn 0.42s cubic-bezier(0.34,1.36,0.64,1) forwards',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .7, flexShrink: 0 }}>
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/>
+              </svg>
+              <span>Popup blocked — allow popups for this site in your browser, then try again.</span>
+              <a href={popupBlockedUrl} target="_blank" rel="noopener noreferrer"
+                onClick={() => setPopupBlockedUrl(null)}
+                style={{ color: '#aed6b8', whiteSpace: 'nowrap', textDecoration: 'underline', fontWeight: 500 }}>
+                Open in tab
+              </a>
+            </div>
+          )}
+
           {/* ── Bag item long-press menu — Ask stylist + Remove ── */}
           {bagCtxMenu && (
             <>
@@ -3631,12 +3654,11 @@ export default function FromApp({
                       )}
 
                       <div style={{ padding: '16px 24px 0' }}>
-                        <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                          target="_blank" rel="noopener noreferrer"
+                        <button type="button"
                           className={`fr-add${sheetSizes.length > 0 && !selectedSize ? ' warn' : ''}`}
-                          onClick={e => { e.preventDefault(); if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
+                          onClick={() => { if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
                           {sheetSizes.length > 0 && !selectedSize ? 'Select a size' : 'Checkout'}
-                        </a>
+                        </button>
                       </div>
 
                       <div style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -3860,12 +3882,11 @@ export default function FromApp({
                     )}
 
                     <div style={{ padding: "16px 20px 0" }}>
-                      <a href={sheetSizes.length > 0 && !selectedSize ? undefined : checkoutUrl}
-                        target="_blank" rel="noopener noreferrer"
+                      <button type="button"
                         className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
-                        onClick={e => { e.preventDefault(); if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
+                        onClick={() => { if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
                         {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Checkout"}
-                      </a>
+                      </button>
                     </div>
 
                     <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
