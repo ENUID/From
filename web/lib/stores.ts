@@ -2089,6 +2089,291 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "priceRange": "luxury",
     "items": ["kurta set", "saree", "co-ord set", "dress", "dupatta", "accessory"],
     "about": "Indian luxury designer — bold prints, modern ethnic fusion, Masaba Gupta's iconic aesthetic"
+  },
+  // ── Apparel ────────────────────────────────────────────────────────────────
+  {
+    "domain": "perryellis.com",
+    "name": "Perry Ellis",
+    "categories": ["top", "bottom", "outerwear", "dress", "accessory"],
+    "vibe": ["formal", "casual", "minimalist", "preppy"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["polo", "dress shirt", "suit", "chino", "blazer", "tee", "dress"],
+    "about": "American heritage brand — classic polos, tailored suits, smart casual staples since 1980"
+  },
+  {
+    "domain": "forever21.com",
+    "name": "Forever 21",
+    "categories": ["top", "bottom", "dress", "outerwear", "swimwear", "accessory"],
+    "vibe": ["casual", "bodycon", "streetwear"],
+    "gender": ["women", "men"],
+    "priceRange": "budget",
+    "items": ["mini dress", "bodycon dress", "crop top", "jeans", "hoodie", "co-ord set", "swimsuit", "jumpsuit"],
+    "about": "Fast fashion trendsetter — affordable on-trend pieces, trend-first design"
+  },
+  {
+    "domain": "untuckit.com",
+    "name": "UNTUCKit",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "formal", "coastal"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["untucked shirt", "dress shirt", "casual shirt", "flannel", "polo", "chino", "linen shirt"],
+    "about": "Shirts engineered to be worn untucked — precisely hemmed, wrinkle-free"
+  },
+  {
+    "domain": "everlane.com",
+    "name": "Everlane",
+    "categories": ["top", "bottom", "outerwear", "footwear", "accessory"],
+    "vibe": ["minimalist", "organic", "sustainable", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["tee", "chino", "linen shirt", "trouser", "knitwear", "denim", "sneaker", "loafer"],
+    "about": "Radical price transparency — ethical factories, sustainable basics, zero-markup pricing"
+  },
+  {
+    "domain": "statelymen.com",
+    "name": "Stately Men",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["formal", "casual", "old-money", "preppy"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["sport coat", "dress shirt", "chino", "sweater", "blazer", "trouser"],
+    "about": "Men's personal styling brand — curated dress-casual and smart-casual pieces"
+  },
+  {
+    "domain": "amedoree.com",
+    "name": "Amedoree",
+    "categories": ["top", "bottom", "dress", "outerwear"],
+    "vibe": ["sustainable", "organic", "minimalist"],
+    "gender": ["women"],
+    "priceRange": "premium"
+  },
+  {
+    "domain": "riverstone-wear.com",
+    "name": "River Stone Wear",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["outdoor", "casual", "heritage-workwear"]
+  },
+  {
+    "domain": "johnhyattclothing.com",
+    "name": "John Hyatt",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "formal"]
+  },
+  // ── Footwear ───────────────────────────────────────────────────────────────
+  {
+    "domain": "thursdayboots.com",
+    "name": "Thursday Boots",
+    "categories": ["footwear"],
+    "vibe": ["heritage-workwear", "casual", "formal", "old-money"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["chelsea boot", "chukka boot", "dress shoe", "oxford", "work boot", "loafer"],
+    "about": "Direct-to-consumer leather boots — premium craftsmanship at honest prices"
+  },
+  {
+    "domain": "rothys.com",
+    "name": "Rothy's",
+    "categories": ["footwear", "accessory"],
+    "vibe": ["sustainable", "minimalist", "casual"],
+    "gender": ["women", "unisex"],
+    "priceRange": "mid",
+    "items": ["flat shoe", "loafer", "sneaker", "boot", "bag"],
+    "about": "Sustainable flats and bags from recycled plastic bottles — washable, flexible fit"
+  },
+  {
+    "domain": "merrell.com",
+    "name": "Merrell",
+    "categories": ["footwear", "top", "bottom", "accessory"],
+    "vibe": ["outdoor", "active", "gorpcore", "casual"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "mid",
+    "items": ["hiking boot", "trail runner", "sandal", "moccasin", "hiking pant"],
+    "about": "Performance outdoor footwear — built for trails, hiking, and every-terrain adventure"
+  },
+  // ── Surf / Beach ───────────────────────────────────────────────────────────
+  {
+    "domain": "ripcurl.com",
+    "name": "Rip Curl",
+    "categories": ["top", "bottom", "outerwear", "swimwear", "accessory"],
+    "vibe": ["coastal", "resort", "active", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["board shorts", "surf shirt", "wetsuit", "bikini", "tee", "hoodie", "cap"],
+    "about": "Australian surf brand — technical surfwear and beach lifestyle gear since 1969"
+  },
+  {
+    "domain": "quiksilver.com",
+    "name": "Quiksilver",
+    "categories": ["top", "bottom", "outerwear", "swimwear", "accessory"],
+    "vibe": ["coastal", "streetwear", "casual", "active"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["board shorts", "tee", "hoodie", "walkshort", "fleece", "wetsuit"],
+    "about": "Iconic surf and skate brand — ocean-inspired casual wear and technical surfwear"
+  },
+  {
+    "domain": "billabong.com",
+    "name": "Billabong",
+    "categories": ["top", "bottom", "outerwear", "swimwear", "dress", "accessory"],
+    "vibe": ["coastal", "resort", "casual", "bohemian"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["board shorts", "bikini", "tee", "sundress", "hoodie", "rash guard", "shorts"],
+    "about": "Australian surf and beach lifestyle brand — from the barrel to the boardwalk"
+  },
+  // ── Outdoor & Technical ────────────────────────────────────────────────────
+  {
+    "domain": "patagonia.com",
+    "name": "Patagonia",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["outdoor", "gorpcore", "sustainable", "heritage-workwear", "casual"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "premium",
+    "items": ["fleece jacket", "down jacket", "baggies shorts", "base layer", "tee", "vest", "softshell", "flannel"],
+    "about": "The original sustainable outdoor brand — environmental activism, iconic fleece, lifetime repair"
+  },
+  {
+    "domain": "thenorthface.com",
+    "name": "The North Face",
+    "categories": ["top", "bottom", "outerwear", "footwear", "accessory"],
+    "vibe": ["outdoor", "gorpcore", "streetwear", "casual"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "premium",
+    "items": ["puffer jacket", "fleece", "softshell", "base layer", "hiking boot", "tee", "cargo pant"],
+    "about": "Performance outdoor brand gone streetwear icon — technical layering and the Nuptse puffer"
+  },
+  {
+    "domain": "columbia.com",
+    "name": "Columbia Sportswear",
+    "categories": ["top", "bottom", "outerwear", "footwear", "accessory"],
+    "vibe": ["outdoor", "active", "casual"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "mid",
+    "items": ["rain jacket", "fleece", "hiking pant", "hiking short", "tee", "hiking boot", "thermal"],
+    "about": "Pacific Northwest performance brand — waterproof, thermal, trail-ready at accessible prices"
+  },
+  {
+    "domain": "arcteryx.com",
+    "name": "Arc'teryx",
+    "categories": ["top", "bottom", "outerwear", "footwear", "accessory"],
+    "vibe": ["gorpcore", "outdoor", "luxury", "minimalist", "techwear"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "luxury",
+    "items": ["Gore-Tex shell", "softshell jacket", "fleece", "base layer", "hiking boot", "alpine pant"],
+    "about": "Vancouver technical outdoor luxury — the pinnacle of Gore-Tex shells and alpine performance"
+  },
+  {
+    "domain": "salomon.com",
+    "name": "Salomon",
+    "categories": ["footwear", "top", "bottom", "outerwear", "accessory"],
+    "vibe": ["gorpcore", "outdoor", "active", "techwear"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "premium",
+    "items": ["trail running shoe", "hiking boot", "trail pant", "softshell jacket", "hiking short", "cap"],
+    "about": "French mountain sports brand — trail running shoes beloved by gorpcore, technical mountain gear"
+  },
+  {
+    "domain": "underarmour.com",
+    "name": "Under Armour",
+    "categories": ["top", "bottom", "outerwear", "footwear", "underwear", "accessory"],
+    "vibe": ["workout", "sport", "active", "casual"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "mid",
+    "items": ["compression shirt", "training short", "legging", "hoodie", "sneaker", "sports bra", "tracksuit"],
+    "about": "American performance apparel — moisture-wicking compression engineered for athletes"
+  },
+  // ── Jewellery ──────────────────────────────────────────────────────────────
+  {
+    "domain": "mejuri.com",
+    "name": "Mejuri",
+    "categories": ["jewellery", "accessory"],
+    "vibe": ["minimalist", "quiet-luxury", "sustainable"],
+    "gender": ["women", "unisex"],
+    "priceRange": "premium",
+    "items": ["gold necklace", "hoop earrings", "stud earrings", "bracelet", "ring", "anklet", "pendant"],
+    "about": "Fine jewellery direct-to-consumer — minimalist gold and diamond for everyday wear"
+  },
+  {
+    "domain": "kendrascott.com",
+    "name": "Kendra Scott",
+    "categories": ["jewellery", "accessory"],
+    "vibe": ["casual", "bohemian", "coastal", "maximalist"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["necklace", "earrings", "bracelet", "ring", "pendant", "charm"],
+    "about": "Texas-born jewellery brand — colourful semi-precious stones, everyday fashion jewellery"
+  },
+  {
+    "domain": "pandora.net",
+    "name": "Pandora",
+    "categories": ["jewellery", "accessory"],
+    "vibe": ["casual", "romantic", "maximalist"],
+    "gender": ["women", "unisex"],
+    "priceRange": "mid",
+    "items": ["charm bracelet", "ring", "necklace", "earrings", "pendant", "charm"],
+    "about": "Danish jewellery brand — iconic charm bracelets, affordable fine jewellery"
+  },
+  {
+    "domain": "swarovski.com",
+    "name": "Swarovski",
+    "categories": ["jewellery", "accessory"],
+    "vibe": ["maximalist", "luxury", "romantic"],
+    "gender": ["women", "unisex"],
+    "priceRange": "premium",
+    "items": ["crystal necklace", "crystal earrings", "bracelet", "ring", "pendant"],
+    "about": "Austrian crystal jewellery — precision-cut crystals from everyday sparkle to red carpet"
+  },
+  {
+    "domain": "brilliantearth.com",
+    "name": "Brilliant Earth",
+    "categories": ["jewellery", "accessory"],
+    "vibe": ["minimalist", "sustainable", "quiet-luxury"],
+    "gender": ["women", "unisex"],
+    "priceRange": "luxury",
+    "items": ["diamond ring", "engagement ring", "necklace", "earrings", "bracelet", "wedding band"],
+    "about": "Ethical fine jewellery — conflict-free diamonds, recycled gold, lab-grown stones"
+  },
+  {
+    "domain": "davidyurman.com",
+    "name": "David Yurman",
+    "categories": ["jewellery", "accessory"],
+    "vibe": ["luxury", "artistic", "old-money"],
+    "gender": ["women", "men"],
+    "priceRange": "luxury",
+    "items": ["cable bracelet", "ring", "necklace", "earrings", "cuff", "pendant"],
+    "about": "NYC luxury jewellery — iconic cable motif, sculptor-designed pieces since 1980"
+  },
+  {
+    "domain": "tiffany.com",
+    "name": "Tiffany & Co.",
+    "categories": ["jewellery", "accessory"],
+    "vibe": ["luxury", "quiet-luxury", "old-money", "romantic"],
+    "gender": ["women", "men", "unisex"],
+    "priceRange": "luxury",
+    "items": ["diamond necklace", "engagement ring", "charm bracelet", "cuff", "earrings", "pendant"],
+    "about": "Iconic American luxury jeweller — the blue box, diamond engagement rings, everyday luxury"
+  },
+  {
+    "domain": "cartier.com",
+    "name": "Cartier",
+    "categories": ["jewellery", "accessory"],
+    "vibe": ["luxury", "quiet-luxury", "old-money"],
+    "gender": ["women", "men", "unisex"],
+    "priceRange": "luxury",
+    "items": ["love bracelet", "ring", "necklace", "panthère earrings", "cuff"],
+    "about": "French luxury maison — iconic Love bracelet, Panthère de Cartier, heirloom-grade pieces"
+  },
+  // ── Regional ───────────────────────────────────────────────────────────────
+  {
+    "domain": "namshi.com",
+    "name": "Namshi",
+    "categories": ["top", "bottom", "dress", "outerwear", "footwear", "accessory"],
+    "vibe": ["casual", "formal", "streetwear"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "about": "Middle East's leading fashion platform — multi-brand e-commerce for the MENA region"
   }
 ];
 
