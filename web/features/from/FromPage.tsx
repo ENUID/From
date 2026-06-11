@@ -1054,12 +1054,18 @@ export default function FromApp({
   // ── Auth gate ────────────────────────────────────────────────────────────────
   const { status: authStatus, data: session } = useSession()
   const [signingIn, setSigningIn] = useState(false)
-  // Latch: once gate opens it stays open until 'authenticated' — prevents flicker
-  // caused by loading→unauthenticated→loading→authenticated transitions on mobile.
   const [gateVisible, setGateVisible] = useState(false)
   useEffect(() => {
-    if (authStatus === 'unauthenticated') setGateVisible(true)
-    else if (authStatus === 'authenticated') setGateVisible(false)
+    if (authStatus === 'authenticated') {
+      // User is signed in — persist flag so the gate never re-fires in this browser
+      try { localStorage.setItem('from_authed', '1') } catch {}
+      setGateVisible(false)
+    } else if (authStatus === 'unauthenticated') {
+      // Only show gate if they have never authenticated in this browser
+      let hasAuthed = false
+      try { hasAuthed = localStorage.getItem('from_authed') === '1' } catch {}
+      if (!hasAuthed) setGateVisible(true)
+    }
     // leave 'loading' unchanged — don't flicker
   }, [authStatus])
 
@@ -2381,7 +2387,7 @@ export default function FromApp({
                   {/* Sign out */}
                   <button
                     type="button"
-                    onClick={() => signOut({ callbackUrl: window.location.origin + '/' })}
+                    onClick={() => { try { localStorage.removeItem('from_authed') } catch {}; signOut({ callbackUrl: window.location.origin + '/' }) }}
                     style={{
                       width: '100%', padding: '11px 16px', borderRadius: 10,
                       background: 'transparent', border: 'none',
