@@ -1054,21 +1054,6 @@ export default function FromApp({
   // ── Auth gate ────────────────────────────────────────────────────────────────
   const { status: authStatus } = useSession()
   const [signingIn, setSigningIn] = useState(false)
-  const [glassLight, setGlassLight] = useState({ x: 35, y: 28 })
-  const glassCardRef = useRef<HTMLDivElement>(null)
-  const updateGlassLight = (clientX: number, clientY: number) => {
-    const card = glassCardRef.current
-    if (!card) return
-    const r = card.getBoundingClientRect()
-    setGlassLight({
-      x: Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)),
-      y: Math.max(0, Math.min(100, ((clientY - r.top) / r.height) * 100)),
-    })
-  }
-  const handleGlassMove  = (e: React.MouseEvent<HTMLDivElement>)  => updateGlassLight(e.clientX, e.clientY)
-  const handleGlassTouch = (e: React.TouchEvent<HTMLDivElement>) => {
-    const t = e.touches[0]; if (t) updateGlassLight(t.clientX, t.clientY)
-  }
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState(() => {
@@ -2087,150 +2072,139 @@ export default function FromApp({
       <input ref={cameraRef}   type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleFile} />
       <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
 
-      {/* ── Forced login gate — liquid glass ──────────────────────────────── */}
-      {authStatus === 'unauthenticated' && (
-        <div
-          onMouseMove={handleGlassMove}
-          onTouchMove={handleGlassTouch}
-          style={{
+      {/* ── Forced login gate ──────────────────────────────────────────────── */}
+      {authStatus === 'unauthenticated' && (() => {
+        const mobile = windowWidth > 0 && windowWidth < 640
+        const googleBtn = (
+          <button
+            type="button"
+            disabled={signingIn}
+            onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: '/' }) }}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              padding: '13px 20px', borderRadius: 100,
+              background: '#FFFFFF',
+              border: '1px solid rgba(44,18,6,0.14)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)',
+              fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, letterSpacing: '0.01em',
+              cursor: signingIn ? 'default' : 'pointer',
+              opacity: signingIn ? 0.6 : 1,
+              transition: 'box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
+            }}
+            onMouseEnter={e => { if (!signingIn) (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.08)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)' }}
+            onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)' }}
+            onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = '' }}
+          >
+            {signingIn ? (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2.2" strokeLinecap="round" style={{ animation: 'spin 0.75s linear infinite', flexShrink: 0 }}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
+                <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
+                <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
+              </svg>
+            )}
+            {signingIn ? 'Signing in…' : 'Continue with Google'}
+          </button>
+        )
+
+        const footer = (
+          <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', lineHeight: 1.6, letterSpacing: '0.01em' }}>
+            By continuing you agree to our Terms &amp; Privacy Policy
+          </div>
+        )
+
+        if (mobile) {
+          /* ── Mobile: bottom sheet slides up ── */
+          return (
+            <div style={{
+              position: 'fixed', inset: 0, zIndex: 99999,
+              background: 'rgba(10,7,5,0.45)',
+              backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+              display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+            }}>
+              <div style={{
+                background: '#F7F4F2',
+                borderRadius: '24px 24px 0 0',
+                padding: '12px 28px 40px',
+                animation: 'sheetUp 0.38s cubic-bezier(0.32,0.72,0,1) forwards',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
+              }}>
+                {/* Drag handle */}
+                <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(44,18,6,0.15)', marginBottom: 28 }} />
+
+                {/* Wordmark */}
+                <div style={{ fontFamily: SEASON, fontSize: 26, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 20 }}>
+                  FROM
+                </div>
+
+                {/* Heading */}
+                <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 400, color: INK, marginBottom: 6, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                  Welcome back
+                </div>
+
+                {/* Subtitle */}
+                <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 28, letterSpacing: '0.01em' }}>
+                  Sign in to continue shopping
+                </div>
+
+                {/* Google button */}
+                <div style={{ width: '100%', marginBottom: 20 }}>{googleBtn}</div>
+
+                {footer}
+              </div>
+            </div>
+          )
+        }
+
+        /* ── Desktop: centered card ── */
+        return (
+          <div style={{
             position: 'fixed', inset: 0, zIndex: 99999,
-            background: 'rgba(14,10,8,0.40)',
+            background: 'rgba(10,7,5,0.45)',
             backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '16px',
-            // Fallback for browsers without backdrop-filter
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          {/* ── Glass card — water droplet ── */}
-          <div
-            ref={glassCardRef}
-            style={{
-              position: 'relative',
-              width: '100%', maxWidth: 360,
-              maxHeight: 'calc(100dvh - 32px)', overflowY: 'auto',
-              borderRadius: 28, overflow: 'hidden',
-              // Water-droplet glass: very transparent with cool tint
-              background: 'rgba(228,240,255,0.22)',
-              backdropFilter: 'blur(56px) saturate(200%) brightness(115%)',
-              WebkitBackdropFilter: 'blur(56px) saturate(200%) brightness(115%)',
-              boxShadow: [
-                // Bright rim — characteristic water droplet edge
-                '0 0 0 1px rgba(255,255,255,0.70)',
-                // Depth shadows — droplet sitting above surface
-                '0 4px 6px rgba(0,0,0,0.08)',
-                '0 12px 28px rgba(0,0,0,0.20)',
-                '0 28px 56px rgba(0,0,0,0.18)',
-                '0 48px 96px rgba(0,0,0,0.14)',
-                // Inner edge highlights — light refracting at edges
-                'inset 0 2px 0 rgba(255,255,255,1)',
-                'inset 0 -1px 0 rgba(255,255,255,0.55)',
-                'inset 2px 0 0 rgba(255,255,255,0.80)',
-                'inset -2px 0 0 rgba(255,255,255,0.45)',
-                // Subtle inner bottom darkness (depth inside droplet)
-                'inset 0 -40px 60px rgba(0,0,0,0.04)',
-              ].join(','),
-              animation: 'glassSpring 0.72s cubic-bezier(0.34,1.36,0.64,1) forwards',
-            }}
-          >
-            {/* ── Caustic top-left — where light focuses through a droplet ── */}
+            padding: 16,
+          }}>
             <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.60) 0%, rgba(255,255,255,0.18) 28%, transparent 52%)',
-            }} />
-
-            {/* ── Secondary caustic — lower right lens effect ── */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-              background: 'radial-gradient(ellipse 50% 40% at 80% 85%, rgba(255,255,255,0.22) 0%, transparent 65%)',
-            }} />
-
-            {/* ── Dynamic specular — finger/mouse tracks light ── */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
-              background: `radial-gradient(ellipse 52% 42% at ${glassLight.x}% ${glassLight.y}%, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.10) 44%, transparent 68%)`,
-              transition: 'background 0.04s linear',
-            }} />
-
-            {/* ── Entry shimmer sweep ── */}
-            <div style={{
-              position: 'absolute', top: 0, bottom: 0, width: '28%', pointerEvents: 'none', zIndex: 2,
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)',
-              animation: 'glassSweep 1.1s ease-out 0.2s both',
-            }} />
-
-            {/* ── Bottom refraction band ── */}
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, pointerEvents: 'none', zIndex: 0,
-              background: 'linear-gradient(to top, rgba(200,225,255,0.25), transparent)',
-            }} />
-
-            {/* ── Content ── */}
-            <div style={{ position: 'relative', zIndex: 3, padding: 'clamp(36px,6vw,50px) clamp(24px,6vw,40px) clamp(28px,5vw,36px)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
+              background: '#F7F4F2',
+              borderRadius: 24,
+              width: '100%', maxWidth: 380,
+              padding: '44px 40px 36px',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)',
+              animation: 'fadeScale 0.28s cubic-bezier(0.34,1.2,0.64,1) forwards',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
+            }}>
               {/* Wordmark */}
-              <div style={{ fontFamily: SEASON, fontSize: 'clamp(38px,8vw,50px)', letterSpacing: '0.05em', color: INK, lineHeight: 1, marginBottom: 6, textShadow: '0 2px 4px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.9)' }}>
+              <div style={{ fontFamily: SEASON, fontSize: 32, letterSpacing: '0.06em', color: INK, lineHeight: 1, marginBottom: 22 }}>
                 FROM
               </div>
 
-              {/* Be Different badge */}
-              <div style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: INK3, marginBottom: 16, opacity: 0.8 }}>
-                Be Different
+              {/* Heading */}
+              <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 400, color: INK, marginBottom: 7, letterSpacing: '-0.01em' }}>
+                Welcome back
+              </div>
+
+              {/* Subtitle */}
+              <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 32, letterSpacing: '0.01em' }}>
+                Sign in to continue shopping
               </div>
 
               {/* Thin rule */}
-              <div style={{ width: 28, height: 0.5, background: 'rgba(44,18,6,0.18)', marginBottom: 16 }} />
+              <div style={{ width: '100%', height: 1, background: 'rgba(44,18,6,0.07)', marginBottom: 28 }} />
 
-              {/* Headline */}
-              <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 'clamp(14px,3.5vw,16px)', color: INK, marginBottom: 'clamp(24px,5vw,32px)', textAlign: 'center', letterSpacing: '0.015em', lineHeight: 1.5, textShadow: '0 1px 0 rgba(255,255,255,0.7)' }}>
-                Fashion worth finding.
-              </div>
+              {/* Google button */}
+              <div style={{ width: '100%', marginBottom: 22 }}>{googleBtn}</div>
 
-              {/* ── Google button ── */}
-              <button
-                type="button"
-                disabled={signingIn}
-                onClick={() => { setSigningIn(true); signIn('google', { callbackUrl: '/' }) }}
-                style={{
-                  position: 'relative', overflow: 'hidden',
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11,
-                  padding: 'clamp(12px,3vw,14px) 20px', borderRadius: 13,
-                  background: 'rgba(255,255,255,0.85)',
-                  border: '1px solid rgba(44,18,6,0.10)',
-                  boxShadow: ['0 1px 0 rgba(255,255,255,1) inset','0 -1px 0 rgba(44,18,6,0.05) inset','0 1px 4px rgba(0,0,0,0.07)','0 4px 16px rgba(0,0,0,0.06)'].join(','),
-                  fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, letterSpacing: '0.01em',
-                  cursor: signingIn ? 'default' : 'pointer',
-                  opacity: signingIn ? 0.6 : 1,
-                  transition: 'transform 0.16s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.16s ease, opacity 0.16s ease',
-                }}
-                onMouseEnter={e => { if (!signingIn) { const el = e.currentTarget as HTMLElement; el.style.transform = 'translateY(-1.5px)'; el.style.boxShadow = ['0 1px 0 rgba(255,255,255,1) inset','0 -1px 0 rgba(44,18,6,0.05) inset','0 2px 8px rgba(0,0,0,0.10)','0 8px 24px rgba(0,0,0,0.09)'].join(',') }}}
-                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ''; el.style.boxShadow = ['0 1px 0 rgba(255,255,255,1) inset','0 -1px 0 rgba(44,18,6,0.05) inset','0 1px 4px rgba(0,0,0,0.07)','0 4px 16px rgba(0,0,0,0.06)'].join(',') }}
-                onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.975) translateY(0)' }}
-                onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1.5px)' }}
-              >
-                {signingIn ? (
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2.2" strokeLinecap="round" style={{ animation: 'spin 0.75s linear infinite', flexShrink: 0 }}>
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
-                    <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-                    <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
-                    <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
-                    <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
-                  </svg>
-                )}
-                {signingIn ? 'Signing in…' : 'Continue with Google'}
-              </button>
-
-              {/* Footer */}
-              <div style={{ marginTop: 18, fontFamily: SANS, fontSize: 10.5, color: INK3, textAlign: 'center', lineHeight: 1.6, letterSpacing: '0.01em' }}>
-                By continuing you agree to our Terms &amp; Privacy Policy
-              </div>
+              {footer}
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       <div className="fr-wrap">
         <div className="fr-shell">
