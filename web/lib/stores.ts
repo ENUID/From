@@ -5,6 +5,11 @@ export type StoreProfile = {
   categories: string[];
   vibe: string[];
   languages?: string[];
+  // ── NEW ──
+  gender?: ('men' | 'women' | 'unisex')[];
+  priceRange?: 'budget' | 'mid' | 'premium' | 'luxury';
+  items?: string[];     // specific product types stocked
+  about?: string;       // one-line brand identity for AI
 };
 
 export const UCP_REGISTRY: StoreProfile[] = [
@@ -20,9 +25,13 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": [
       "workout",
       "sport",
-      "seamless",
-      "casual"
-    ]
+      "active",
+      "seamless"
+    ],
+    "gender": ["women", "men"],
+    "priceRange": "mid",
+    "items": ["leggings", "sports bra", "gym shorts", "training top", "hoodie", "jogger", "cycling shorts"],
+    "about": "High-performance gym and training apparel — technical fabrics, athletic fits"
   },
   {
     "domain": "skimsbody.myshopify.com",
@@ -36,8 +45,15 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "seamless"
-    ]
+      "seamless",
+      "bodycon",
+      "minimalist",
+      "luxury"
+    ],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["shapewear", "bodysuit", "bodycon dress", "bralette", "underwear", "lounge set", "catsuit"],
+    "about": "Sculpting shapewear and second-skin basics — smooth, bonded, inclusive sizing"
   },
   {
     "domain": "aloyoga.com",
@@ -48,9 +64,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "streetwear",
-      "cozy"
-    ]
+      "active",
+      "seamless",
+      "luxury"
+    ],
+    "gender": ["women", "men"],
+    "priceRange": "premium",
+    "items": ["yoga legging", "sports bra", "hoodie", "jacket", "sweatpant", "shorts", "bodysuit"],
+    "about": "Yoga-to-street premium activewear — studio-ready silhouettes with high-fashion edge"
   },
   {
     "domain": "kith.com",
@@ -62,8 +83,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "organic"
-    ]
+      "streetwear",
+      "luxury",
+      "casual"
+    ],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "premium",
+    "items": ["graphic tee", "hoodie", "crewneck sweatshirt", "cargo pant", "jacket", "sneaker", "co-ord set"],
+    "about": "NYC streetwear institution — cultural collaborations, premium casual, elevated hype"
   },
   {
     "domain": "fashionnova.com",
@@ -76,8 +103,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "formal"
-    ]
+      "bodycon",
+      "casual",
+      "denim"
+    ],
+    "gender": ["women", "men"],
+    "priceRange": "budget",
+    "items": ["mini dress", "bodycon dress", "crop top", "jeans", "two-piece set", "swimsuit", "jumpsuit"],
+    "about": "Fast fashion for bold, body-conscious looks — curve-friendly fits, viral styles"
   },
   {
     "domain": "allbirds.com",
@@ -85,8 +118,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "footwear"
     ],
     "vibe": [
-      "denim"
-    ]
+      "sustainable",
+      "minimalist",
+      "casual"
+    ],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "mid",
+    "items": ["wool runner sneaker", "trail shoe", "slip-on", "loafer", "boot"],
+    "about": "Carbon-neutral footwear made from natural materials — merino wool, eucalyptus, sugarcane"
   },
   {
     "domain": "taylorstitch.com",
@@ -97,8 +136,15 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "organic"
-    ]
+      "heritage-workwear",
+      "organic",
+      "minimalist",
+      "outdoor"
+    ],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["oxford shirt", "linen shirt", "flannel shirt", "chino", "selvedge denim", "overshirt", "chore coat", "work jacket", "sweatshirt"],
+    "about": "San Francisco heritage menswear — natural fabrics, Made in USA quality, built-to-last pieces"
   },
   {
     "domain": "marinelayer.com",
@@ -111,9 +157,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "streetwear",
-      "denim"
-    ]
+      "coastal",
+      "casual",
+      "organic"
+    ],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["linen shirt", "tee", "hoodie", "shorts", "straight-leg pant", "dress", "swimwear", "chino"],
+    "about": "California coastal basics in ultra-soft micro modal and linen — effortless weekend dressing"
   },
   {
     "domain": "bombas.myshopify.com",
@@ -122,9 +173,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "underwear"
     ],
     "vibe": [
-      "seamless",
-      "active"
-    ]
+      "active",
+      "casual",
+      "sustainable"
+    ],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "mid",
+    "items": ["socks", "underwear", "tee"],
+    "about": "Premium comfort socks and underwear — buy-one-give-one charity model"
   },
   {
     "domain": "chubbies.myshopify.com",
@@ -136,9 +192,13 @@ export const UCP_REGISTRY: StoreProfile[] = [
     ],
     "vibe": [
       "casual",
-      "active",
-      "outdoor"
-    ]
+      "resort",
+      "coastal"
+    ],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["swim trunks", "shorts", "polo", "tee", "chino", "hoodie"],
+    "about": "Weekend menswear for short-inseam life — retro-inspired shorts, beach-ready casual"
   },
   {
     "domain": "goodamerican.com",
@@ -150,8 +210,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "denim"
-    ]
+      "denim",
+      "bodycon",
+      "casual"
+    ],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["jeans", "denim jacket", "bodycon dress", "legging", "crop top", "co-ord set"],
+    "about": "Khloé Kardashian's inclusive denim brand — curves-first fit with premium stretch"
   },
   {
     "domain": "faherty.myshopify.com",
@@ -163,11 +229,15 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "sport",
+      "coastal",
       "organic",
-      "outdoor",
-      "denim"
-    ]
+      "resort",
+      "heritage-workwear"
+    ],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["linen shirt", "beach pant", "hoodie", "board shorts", "swimwear", "camp shirt", "knitwear", "jacket"],
+    "about": "Sustainable American coastal lifestyle — linen, organic cotton, surf-to-dinner versatility"
   },
   {
     "domain": "pangaia.com",
@@ -178,10 +248,15 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "outerwear"
     ],
     "vibe": [
-      "outdoor",
-      "seamless",
-      "organic"
-    ]
+      "sustainable",
+      "organic",
+      "casual",
+      "minimalist"
+    ],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "premium",
+    "items": ["hoodie", "sweatpants", "tee", "co-ord set", "puffer jacket", "tracksuit"],
+    "about": "Science-led sustainable fashion — seaweed fiber, recycled materials, tracksuit staples"
   },
   {
     "domain": "spanx-com.myshopify.com",
@@ -193,9 +268,13 @@ export const UCP_REGISTRY: StoreProfile[] = [
     ],
     "vibe": [
       "seamless",
-      "denim",
-      "casual"
-    ]
+      "formal",
+      "minimalist"
+    ],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["shapewear", "legging", "bodysuit", "smoothing brief", "denim", "blazer", "dress"],
+    "about": "The original shapewear brand expanded to full fashion — sculpting, smoothing, polished looks"
   },
   {
     "domain": "outdoorvoices.com",
@@ -206,10 +285,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "underwear"
     ],
     "vibe": [
-      "outdoor",
-      "seamless",
-      "cozy"
-    ]
+      "active",
+      "coastal",
+      "casual"
+    ],
+    "gender": ["women", "men"],
+    "priceRange": "mid",
+    "items": ["legging", "shorts", "hoodie", "sports bra", "one-piece", "crop top", "jacket"],
+    "about": "Activity-wear brand with playful tone — Doing Things, technical fabrics, not just gym"
   },
   {
     "domain": "toa.st",
@@ -222,7 +305,17 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "underwear",
       "accessory"
     ],
-    "vibe": []
+    "vibe": [
+      "artisan",
+      "organic",
+      "bohemian",
+      "minimalist",
+      "french"
+    ],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["linen dress", "smock dress", "blouse", "trouser", "knitwear", "apron dress", "shirt dress"],
+    "about": "British artisan fashion — handcrafted natural fabrics, Japanese and Indian textile influences"
   },
   {
     "domain": "backalleybodega.com",
@@ -233,9 +326,13 @@ export const UCP_REGISTRY: StoreProfile[] = [
     ],
     "vibe": [
       "streetwear",
-      "outdoor",
-      "denim"
-    ]
+      "heritage-workwear",
+      "outdoor"
+    ],
+    "gender": ["men", "unisex"],
+    "priceRange": "mid",
+    "items": ["graphic tee", "hoodie", "cargo pant", "jacket", "work shirt"],
+    "about": "NYC streetwear with workwear influence — vintage-inspired graphics, outdoor-meets-urban"
   },
   {
     "domain": "dissh.com.au",
@@ -246,9 +343,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "outerwear"
     ],
     "vibe": [
-      "active",
-      "casual"
-    ]
+      "casual",
+      "resort",
+      "bohemian"
+    ],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["mini dress", "midi dress", "blouse", "wide-leg trouser", "co-ord set"],
+    "about": "Australian women's fashion — feminine, holiday-ready pieces, easy-to-wear silhouettes"
   },
   {
     "domain": "porterjames.com",
@@ -271,7 +373,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "dress",
       "outerwear"
     ],
-    "vibe": []
+    "vibe": [
+      "artisan",
+      "bohemian",
+      "french",
+      "minimalist"
+    ],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "luxury",
+    "items": ["linen shirt", "wide trouser", "smock", "deconstructed coat", "handcrafted dress"],
+    "about": "Marseille artisan fashion — handcrafted, irregular cuts, natural dyes, poetic silhouettes"
   },
   {
     "domain": "luroq.com",
@@ -352,8 +463,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "outerwear"
     ],
     "vibe": [
+      "streetwear",
+      "casual",
       "outdoor"
-    ]
+    ],
+    "gender": ["men", "unisex"],
+    "priceRange": "mid",
+    "items": ["graphic tee", "hoodie", "tracksuit", "cargo pant", "overshirt"],
+    "about": "German streetwear brand — bold graphics, oversized silhouettes, urban culture"
   },
   {
     "domain": "commas.cc",
@@ -403,11 +520,15 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "luxury",
-      "organic",
       "cozy",
-      "streetwear"
-    ]
+      "streetwear",
+      "minimalist",
+      "luxury"
+    ],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "premium",
+    "items": ["hoodie", "crewneck sweatshirt", "sweatpant", "tee", "hat"],
+    "about": "Premium fleece and sweatwear — elevated basics in heavyweight cotton"
   },
   {
     "domain": "gentag.store",
@@ -448,8 +569,15 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "outerwear"
     ],
     "vibe": [
-      "sport"
-    ]
+      "sport",
+      "formal",
+      "casual",
+      "minimalist"
+    ],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["jersey blazer", "polo", "sweatshirt", "technical jacket", "trouser"],
+    "about": "Italian jersey tailoring — softly structured blazers, sport-meets-formal elegance"
   },
   {
     "domain": "limited-clothing.co.uk",
@@ -471,11 +599,15 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "footwear"
     ],
     "vibe": [
-      "active",
-      "seamless",
-      "sport",
-      "formal"
-    ]
+      "artisan",
+      "organic",
+      "bohemian",
+      "minimalist"
+    ],
+    "gender": ["women"],
+    "priceRange": "luxury",
+    "items": ["handknit sweater", "linen top", "organic dress", "woven cardigan", "co-ord set"],
+    "about": "Hand-loomed knitwear and organic basics — slow fashion, artisan production in Peru"
   },
   {
     "domain": "borderlineofficial.com",
@@ -498,11 +630,13 @@ export const UCP_REGISTRY: StoreProfile[] = [
     ],
     "vibe": [
       "streetwear",
-      "outdoor",
       "casual",
-      "organic",
-      "active"
-    ]
+      "outdoor"
+    ],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["tee", "cargo pant", "hoodie", "overshirt", "shorts"],
+    "about": "Indian men's streetwear brand — urban casual, functional cuts"
   },
   {
     "domain": "studiopeterjohn.com",
@@ -553,8 +687,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "underwear"
     ],
     "vibe": [
-      "organic"
-    ]
+      "organic",
+      "minimalist",
+      "casual"
+    ],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["tee", "sweatshirt", "hoodie", "sweatpant", "sock"],
+    "about": "LA premium basics brand — USA-made organic cotton, lived-in quality fits"
   },
   {
     "domain": "slvrlake.myshopify.com",
@@ -565,8 +705,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "seamless"
-    ]
+      "denim",
+      "casual",
+      "minimalist"
+    ],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["jeans", "denim short", "straight leg jean", "wide-leg jean"],
+    "about": "LA premium denim — clean cuts, high-rise silhouettes, quality stretch fabrics"
   },
   {
     "domain": "studionicholson.com",
@@ -577,9 +723,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "outerwear"
     ],
     "vibe": [
-      "active",
-      "seamless"
-    ]
+      "minimalist",
+      "quiet-luxury",
+      "formal"
+    ],
+    "gender": ["women", "men"],
+    "priceRange": "luxury",
+    "items": ["wide-leg trouser", "blazer", "shirt", "knitwear", "coat", "shift dress"],
+    "about": "London minimalist brand — sculptural silhouettes, luxurious fabrics, architect-inspired restraint"
   },
   {
     "domain": "haruhar.com",
@@ -603,13 +754,19 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
+      "gorpcore",
+      "japanese",
       "outdoor",
       "active"
     ],
     "languages": [
       "ja",
       "en"
-    ]
+    ],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "mid",
+    "items": ["outdoor shirt", "technical trouser", "hiking boot", "cap", "anorak", "fleece"],
+    "about": "Japanese outdoor-meets-street style — technical fabrics, Tokyo gorpcore aesthetic"
   },
   {
     "domain": "lionessfashion.com",
@@ -717,8 +874,14 @@ export const UCP_REGISTRY: StoreProfile[] = [
     ],
     "vibe": [
       "organic",
-      "casual"
-    ]
+      "casual",
+      "minimalist",
+      "coastal"
+    ],
+    "gender": ["women", "men"],
+    "priceRange": "mid",
+    "items": ["linen shirt", "midi dress", "knitwear", "trouser", "shorts", "tee"],
+    "about": "Australian minimalist brand — linen-forward everyday basics, relaxed coastal aesthetic"
   },
   {
     "domain": "solacetheory.com",
@@ -840,12 +1003,15 @@ export const UCP_REGISTRY: StoreProfile[] = [
       "accessory"
     ],
     "vibe": [
-      "organic",
-      "luxury",
-      "cozy",
-      "active",
-      "workout"
-    ]
+      "preppy",
+      "streetwear",
+      "old-money",
+      "casual"
+    ],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["oxford shirt", "knitwear", "sweatshirt", "trouser", "shorts", "polo", "outerwear", "tote bag"],
+    "about": "New York brand mixing Ivy League prep with Queens streetwear — ALD redefines modern menswear"
   },
   {
     "domain": "hommeyusa.myshopify.com",
@@ -987,8 +1153,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
     ],
     "vibe": [
       "streetwear",
-      "cozy"
-    ]
+      "casual"
+    ],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "budget",
+    "items": ["cap", "beanie", "bucket hat", "tee", "hoodie", "accessory"],
+    "about": "Indian streetwear accessories — bold cap designs, skate/hip-hop culture"
   },
   {
     "domain": "wearcomet.com",
@@ -1704,7 +1874,11 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "sofiedhoore.be",
     "name": "Sofie D'Hoore",
     "categories": ["top", "bottom", "dress", "outerwear", "accessory"],
-    "vibe": ["luxury", "organic"]
+    "vibe": ["minimalist", "quiet-luxury", "artisan", "french"],
+    "gender": ["women"],
+    "priceRange": "luxury",
+    "items": ["trouser", "blazer", "shirt", "coat", "shift dress", "knitwear"],
+    "about": "Belgian minimalist designer — architectural silhouettes, luxurious natural fabrics"
   },
   {
     "domain": "bysera.zid.store",
@@ -1716,7 +1890,11 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "aritzia.com",
     "name": "Aritzia",
     "categories": ["top", "bottom", "dress", "outerwear", "accessory"],
-    "vibe": ["casual", "formal"]
+    "vibe": ["formal", "casual", "minimalist", "quiet-luxury"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["blazer", "trouser", "bodysuit", "dress", "knitwear", "blouse", "coat"],
+    "about": "Canadian premium women's brand — quality tailored basics, TikTok-beloved silhouettes"
   },
   {
     "domain": "slowsteadyclub.com",
@@ -1746,7 +1924,11 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "camper.com",
     "name": "Camper",
     "categories": ["footwear", "accessory"],
-    "vibe": ["casual"]
+    "vibe": ["casual", "artistic", "sustainable"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "mid",
+    "items": ["loafer", "boot", "sneaker", "sandal", "mule"],
+    "about": "Spanish footwear brand — playful, artisan-adjacent shoe design with European craft tradition"
   },
   {
     "domain": "menspoem.in",
@@ -1848,13 +2030,21 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "blueowl.us",
     "name": "Blue Owl",
     "categories": ["top", "bottom", "outerwear"],
-    "vibe": ["denim"]
+    "vibe": ["heritage-workwear", "denim", "old-money", "organic"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["selvedge denim", "raw denim jacket", "chino", "oxford cloth button-down", "flannel"],
+    "about": "Brooklyn denim specialist — premium selvedge, raw denim, quality heritage casualwear"
   },
   {
     "domain": "morrisonshop.com",
     "name": "Morrison",
     "categories": ["top", "bottom", "dress", "outerwear"],
-    "vibe": ["casual"]
+    "vibe": ["casual", "coastal", "organic", "minimalist"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["linen dress", "midi dress", "tee", "shirt", "knitwear", "trouser"],
+    "about": "Australian women's brand — relaxed resort-influenced pieces, linen and natural textures"
   },
   {
     "domain": "payalkhandwala.com",
@@ -1878,7 +2068,11 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "ourlegacy.com",
     "name": "Our Legacy",
     "categories": ["top", "bottom", "outerwear", "footwear", "accessory"],
-    "vibe": ["streetwear", "luxury"]
+    "vibe": ["streetwear", "luxury", "artistic", "minimalist"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["shirt", "trouser", "jacket", "knitwear", "overcoat", "tee"],
+    "about": "Stockholm avant-garde — unexpected fabrications, relaxed tailoring, intellectual edge"
   },
   {
     "domain": "harah.in",
@@ -1890,7 +2084,11 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "domain": "houseofmasaba.com",
     "name": "House of Masaba",
     "categories": ["top", "bottom", "dress", "accessory"],
-    "vibe": ["luxury"]
+    "vibe": ["indian-ethnic", "maximalist", "luxury"],
+    "gender": ["women"],
+    "priceRange": "luxury",
+    "items": ["kurta set", "saree", "co-ord set", "dress", "dupatta", "accessory"],
+    "about": "Indian luxury designer — bold prints, modern ethnic fusion, Masaba Gupta's iconic aesthetic"
   }
 ];
 
@@ -2115,13 +2313,13 @@ export const CATEGORY_TAXONOMY: Record<string, { label: string; subcategories: R
       "t-shirts & tees": ["crew neck tee", "v-neck tee", "graphic tee", "pocket tee", "long-sleeve tee", "ringer tee"],
       "polos & henleys": ["polo", "henley", "rugby shirt"],
       "blouses & tops": ["blouse", "tank top", "camisole", "crop top", "bodysuit", "tube top"],
-      "knitwear": ["sweater", "jumper", "turtleneck", "cardigan", "knit polo"],
+      "knitwear": ["sweater", "jumper", "turtleneck", "cardigan", "knit polo", "roll-neck", "mock-neck", "crew-neck knit", "chunky knit", "merino sweater", "cashmere cardigan"],
     },
   },
   bottom: {
     label: "Bottoms",
     subcategories: {
-      "trousers & pants": ["chinos", "dress pants", "cargo pants", "wide-leg trousers", "pleated trousers"],
+      "trousers & pants": ["chinos", "dress pants", "cargo pants", "wide-leg trousers", "pleated trousers", "tailored trouser", "linen trouser", "tweed trouser", "leather trouser", "culottes"],
       "jeans & denim": ["slim jeans", "straight jeans", "wide jeans", "selvedge denim", "baggy jeans"],
       "shorts": ["chino shorts", "denim shorts", "athletic shorts", "linen shorts"],
       "skirts": ["mini skirt", "midi skirt", "maxi skirt", "pleated skirt", "denim skirt"],
@@ -2142,6 +2340,7 @@ export const CATEGORY_TAXONOMY: Record<string, { label: string; subcategories: R
       "jackets": ["denim jacket", "bomber", "trucker jacket", "field jacket", "windbreaker", "harrington"],
       "coats": ["overcoat", "trench coat", "wool coat", "parka", "puffer", "raincoat"],
       "blazers & suiting": ["blazer", "sport coat", "suit", "waistcoat"],
+      "suits & formal": ["two-piece suit", "three-piece suit", "tuxedo", "waistcoat", "suit jacket"],
       "sweatshirts": ["hoodie", "crewneck sweatshirt", "zip-up", "quarter-zip"],
       "vests": ["gilet", "puffer vest", "fleece vest"],
     },
@@ -2167,10 +2366,25 @@ export const CATEGORY_TAXONOMY: Record<string, { label: string; subcategories: R
   accessory: {
     label: "Accessories",
     subcategories: {
-      "bags": ["tote", "backpack", "crossbody", "weekender", "wallet", "belt bag"],
+      "bags": ["tote", "backpack", "crossbody", "weekender", "wallet", "belt bag", "handbag", "clutch", "shoulder bag", "bucket bag", "mini bag", "duffle bag", "messenger bag"],
       "headwear": ["cap", "beanie", "bucket hat", "wide-brim hat"],
       "small accessories": ["belt", "scarf", "gloves", "sunglasses", "tie"],
       "jewelry": ["necklace", "bracelet", "ring", "earrings"],
+    },
+  },
+  swimwear: {
+    label: "Swimwear & Beach",
+    subcategories: {
+      "swimwear": ["bikini", "one-piece", "swimsuit", "swim trunks", "board shorts", "rash guard"],
+      "beach cover-ups": ["sarong", "kaftan", "beach shirt", "cover-up dress"],
+    },
+  },
+  jewellery: {
+    label: "Jewellery & Fine Accessories",
+    subcategories: {
+      "fine jewellery": ["gold necklace", "pearl earrings", "diamond ring", "bracelet", "anklet"],
+      "fashion jewellery": ["hoop earrings", "stud earrings", "chain necklace", "cuff bracelet", "ring set"],
+      "watches": ["watch", "smartwatch"],
     },
   },
   apparel: {
@@ -2185,18 +2399,44 @@ export const CATEGORY_TAXONOMY: Record<string, { label: string; subcategories: R
 // Each brand carries one or more vibe tags. This explains what each tag signals so
 // the AI can match a shopper's described mood/style/use-case to the right brands.
 export const VIBE_GLOSSARY: Record<string, string> = {
+  // Performance
   workout: "gym & training gear — performance fabrics, gym/training sets",
   sport: "athletic, sporty styling with a technical, performance edge",
-  seamless: "smooth second-skin basics; sculpting, bonded, no-VPL construction",
-  casual: "everyday relaxed wear that's easy to throw on and style",
-  streetwear: "urban and hype-driven — oversized fits, bold graphics, statement pieces",
-  cozy: "soft, comfortable, loungey — knits, fleece, easy comfort",
-  organic: "natural & sustainable fabrics, eco-conscious, quiet minimalist design",
-  formal: "dressy and tailored — office, occasion and elevated wear",
-  denim: "jeans-led or denim-forward collections",
-  outdoor: "rugged and utility-driven — hiking, travel and nature-ready",
   active: "activewear & athleisure built for movement",
+  seamless: "smooth second-skin basics; sculpting, bonded, no-VPL construction",
+  // Casual & Easy
+  casual: "everyday relaxed wear that's easy to throw on and style",
+  coastal: "Breton stripe, linen, nautical, beach and harbour vibes — Marine Layer energy",
+  resort: "vacation-ready cover-ups, printed shirts, light fabrics — poolside to dinner",
+  cozy: "soft, comfortable, loungey — knits, fleece, easy comfort",
+  // Elevated & Refined
+  minimalist: "clean, pared-back design — neutral palette, no logo, quality fabric over decoration",
+  "quiet-luxury": "no-logo cashmere/silk/linen, elevated neutrals — Loro Piana energy",
+  "old-money": "heritage classics, prep-adjacent, patina over trend — Brooks Brothers energy",
+  preppy: "popped collar, chinos, loafers, collegiate Ivy League aesthetic",
+  formal: "dressy and tailored — office, occasion and elevated wear",
   luxury: "premium, high-end, designer-grade fabrics and craftsmanship",
+  // Street & Urban
+  streetwear: "urban and hype-driven — oversized fits, bold graphics, statement pieces",
+  denim: "jeans-led or denim-forward collections",
+  // Heritage & Craft
+  organic: "natural & sustainable fabrics, eco-conscious, quiet minimalist design",
+  "heritage-workwear": "duck canvas, selvedge denim, chore coats — Carhartt/Taylor Stitch energy",
+  artisan: "handcrafted, slow fashion, natural textiles — woven, knitted, printed by hand",
+  sustainable: "certified eco, recycled materials, closed-loop production focus",
+  // Aesthetic
+  bohemian: "flowing linen, embroidered cotton, global influence — free-spirited and layered",
+  "dark-academia": "tweed, herringbone, turtleneck, scholarly layering — library chic",
+  maximalist: "pattern-mixing, bold colour, layered jewellery — more is more",
+  artistic: "sculptural, avant-garde, gallery-worthy — Comme des Garçons energy",
+  // Activity
+  outdoor: "rugged and utility-driven — hiking, travel and nature-ready",
+  gorpcore: "technical outdoor wear worn in the city — Gore-Tex, trail shoes, fleece",
+  // Cultural
+  japanese: "Japanese design sensibility — oversized, deconstructed, natural, precise",
+  "indian-ethnic": "kurtas, block prints, dupattas, traditional Indian craft modernized",
+  french: "Parisian ease, effortlessly chic, understated femininity",
+  bodycon: "figure-hugging, curve-celebrating silhouettes — fitted dresses, contour knitwear",
 };
 
 /** Human-readable catalog language(s) for a store, from its `languages` field or TLD. */
@@ -2229,7 +2469,11 @@ export function buildBrandDirectory(): string {
     const cats = store.categories.join(", ");
     const vibes = store.vibe.length > 0 ? store.vibe.join(", ") : "general";
     const lang = storeLanguageLabel(store);
-    return `- ${name} — ${store.domain} | sells: [${cats}] | style: [${vibes}] | language: ${lang}`;
+    const genderPart = store.gender ? ` | ${store.gender.join(", ")}` : "";
+    const pricePart = store.priceRange ? ` | price: ${store.priceRange}` : "";
+    const itemsPart = store.items ? ` | items: ${store.items.join(", ")}` : "";
+    const aboutPart = store.about ? ` | ${store.about}` : "";
+    return `- ${name} — ${store.domain}${genderPart}${pricePart} | sells: [${cats}]${itemsPart} | style: [${vibes}] | language: ${lang}${aboutPart}`;
   }).join("\n");
 }
 
