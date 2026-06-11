@@ -2155,13 +2155,13 @@ export default function FromApp({
                 </div>
 
                 {/* Heading */}
-                <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK, marginBottom: 6, letterSpacing: '-0.01em' }}>
-                  Sign in to continue
+                <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 400, color: INK, marginBottom: 8, letterSpacing: '-0.02em', lineHeight: 1.25, textAlign: 'center' }}>
+                  Dress like no one else.
                 </div>
 
                 {/* Subtitle */}
-                <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 28, letterSpacing: '0.01em' }}>
-                  Discover fashion worth finding.
+                <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 28, letterSpacing: '0.01em', textAlign: 'center', lineHeight: 1.5 }}>
+                  Brands the world hasn't caught up to yet.
                 </div>
 
                 {/* Google button */}
@@ -2197,13 +2197,13 @@ export default function FromApp({
               </div>
 
               {/* Heading */}
-              <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 600, color: INK, marginBottom: 6, letterSpacing: '-0.01em' }}>
-                Sign in to continue
+              <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 400, color: INK, marginBottom: 8, letterSpacing: '-0.02em', lineHeight: 1.25, textAlign: 'center' }}>
+                Dress like no one else.
               </div>
 
               {/* Subtitle */}
-              <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 32, letterSpacing: '0.01em' }}>
-                Discover fashion worth finding.
+              <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginBottom: 32, letterSpacing: '0.01em', textAlign: 'center', lineHeight: 1.5 }}>
+                Brands the world hasn't caught up to yet.
               </div>
 
               {/* Thin rule */}
