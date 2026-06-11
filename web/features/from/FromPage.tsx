@@ -1401,18 +1401,21 @@ export default function FromApp({
   useEffect(() => {
     const vv = (window as any).visualViewport
     if (!vv) return
-    const update = () => {
+    const check = () => {
       const kbH = window.innerHeight - vv.height - vv.offsetTop
-      // Only treat as keyboard if the viewport shrank by >150px.
-      // Safari's URL-bar/toolbar hide/show causes small dvh changes (~80px)
-      // that shouldn't push the search bar up when no keyboard is open.
       setKeyboardOffset(kbH > 150 ? Math.round(kbH) : 0)
     }
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
+    // focusout fires when the keyboard dismisses (any input/textarea loses focus).
+    // visualViewport resize doesn't always fire on iPad after keyboard close,
+    // so this is the reliable fallback reset.
+    const onFocusOut = () => setTimeout(check, 150)
+    vv.addEventListener('resize', check)
+    vv.addEventListener('scroll', check)
+    document.addEventListener('focusout', onFocusOut)
     return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
+      vv.removeEventListener('resize', check)
+      vv.removeEventListener('scroll', check)
+      document.removeEventListener('focusout', onFocusOut)
     }
   }, [])
 
@@ -1858,10 +1861,9 @@ export default function FromApp({
           padding:12px clamp(12px,4vw,18px) max(28px,env(safe-area-inset-bottom,0px));
           background:transparent;
         }
-        /* On tablet/desktop remove the safe-area floor — only respect device safe-area. */
         @media(min-width:768px){
           .fr-bar-wrap{
-            padding-bottom:env(safe-area-inset-bottom);
+            padding-bottom:max(16px,env(safe-area-inset-bottom,0px));
           }
         }
 
