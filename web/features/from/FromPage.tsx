@@ -1866,7 +1866,9 @@ export default function FromApp({
         }
 
         /* ── Header ── */
-        .fr-header{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 6px;flex-shrink:0;z-index:10;}
+        .fr-header{display:flex;align-items:center;justify-content:space-between;
+          padding:max(10px,env(safe-area-inset-top,0px)) max(16px,calc(env(safe-area-inset-right,0px) + 12px)) 6px max(16px,calc(env(safe-area-inset-left,0px) + 12px));
+          flex-shrink:0;z-index:10;}
 
         /* ── Content area (body + floating bar share this space) ── */
         .fr-content{flex:1;position:relative;overflow:hidden;}
