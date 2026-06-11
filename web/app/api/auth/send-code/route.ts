@@ -5,8 +5,6 @@ import { api } from '@/convex/_generated/api'
 
 export const runtime = 'nodejs'
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
-const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'FROM <noreply@from.enuid.com>'
 
 function generateCode(): string {
@@ -31,6 +29,8 @@ function codeEmail(code: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
+  const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const { email } = await req.json()
     if (!email || typeof email !== 'string' || !email.includes('@')) {

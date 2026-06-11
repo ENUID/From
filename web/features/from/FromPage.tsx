@@ -3861,7 +3861,7 @@ export default function FromApp({
                     border: 'none', cursor: 'pointer',
                   }}
                 >
-                  Join the Community — $149
+                  Join the Community — $20
                 </button>
                 <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 10, opacity: 0.55 }}>
                   One-time payment. Lifetime access. When it's full, it's gone.
