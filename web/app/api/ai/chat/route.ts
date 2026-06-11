@@ -82,7 +82,7 @@ function isRateLimited(req: NextRequest) {
 function normalizeSort(value: unknown) {
   return typeof value === 'string' && SORT_VALUES.has(value)
     ? value as 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc'
-    : 'trust_desc'
+    : 'relevance'
 }
 
 function collectProductIds(history: any[] = [], extraIds: unknown = []) {

@@ -1,6 +1,7 @@
 import { getExchangeRates } from '../exchangeRates';
 import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, domainCountry } from '../stores';
 import { groqChat } from '../groq';
+import { rerankByRelevance } from './relevanceRerank';
 
 
 export type UcpProduct = {
@@ -26,6 +27,8 @@ export type UcpProduct = {
     media?: Array<{ url: string; alt?: string }>;
   }>;
   trust_score?: number;
+  relevance_score?: number;
+  relevance_reason?: string;
 }
 
 type ProductSort = 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc';
@@ -1238,7 +1241,7 @@ export class GlobalCatalogService {
     countryCode?: string | null,
     isClothing?: boolean,
     mandatoryConcepts: string[][] = [],
-    sort: ProductSort = 'trust_desc',
+    sort: ProductSort = 'relevance',
     budgetCurrency: string | null = 'USD',
     options: CatalogSearchOptions = {},
     /** When set, restricts the search to exactly these domain(s) — used for brand-specific queries. */
@@ -1875,6 +1878,15 @@ export class GlobalCatalogService {
     const finalCached = searchCache.get(cacheKey);
     const finalProducts = finalCached?.products || [];
     let filteredProducts = applyCatalogFiltersWithRetry(finalProducts, filterOptions);
+
+    // AI relevance re-rank — only on the final user-facing slice, not loadMore/replenishment
+    if (sort === 'relevance' && !options.loadMore && !options.refreshReserve && filteredProducts.length > 1) {
+      try {
+        filteredProducts = await rerankByRelevance(cleanedQuery, filteredProducts);
+      } catch (e) {
+        console.warn('[GlobalCatalog] relevance rerank failed, keeping deterministic order', e);
+      }
+    }
 
     console.log(`[GlobalCatalog] returning ${filteredProducts.length} of ${finalProducts.length} (limit=${limit}, fast=${isFastFirstPage})`);
     return filteredProducts;
