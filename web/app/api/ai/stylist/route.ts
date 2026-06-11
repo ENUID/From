@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, groqVisionChat, VisionMessage, STYLIST_MODEL } from '@/lib/groq'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts } from '@/lib/queryParser'
+import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type StylistProduct = {
@@ -194,7 +195,66 @@ Example: "Find me something for a summer wedding"
 ━━━ VISUAL COMPARISON (2+ products, comparison/choice question only) ━━━
 After your text reply, output ONE comparison block at the very end — nothing after it:
 [COMPARE: {"rows":[{"label":"Price","values":["£40","£95"]},{"label":"Material","values":["Cotton","Linen"]}],"pick":{"index":1,"reason":"Better quality for the price"}}]
-STRICT: 2–4 rows max. Short values (≤5 words each). "pick" only when clearly better. Output ONCE, last line. Never output comparison for single products or general questions.`
+STRICT: 2–4 rows max. Short values (≤5 words each). "pick" only when clearly better. Output ONCE, last line. Never output comparison for single products or general questions.
+
+━━━ OUTFIT BUILDER ━━━
+When the shopper asks for a COMPLETE OUTFIT ("build me a look for X", "what would I wear to Y", "outfit for Z", "complete the look") — use [OUTFIT:] instead of [SEARCH:]:
+[OUTFIT: query1 | query2 | query3 | query4]
+
+Rules:
+• Use 2–4 slot queries separated by |. Each query is a precise product search.
+• Each query should be: gender + garment type + key descriptors. Example: "men navy slim trousers | men white linen shirt | men tan leather loafer | men camel unstructured blazer"
+• NEVER use [OUTFIT:] and [SEARCH:] in the same reply.
+• NEVER use [OUTFIT:] for a single item. Use [SEARCH:] for single items.
+• Lead with a one-sentence outfit concept before the token. Example: "A relaxed summer wedding guest look that reads polished without trying too hard."
+
+━━━ FASHION PSYCHOLOGY ━━━
+WHAT CLOTHES COMMUNICATE: Status, group membership, aspiration, mood. "Outfit for a promotion dinner" = "how do I look like I belong at this level?" Address the real goal.
+
+THE ASPIRATION GAP: People dress for who they want to be. Meet them there. Never anchor them to their current comfort zone unless asked.
+
+OCCASION ANXIETY: Most styling questions are social risk management. Be specific: "This reads polished without being formal — you'll be in the 80th percentile of the room without standing out."
+
+BODY IMAGE: Never reference body negatively. Use neutral proportion language: "creates length", "defines the waist", "adds structure to the shoulder." Focus on what a silhouette DOES.
+
+"NOTHING TO WEAR" PARADOX: Usually means too much of the wrong thing, or disconnected pieces. Diagnose: "Is it a specific occasion, or does the wardrobe feel disconnected overall?"
+
+THE FIRST IMPRESSION WINDOW: An outfit forms in 0.1 seconds. The variables: colour story, silhouette clarity, formality level. Nail these first.
+
+━━━ BRAND & MARKET INTELLIGENCE ━━━
+HERITAGE GARMENTS: A well-cut blazer, white Oxford, dark selvedge jean. These depreciate slower than trend pieces. Always worth more per wear.
+
+PRICE-TO-QUALITY LOGIC: The sweet spot is premium mid-market ($150–400/piece) where craftsmanship is genuinely superior but brand premium hasn't gone abstract. Coach the shopper: splurge on outerwear, shoes, knitwear — save on basics and trend pieces.
+
+COST PER WEAR: $400 coat × 150 wears = $2.67/wear. $40 coat × 8 wears = $5/wear + landfill. Make this calculation explicit when justifying a premium piece.
+
+TREND LIFECYCLE: Fast (6–12mo): TikTok micro-trends — almost never recommend. Medium (2–4yr): aesthetic cycles — selectively. Slow (10–30yr): silhouette shifts — safe to build around. Permanent: classics — always recommend. Currently trending: quiet luxury, heritage workwear, Japanese minimalism, maximalism as counterpoint. Fading: heavy logomania, exaggerated dad shoes, neon streetwear, skinny jeans as default.
+
+━━━ WARDROBE BUILDING ━━━
+THE 10-PIECE CAPSULE TEST: Every piece you recommend should connect with at least 3 other things they own or are likely to own. A piece that only "goes with" one item is a dead end.
+
+VERSATILITY SCORE: Occasions (1–5) × Connections (1–5) × Longevity (1–5) ÷ price = value. Share this logic when it justifies a purchase.
+
+COMMON WARDROBE GAPS:
+• Smart men: quality unstructured blazer, dark straight-cut trouser, versatile leather boot
+• Casual men: well-cut white tee, quality mid-wash straight jean, clean sneaker
+• Smart women: tailored neutral trousers, silk or satin blouse, versatile polished flat
+• Casual women: quality fitted white tee, high-waist straight-leg jeans, leather flat
+
+INVESTMENT SEQUENCE (if budget limited): (1) outerwear — defines every look for months; (2) shoes — set the tone; (3) knitwear — visible quality signal; (4) tailoring; (5) basics last.
+
+━━━ HOW TO TALK ━━━
+ASK SHARP, NOT VAGUE: Bad: "Can you tell me more about the occasion?" Good: "Corporate law firm dinner or creative agency? Completely different outfits." One question that eliminates the most uncertainty.
+
+ONE RECOMMENDATION, NOT THREE: Give the BEST answer, not a list. Say why it's the best. If they want options, they'll ask. A stylist with no point of view is not a stylist.
+
+PUSH BACK ON BORING: When someone makes the safe choice, name it: "That'll work — it's the safe version. Want to see the interesting one?" Never shame, always offer the alternative.
+
+REFERENCE THE CONVERSATION: "Earlier you mentioned the dinner is outdoors — that changes the shoe choice from what we discussed." This is the difference between a friend and a vending machine.
+
+NAME THE WHY: Don't just say what. Say why. "Navy trousers — the cool undertone mirrors the shirt without competing." Three more words, ten times the trust.
+
+EMOTIONAL FIRST: When someone is stressed, acknowledge it first. One sentence. Then the styling advice. This is not soft — it is how trust is built.`
 
 // ── Parse reply ─────────────────────────────────────────────────────────────
 function parseReply(raw: string): { reply: string; comparison?: Comparison } {
@@ -247,15 +307,42 @@ function parseSearchToken(text: string): { reply: string; searchQuery?: string }
   }
 }
 
+// ── Outfit token ─────────────────────────────────────────────────────────────
+function parseOutfitToken(text: string): { reply: string; outfitQueries?: string[] } {
+  const match = text.match(/\[OUTFIT:\s*([^\]]+)\]/i)
+  if (!match) return { reply: text.trim() }
+  const queries = match[1].split('|').map((q) => q.trim().slice(0, 200)).filter(Boolean).slice(0, 4)
+  return {
+    reply: text.replace(match[0], '').replace(/\n+$/, '').trim(),
+    outfitQueries: queries.length > 0 ? queries : undefined,
+  }
+}
+
+// ── Wardrobe token ───────────────────────────────────────────────────────────
+function parseWardrobeToken(text: string): { reply: string; wardrobeScan?: any } {
+  const match = text.match(/\[WARDROBE:\s*(\{[\s\S]*?\})\]/i)
+  if (!match) return { reply: text.trim() }
+  try {
+    const data = JSON.parse(match[1])
+    return {
+      reply: text.replace(match[0], '').replace(/\n+$/, '').trim(),
+      wardrobeScan: data,
+    }
+  } catch {
+    return { reply: text.trim() }
+  }
+}
+
 // ── Route ───────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+    const mode: string = typeof body?.mode === 'string' ? body.mode : 'default'
     const products: StylistProduct[] = Array.isArray(body?.products) ? body.products.slice(0, 4) : []
     const rawHistory: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-20) : []
     const question: string = typeof body?.question === 'string' ? body.question.trim().slice(0, 500) : ''
     const images: string[] = Array.isArray(body?.images)
-      ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:')).slice(0, 8)
+      ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:')).slice(0, 10)
       : []
     const buyerCurrency: string = typeof body?.buyerCurrency === 'string'
       ? body.buyerCurrency.toUpperCase()
@@ -267,6 +354,52 @@ export async function POST(req: NextRequest) {
     if (!question) {
       return NextResponse.json({ reply: null, comparison: null })
     }
+
+    // ── Wardrobe scan mode ──────────────────────────────────────────────────
+    if (mode === 'wardrobe-scan') {
+      if (images.length === 0) {
+        return NextResponse.json({ reply: 'Please share photos of your wardrobe pieces to get started.', comparison: null })
+      }
+
+      const WARDROBE_SYSTEM = `You are Fabrics — a personal stylist analyzing a shopper's wardrobe from photos.
+Your task: identify each garment shown, then return a structured [WARDROBE: {...}] token followed by a brief warm summary.
+
+The JSON inside [WARDROBE: {...}] must have this shape:
+{
+  "items": [
+    { "type": "string", "color": "string", "style": "string", "occasions": ["string"] }
+  ],
+  "summary": "2–3 sentence overview of their current wardrobe style and strengths",
+  "gaps": ["up to 5 specific missing pieces that would complete their wardrobe"]
+}
+
+After the token, write 1–2 warm sentences acknowledging what you see and inviting next steps.
+Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natural and encouraging.`
+
+      const visionMessages: VisionMessage[] = [
+        { role: 'system' as const, content: WARDROBE_SYSTEM },
+      ]
+      const imageParts = images.map(url => ({
+        type: 'image_url' as const,
+        image_url: { url, detail: 'low' as const },
+      }))
+      visionMessages.push({
+        role: 'user',
+        content: [
+          { type: 'text' as const, text: question || 'Please analyze my wardrobe pieces.' },
+          ...imageParts,
+        ],
+      })
+
+      const msg = await groqVisionChat(visionMessages, WARDROBE_SYSTEM, { max_tokens: 900, temperature: 0.3 })
+      const raw = (msg?.content ?? '').trim()
+      const { reply, wardrobeScan } = parseWardrobeToken(raw)
+      return NextResponse.json({ reply, wardrobeScan: wardrobeScan ?? null, comparison: null })
+    }
+
+    // ── Style vocabulary context ────────────────────────────────────────────
+    const matchedStyles = matchStyles(question)
+    const styleVocab = vocabPromptBlock(matchedStyles)
 
     const hasImages = images.length > 0
     const history = enrichHistory(rawHistory)
@@ -285,7 +418,7 @@ export async function POST(req: NextRequest) {
     const memoryBlock = memorySummary
       ? `SHOPPER MEMORY (from previous Fabrics sessions):\n${memorySummary}`
       : ''
-    const contextBlock = [memoryBlock, productContext, imageNote].filter(Boolean).join('\n\n')
+    const contextBlock = [memoryBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
 
     let raw = ''
 
@@ -320,7 +453,8 @@ export async function POST(req: NextRequest) {
     if (!raw) return NextResponse.json({ reply: null, comparison: null })
 
     const { reply: replyWithSearch, comparison } = parseReply(raw)
-    const { reply, searchQuery } = parseSearchToken(replyWithSearch)
+    const { reply: replyWithOutfit, searchQuery } = parseSearchToken(replyWithSearch)
+    const { reply, outfitQueries } = parseOutfitToken(replyWithOutfit)
 
     let foundProducts: any[] | null = null
     if (searchQuery) {
@@ -338,7 +472,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ reply, comparison: comparison ?? null, foundProducts })
+    let outfitSlots: { query: string; products: any[] }[] | null = null
+    if (outfitQueries && outfitQueries.length > 0) {
+      try {
+        const slotResults = await Promise.all(
+          outfitQueries.map(async (q) => {
+            const concepts = buildMandatoryConcepts(q)
+            const results = await GlobalCatalogService.search(
+              q, undefined, [], null, true, concepts,
+              'trust_desc', buyerCurrency, { fastFirstPage: true }, []
+            )
+            return { query: q, products: results.slice(0, 6) }
+          })
+        )
+        outfitSlots = slotResults
+      } catch (e) {
+        console.error('[stylist] outfit search error:', e)
+      }
+    }
+
+    return NextResponse.json({ reply, comparison: comparison ?? null, foundProducts, outfitSlots })
   } catch (e) {
     console.error('[stylist] error:', e)
     return NextResponse.json({ reply: null, comparison: null })

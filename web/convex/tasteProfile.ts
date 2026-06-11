@@ -49,3 +49,33 @@ export const upsertTasteProfile = mutation({
     return ctx.db.insert("taste_profile", { userId: user._id, ...data });
   },
 });
+
+export const upsertWardrobeAnalysis = mutation({
+  args: {
+    userEmail: v.string(),
+    wardrobe: v.object({
+      items: v.array(v.object({
+        type: v.string(),
+        color: v.string(),
+        style: v.string(),
+        occasions: v.array(v.string()),
+      })),
+      summary: v.string(),
+      gaps: v.array(v.string()),
+      analyzedAt: v.number(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserByEmail(ctx, args.userEmail);
+    if (!user) throw new Error("User not found");
+    const existing = await ctx.db
+      .query("taste_profile")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { wardrobe: args.wardrobe, updatedAt: Date.now() });
+      return existing._id;
+    }
+    return ctx.db.insert("taste_profile", { userId: user._id, wardrobe: args.wardrobe, updatedAt: Date.now() });
+  },
+});

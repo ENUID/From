@@ -1189,7 +1189,8 @@ export default function FromApp({
 
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[] }
+  type OutfitSlot = { query: string; products: Product[] }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; outfitSlots?: OutfitSlot[] }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistOpen, setStylistOpen]       = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
@@ -1209,6 +1210,9 @@ export default function FromApp({
   const stylistFileRef                      = useRef<HTMLInputElement>(null)
   const stylistSessionId                    = useRef<string | null>(null)
   const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
+  const [wardrobeScanLoading, setWardrobeScanLoading] = useState(false)
+  const [wardrobeScanResult, setWardrobeScanResult]   = useState<{ summary: string; gaps: string[] } | null>(null)
+  const wardrobeFileRef                     = useRef<HTMLInputElement>(null)
   // Products attached to the search bar — sending a query with these opens the stylist.
   const [barProducts, setBarProducts]       = useState<Product[]>([])
 
@@ -1308,14 +1312,22 @@ export default function FromApp({
       const data = await res.json()
       if (data?.reply) {
         const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : []
+        const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0 ? data.outfitSlots : undefined
         if (newProducts.length > 0) {
           setStylistProducts(prev => {
             const ids = new Set(prev.map(p => p.id))
             return [...prev, ...newProducts.filter(p => !ids.has(p.id))]
           })
         }
+        if (outfitSlots) {
+          const allOutfitProducts = outfitSlots.flatMap(s => s.products)
+          setStylistProducts(prev => {
+            const ids = new Set(prev.map(p => p.id))
+            return [...prev, ...allOutfitProducts.filter(p => !ids.has(p.id))]
+          })
+        }
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, outfitSlots }])
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
           fetch('/api/ai/stylist-memory', {
@@ -3373,6 +3385,42 @@ export default function FromApp({
                           </div>
                         </div>
                       )}
+                      {m.role === 'assistant' && m.outfitSlots && m.outfitSlots.length > 0 && (
+                        <div style={{ marginTop: 12, width: '100%' }}>
+                          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Complete outfit</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                            {m.outfitSlots.map((slot, si) => {
+                              const slotLabels = ['Top', 'Bottom', 'Shoes', 'Outer']
+                              const best = slot.products[0]
+                              if (!best) return null
+                              return (
+                                <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}
+                                  onClick={() => { setStylistOpen(false); setSelected(best) }}>
+                                  <div style={{ height: 110, overflow: 'hidden', background: BG2, position: 'relative' }}>
+                                    {getProductImages(best)[0] && <img src={getProductImages(best)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                    <div style={{ position: 'absolute', top: 6, left: 6, background: INK, color: '#fff', fontFamily: SANS, fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 20, letterSpacing: '.05em' }}>
+                                      {slotLabels[si] ?? `Slot ${si + 1}`}
+                                    </div>
+                                  </div>
+                                  <div style={{ padding: '7px 8px' }}>
+                                    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.title}</div>
+                                    <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(best.price, best.currency, best.base_currency, liveRates)}</div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {(() => {
+                            const total = m.outfitSlots.reduce((sum, s) => sum + (s.products[0]?.price ?? 0), 0)
+                            if (total <= 0) return null
+                            return (
+                              <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: INK2, textAlign: 'right' }}>
+                                Total outfit: {formatMoney(total, m.outfitSlots[0]?.products[0]?.currency, m.outfitSlots[0]?.products[0]?.base_currency, liveRates)}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {stylistLoading && (
@@ -3415,6 +3463,34 @@ export default function FromApp({
                 {/* Input */}
                 <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}`, padding: '10px 14px calc(10px + env(safe-area-inset-bottom, 0px))' }}>
                   <input ref={stylistFileRef} type="file" accept="image/*,*/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
+                  <input ref={wardrobeFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={async (e) => {
+                    const files = Array.from(e.target.files || []).slice(0, 10)
+                    if (!files.length) return
+                    setWardrobeScanLoading(true)
+                    setWardrobeScanResult(null)
+                    const dataUrls = await Promise.all(files.map(f => new Promise<string>((res) => {
+                      const reader = new FileReader()
+                      reader.onload = () => res(reader.result as string)
+                      reader.readAsDataURL(f)
+                    })))
+                    try {
+                      const resp = await fetch('/api/ai/stylist', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mode: 'wardrobe-scan', question: 'Analyze my wardrobe pieces.', images: dataUrls }),
+                      })
+                      const data = await resp.json()
+                      if (data?.wardrobeScan) {
+                        setWardrobeScanResult({ summary: data.wardrobeScan.summary, gaps: data.wardrobeScan.gaps })
+                        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply || 'Here is what I found in your wardrobe.' }])
+                      } else if (data?.reply) {
+                        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply }])
+                      }
+                    } catch { /* silent */ } finally {
+                      setWardrobeScanLoading(false)
+                    }
+                    if (wardrobeFileRef.current) wardrobeFileRef.current.value = ''
+                  }} />
                   {/* Attached image strip */}
                   {stylistImages.length > 0 && (
                     <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 8, scrollbarWidth: 'none' } as React.CSSProperties}>
@@ -3440,11 +3516,21 @@ export default function FromApp({
                       style={{ width: '100%', fontFamily: SANS, fontSize: 15, color: INK, caretColor: INK, background: 'transparent', border: 'none', outline: 'none', padding: 0, lineHeight: 1.5 }} />
                     {/* Row 2: actions */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                      <button type="button" className="fr-icon-btn" onClick={() => stylistFileRef.current?.click()} disabled={stylistImages.length >= 8} title="Attach image">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                        </svg>
-                      </button>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <button type="button" className="fr-icon-btn" onClick={() => stylistFileRef.current?.click()} disabled={stylistImages.length >= 8} title="Attach image">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                          </svg>
+                        </button>
+                        {isPremium && (
+                          <button type="button" className="fr-icon-btn" onClick={() => wardrobeFileRef.current?.click()} disabled={wardrobeScanLoading} title="Scan wardrobe" style={{ opacity: wardrobeScanLoading ? 0.5 : 1 }}>
+                            {wardrobeScanLoading
+                              ? <span style={{ width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="8" cy="9" r="2"/><path d="M21 15l-5-5-4 4-3-3-3 3"/></svg>
+                            }
+                          </button>
+                        )}
+                      </div>
                       <button type="button" className="fr-send-btn" onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
                         style={{ background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.18)', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', boxShadow: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? '0 4px 14px rgba(44,18,6,.35),0 1px 4px rgba(44,18,6,.2),inset 0 1px 0 rgba(255,255,255,.12)' : 'none' }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
@@ -3831,26 +3917,76 @@ export default function FromApp({
                 {/* Step 0 — aesthetic tiles */}
                 {onboardingStep === 0 && (
                   <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 22 }}>
-                      {['Minimal', 'Streetwear', 'Bohemian', 'Preppy', 'Workwear', 'Oversized'].map(style => {
-                        const active = selectedStyles.includes(style)
-                        return (
-                          <button key={style} onClick={() => setSelectedStyles(prev =>
-                            active ? prev.filter(s => s !== style)
-                                   : prev.length < 3 ? [...prev, style] : prev
-                          )} style={{
-                            padding: '12px 6px', borderRadius: 10, border: `1.5px solid ${active ? INK : BRD}`,
-                            background: active ? INK : 'transparent', cursor: 'pointer',
-                            fontFamily: SANS, fontSize: 12, fontWeight: active ? 600 : 400,
-                            color: active ? '#fff' : INK, transition: 'all .14s',
-                          }}>
-                            {style}
-                          </button>
-                        )
-                      })}
-                    </div>
+                    {([
+                      { label: 'Classic', tiles: [
+                        { name: 'Quiet Luxury', key: 'quiet luxury', emoji: '🤍', sub: 'no logo' },
+                        { name: 'Old Money', key: 'old money', emoji: '🧥', sub: 'heritage' },
+                        { name: 'Minimalist', key: 'minimalist', emoji: '◻️', sub: 'clean lines' },
+                        { name: 'Preppy', key: 'preppy', emoji: '🎓', sub: 'collegiate' },
+                        { name: 'Corporate', key: 'corporate minimalism', emoji: '💼', sub: 'tailored' },
+                        { name: 'Nautical', key: 'nautical', emoji: '⚓', sub: 'coastal' },
+                      ]},
+                      { label: 'Street', tiles: [
+                        { name: 'Streetwear', key: 'streetwear', emoji: '🧢', sub: 'urban' },
+                        { name: 'Techwear', key: 'techwear', emoji: '🔧', sub: 'utility' },
+                        { name: 'Dark Academia', key: 'dark academia', emoji: '📚', sub: 'scholarly' },
+                        { name: 'Grunge', key: 'grunge', emoji: '🎸', sub: 'distressed' },
+                        { name: 'Y2K', key: 'Y2K', emoji: '💿', sub: '2000s' },
+                        { name: 'Vintage', key: 'vintage', emoji: '🪡', sub: 'pre-loved' },
+                      ]},
+                      { label: 'Outdoors', tiles: [
+                        { name: 'Gorpcore', key: 'gorpcore', emoji: '🏔️', sub: 'trail-ready' },
+                        { name: 'Heritage', key: 'heritage workwear', emoji: '🔨', sub: 'crafted' },
+                        { name: 'Athleisure', key: 'athleisure', emoji: '🏃', sub: 'sport-casual' },
+                        { name: 'Sport Luxe', key: 'sport luxe', emoji: '🎾', sub: 'premium active' },
+                        { name: 'Workwear', key: 'workwear', emoji: '🧱', sub: 'functional' },
+                        { name: 'Utility', key: 'utility', emoji: '🪜', sub: 'multi-pocket' },
+                      ]},
+                      { label: 'Soft', tiles: [
+                        { name: 'Bohemian', key: 'bohemian', emoji: '🌿', sub: 'free spirit' },
+                        { name: 'Cottagecore', key: 'cottagecore', emoji: '🌸', sub: 'pastoral' },
+                        { name: 'Ballet Core', key: 'ballet core', emoji: '🩰', sub: 'soft feminine' },
+                        { name: 'Romantic', key: 'romantic', emoji: '🌹', sub: 'delicate' },
+                        { name: 'Clean Girl', key: 'clean girl', emoji: '✨', sub: 'effortless' },
+                        { name: 'Coastal', key: 'coastal grandmother', emoji: '🌊', sub: 'breezy linen' },
+                      ]},
+                      { label: 'Bold', tiles: [
+                        { name: 'Maximalist', key: 'maximalist', emoji: '🎨', sub: 'more is more' },
+                        { name: 'Eclectic', key: 'eclectic', emoji: '🦋', sub: 'curated chaos' },
+                        { name: 'Artistic', key: 'artistic', emoji: '🖼️', sub: 'avant-garde' },
+                        { name: 'Mob Wife', key: 'mob wife', emoji: '🐆', sub: 'bold luxury' },
+                        { name: 'Dark Romantic', key: 'dark romantic', emoji: '🕯️', sub: 'gothic soft' },
+                        { name: 'Resort', key: 'resort wear', emoji: '🌴', sub: 'vacation chic' },
+                      ]},
+                    ] as const).map(row => (
+                      <div key={row.label} style={{ marginBottom: 10 }}>
+                        <div style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{row.label}</div>
+                        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
+                          {row.tiles.map(tile => {
+                            const active = selectedStyles.includes(tile.key)
+                            return (
+                              <button key={tile.key} onClick={() => setSelectedStyles(prev =>
+                                active ? prev.filter(s => s !== tile.key)
+                                       : prev.length < 5 ? [...prev, tile.key] : prev
+                              )} style={{
+                                flexShrink: 0, padding: '8px 10px', borderRadius: 10,
+                                border: `1.5px solid ${active ? INK : BRD}`,
+                                background: active ? INK : 'transparent', cursor: 'pointer',
+                                fontFamily: SANS, fontSize: 11, fontWeight: active ? 600 : 400,
+                                color: active ? '#fff' : INK, transition: 'all .14s',
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 72,
+                              }}>
+                                <span style={{ fontSize: 16 }}>{tile.emoji}</span>
+                                <span style={{ whiteSpace: 'nowrap' }}>{tile.name}</span>
+                                <span style={{ fontSize: 9, color: active ? 'rgba(255,255,255,0.65)' : INK3, whiteSpace: 'nowrap' }}>{tile.sub}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                     <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 16, textAlign: 'center' }}>
-                      Pick up to 3
+                      Pick up to 5
                     </div>
                   </>
                 )}

@@ -1,5 +1,6 @@
 import { groqChat } from '../groq'
 import type { UcpProduct } from './GlobalCatalogService'
+import { matchStyles, vocabPromptBlock } from '../styleVocabulary'
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
 export function isRerankEnabled(): boolean {
@@ -137,7 +138,11 @@ async function llmRelevanceScores(
   const productLines = products.map((p, i) => compactProduct(p, i)).join('\n')
   const profileLine = tasteProfile ? `\nShopper profile: ${tasteProfile}\n` : ''
 
+  const matched = matchStyles(query)
+  const vocabBlock = vocabPromptBlock(matched)
+
   const system = `You are a fashion search relevance judge.
+${vocabBlock}
 Given a shopper's query and numbered candidate products, score how well each satisfies the shopper's INTENT — not just keyword overlap. Consider garment type, material, colour, style/vibe, occasion, and gender. Wrong garment type or gender → score near 0.${profileLine}
 Output ONLY a JSON array, one object per product, no prose, no markdown:
 [{"i":0,"s":87,"r":"linen camp shirt, beach wedding"},...]

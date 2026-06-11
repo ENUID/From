@@ -46,6 +46,17 @@ export default defineSchema({
     colors: v.optional(v.array(v.string())),
     occasions: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
+    wardrobe: v.optional(v.object({
+      items: v.array(v.object({
+        type: v.string(),
+        color: v.string(),
+        style: v.string(),
+        occasions: v.array(v.string()),
+      })),
+      summary: v.string(),
+      gaps: v.array(v.string()),
+      analyzedAt: v.number(),
+    })),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
+import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
@@ -512,6 +513,12 @@ export async function POST(req: NextRequest) {
 
     if (personalLines.length > 0) {
       dynamicSystemPrompt += `\n\nABOUT THIS SHOPPER (personalize for them — weave taste signals in subtly, let the current request lead):\n${personalLines.join('\n')}`;
+    }
+
+    const matchedStyles = matchStyles(message)
+    const styleVocab = vocabPromptBlock(matchedStyles)
+    if (styleVocab) {
+      dynamicSystemPrompt += `\n\n${styleVocab}`
     }
 
     dynamicSystemPrompt += `\n\nCATEGORY TAXONOMY — map the user's request to specific item types and a clean searchQuery:\n${buildCategoryTaxonomy()}`;
