@@ -1056,14 +1056,18 @@ export default function FromApp({
   const [signingIn, setSigningIn] = useState(false)
   const [glassLight, setGlassLight] = useState({ x: 35, y: 28 })
   const glassCardRef = useRef<HTMLDivElement>(null)
-  const handleGlassMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const updateGlassLight = (clientX: number, clientY: number) => {
     const card = glassCardRef.current
     if (!card) return
     const r = card.getBoundingClientRect()
     setGlassLight({
-      x: Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100)),
-      y: Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100)),
+      x: Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)),
+      y: Math.max(0, Math.min(100, ((clientY - r.top) / r.height) * 100)),
     })
+  }
+  const handleGlassMove  = (e: React.MouseEvent<HTMLDivElement>)  => updateGlassLight(e.clientX, e.clientY)
+  const handleGlassTouch = (e: React.TouchEvent<HTMLDivElement>) => {
+    const t = e.touches[0]; if (t) updateGlassLight(t.clientX, t.clientY)
   }
 
   // ── UI state ────────────────────────────────────────────────────────────────
@@ -2087,12 +2091,15 @@ export default function FromApp({
       {authStatus !== 'authenticated' && (
         <div
           onMouseMove={handleGlassMove}
+          onTouchMove={handleGlassTouch}
           style={{
             position: 'fixed', inset: 0, zIndex: 99999,
-            background: 'rgba(14,10,8,0.38)',
+            background: 'rgba(14,10,8,0.40)',
             backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '20px',
+            padding: '16px',
+            // Fallback for browsers without backdrop-filter
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
           {/* ── Glass card ── */}
@@ -2100,22 +2107,26 @@ export default function FromApp({
             ref={glassCardRef}
             style={{
               position: 'relative',
-              width: '100%', maxWidth: 360,
+              width: '100%',
+              maxWidth: 360,
+              maxHeight: 'calc(100dvh - 32px)',
+              overflowY: 'auto',
               borderRadius: 26,
               overflow: 'hidden',
-              background: 'rgba(253,250,246,0.96)',
-              backdropFilter: 'blur(48px) saturate(180%) brightness(104%)',
-              WebkitBackdropFilter: 'blur(48px) saturate(180%) brightness(104%)',
+              // Translucent glass — low opacity so blur shows through
+              background: 'rgba(255,252,248,0.68)',
+              backdropFilter: 'blur(48px) saturate(190%) brightness(106%)',
+              WebkitBackdropFilter: 'blur(48px) saturate(190%) brightness(106%)',
               boxShadow: [
-                '0 0 0 0.5px rgba(255,255,255,0.8)',
-                '0 0 0 1px rgba(44,18,6,0.06)',
-                '0 4px 16px rgba(0,0,0,0.10)',
-                '0 16px 48px rgba(0,0,0,0.14)',
-                '0 40px 80px rgba(0,0,0,0.10)',
+                '0 0 0 0.5px rgba(255,255,255,0.85)',
+                '0 0 0 1px rgba(44,18,6,0.05)',
+                '0 2px 8px rgba(0,0,0,0.08)',
+                '0 8px 32px rgba(0,0,0,0.13)',
+                '0 32px 72px rgba(0,0,0,0.12)',
                 'inset 0 1.5px 0 rgba(255,255,255,1)',
-                'inset 0 -0.5px 0 rgba(44,18,6,0.06)',
-                'inset 1.5px 0 0 rgba(255,255,255,0.7)',
-                'inset -1.5px 0 0 rgba(255,255,255,0.4)',
+                'inset 0 -0.5px 0 rgba(255,255,255,0.3)',
+                'inset 1.5px 0 0 rgba(255,255,255,0.65)',
+                'inset -1.5px 0 0 rgba(255,255,255,0.35)',
               ].join(','),
               animation: 'glassSpring 0.72s cubic-bezier(0.34,1.36,0.64,1) forwards',
             }}
@@ -2147,10 +2158,10 @@ export default function FromApp({
             }} />
 
             {/* ── Content ── */}
-            <div style={{ position: 'relative', zIndex: 3, padding: '50px 40px 36px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ position: 'relative', zIndex: 3, padding: 'clamp(36px,6vw,50px) clamp(24px,6vw,40px) clamp(28px,5vw,36px)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
               {/* Wordmark */}
-              <div style={{ fontFamily: SEASON, fontSize: 48, letterSpacing: '0.05em', color: INK, lineHeight: 1, marginBottom: 12, textShadow: '0 1px 0 rgba(255,255,255,0.9)' }}>
+              <div style={{ fontFamily: SEASON, fontSize: 'clamp(38px,8vw,48px)', letterSpacing: '0.05em', color: INK, lineHeight: 1, marginBottom: 12, textShadow: '0 1px 0 rgba(255,255,255,0.9)' }}>
                 FROM
               </div>
 
@@ -2158,13 +2169,13 @@ export default function FromApp({
               <div style={{ width: 32, height: 1, background: 'rgba(44,18,6,0.15)', marginBottom: 14 }} />
 
               {/* Headline */}
-              <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 16, color: INK, marginBottom: 6, textAlign: 'center', letterSpacing: '0.015em', lineHeight: 1.4 }}>
+              <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 'clamp(14px,3.5vw,16px)', color: INK, marginBottom: 6, textAlign: 'center', letterSpacing: '0.015em', lineHeight: 1.4 }}>
                 Fashion worth finding.
               </div>
 
               {/* Sub-copy */}
-              <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginBottom: 34, textAlign: 'center', lineHeight: 1.65, letterSpacing: '0.02em' }}>
-                Independent brands. Wear what<br/>makes you different.
+              <div style={{ fontFamily: SANS, fontSize: 'clamp(11px,2.8vw,12px)', color: INK3, marginBottom: 'clamp(24px,5vw,34px)', textAlign: 'center', lineHeight: 1.65, letterSpacing: '0.02em' }}>
+                Independent brands. Wear what makes you different.
               </div>
 
               {/* ── Google button ── */}
@@ -2175,7 +2186,7 @@ export default function FromApp({
                 style={{
                   position: 'relative', overflow: 'hidden',
                   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11,
-                  padding: '14px 24px', borderRadius: 13,
+                  padding: 'clamp(12px,3vw,14px) 20px', borderRadius: 13,
                   background: 'rgba(255,255,255,0.85)',
                   border: '1px solid rgba(44,18,6,0.10)',
                   boxShadow: ['0 1px 0 rgba(255,255,255,1) inset','0 -1px 0 rgba(44,18,6,0.05) inset','0 1px 4px rgba(0,0,0,0.07)','0 4px 16px rgba(0,0,0,0.06)'].join(','),
