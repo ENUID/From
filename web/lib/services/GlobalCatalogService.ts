@@ -512,7 +512,29 @@ const MATERIAL_SYNONYMS: Record<string, string[]> = {
   'jeans': ['denim', 'bò', 'jean', 'jeans']
 };
 
+// Non-fashion product types that should never appear in FROM results, regardless of query.
+// Uses word-boundary regex on title to avoid false positives (e.g. "bookbag" must not match "book").
+const NON_FASHION_TITLE_RE = /\b(?:book|books|magazine|magazines|zine|zines|paperback|hardcover|novel|novels|stationery|notepad|notepads|notebook|notebooks|candle|candles|diffuser|diffusers|incense|art\s+print|art\s+prints|wall\s+art|poster|posters|gift\s+card|gift\s+wrap)\b/i;
+
+// Exact tag matches are safe to be more aggressive with
+const NON_FASHION_TAGS = new Set([
+  'book', 'books', 'magazine', 'magazines', 'zine', 'novel', 'publication',
+  'art-print', 'art print', 'wall-art', 'wall art', 'poster',
+  'candle', 'candles', 'diffuser', 'home-fragrance', 'home fragrance', 'incense',
+  'notebook', 'notebooks', 'stationery', 'notepad',
+  'gift-card', 'gift card', 'gift_card',
+]);
+
+function isNonFashionProduct(product: UcpProduct): boolean {
+  if (NON_FASHION_TITLE_RE.test(product.title)) return true;
+  const lowerTags = (product.tags || []).map(t => t.toLowerCase());
+  return lowerTags.some(t => NON_FASHION_TAGS.has(t));
+}
+
 function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
+  // Hard block: always remove non-fashion items regardless of query
+  if (isNonFashionProduct(product)) return true;
+
   const normalizedQuery = query.toLowerCase();
   // Include tags so "shoe" tags on a shoe product don't get missed
   const searchableText = [
