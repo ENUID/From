@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useSession, signIn } from 'next-auth/react'
+import { useSession, signIn, signOut } from 'next-auth/react'
 import { useFromChat } from './hooks/useFromChat'
 import { formatMoney } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
@@ -1052,7 +1052,7 @@ export default function FromApp({
   } = useFromChat(initialShopperContext, initialRates)
 
   // ── Auth gate ────────────────────────────────────────────────────────────────
-  const { status: authStatus } = useSession()
+  const { status: authStatus, data: session } = useSession()
   const [signingIn, setSigningIn] = useState(false)
   // Latch: once gate opens it stays open until 'authenticated' — prevents flicker
   // caused by loading→unauthenticated→loading→authenticated transitions on mobile.
@@ -1078,7 +1078,7 @@ export default function FromApp({
   const [sheetSnap, setSheetSnap]     = useState<'full'|'half'>('full')
   const [isDragging, setIsDragging]   = useState(false)
   const [sidebarOpen, setSidebar]     = useState(false)
-  const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics'>('nav')
+  const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics' | 'profile'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
   const [inputHint, setInputHint]       = useState<string | null>(null)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
@@ -2234,19 +2234,24 @@ export default function FromApp({
               flexShrink: 0,
             }}>
               <FromLogo size={24} color={SHUFFLED_PALETTE[logoIdx]} />
-              <div style={{
-                width: 38, height: 38, borderRadius: "50%",
-                background: "#ffffff",
-                boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", flexShrink: 0, userSelect: "none",
-              }}>
-                {hasName ? (
-                  <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK }}>
-                    {userName.charAt(0).toUpperCase()}
+              <div
+                onClick={() => setSidebarView(v => v === 'profile' ? 'nav' : 'profile')}
+                style={{
+                  width: 38, height: 38, borderRadius: "50%",
+                  background: sidebarView === 'profile' ? INK : "#ffffff",
+                  boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0, userSelect: "none",
+                  overflow: "hidden", transition: "background 0.18s",
+                }}>
+                {session?.user?.image ? (
+                  <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : hasName ? (
+                  <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: sidebarView === 'profile' ? '#fff' : INK }}>
+                    {(session?.user?.name || userName).charAt(0).toUpperCase()}
                   </span>
                 ) : (
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.7" strokeLinecap="round">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={sidebarView === 'profile' ? '#fff' : INK3} strokeWidth="1.7" strokeLinecap="round">
                     <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                   </svg>
                 )}
@@ -2342,7 +2347,80 @@ export default function FromApp({
 
             {/* Scrollable recents / bag content */}
             <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: "0 12px", overscrollBehaviorY: "contain" }}>
-              {sidebarView === 'fabrics' ? (
+              {sidebarView === 'profile' ? (
+                <div style={{ padding: '8px 8px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+                  {/* Avatar */}
+                  <div style={{
+                    width: 72, height: 72, borderRadius: '50%', overflow: 'hidden',
+                    background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 14, flexShrink: 0,
+                    boxShadow: '0 4px 20px rgba(44,18,6,.16), 0 1px 4px rgba(44,18,6,.08)',
+                  }}>
+                    {session?.user?.image ? (
+                      <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontFamily: SANS, fontSize: 26, fontWeight: 500, color: '#fff' }}>
+                        {(session?.user?.name || userName || '?').charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Name */}
+                  <div style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: INK, marginBottom: 4, textAlign: 'center' }}>
+                    {session?.user?.name || userName || 'Your account'}
+                  </div>
+
+                  {/* Email */}
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginBottom: 24, textAlign: 'center', opacity: 0.7 }}>
+                    {session?.user?.email || ''}
+                  </div>
+
+                  {/* Stats row */}
+                  <div style={{ width: '100%', display: 'flex', gap: 10, marginBottom: 24 }}>
+                    <div style={{
+                      flex: 1, background: BG2, borderRadius: 14, padding: '14px 12px',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                    }}>
+                      <span style={{ fontFamily: SANS, fontSize: 20, fontWeight: 700, color: INK }}>{savedProducts.length}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, opacity: 0.7 }}>Saved</span>
+                    </div>
+                    <div style={{
+                      flex: 1, background: BG2, borderRadius: 14, padding: '14px 12px',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                    }}>
+                      <span style={{ fontFamily: SANS, fontSize: 20, fontWeight: 700, color: INK }}>{searchHistory.length}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, opacity: 0.7 }}>Searches</span>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ width: '100%', height: 1, background: 'rgba(44,18,6,0.07)', marginBottom: 20 }} />
+
+                  {/* Sign out */}
+                  <button
+                    type="button"
+                    onClick={() => signOut({ callbackUrl: window.location.origin + '/' })}
+                    style={{
+                      width: '100%', padding: '13px 16px', borderRadius: 13,
+                      background: 'rgba(180,40,20,0.06)', border: '1px solid rgba(180,40,20,0.12)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      fontFamily: SANS, fontSize: 14, fontWeight: 500, color: '#b32212',
+                      cursor: 'pointer', transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(180,40,20,0.11)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(180,40,20,0.06)')}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                      <polyline points="16 17 21 12 16 7"/>
+                      <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    Sign out
+                  </button>
+
+                </div>
+              ) : sidebarView === 'fabrics' ? (
                 <>
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
                   {stylistHistory.length === 0 ? (
