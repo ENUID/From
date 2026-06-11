@@ -1,6 +1,8 @@
 export const GROQ_BASE = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1'
 export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
 export const CHAT_MODEL = process.env.GROQ_CHAT_MODEL ?? 'llama-3.1-8b-instant'
+export const STYLIST_MODEL = process.env.GROQ_STYLIST_MODEL ?? 'llama-3.3-70b-versatile'
+export const VISION_MODEL = process.env.GROQ_VISION_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 export type ChatMessage = {
   role: string
@@ -246,5 +248,55 @@ export async function generatePostToolReply(
   } catch (error) {
     console.error('Post-search AI reply failed:', error)
     return null
+  }
+}
+
+// ── Vision model ──────────────────────────────────────────────────────────────
+
+type VisionPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } }
+
+export type VisionMessage = {
+  role: 'user' | 'assistant' | 'system'
+  content: string | VisionPart[]
+}
+
+export async function groqVisionChat(
+  messages: VisionMessage[],
+  system: string,
+  opts?: { max_tokens?: number; temperature?: number },
+  retryCount = 0
+): Promise<any> {
+  const allMessages: VisionMessage[] = [{ role: 'system', content: system }, ...messages]
+  const payload = {
+    model: VISION_MODEL,
+    messages: allMessages,
+    temperature: opts?.temperature ?? 0.2,
+    max_tokens: opts?.max_tokens ?? 700,
+  }
+  try {
+    const res = await fetch(`${GROQ_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (res.status === 429 && retryCount < 2) {
+      await new Promise(r => setTimeout(r, 3_000))
+      return groqVisionChat(messages, system, opts, retryCount + 1)
+    }
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Vision AI HTTP ${res.status}: ${err}`)
+    }
+    const data = await res.json()
+    return data.choices?.[0]?.message
+  } catch (err: any) {
+    if (retryCount < 1 && !err.message?.includes('API key')) {
+      await new Promise(r => setTimeout(r, 2_000))
+      return groqVisionChat(messages, system, opts, retryCount + 1)
+    }
+    throw err
   }
 }
