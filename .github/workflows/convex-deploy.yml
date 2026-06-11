@@ -18,8 +18,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
 
-      - name: Install Convex CLI
+      - name: Install dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Install older Convex CLI globally
         run: npm install -g convex@1.17.4
 
       - name: Deploy Convex
