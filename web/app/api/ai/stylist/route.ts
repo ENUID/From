@@ -307,7 +307,7 @@ export async function POST(req: NextRequest) {
         ...history,
         { role: 'user' as const, content: question },
       ]
-      const msg = await groqChat(messages, SYSTEM, undefined, { max_tokens: 700, temperature: 0.4, model: STYLIST_MODEL })
+      const msg = await groqChat(messages, SYSTEM, undefined, { max_tokens: 700, temperature: 0.4 })
       raw = (msg?.content ?? '').trim()
     }
 

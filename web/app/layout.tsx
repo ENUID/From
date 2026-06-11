@@ -1,6 +1,5 @@
-import type { Metadata, Viewport } from 'next'
+import type { Metadata } from 'next'
 import Script from 'next/script'
-import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider'
@@ -10,25 +9,6 @@ import { authOptions } from '@/lib/auth'
 export const metadata: Metadata = {
   title: 'From - Be Different',
   description: 'Search across independent stores through natural language. Describe what you need and discover unique finds from verified shops.',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'From',
-  },
-  formatDetection: { telephone: false },
-}
-
-// Mobile-correct viewport: fill the screen edge-to-edge on notched devices
-// (viewport-fit=cover enables env(safe-area-inset-*)), allow pinch-zoom for
-// accessibility, and lock initial scale so the layout is right on first paint.
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  minimumScale: 1,
-  maximumScale: 5,
-  userScalable: true,
-  viewportFit: 'cover',
-  themeColor: '#FFFFFF',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -54,11 +34,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ConvexClientProvider>
           <AuthProvider session={session}>{children}</AuthProvider>
         </ConvexClientProvider>
-        <Script
-          src="https://s.skimresources.com/js/303928X1792065.skimlinks.js"
-          strategy="afterInteractive"
+        <Script 
+          src="https://s.skimresources.com/js/303928X1792065.skimlinks.js" 
+          strategy="afterInteractive" 
         />
-        <Analytics />
       </body>
     </html>
   )

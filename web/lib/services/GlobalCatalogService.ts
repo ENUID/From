@@ -1,7 +1,6 @@
 import { getExchangeRates } from '../exchangeRates';
-import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, domainCountry } from '../stores';
+import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES } from '../stores';
 import { groqChat } from '../groq';
-import { rerankByRelevance } from './relevanceRerank';
 
 
 export type UcpProduct = {
@@ -27,8 +26,6 @@ export type UcpProduct = {
     media?: Array<{ url: string; alt?: string }>;
   }>;
   trust_score?: number;
-  relevance_score?: number;
-  relevance_reason?: string;
 }
 
 type ProductSort = 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc';
@@ -41,8 +38,6 @@ type CatalogSearchFilters = {
   sort?: ProductSort;
   limit: number;
   rates: Record<string, number>;
-  /** Shopper's ISO country — brands from this country are surfaced first. */
-  userCountry?: string | null;
 };
 
 export type CatalogSearchDebug = {
@@ -59,30 +54,13 @@ type CatalogSearchOptions = {
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
-const FAST_PAGE_LIMIT = 50;
-const CATALOG_PAGE_LIMIT = 60;
-const REFRESH_PAGE_LIMIT = 60;
+const FAST_PAGE_LIMIT = 30;
+const CATALOG_PAGE_LIMIT = 30;
+const REFRESH_PAGE_LIMIT = 30;
 const FAST_SUBQUERY_LIMIT = 3;
-const INITIAL_RESULT_LIMIT = 50;
-const LOAD_MORE_RESULT_LIMIT = 100;
+const INITIAL_RESULT_LIMIT = 30;
+const LOAD_MORE_RESULT_LIMIT = 10;
 const searchCache = new Map<string, { timestamp: number, products: UcpProduct[], nextChunkIndex?: number }>();
-// Cap the cache so a long-lived (warm) serverless instance serving many unique
-// queries can never grow without bound. When over the cap, drop expired entries
-// first, then the oldest, keeping memory flat under heavy concurrent load.
-const SEARCH_CACHE_MAX = 500;
-function evictSearchCache() {
-  if (searchCache.size <= SEARCH_CACHE_MAX) return;
-  const now = Date.now();
-  searchCache.forEach((val, key) => {
-    if (now - val.timestamp >= CACHE_TTL_MS) searchCache.delete(key);
-  });
-  // Map preserves insertion order — delete oldest until back under the cap.
-  while (searchCache.size > SEARCH_CACHE_MAX) {
-    const oldest = searchCache.keys().next().value;
-    if (oldest === undefined) break;
-    searchCache.delete(oldest);
-  }
-}
 
 const COUNTRY_MAP: { [key: string]: string } = {
   IN: 'India',
@@ -350,12 +328,6 @@ Translate the input search query from any language (Vietnamese, Japanese, Chines
         
       if (cleanedTranslation) {
         console.log(`[GlobalCatalog] LLM translated "${part}" to "${cleanedTranslation}"`);
-        // Bound the cache — translations are tiny and effectively permanent, so
-        // evict the oldest entry once we hit the cap to keep memory flat.
-        if (translationCache.size >= 2000) {
-          const oldest = translationCache.keys().next().value;
-          if (oldest !== undefined) translationCache.delete(oldest);
-        }
         translationCache.set(cacheKey, cleanedTranslation);
         translatedParts.push(cleanedTranslation);
       } else {
@@ -537,100 +509,6 @@ const MATERIAL_SYNONYMS: Record<string, string[]> = {
   'jeans': ['denim', 'bò', 'jean', 'jeans']
 };
 
-// ── Attribute matching (gender / colour / garment type) ────────────────────
-// These run as HARD filters so an explicit request ("men's t-shirt", "sky blue")
-// can never be satisfied with the opposite gender, a different colour, or the
-// wrong garment. Whole-word matching avoids "men" matching inside "women" and
-// "tan" matching inside "tank".
-
-function hasWord(text: string, word: string): boolean {
-  return new RegExp(`(?:^|[^a-z])${word.replace(/\s+/g, '[\\s-]*')}(?:[^a-z]|$)`, 'i').test(text);
-}
-
-function detectGender(text: string): 'men' | 'women' | 'kids' | null {
-  const women = /(?:^|[^a-z])(women|woman|womens|womenswear|ladies|lady|female)(?:[^a-z]|$)/i.test(text);
-  const men   = /(?:^|[^a-z])(men|man|mens|menswear|male|guys?|gentlemen)(?:[^a-z]|$)/i.test(text);
-  // boys/girls are children — keep them out of the adult gender buckets
-  const kids  = /(?:^|[^a-z])(kids?|children|child|toddler|infant|baby|boys?|girls?)(?:[^a-z]|$)/i.test(text);
-  if (kids && !women && !men) return 'kids';
-  if (women && !men) return 'women';
-  if (men && !women) return 'men';
-  return null; // unisex, ambiguous, or unmarked
-}
-
-// Colour vocabulary; sub-shades map to a base so "sky blue" still matches "blue".
-const COLOR_TERMS: string[] = [
-  'black', 'white', 'ivory', 'cream', 'beige', 'tan', 'camel', 'khaki', 'olive', 'sage',
-  'green', 'mint', 'emerald', 'forest', 'blue', 'sky blue', 'navy', 'teal', 'turquoise',
-  'indigo', 'cobalt', 'red', 'maroon', 'burgundy', 'wine', 'crimson', 'pink', 'rose',
-  'fuchsia', 'blush', 'coral', 'peach', 'purple', 'lavender', 'lilac', 'violet', 'plum',
-  'yellow', 'mustard', 'gold', 'orange', 'rust', 'terracotta', 'brown', 'chocolate', 'mocha',
-  'grey', 'gray', 'charcoal', 'slate', 'silver', 'taupe',
-];
-// Extended set for concept group detection (includes common colour phrases)
-const ALL_COLOUR_TERMS = new Set([
-  ...COLOR_TERMS,
-  'sky blue', 'light blue', 'powder blue', 'royal blue', 'cobalt blue', 'midnight blue',
-  'navy blue', 'dark blue', 'off white', 'off-white', 'dark green', 'forest green',
-  'olive green', 'sage green', 'charcoal grey', 'charcoal gray', 'dusty pink',
-  'blush pink', 'hot pink', 'burnt orange', 'rust orange', 'dark brown', 'light brown',
-].map(c => c.toLowerCase()));
-
-function isColourConceptGroup(group: string[]): boolean {
-  return group.length > 0 && group.every(term => ALL_COLOUR_TERMS.has(term.toLowerCase().trim()));
-}
-
-const COLOR_BASE: Record<string, string> = {
-  'sky blue': 'blue', 'navy': 'blue', 'teal': 'blue', 'turquoise': 'blue', 'indigo': 'blue', 'cobalt': 'blue',
-  'maroon': 'red', 'burgundy': 'red', 'wine': 'red', 'crimson': 'red',
-  'rose': 'pink', 'fuchsia': 'pink', 'blush': 'pink',
-  'lavender': 'purple', 'lilac': 'purple', 'violet': 'purple', 'plum': 'purple',
-  'mustard': 'yellow', 'gold': 'yellow',
-  'rust': 'orange', 'peach': 'orange', 'coral': 'orange', 'terracotta': 'orange',
-  'chocolate': 'brown', 'camel': 'brown', 'tan': 'brown', 'mocha': 'brown', 'taupe': 'brown',
-  'charcoal': 'grey', 'gray': 'grey', 'silver': 'grey', 'slate': 'grey',
-  'sage': 'green', 'olive': 'green', 'mint': 'green', 'emerald': 'green', 'forest': 'green',
-  'cream': 'white', 'ivory': 'white', 'beige': 'white',
-};
-
-// Garment-type precision: distinguish a casual tee from a button-up/formal shirt.
-const TEE_MARKERS = ['t-shirt', 't shirt', 'tshirt', 'tee', 'tees'];
-const FORMAL_SHIRT_MARKERS = ['button-up', 'button up', 'button-down', 'button down', 'dress shirt', 'oxford shirt', 'poplin', 'flannel shirt', 'overshirt', 'camp collar', 'linen shirt'];
-
-// Returns true if product is clearly the wrong colour for the query.
-// Applied as a SOFT penalty (-15) so colour variants stay visible but sort after exact matches.
-function hasColourMismatch(product: UcpProduct, query: string): boolean {
-  const normalizedQuery = query.toLowerCase();
-  const searchableText = [
-    product.title,
-    product.description || '',
-    ...(product.tags || []),
-    ...(product.options?.flatMap(o => [o.name, ...o.values]) || []),
-  ].join(' ').toLowerCase();
-
-  const queryColors = COLOR_TERMS
-    .filter(c => hasWord(normalizedQuery, c))
-    .sort((a, b) => b.length - a.length);
-  if (queryColors.length === 0) return false;
-
-  const wanted = new Set<string>();
-  for (const c of queryColors) {
-    wanted.add(c);
-    if (COLOR_BASE[c]) wanted.add(COLOR_BASE[c]);
-    for (const [sub, base] of Object.entries(COLOR_BASE)) {
-      if (base === c || (COLOR_BASE[c] && base === COLOR_BASE[c])) wanted.add(sub);
-    }
-  }
-  const hasWanted = Array.from(wanted).some(c => hasWord(searchableText, c));
-  if (hasWanted) return false;
-
-  const colorOptionValues = (product.options || [])
-    .filter(o => /colou?r|shade/i.test(o.name))
-    .flatMap(o => o.values.map(v => v.toLowerCase()));
-  if (colorOptionValues.length > 0) return true;
-  return COLOR_TERMS.some(c => hasWord(searchableText, c));
-}
-
 function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   const normalizedQuery = query.toLowerCase();
   // Include tags so "shoe" tags on a shoe product don't get missed
@@ -643,34 +521,6 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
 
   const queryKeywords = getProductKeywords(normalizedQuery);
   if (queryKeywords.length === 0) return false;
-
-  // 0a. Gender check — an explicit adult gender request must never return the
-  // opposite gender OR kids products. Unisex/unlabeled is allowed through.
-  const qGender = detectGender(normalizedQuery);
-  if (qGender === 'men' || qGender === 'women') {
-    const pGender = detectGender(searchableText);
-    // Kids products are never a substitute for adult searches
-    if (pGender === 'kids') return true;
-    if (pGender && pGender !== qGender) return true;
-  }
-
-  // Note: colour check moved to hasColourMismatch() for a soft -15 penalty rather than -60.
-  // Colour variants are shown after exact matches, not removed entirely.
-
-  // 0c. Garment precision — tee vs button-up/formal shirt are not interchangeable.
-  // Bare "shirt" also means a woven/button-up shirt — tees must not appear in shirt searches.
-  const wantsTee = TEE_MARKERS.some(m => hasWord(normalizedQuery, m));
-  const wantsShirt = !wantsTee && hasWord(normalizedQuery, 'shirt');
-  const wantsFormalShirt = !wantsTee && (wantsShirt || FORMAL_SHIRT_MARKERS.some(m => hasWord(normalizedQuery, m)));
-  if (wantsTee || wantsFormalShirt) {
-    const isTee = TEE_MARKERS.some(m => hasWord(searchableText, m));
-    // When the query is just "shirt", any product with "shirt" but not a tee counts as a shirt
-    const isFormalShirt = wantsShirt
-      ? !isTee && hasWord(searchableText, 'shirt')
-      : FORMAL_SHIRT_MARKERS.some(m => hasWord(searchableText, m));
-    if (wantsTee && isFormalShirt && !isTee) return true;
-    if (wantsFormalShirt && isTee && !isFormalShirt) return true;
-  }
 
   // 1. Material check — if the query specifies a material, the product must have it
   const queryMaterials = MATERIALS.filter(mat =>
@@ -716,48 +566,26 @@ function isProductQueryMismatch(product: UcpProduct, query: string): boolean {
   return false;
 }
 
-function uniqueById<T extends { id?: string; title?: string; vendor?: string }>(items: T[]) {
-  const seenIds = new Set<string>();
-  const seenTitleVendor = new Set<string>();
+function uniqueById<T extends { id?: string }>(items: T[]) {
+  const seen = new Set<string>();
   const unique: T[] = [];
 
   for (const item of items) {
-    const tvKey = `${(item.title || '').toLowerCase().trim()}|${(item.vendor || '').toLowerCase().trim()}`;
-    if (item.id && seenIds.has(item.id)) continue;
-    if (tvKey !== '|' && seenTitleVendor.has(tvKey)) continue;
-    if (item.id) seenIds.add(item.id);
-    if (tvKey !== '|') seenTitleVendor.add(tvKey);
+    if (!item.id || seen.has(item.id)) continue;
+    seen.add(item.id);
     unique.push(item);
   }
 
   return unique;
 }
 
-// Thumbnail — used for product card grid (small squares), capped at 800 px
 function normalizeImageUrl(url?: string): string {
   if (!url) return '';
   let normalized = url.startsWith('//') ? `https:${url}` : url;
   if (normalized.includes('cdn.shopify.com')) {
     try {
       const urlObj = new URL(normalized);
-      urlObj.searchParams.set('width', '800');
-      urlObj.searchParams.delete('height');
-      normalized = urlObj.toString();
-    } catch {}
-  }
-  return normalized;
-}
-
-// Gallery — used for the product detail carousel, served at 2 048 px so every
-// retina / high-DPI screen gets a sharp image without serving the raw upload.
-function normalizeGalleryUrl(url?: string): string {
-  if (!url) return '';
-  let normalized = url.startsWith('//') ? `https:${url}` : url;
-  if (normalized.includes('cdn.shopify.com')) {
-    try {
-      const urlObj = new URL(normalized);
-      urlObj.searchParams.set('width', '2048');
-      urlObj.searchParams.delete('height');
+      urlObj.searchParams.set('width', '400');
       normalized = urlObj.toString();
     } catch {}
   }
@@ -766,164 +594,6 @@ function normalizeGalleryUrl(url?: string): string {
 
 function normalizeCurrency(code?: string | null) {
   return String(code || 'USD').trim().toUpperCase() || 'USD';
-}
-
-// ── Shopify storefront /products.json fallback ──────────────────────────────
-// Many curated brands are NOT indexed in the central Shopify catalog (and some
-// aren't reachable via the per-store /api/mcp endpoint). Every Shopify store,
-// however, exposes a public /products.json with the FULL product list including
-// the complete image gallery. We use it as a fallback for brand-specific
-// searches so every brand is findable and every product shows all its pictures.
-
-const STOREFRONT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-
-// /products.json omits currency, so infer a best-effort default from the TLD.
-const TLD_CURRENCY: Record<string, string> = {
-  'co.in': 'INR', 'in': 'INR',
-  'co.uk': 'GBP', 'uk': 'GBP',
-  'com.au': 'AUD', 'au': 'AUD',
-  'ca': 'CAD',
-  'fr': 'EUR', 'it': 'EUR', 'eu': 'EUR', 'be': 'EUR', 'de': 'EUR', 'es': 'EUR', 'gr': 'EUR', 'nl': 'EUR',
-  'com.pk': 'PKR', 'pk': 'PKR',
-  'ru': 'RUB',
-  'com.tr': 'TRY', 'tr': 'TRY',
-  'com.my': 'MYR', 'my': 'MYR',
-  'co.id': 'IDR', 'id': 'IDR',
-  'ph': 'PHP',
-  'ae': 'AED',
-};
-function guessStorefrontCurrency(domain: string): string {
-  const d = domain.toLowerCase();
-  const tlds = Object.keys(TLD_CURRENCY).sort((a, b) => b.length - a.length);
-  for (const t of tlds) if (d.endsWith('.' + t)) return TLD_CURRENCY[t];
-  return 'USD';
-}
-
-// Convert one /products.json product into the same UcpProduct shape the rest of
-// the pipeline expects, with EVERY image mapped into media[] at gallery quality.
-function parseStorefrontProduct(p: any, domain: string, currency: string): UcpProduct | null {
-  try {
-    if (!p || !p.id) return null;
-    const images: string[] = Array.isArray(p.images)
-      ? p.images.map((im: any) => im?.src).filter((s: any): s is string => typeof s === 'string' && s.length > 0)
-      : [];
-    if (images.length === 0) return null;
-
-    const media = images.map((src) => ({ type: 'image', url: normalizeGalleryUrl(src), alt: '' }));
-    const v0 = p.variants?.[0] || {};
-    const priceNum = parseFloat(v0.price ?? '0') || 0; // /products.json prices are already major units
-
-    const handle = p.handle || String(p.id);
-    let store_url = `https://${domain}/products/${handle}`;
-    try { const u = new URL(store_url); u.searchParams.set('ref', 'from_ai_affiliate'); store_url = u.toString(); } catch {}
-
-    const options = Array.isArray(p.options)
-      ? p.options
-          .map((o: any) => ({ name: o.name, values: Array.isArray(o.values) ? o.values : [] }))
-          .filter((o: any) => o.values.length > 0)
-      : undefined;
-
-    const variants = Array.isArray(p.variants)
-      ? p.variants.map((v: any) => {
-          const vOpts: Array<{ name: string; label: string }> = [];
-          (p.options || []).forEach((o: any, idx: number) => {
-            const label = v[`option${idx + 1}`];
-            if (label) vOpts.push({ name: o.name, label });
-          });
-          const vImg = (p.images || []).find(
-            (im: any) => Array.isArray(im.variant_ids) && im.variant_ids.includes(v.id)
-          );
-          return {
-            id: String(v.id),
-            title: v.title || '',
-            price: parseFloat(v.price ?? '0') || 0,
-            availability: v.available !== false,
-            options: vOpts,
-            media: vImg ? [{ url: normalizeGalleryUrl(vImg.src), alt: '' }] : [],
-          };
-        })
-      : [];
-
-    const tags = typeof p.tags === 'string'
-      ? p.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
-      : Array.isArray(p.tags) ? p.tags : [];
-
-    const descHtml = typeof p.body_html === 'string' && p.body_html.trim() ? p.body_html : undefined;
-    const brandToken = BRAND_NAMES[domain] || cleanBrandName(domain);
-    const vendor = p.vendor || (brandToken ? brandToken.charAt(0).toUpperCase() + brandToken.slice(1) : 'Independent Seller');
-
-    return {
-      id: `gid://shopify/Product/${p.id}`,
-      title: p.title || 'Untitled Product',
-      vendor,
-      price: priceNum,
-      currency,
-      store_url,
-      image_url: normalizeImageUrl(images[0]),
-      in_stock: variants.length === 0 ? true : variants.some((v: { availability: boolean }) => v.availability),
-      tags,
-      description: undefined,
-      description_html: descHtml,
-      options: options && options.length > 0 ? options : undefined,
-      variants,
-      media,
-    };
-  } catch {
-    return null;
-  }
-}
-
-// Fetch + keyword-filter a store's full catalog from its public /products.json.
-// queryForScoring + mandatoryConcepts let storefront products carry the SAME
-// trust_score and pass the SAME gender/colour/garment hard filter as catalog
-// products, so the brand fallback never reintroduces wrong-attribute items.
-async function fetchStorefrontProducts(
-  domain: string,
-  keywords: string[],
-  wantLimit: number,
-  queryForScoring = '',
-  mandatoryConcepts: string[][] = [],
-): Promise<UcpProduct[]> {
-  const currency = guessStorefrontCurrency(domain);
-  try {
-    const res = await fetch(`https://${domain}/products.json?limit=250`, {
-      headers: { 'User-Agent': STOREFRONT_UA, Accept: 'application/json', 'Accept-Language': 'en-US,en;q=0.9' },
-      signal: AbortSignal.timeout(7000),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const raw: any[] = Array.isArray(data?.products) ? data.products : [];
-
-    let parsed: UcpProduct[] = raw
-      .map((p: any) => parseStorefrontProduct(p, domain, currency))
-      .filter((p: UcpProduct | null): p is UcpProduct => p !== null);
-
-    // Score + apply the same hard attribute filter as the main catalog path.
-    for (const p of parsed) {
-      let ts = calculateTrustScore(p, mandatoryConcepts);
-      if (queryForScoring && isProductQueryMismatch(p, queryForScoring)) ts = Math.max(0, ts - 60);
-      else if (queryForScoring && hasColourMismatch(p, queryForScoring)) ts = Math.max(0, ts - 15);
-      p.trust_score = ts;
-    }
-
-    if (keywords.length > 0) {
-      const kw = keywords.map((k) => k.toLowerCase());
-      const scored = parsed.map((p) => {
-        const text = `${p.title} ${p.description_html || ''} ${(p.tags || []).join(' ')} ${p.vendor}`.toLowerCase();
-        return { p, hits: kw.filter((k) => text.includes(k)).length };
-      });
-      const anyHit = scored.some((s) => s.hits > 0);
-      // If the query matches some products, keep only matches (best first);
-      // otherwise return the store's products unfiltered (pure brand browse).
-      parsed = anyHit
-        ? scored.filter((s) => s.hits > 0).sort((a, b) => b.hits - a.hits).map((s) => s.p)
-        : parsed;
-    }
-
-    return parsed.slice(0, Math.max(wantLimit, 50));
-  } catch {
-    return [];
-  }
 }
 
 function convertProductPrice(product: UcpProduct, targetCurrency: string, rates: Record<string, number>) {
@@ -953,23 +623,16 @@ function calculateTrustScore(product: UcpProduct, mandatoryConcepts: string[][] 
   if (product.options && product.options.length > 0) baseScore += 2;
   if (product.description && product.description.length > 100) baseScore += 2;
 
-  // Concept matching bonus — check full searchable text (title, vendor, tags, options, description)
+  // Concept matching bonus in Title or Vendor
   if (mandatoryConcepts.length > 0) {
-    const fullText = searchableProductText(product as UcpProduct);
-    let allGroupsMatched = true;
+    const titleAndVendor = `${product.title} ${vendor}`.toLowerCase();
     for (const conceptGroup of mandatoryConcepts) {
       if (!conceptGroup || conceptGroup.length === 0) continue;
-      const matched = conceptGroup.some(word => fullText.includes(word.toLowerCase().trim()));
-      if (matched) baseScore += 10;
-      else allGroupsMatched = false;
+      const matched = conceptGroup.some(word => titleAndVendor.includes(word.toLowerCase().trim()));
+      if (matched) {
+        baseScore += 10;
+      }
     }
-    if (allGroupsMatched && mandatoryConcepts.length >= 2) baseScore += 10;
-
-    // Extra lift for concepts found directly in the product title
-    const titleLower = (product.title || '').toLowerCase();
-    const allKeywords = mandatoryConcepts.flat();
-    const titleHits = allKeywords.filter(w => titleLower.includes(w.toLowerCase().trim())).length;
-    baseScore += titleHits * 5;
   }
 
   return Math.min(100, baseScore);
@@ -1067,33 +730,6 @@ function getProductStoreDomain(product: UcpProduct): string {
   }
 }
 
-// A brand's original pricing currency is a strong signal of its home country —
-// fills the gap for brands on generic TLDs (.com) with no domain-based country.
-// EUR resolves to the 'EU' region (shared across Europe, see EUROPE below).
-const CURRENCY_COUNTRY: Record<string, string> = {
-  INR: 'IN', GBP: 'GB', AUD: 'AU', CAD: 'CA', PKR: 'PK', AED: 'AE', RUB: 'RU',
-  TRY: 'TR', MYR: 'MY', IDR: 'ID', PHP: 'PH', JPY: 'JP', SGD: 'SG', NZD: 'NZ',
-  SEK: 'SE', BRL: 'BR', ZAR: 'ZA', THB: 'TH', VND: 'VN', KRW: 'KR', HKD: 'HK',
-  CHF: 'CH', DKK: 'DK', NOK: 'NO', PLN: 'PL', MXN: 'MX', SAR: 'SA', EGP: 'EG',
-  EUR: 'EU', USD: 'US',
-};
-
-// Europe is treated as one local market: a shopper in any European country sees
-// every European brand (EUR currency or a European country of origin) first.
-const EUROPE = new Set([
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
-  'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES',
-  'SE', 'GB', 'NO', 'CH', 'IS', 'EU',
-]);
-
-// Resolve a product's brand-origin country: domain first (most reliable), then
-// fall back to the original pricing currency.
-function productOriginCountry(p: UcpProduct): string | null {
-  return domainCountry(getProductStoreDomain(p))
-    || CURRENCY_COUNTRY[(p.currency || '').toUpperCase()]
-    || null;
-}
-
 function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilters) {
   const excludeIds = new Set(filters.excludeIds || []);
   const sort = filters.sort || 'trust_desc';
@@ -1101,15 +737,6 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
 
   let filtered = products.filter(product => {
     if (excludeIds.has(product.id)) return false;
-
-    // Never surface out-of-stock products
-    if (product.in_stock === false) return false;
-
-    // Hard-exclude non-fashion items (books, posters, stationery, home decor, etc.)
-    // that sometimes appear in multi-category stores. This is unconditional — no fallback.
-    const titleLc = (product.title || '').toLowerCase();
-    const NON_FASHION_RE = /\bbooks?\b|\bhardcover\b|\bpaperback\b|\bnotebook\b|\bposter\b|\bwall art\b|\bart print\b|\bstickers?\b|\bcandles?\b|\bcalendars?\b|\bfigurines?\b|\bphone case\b|\bmug\b|\bzine\b/;
-    if (NON_FASHION_RE.test(titleLc)) return false;
 
     // Strict allowed store filtering with domain matching
     const storeDomain = getProductStoreDomain(product);
@@ -1127,81 +754,22 @@ function applyCatalogFilters(products: UcpProduct[], filters: CatalogSearchFilte
       return false;
     }
 
+    // mandatoryConcepts are used for trust_score ranking only, not hard filtering.
+    // Products from verified stores (already filtered by domain above) should not be
+    // excluded just because their title/description is in a different language than
+    // the AI's concept synonyms. The Shopify Catalog API query already handles relevance.
+
     return true;
   });
 
-  // Hard gender filter: when mandatoryConcepts explicitly names a gender,
-  // drop products confirmed to be the opposite gender. Also drop kids products
-  // from adult (men/women) searches — kids items are never substitutes.
-  // Unisex / unlabeled passes.
-  if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
-    const conceptStr = filters.mandatoryConcepts.flat().join(' ').toLowerCase();
-    const wantedGender = detectGender(conceptStr);
-    if (wantedGender === 'men' || wantedGender === 'women') {
-      const opposite: 'men' | 'women' = wantedGender === 'men' ? 'women' : 'men';
-      filtered = filtered.filter(p => {
-        const pText = `${p.title} ${(p.tags || []).join(' ')}`;
-        const pg = detectGender(pText);
-        return pg !== opposite && pg !== 'kids';
-      });
-    }
-  }
-
-  // Hard-filter on non-colour, non-gender mandatory concept groups (garment type + material).
-  // Colour groups are soft — they affect sort order but don't eliminate products.
-  // Fall back to original set ONLY if zero products survive (avoids completely empty results).
-  let colourGroups: string[][] = [];
-  if (filters.mandatoryConcepts && filters.mandatoryConcepts.length > 0) {
-    const GENDER_TERMS_SET = new Set(['men','mens','man','male','unisex','women','womens','woman','ladies','female']);
-    const nonGenderGroups = filters.mandatoryConcepts.filter(
-      g => !g.every(t => GENDER_TERMS_SET.has(t.toLowerCase()))
-    );
-    colourGroups = nonGenderGroups.filter(isColourConceptGroup);
-    const hardGroups = nonGenderGroups.filter(g => !isColourConceptGroup(g));
-    if (hardGroups.length > 0) {
-      const hardFiltered = filtered.filter(p => {
-        const text = searchableProductText(p);
-        return hardGroups.every(group =>
-          group.some(term => text.includes(term.toLowerCase()))
-        );
-      });
-      // Use the filtered set as long as at least 1 product survives.
-      // Only fall back to the full set when nothing matched at all.
-      if (hardFiltered.length >= 1) filtered = hardFiltered;
-    }
-  }
-
-  // Hard-filter category/garment/material mismatches. A hard mismatch trust_score is ≤34
-  // (base 70-94 minus 60 penalty). Colour mismatches (-15) land at 55-79, kept above threshold.
-  const MISMATCH_THRESHOLD = 45;
+  // Hard-filter category mismatches. A mismatch trust_score is ≤34 (base 70-94 minus 60 penalty).
+  // Only fall back to including mismatches if they make up the entire result set (niche queries).
+  const MISMATCH_THRESHOLD = 40;
   const matched = filtered.filter(p => (p.trust_score || 0) >= MISMATCH_THRESHOLD);
-  filtered = matched.length > 0 ? matched : filtered;
-
-  // Brands from the shopper's own country come first, then everything else —
-  // each tier still ordered by the chosen sort (relevance/trust/price).
-  const userCountry = filters.userCountry ? filters.userCountry.toUpperCase() : null;
-  const userInEurope = !!userCountry && EUROPE.has(userCountry);
-  const isLocalBrand = (p: UcpProduct): boolean => {
-    if (!userCountry) return false;
-    const origin = productOriginCountry(p);
-    if (!origin) return false;
-    if (origin === userCountry) return true;
-    // A European shopper sees all European brands as local (EUR + EU countries).
-    if (userInEurope && EUROPE.has(origin)) return true;
-    return false;
-  };
+  // Keep mismatches only as an absolute last resort — ensures niche/unlabeled stores still return something
+  filtered = matched.length >= 4 ? matched : filtered;
 
   const sortFn = (a: UcpProduct, b: UcpProduct): number => {
-    if (userCountry) {
-      const la = isLocalBrand(a), lb = isLocalBrand(b);
-      if (la !== lb) return la ? -1 : 1; // same-country brands first
-    }
-    // Colour match priority: exact colour match products first, then other colours
-    if (colourGroups.length > 0) {
-      const aColour = colourGroups.every(g => g.some(t => searchableProductText(a).includes(t.toLowerCase())));
-      const bColour = colourGroups.every(g => g.some(t => searchableProductText(b).includes(t.toLowerCase())));
-      if (aColour !== bColour) return aColour ? -1 : 1;
-    }
     if (sort === 'trust_desc') return (b.trust_score || 0) - (a.trust_score || 0);
     if (sort !== 'relevance') {
       const priceA = convertProductPrice(a, budgetCurrency, filters.rates);
@@ -1241,7 +809,7 @@ export class GlobalCatalogService {
     countryCode?: string | null,
     isClothing?: boolean,
     mandatoryConcepts: string[][] = [],
-    sort: ProductSort = 'relevance',
+    sort: ProductSort = 'trust_desc',
     budgetCurrency: string | null = 'USD',
     options: CatalogSearchOptions = {},
     /** When set, restricts the search to exactly these domain(s) — used for brand-specific queries. */
@@ -1262,7 +830,6 @@ export class GlobalCatalogService {
 
     const normalizedCountryCode = countryCode?.trim().toUpperCase() || null;
     const cacheKey = `${normalizedQuery.toLowerCase()}:${normalizedCountryCode || 'global'}`;
-    evictSearchCache();
     const cached = searchCache.get(cacheKey);
     const rates = await getExchangeRates().catch(() => ({} as Record<string, number>));
 
@@ -1380,7 +947,7 @@ export class GlobalCatalogService {
             options: v.options || [],
             media: (v.media || []).map((m: any) => ({
               ...m,
-              url: normalizeGalleryUrl(m.url),
+              url: normalizeImageUrl(m.url),
               alt: m.alt ?? m.altText ?? m.alt_text ?? ''
             }))
           };
@@ -1388,7 +955,7 @@ export class GlobalCatalogService {
 
         const parsedMedia = (p.media || []).map((m: any) => ({
           ...m,
-          url: normalizeGalleryUrl(m.url),
+          url: normalizeImageUrl(m.url),
           alt: m.alt ?? m.altText ?? m.alt_text ?? ''
         }));
         const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
@@ -1417,8 +984,6 @@ export class GlobalCatalogService {
         let trustScore = calculateTrustScore(productData as UcpProduct, mandatoryConcepts);
         if (isProductQueryMismatch(productData as UcpProduct, cleanedQuery)) {
           trustScore = Math.max(0, trustScore - 60);
-        } else if (hasColourMismatch(productData as UcpProduct, cleanedQuery)) {
-          trustScore = Math.max(0, trustScore - 15);
         }
         return {
           ...productData,
@@ -1483,9 +1048,7 @@ export class GlobalCatalogService {
 
 
         const filters: any = { available: true };
-        // Don't restrict an explicit brand search by shipping country — the
-        // shopper asked for this brand, so always show it regardless of country.
-        if (normalizedCountryCode && !isBrandSearch) {
+        if (normalizedCountryCode) {
           filters.ships_to = { country: normalizedCountryCode };
         }
 
@@ -1558,7 +1121,6 @@ export class GlobalCatalogService {
       sort,
       limit,
       rates,
-      userCountry: normalizedCountryCode,
     };
 
     const isFallback = !isBrandSearch && allowedDomains.length === UCP_REGISTRY.length;
@@ -1630,7 +1192,7 @@ export class GlobalCatalogService {
       const partPromises = storeParts.map(async (part) => {
         const endpoint = `https://${domain}/api/mcp`;
         const filters: any = { available: true };
-        if (normalizedCountryCode && !isBrandSearch) {
+        if (normalizedCountryCode) {
           filters.ships_to = { country: normalizedCountryCode };
         }
         const payload = {
@@ -1683,24 +1245,6 @@ export class GlobalCatalogService {
       return parsedStoreProducts;
     };
 
-    // Per-domain fetch with storefront fallback: try the store's /api/mcp
-    // endpoint first; if it yields nothing AND this is an explicit brand search,
-    // fall back to the public /products.json so the brand is always findable
-    // and every product carries its full image gallery.
-    const fetchDomainProducts = async (domain: string): Promise<UcpProduct[]> => {
-      const raw = await queryDomain(domain);
-      const parsed = cacheStoreProducts(domain, raw);
-      if (parsed.length > 0 || !isBrandSearch) return parsed;
-
-      const storefront = await fetchStorefrontProducts(domain, getProductKeywords(storeQuery), limit, cleanedQuery, mandatoryConcepts);
-      if (storefront.length > 0) {
-        const cachedState = searchCache.get(cacheKey);
-        const merged = uniqueById([...(cachedState?.products || []), ...storefront]);
-        searchCache.set(cacheKey, { timestamp: Date.now(), products: merged, nextChunkIndex: cachedState?.nextChunkIndex ?? 1 });
-      }
-      return storefront;
-    };
-
     // 1. Cache Hit Logic with JIT Lazy replenishment check
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       const filteredCache = applyCatalogFilters(cached.products, filterOptions);
@@ -1708,9 +1252,9 @@ export class GlobalCatalogService {
       if (filteredCache.length >= limit || (!options.refreshReserve && filteredCache.length > 0)) {
         console.log(`[GlobalCatalog] Cache hit for "${cacheKey}" (${filteredCache.length} products).`);
         
-        // Replenishment Check: keep a deep reserve so infinite scroll never stalls
+        // Replenishment Check: If remaining products in cache is less than 40, pre-fetch the next store chunk
         const remainingCount = filteredCache.length - limit;
-        if (remainingCount < 200) {
+        if (remainingCount < 40) {
           const nextChunkIndex = cached.nextChunkIndex ?? 1;
           const nextChunk = chunks[nextChunkIndex];
           if (nextChunk && nextChunk.length > 0) {
@@ -1720,7 +1264,10 @@ export class GlobalCatalogService {
             
             (async () => {
               try {
-                await Promise.all(nextChunk.map((domain) => fetchDomainProducts(domain)));
+                await Promise.all(nextChunk.map(async (domain) => {
+                  const products = await queryDomain(domain);
+                  cacheStoreProducts(domain, products);
+                }));
                 console.log(`[GlobalCatalog] Background replenishment of Store Chunk ${nextChunkIndex + 1} complete.`);
               } catch (err) {
                 console.warn(`[GlobalCatalog] Background replenishment of Store Chunk ${nextChunkIndex + 1} failed:`, err);
@@ -1749,7 +1296,8 @@ export class GlobalCatalogService {
 
         const firstChunkPromises = firstChunk.map(async (domain) => {
           try {
-            const parsed = await fetchDomainProducts(domain);
+            const products = await queryDomain(domain);
+            const parsed = cacheStoreProducts(domain, products);
             directParsedProducts.push(...parsed);
           } catch {} finally {
             resolvedCount++;
@@ -1765,7 +1313,7 @@ export class GlobalCatalogService {
             if (resolvedCount >= total) {
               settled = true;
               resolve();
-            } else if (directParsedProducts.length >= 40) {
+            } else if (directParsedProducts.length >= 30) {
               settled = true;
               console.log(`[GlobalCatalog] Early return for first page: ${directParsedProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
               resolve();
@@ -1782,7 +1330,7 @@ export class GlobalCatalogService {
               console.log(`[GlobalCatalog] Timeout return for first page: ${directParsedProducts.length} products from ${resolvedCount}/${total} stores in ${Date.now() - startTime}ms`);
               resolve();
             }
-          }, 800);
+          }, 2000);
         });
 
         console.log(`[GlobalCatalog] Chunk 1 queries finished in ${Date.now() - startTime}ms. Fetched & parsed ${directParsedProducts.length} products.`);
@@ -1790,9 +1338,9 @@ export class GlobalCatalogService {
         // Replenishment Check: If remaining products in cache is less than 40, pre-fetch Chunk 2
         const currentCached = searchCache.get(cacheKey);
         const allAvailable = currentCached ? applyCatalogFilters(currentCached.products, filterOptions) : [];
-        const remainingCount = allAvailable.length - 40;
+        const remainingCount = allAvailable.length - 30;
 
-        if (remainingCount < 200) {
+        if (remainingCount < 40) {
           const secondChunk = chunks[1];
           if (secondChunk && secondChunk.length > 0 && currentCached) {
             console.log(`[GlobalCatalog] Replenishment threshold reached for first page (${remainingCount} < 40). Fetching Store Chunk 2/${chunks.length} in background...`);
@@ -1801,7 +1349,10 @@ export class GlobalCatalogService {
             
             (async () => {
               try {
-                await Promise.all(secondChunk.map((domain) => fetchDomainProducts(domain)));
+                await Promise.all(secondChunk.map(async (domain) => {
+                  const products = await queryDomain(domain);
+                  cacheStoreProducts(domain, products);
+                }));
                 console.log(`[GlobalCatalog] Background replenishment of Chunk 2 complete.`);
               } catch {}
             })();
@@ -1821,11 +1372,18 @@ export class GlobalCatalogService {
           const chunkToQuery = chunks[currentNextChunkIndex];
           console.log(`[GlobalCatalog] Fetching Chunk ${currentNextChunkIndex + 1} with ${chunkToQuery.length} stores...`);
           
-          await Promise.all(chunkToQuery.map(async (domain) => {
+          const chunkResults = await Promise.all(chunkToQuery.map(async (domain) => {
             try {
-              await fetchDomainProducts(domain);
-            } catch {}
+              const products = await queryDomain(domain);
+              return { domain, products };
+            } catch {
+              return { domain, products: [] };
+            }
           }));
+
+          for (const res of chunkResults) {
+            cacheStoreProducts(res.domain, res.products);
+          }
 
           currentNextChunkIndex++;
 
@@ -1844,11 +1402,11 @@ export class GlobalCatalogService {
           searchCache.set(cacheKey, currentCached);
         }
 
-        // Replenishment Check: keep a deep reserve so infinite scroll never stalls
+        // Replenishment Check: If remaining products in cache is less than 40, pre-fetch the next chunk
         const allAvailable = currentCached ? applyCatalogFilters(currentCached.products, filterOptions) : [];
         const remainingCount = allAvailable.length - limit;
 
-        if (remainingCount < 200) {
+        if (remainingCount < 40) {
           const finalNextChunk = chunks[currentNextChunkIndex];
           if (finalNextChunk && finalNextChunk.length > 0 && currentCached) {
             console.log(`[GlobalCatalog] Replenishment threshold reached for loadMore (${remainingCount} < 40). Fetching Store Chunk ${currentNextChunkIndex + 1}/${chunks.length} in background...`);
@@ -1857,7 +1415,10 @@ export class GlobalCatalogService {
 
             (async () => {
               try {
-                await Promise.all(finalNextChunk.map((domain) => fetchDomainProducts(domain)));
+                await Promise.all(finalNextChunk.map(async (domain) => {
+                  const products = await queryDomain(domain);
+                  cacheStoreProducts(domain, products);
+                }));
                 console.log(`[GlobalCatalog] Background replenishment of Chunk ${currentNextChunkIndex + 1} complete.`);
               } catch {}
             })();
@@ -1878,15 +1439,6 @@ export class GlobalCatalogService {
     const finalCached = searchCache.get(cacheKey);
     const finalProducts = finalCached?.products || [];
     let filteredProducts = applyCatalogFiltersWithRetry(finalProducts, filterOptions);
-
-    // AI relevance re-rank — only on the final user-facing slice, not loadMore/replenishment
-    if (sort === 'relevance' && !options.loadMore && !options.refreshReserve && filteredProducts.length > 1) {
-      try {
-        filteredProducts = await rerankByRelevance(cleanedQuery, filteredProducts);
-      } catch (e) {
-        console.warn('[GlobalCatalog] relevance rerank failed, keeping deterministic order', e);
-      }
-    }
 
     console.log(`[GlobalCatalog] returning ${filteredProducts.length} of ${finalProducts.length} (limit=${limit}, fast=${isFastFirstPage})`);
     return filteredProducts;

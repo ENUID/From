@@ -1,4 +1,4 @@
-import { groqChat, CHAT_MODEL } from '../groq'
+import { groqChat } from '../groq'
 import type { UcpProduct } from './GlobalCatalogService'
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
@@ -153,7 +153,7 @@ Return an entry for EVERY index. No trailing text.`
       [{ role: 'user', content: userMsg }],
       system,
       undefined,
-      { model: CHAT_MODEL, temperature: 0, max_tokens: 1400 },
+      { temperature: 0, max_tokens: 1400 },
     ).then((r: any) => {
       // groqChat returns the raw API response object — extract text
       if (typeof r === 'string') return r

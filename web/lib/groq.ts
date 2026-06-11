@@ -1,51 +1,8 @@
-// ── LLM provider configuration ──────────────────────────────────────────────
-// Provider-agnostic. Every provider below is OpenAI-compatible (same
-// /chat/completions endpoint, Bearer auth, tool-calling), so switching brains
-// is just config — no code changes.
-//
-//   To use DeepSeek:  set  LLM_PROVIDER=deepseek  and  DEEPSEEK_API_KEY=sk-...
-//   To use Kimi:      set  LLM_PROVIDER=kimi       and  MOONSHOT_API_KEY=sk-...
-//   Default:          Groq (existing GROQ_* vars) — keeps current setup working.
-//
-// Generic overrides (LLM_BASE_URL / LLM_API_KEY / LLM_CHAT_MODEL) win over the
-// provider defaults, letting you point at ANY OpenAI-compatible endpoint.
-
-type ProviderConfig = { base: string; key: string; model: string }
-
-const PROVIDER_DEFAULTS: Record<string, ProviderConfig> = {
-  groq: {
-    base: process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1',
-    key: process.env.GROQ_API_KEY ?? '',
-    model: process.env.GROQ_CHAT_MODEL ?? 'llama-3.1-8b-instant',
-  },
-  deepseek: {
-    base: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com/v1',
-    key: process.env.DEEPSEEK_API_KEY ?? '',
-    model: process.env.DEEPSEEK_CHAT_MODEL ?? 'deepseek-chat',
-  },
-  kimi: {
-    base: process.env.MOONSHOT_BASE_URL ?? 'https://api.moonshot.ai/v1',
-    key: process.env.MOONSHOT_API_KEY ?? '',
-    model: process.env.MOONSHOT_CHAT_MODEL ?? 'kimi-k2-0711-preview',
-  },
-}
-
-const ACTIVE_PROVIDER = (process.env.LLM_PROVIDER ?? 'groq').toLowerCase()
-const _resolved = PROVIDER_DEFAULTS[ACTIVE_PROVIDER] ?? PROVIDER_DEFAULTS.groq
-
-export const GROQ_BASE = process.env.LLM_BASE_URL ?? _resolved.base
-export const GROQ_API_KEY = process.env.LLM_API_KEY ?? _resolved.key
-export const CHAT_MODEL = process.env.LLM_CHAT_MODEL ?? _resolved.model
+export const GROQ_BASE = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1'
+export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
+export const CHAT_MODEL = process.env.GROQ_CHAT_MODEL ?? 'llama-3.1-8b-instant'
 export const STYLIST_MODEL = process.env.GROQ_STYLIST_MODEL ?? 'llama-3.3-70b-versatile'
-
-// DeepSeek/Kimi are a touch slower than Groq's tiny model — give them headroom.
-const LLM_TIMEOUT_MS = Number(
-  process.env.LLM_TIMEOUT_MS ?? (ACTIVE_PROVIDER === 'groq' ? 10000 : 22000)
-)
-
-// Conversational reply after a search — allow more time on the heavier brains so
-// we keep the natural stylist reply instead of falling back to a template.
-export const POST_TOOL_REPLY_TIMEOUT_MS = ACTIVE_PROVIDER === 'groq' ? 5000 : 9000
+export const VISION_MODEL = process.env.GROQ_VISION_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 export type ChatMessage = {
   role: string
@@ -56,12 +13,10 @@ export type ChatMessage = {
   products?: any[]
 }
 
+// Re-add getHeaders function
 function getHeaders() {
-  if (!GROQ_API_KEY || GROQ_API_KEY.includes('YOUR_') || GROQ_API_KEY.includes('_HERE')) {
-    throw new Error(
-      `LLM API key is not set for provider "${ACTIVE_PROVIDER}". Set the matching key ` +
-      `(e.g. DEEPSEEK_API_KEY for DeepSeek) in your environment.`
-    )
+  if (!GROQ_API_KEY || GROQ_API_KEY.includes('YOUR_GROQ_API_KEY_HERE')) {
+    throw new Error('GROQ_API_KEY is not set. Please update .env.local with your real Groq API key.')
   }
 
   return {
@@ -77,7 +32,7 @@ export async function groqChat(
   messages: ChatMessage[],
   system?: string,
   tools?: any[],
-  opts?: { max_tokens?: number; temperature?: number; model?: string },
+  opts?: { max_tokens?: number; temperature?: number },
   retryCount = 0
 ): Promise<any> {
   const allMessages = system
@@ -85,7 +40,7 @@ export async function groqChat(
     : messages
 
   const payload: any = {
-    model: opts?.model ?? CHAT_MODEL,
+    model: CHAT_MODEL,
     messages: allMessages,
     temperature: opts?.temperature ?? 0.1,
     max_tokens: opts?.max_tokens ?? 500,
@@ -101,7 +56,7 @@ export async function groqChat(
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+      signal: AbortSignal.timeout(10000),
     })
 
     if (res.status === 429 && retryCount < 2) {
@@ -296,8 +251,7 @@ export async function generatePostToolReply(
   }
 }
 
-// Vision model — supports image inputs via the standard content-parts format
-export const VISION_MODEL = process.env.GROQ_VISION_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct'
+// ── Vision model ──────────────────────────────────────────────────────────────
 
 type VisionPart =
   | { type: 'text'; text: string }

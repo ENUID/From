@@ -7,6 +7,7 @@ import { api } from '../../../convex/_generated/api'
 import { Product } from '@/components/ProductCard'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
+import { useSubscription } from '@/hooks/useSubscription'
 
 export interface Message {
   role: 'user' | 'assistant'
@@ -84,6 +85,8 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
   const deletedHistoryIds = useRef<Set<string>>(new Set())
   const removedSavedIds   = useRef<Set<string>>(new Set())
 
+  const { isPremium, canSearch, dailySearchesRemaining } = useSubscription()
+
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [history, setHistory] = useState<ConversationTurn[]>([])
   const [input, setInput] = useState('')
@@ -96,6 +99,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
   const [isMobile, setIsMobile] = useState(false)
   const [shopperContext] = useState(initialShopperContext)
   const [rates] = useState(initialRates)
+  const [showUpgradeSheet, setShowUpgradeSheet] = useState(false)
 
   const hasConversation = messages.some(message => message.role === 'user')
 
@@ -203,9 +207,12 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     const messageText = text ?? input.trim()
     if (!messageText || loading) return
 
-    // Only create a history entry for the first user message in a session.
-    // Follow-up messages refine the same conversation — they shouldn't add new entries.
+    // Paywall gate: block free-tier users who have hit their daily limit
     const isFirstMessage = !messages.some(m => m.role === 'user')
+    if (isFirstMessage && !canSearch) {
+      setShowUpgradeSheet(true)
+      return
+    }
 
     setActiveView('discover')
     setInput('')
@@ -369,5 +376,9 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     loadMoreProducts,
     deleteHistoryEntry,
     renameHistoryEntry,
+    isPremium,
+    dailySearchesRemaining,
+    showUpgradeSheet,
+    setShowUpgradeSheet,
   }
 }

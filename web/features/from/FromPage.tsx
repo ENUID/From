@@ -1049,6 +1049,8 @@ export default function FromApp({
     savedIds, savedProducts, searchHistory, shopperContext, rates,
     sendMessage, toggleSaved, resetConversation, loadMoreProducts,
     deleteHistoryEntry, renameHistoryEntry,
+    isPremium, dailySearchesRemaining,
+    showUpgradeSheet, setShowUpgradeSheet,
   } = useFromChat(initialShopperContext, initialRates)
 
   // ── Auth (optional — profile view only) ─────────────────────────────────────
@@ -2229,6 +2231,39 @@ export default function FromApp({
                     <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 28 }}>
                       {session?.user?.email || ''}
                     </div>
+
+                    {/* Plan badge */}
+                    <div style={{
+                      padding: '8px 14px', borderRadius: 20, marginBottom: 20,
+                      background: isPremium ? 'rgba(60,110,55,0.08)' : 'rgba(44,18,6,0.04)',
+                      border: `1px solid ${isPremium ? 'rgba(60,110,55,0.18)' : 'rgba(44,18,6,0.08)'}`,
+                      display: 'flex', alignItems: 'center', gap: 7,
+                    }}>
+                      <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: isPremium ? '#3d7a3a' : INK3 }}>
+                        {isPremium ? 'Community Member' : 'Free plan'}
+                      </span>
+                      {!isPremium && (
+                        <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
+                          · {dailySearchesRemaining} search{dailySearchesRemaining !== 1 ? 'es' : ''} left today
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Upgrade button for free users */}
+                    {!isPremium && (
+                      <button
+                        type="button"
+                        onClick={() => { setSidebarView('nav'); setSidebar(false); setShowUpgradeSheet(true) }}
+                        style={{
+                          width: '100%', padding: '11px 16px', borderRadius: 10,
+                          background: INK, border: 'none',
+                          fontFamily: SANS, fontSize: 13, fontWeight: 600, color: '#fff',
+                          cursor: 'pointer', marginBottom: 10, letterSpacing: '.01em',
+                        }}
+                      >
+                        Join the Community
+                      </button>
+                    )}
 
                     {/* Divider */}
                     <div style={{ width: '100%', height: 1, background: 'rgba(44,18,6,0.07)', marginBottom: 16 }} />
@@ -3467,6 +3502,93 @@ export default function FromApp({
                 Open in tab
               </a>
             </div>
+          )}
+
+          {/* ── Premium upgrade sheet ── */}
+          {showUpgradeSheet && (
+            <>
+              <div
+                onClick={() => setShowUpgradeSheet(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(44,18,6,0.35)', backdropFilter: 'blur(2px)' }}
+              />
+              <div style={{
+                position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9101,
+                background: BG, borderRadius: '20px 20px 0 0',
+                padding: '32px 24px 40px',
+                boxShadow: '0 -8px 48px rgba(44,18,6,0.18)',
+                animation: 'sheetUp .32s cubic-bezier(0.32,0.72,0,1)',
+                maxWidth: 480, margin: '0 auto',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>FROM Community</div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginTop: 5 }}>One payment. Everything, forever.</div>
+                  </div>
+                  <button onClick={() => setShowUpgradeSheet(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: INK3 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Community pitch */}
+                <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, marginBottom: 20, fontWeight: 300 }}>
+                  FROM is built independently — no VC, no team. One person building the shopping OS independent fashion deserved. Join the founding community and get lifetime access to everything FROM ever ships. No subscriptions. No upgrades. Never pay again.
+                </p>
+
+                {/* Benefits */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+                  {[
+                    ['Unlimited AI search', 'Every result ranked by agents, not algorithms'],
+                    ['Everything that ships', 'Agentic checkout, try-ons, tracking — all of it, forever'],
+                    ['Founding member status', 'Locked in before FROM is finished'],
+                    ['Direct access', 'Shape what gets built — your feedback goes straight to the builder'],
+                  ].map(([title, desc]) => (
+                    <div key={title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#e8f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3d7a3a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: INK }}>{title}</div>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 1 }}>{desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* CTA */}
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/billing/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}),
+                      })
+                      const { url, error } = await r.json()
+                      if (error) throw new Error(error)
+                      window.location.href = url
+                    } catch {
+                      // fall through
+                    }
+                  }}
+                  style={{
+                    width: '100%', padding: '15px', borderRadius: 12,
+                    background: INK, color: '#fff',
+                    fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: '.01em',
+                    border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  Join the Community — $149
+                </button>
+                <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 10, opacity: 0.55 }}>
+                  One-time payment. Lifetime access. When it's full, it's gone.
+                </p>
+              </div>
+            </>
           )}
 
           {/* ── Bag item long-press menu — Ask stylist + Remove ── */}
