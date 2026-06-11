@@ -2073,8 +2073,8 @@ export default function FromApp({
       {authStatus !== 'authenticated' && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99999,
-          background: 'rgba(20,16,12,0.48)',
-          backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)',
+          background: 'rgba(20,16,12,0.42)',
+          backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '20px',
         }}>
@@ -2088,12 +2088,15 @@ export default function FromApp({
             animation: 'fadeScale 0.42s cubic-bezier(0.34,1.36,0.64,1) forwards',
           }}>
             {/* Wordmark */}
-            <div style={{ fontFamily: SEASON, fontSize: 40, letterSpacing: '0.04em', color: INK, lineHeight: 1, marginBottom: 8 }}>
+            <div style={{ fontFamily: SEASON, fontSize: 40, letterSpacing: '0.04em', color: INK, lineHeight: 1, marginBottom: 10 }}>
               FROM
             </div>
             {/* Tagline */}
-            <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 14.5, color: INK3, marginBottom: 30, textAlign: 'center', letterSpacing: '0.01em' }}>
-              Wear something different.
+            <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 15, color: INK2, marginBottom: 6, textAlign: 'center', letterSpacing: '0.01em' }}>
+              Fashion worth finding.
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: INK3, marginBottom: 30, textAlign: 'center', lineHeight: 1.55 }}>
+              Independent boutiques, curated in one place.
             </div>
 
             {/* Google button */}
