@@ -1038,31 +1038,6 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
   ]
 }
 
-function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeLinecap="round">
-      <circle cx="12" cy="12" r="9.5" strokeWidth={strokeWidth * 1.2}/>
-      {/* vertical warp lines */}
-      <line x1="4.4"  y1="6.30"  x2="4.4"  y2="17.70" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="6.3"  y1="4.40"  x2="6.3"  y2="19.60" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="8.2"  y1="3.29"  x2="8.2"  y2="20.71" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="10.1" y1="2.69"  x2="10.1" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="12"   y1="2.50"  x2="12"   y2="21.50" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="13.9" y1="2.69"  x2="13.9" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="15.8" y1="3.29"  x2="15.8" y2="20.71" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="17.7" y1="4.40"  x2="17.7" y2="19.60" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="19.6" y1="6.30"  x2="19.6" y2="17.70" strokeWidth={strokeWidth * 0.85}/>
-      {/* horizontal weft lines — lower woven area */}
-      <line x1="2.62" y1="13.5"  x2="21.38" y2="13.5"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="2.92" y1="14.8"  x2="21.08" y2="14.8"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="3.43" y1="16.1"  x2="20.57" y2="16.1"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="4.18" y1="17.4"  x2="19.82" y2="17.4"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="5.27" y1="18.7"  x2="18.73" y2="18.7"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="6.88" y1="20.0"  x2="17.12" y2="20.0"  strokeWidth={strokeWidth * 0.85}/>
-    </svg>
-  )
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FromApp({
   initialShopperContext, initialRates,
@@ -1092,7 +1067,6 @@ export default function FromApp({
   const [sidebarOpen, setSidebar]     = useState(false)
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
-  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [inputHint, setInputHint]       = useState<string | null>(null)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
@@ -2305,70 +2279,6 @@ export default function FromApp({
                           }
                         </div>
                       ))
-                  }
-                </>
-              ) : sidebarView === 'fabrics' ? (
-                <>
-                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
-                  {stylistHistory.length === 0
-                    ? (
-                      <div style={{ padding: '12px 8px' }}>
-                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, opacity: .4, marginBottom: 8 }}>No Fabrics chats yet</p>
-                        <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, opacity: .35, lineHeight: 1.4 }}>Pin a product and tap the Fabrics icon to start styling.</p>
-                      </div>
-                    )
-                    : stylistHistory.map(h => (
-                      <div key={h.id} className="fr-hi"
-                        style={{ gap: 8, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
-                        onPointerDown={e => {
-                          wasLongPress.current = false
-                          const { clientX, clientY } = e
-                          longPressTimer.current = setTimeout(() => {
-                            wasLongPress.current = true
-                            const menuW = 160; const menuH = 96
-                            const above = clientY + 8 + menuH > window.innerHeight
-                            const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
-                            const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
-                            ctxMenuOpenAt.current = Date.now()
-                            setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
-                          }, 550)
-                        }}
-                        onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                        onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                        onContextMenu={e => {
-                          e.preventDefault()
-                          const menuW = 160; const menuH = 96
-                          const above = e.clientY + 8 + menuH > window.innerHeight
-                          const y = Math.max(8, above ? e.clientY - menuH - 4 : e.clientY + 8)
-                          const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuW - 8))
-                          ctxMenuOpenAt.current = Date.now()
-                          setStylistCtxMenu({ id: h.id, label: h.label, x, y, above })
-                        }}
-                        onClick={() => {
-                          if (wasLongPress.current) { wasLongPress.current = false; return }
-                          setStylistOpen(true); setSidebar(false)
-                        }}
-                      >
-                        <FabricsIcon size={12} stroke={INK3} strokeWidth={1.05}/>
-                        {stylistRenameId === h.id ? (
-                          <input ref={stylistRenameRef} value={stylistRenameVal}
-                            onClick={e => e.stopPropagation()}
-                            onChange={e => setStylistRenameVal(e.target.value)}
-                            onBlur={() => { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }}
-                            onKeyDown={e => {
-                              e.stopPropagation()
-                              if (e.key === 'Enter') { if (stylistRenameVal.trim()) renameStylistEntry(h.id, stylistRenameVal.trim()); setStylistRenameId(null) }
-                              if (e.key === 'Escape') setStylistRenameId(null)
-                            }}
-                            style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
-                              fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
-                              transform: 'scale(0.8125)', transformOrigin: 'left center' }}
-                          />
-                        ) : (
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{h.label}</span>
-                        )}
-                      </div>
-                    ))
                   }
                 </>
               ) : (
