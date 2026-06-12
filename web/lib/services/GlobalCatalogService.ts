@@ -492,6 +492,10 @@ export class GlobalCatalogService {
     } = {},
     brandDomains: string[] = [],
     _tasteProfile?: string,
+    /** The user's original message — used for relevance reranking so aesthetic /
+     *  style signals survive even when the fetch query is stripped down. The
+     *  catalog fetch still uses the clean `query` so recall is never reduced. */
+    rerankQuery?: string,
   ): Promise<UcpProduct[]> {
     const rawQuery = query.trim()
     if (!rawQuery) return []
@@ -580,7 +584,8 @@ export class GlobalCatalogService {
     // Optional LLM rerank for nuanced relevance queries (first page only).
     if (sort === 'relevance' && result.length >= 4 && !isLoadMore) {
       try {
-        result = await rerankByRelevance(rawQuery, result, _tasteProfile)
+        const judgeQuery = (rerankQuery && rerankQuery.trim()) ? rerankQuery.trim() : rawQuery
+        result = await rerankByRelevance(judgeQuery, result, _tasteProfile)
       } catch (err) {
         console.warn('[Catalog] rerank skipped:', err instanceof Error ? err.message : String(err))
       }

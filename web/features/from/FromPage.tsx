@@ -1809,6 +1809,39 @@ export default function FromApp({
     ? (searchProducts.length ? searchProducts : exploreCache).filter(p => p.id !== selectedProduct.id).slice(0, 12)
     : []
 
+  // ── Find more like this ───────────────────────────────────────────────────
+  // Build a clean, brand-free query from the product so the result spans the
+  // whole roster (not just this brand). Worst case it falls back to the title —
+  // the search either returns matches or the normal empty state shows. Never breaks.
+  function buildMoreLikeQuery(p: Product): string {
+    const vendor = (p.vendor || '').toLowerCase().trim()
+    let base = (p.title || '').trim()
+    if (vendor && vendor.length >= 3) {
+      base = base.replace(new RegExp(vendor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ')
+    }
+    // drop marketing filler so the garment/colour/material lead the query
+    base = base
+      .replace(/\b(the|new|classic|signature|limited|edition|collection|unisex|men'?s|women'?s)\b/ig, ' ')
+      .replace(/[|–—•·]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const mat = extractMaterial(p)
+    const firstMat = mat ? mat.split(/[,;]+/)[0].trim() : ''
+    let q = base
+    if (firstMat && firstMat.length >= 3 && !base.toLowerCase().includes(firstMat.toLowerCase())) {
+      q = `${firstMat} ${base}`.trim()
+    }
+    q = q.slice(0, 120).trim()
+    return q || (p.title || '').slice(0, 120) || 'similar pieces'
+  }
+
+  function findMoreLikeThis(p: Product | null) {
+    if (!p || loading) return
+    const q = buildMoreLikeQuery(p)
+    setSelected(null)        // close the detail sheet
+    sendMessage(q)           // runs the normal search pipeline (graceful fallback included)
+  }
+
   // Restore/persist unit preference across products
   useEffect(() => {
     const s = localStorage.getItem('from:sg-unit')
@@ -4376,6 +4409,16 @@ export default function FromApp({
                           onClick={() => { if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
                           {sheetSizes.length > 0 && !selectedSize ? 'Select a size' : 'Checkout'}
                         </button>
+                        <button type="button"
+                          onClick={() => findMoreLikeThis(selectedProduct)}
+                          style={{
+                            width: '100%', marginTop: 10, padding: '13px 0', cursor: 'pointer',
+                            fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: '.08em',
+                            textTransform: 'uppercase', color: INK, background: 'transparent',
+                            border: `1px solid ${INK}`,
+                          }}>
+                          Find more like this
+                        </button>
                       </div>
 
                       <div style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -4603,6 +4646,16 @@ export default function FromApp({
                         className={`fr-add${sheetSizes.length > 0 && !selectedSize ? " warn" : ""}`}
                         onClick={() => { if (sheetSizes.length > 0 && !selectedSize) return; openCheckout(checkoutUrl) }}>
                         {sheetSizes.length > 0 && !selectedSize ? "Select a size" : "Checkout"}
+                      </button>
+                      <button type="button"
+                        onClick={() => findMoreLikeThis(selectedProduct)}
+                        style={{
+                          width: "100%", marginTop: 10, padding: "13px 0", cursor: "pointer",
+                          fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: ".08em",
+                          textTransform: "uppercase", color: INK, background: "transparent",
+                          border: `1px solid ${INK}`,
+                        }}>
+                        Find more like this
                       </button>
                     </div>
 

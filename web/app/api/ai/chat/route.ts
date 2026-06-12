@@ -188,6 +188,9 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   /** Pre-detected brand domains from the user message — skip re-detection inside the service. */
   brandDomains?: string[];
   tasteProfile?: string;
+  /** The user's original message — lets relevance reranking judge against their
+   *  real words (occasion, aesthetic, vibe) even when searchQuery is stripped clean. */
+  rerankQuery?: string;
 }) {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
@@ -208,6 +211,7 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
     },
     options.brandDomains || [],
     options.tasteProfile,
+    options.rerankQuery,
   )
 
   return {
@@ -483,6 +487,7 @@ export async function POST(req: NextRequest) {
         fastFirstPage: true,
         brandDomains: detectedBrandDomains,
         tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
+        rerankQuery: message,
       })
       return NextResponse.json({
         text: compiledReplyText(compiled, compiledResult.products.length),
@@ -572,6 +577,7 @@ export async function POST(req: NextRequest) {
         fastFirstPage: true,
         brandDomains: detectedBrandDomains,
         tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
+        rerankQuery: message,
       })
 
       const diagnostics = formatSearchDiagnostics(fallbackIntent, {
@@ -619,6 +625,7 @@ export async function POST(req: NextRequest) {
             fastFirstPage: true,
             brandDomains: detectedBrandDomains,
             tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
+            rerankQuery: message,
           })
           products = result.products
           activeBudgetCurrency = result.budgetCurrency
@@ -663,6 +670,7 @@ Mirror the language the user wrote in.`
               fastFirstPage: true,
               brandDomains: detectedBrandDomains,
               tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
+              rerankQuery: message,
             })
 
             const diagnostics = formatSearchDiagnostics(fallbackIntent, {
