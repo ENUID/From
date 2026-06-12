@@ -25,11 +25,8 @@ jobs:
         run: npm ci
         working-directory: web
 
-      - name: Install Convex CLI
-        run: npm install -g convex@1.25.0
-
       - name: Deploy Convex
-        run: convex deploy --typecheck disable
+        run: npx convex deploy --typecheck disable
         working-directory: web
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}

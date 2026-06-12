@@ -58,10 +58,11 @@ export async function POST(req: NextRequest) {
       })
     } catch (e: any) {
       const msg: string = e.message || ''
+      console.error('[send-code] createCode failed:', msg, e)
       if (msg.toLowerCase().includes('wait') || msg.toLowerCase().includes('moment')) {
         return NextResponse.json({ error: 'Please wait 60 seconds before requesting a new code.' }, { status: 429 })
       }
-      return NextResponse.json({ error: 'Could not create sign-in code. Please try again.' }, { status: 500 })
+      return NextResponse.json({ error: `Could not create sign-in code: ${msg || 'unknown error'}` }, { status: 500 })
     }
 
     const { error } = await resend.emails.send({
