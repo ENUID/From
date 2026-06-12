@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
+import { compileIntent, compiledReplyText, compiledSuggestions } from '@/lib/intentCompiler'
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
@@ -479,6 +480,40 @@ export async function POST(req: NextRequest) {
     // Detect explicit brand mentions in the user message so the catalog search
     // can restrict to just those store(s) rather than scanning the whole registry.
     const detectedBrandDomains = detectBrandsInQuery(message)
+
+    // ── FAST PATH: deterministic intent compilation ──────────────────────────
+    // Clear product queries ("black linen shirt under $80") compile directly to
+    // a search plan — no LLM round-trip, no rate limits, no degradation.
+    // Conversational/ambiguous messages fall through to the LLM planner below.
+    const compiled = compileIntent(message, activeBuyerCurrency)
+    if (compiled && !/\b(more|others?|another|different ones)\b/i.test(message)) {
+      // Fold aesthetic signals into the taste profile so ranking favors them
+      const aestheticSignal = compiled.aesthetics.length > 0
+        ? compiled.aesthetics.map(a => a.keywords.slice(0, 4).join(' ')).join('; ')
+        : ''
+      const mergedTaste = [
+        typeof tasteProfile === 'string' ? tasteProfile.trim() : '',
+        aestheticSignal ? `style signals: ${aestheticSignal}` : '',
+      ].filter(Boolean).join('. ') || undefined
+
+      const catalogDebug: CatalogSearchDebug = {}
+      const result = await runCatalogSearch(compiled.args, {
+        countryCode,
+        buyerCurrency: activeBuyerCurrency,
+        excludeIds: collectProductIds(history || []),
+        fastFirstPage: true,
+        brandDomains: detectedBrandDomains,
+        tasteProfile: mergedTaste,
+        debug: catalogDebug,
+      })
+
+      return NextResponse.json({
+        text: compiledReplyText(compiled, result.products.length),
+        ...result,
+        suggestions: compiledSuggestions(compiled),
+        meta: { ...catalogDebug, compiledIntent: true },
+      })
+    }
 
     let dynamicSystemPrompt = SYSTEM_PROMPT;
 
