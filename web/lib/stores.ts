@@ -2648,6 +2648,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "rareism.com",
+    "name": "Rareism",
+    "categories": ["top", "bottom", "dress", "outerwear"],
+    "vibe": ["contemporary", "minimalist", "formal", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress", "blazer", "trousers", "top", "co-ord set", "shirt", "skirt"],
+    "about": "Indian contemporary womenswear from the House of Rare — sharp tailoring, clean lines, and elevated everyday pieces"
+  },
+  {
     "domain": "bananaclub.co.in",
     "name": "Banana Club",
     "categories": ["top", "bottom", "dress", "co-ord", "outerwear"],
