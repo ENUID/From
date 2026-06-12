@@ -2668,6 +2668,26 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Vancouver-born streetwear — relaxed essential fits and community-driven drops with West Coast ease"
   },
   {
+    "domain": "babaa.es",
+    "name": "Babaa",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["artisan", "sustainable", "cozy", "minimalist"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["chunky knit sweater", "cardigan", "wool jumper", "knit vest", "beanie"],
+    "about": "Spanish slow knitwear — chunky natural-wool sweaters spun and knitted entirely in Spain, made to last generations"
+  },
+  {
+    "domain": "shoprhode.com",
+    "name": "Rhode",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["resort", "romantic", "maximalist"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["printed dress", "maxi dress", "co-ord set", "blouse"],
+    "about": "Joyful printed resort dressing — bold patterns and easy silhouettes made for sunshine"
+  },
+  {
     "domain": "blackhalo.com",
     "name": "Black Halo",
     "categories": ["dress", "top", "bottom"],
