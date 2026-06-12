@@ -52,18 +52,26 @@ export async function POST(req: NextRequest) {
     const code = generateCode()
 
     try {
-      await convex.mutation(api.verificationCodes.createCode, {
+      const result = await convex.mutation(api.verificationCodes.createCode, {
         email: normalizedEmail,
         code,
-      })
-    } catch (e: any) {
-      // Convex errors can be structured differently — extract message from all known shapes
-      const msg: string = e?.message || e?.data?.message || (typeof e?.data === 'string' ? e.data : '') || ''
-      const detail = msg || String(e) || 'unknown'
-      console.error('[send-code] createCode failed:', detail, e)
-      if (msg.toLowerCase().includes('wait') || msg.toLowerCase().includes('moment')) {
-        return NextResponse.json({ error: 'Please wait 60 seconds before requesting a new code.' }, { status: 429 })
+      }) as any
+      if (result?.ok === false && result.reason === 'rate_limited') {
+        const wait = result.retryAfterSec ?? 60
+        return NextResponse.json(
+          { error: `Please wait ${wait} seconds before requesting a new code.` },
+          { status: 429 },
+        )
       }
+    } catch (e: any) {
+      // Real failure (not rate limiting). Convex redacts thrown Error messages
+      // in prod, so collect every shape we can for the logs and the response.
+      const msg: string = e?.message || e?.data?.message || (typeof e?.data === 'string' ? e.data : '') || ''
+      const props = e && typeof e === 'object'
+        ? Object.getOwnPropertyNames(e).map(k => `${k}=${String((e as any)[k]).slice(0, 120)}`).join(' | ')
+        : ''
+      const detail = msg || props || String(e) || 'unknown'
+      console.error('[send-code] createCode failed:', detail)
       return NextResponse.json({ error: `Sign-in error: ${detail}` }, { status: 500 })
     }
 

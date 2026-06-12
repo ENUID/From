@@ -16,8 +16,11 @@ export const createCode = mutation({
       .withIndex("by_email", (q) => q.eq("email", email))
       .first()
 
+    // Rate-limited: return a status instead of throwing — Convex redacts
+    // thrown Error messages in production, making them unreadable client-side.
     if (existing && existing.expiresAt > now && (now - (existing.expiresAt - CODE_TTL_MS)) < RATE_LIMIT_MS) {
-      throw new Error("Please wait a moment before requesting another code")
+      const retryAfterMs = RATE_LIMIT_MS - (now - (existing.expiresAt - CODE_TTL_MS))
+      return { ok: false as const, reason: "rate_limited" as const, retryAfterSec: Math.ceil(retryAfterMs / 1000) }
     }
 
     if (existing) {
@@ -35,6 +38,7 @@ export const createCode = mutation({
         used: false,
       })
     }
+    return { ok: true as const }
   },
 })
 
