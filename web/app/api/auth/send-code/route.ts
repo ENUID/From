@@ -48,15 +48,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
     }
 
+    const normalizedEmail = email.toLowerCase().trim()
     const code = generateCode()
 
     try {
       await convex.mutation(api.verificationCodes.createCode, {
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         code,
       })
     } catch (e: any) {
-      return NextResponse.json({ error: e.message || 'Too many requests' }, { status: 429 })
+      const msg: string = e.message || ''
+      if (msg.toLowerCase().includes('wait') || msg.toLowerCase().includes('moment')) {
+        return NextResponse.json({ error: 'Please wait 60 seconds before requesting a new code.' }, { status: 429 })
+      }
+      return NextResponse.json({ error: 'Could not create sign-in code. Please try again.' }, { status: 500 })
     }
 
     const { error } = await resend.emails.send({
@@ -68,9 +73,10 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('[send-code] Resend error:', error)
-      // Surface the real Resend error (e.g. domain not verified, invalid API key)
+      // Delete the code we just created so the user can retry immediately
+      try { await convex.mutation(api.verificationCodes.deleteCode, { email: normalizedEmail }) } catch {}
       const msg = (error as any)?.message ?? JSON.stringify(error)
-      return NextResponse.json({ error: `Failed to send email: ${msg}` }, { status: 500 })
+      return NextResponse.json({ error: `Email could not be sent. Check your Resend configuration. (${msg})` }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })

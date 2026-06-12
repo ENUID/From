@@ -38,6 +38,18 @@ export const createCode = mutation({
   },
 })
 
+export const deleteCode = mutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim()
+    const existing = await ctx.db
+      .query("verification_codes")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first()
+    if (existing) await ctx.db.delete(existing._id)
+  },
+})
+
 export const verifyAndConsumeCode = mutation({
   args: { email: v.string(), code: v.string() },
   handler: async (ctx, args) => {
