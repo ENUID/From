@@ -2647,6 +2647,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "items": ["linen dress", "linen blouse", "linen trousers", "cotton top", "jacket", "skirt"],
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
+  {
+    "domain": "bananaclub.co.in",
+    "name": "Banana Club",
+    "categories": ["top", "bottom", "dress", "co-ord", "outerwear"],
+    "vibe": ["eclectic", "bold", "playful", "contemporary", "artistic"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["printed dress", "co-ord set", "blouse", "trousers", "skirt", "jacket"],
+    "about": "Indian contemporary label with bold prints, vibrant co-ords, and playful silhouettes for the expressive modern wardrobe"
+  },
 ];
 
 // ── Brand directory ───────────────────────────────────────────────────────────
