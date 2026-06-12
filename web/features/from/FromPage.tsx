@@ -1113,6 +1113,7 @@ export default function FromApp({
   const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics' | 'profile'>('nav')
   const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
   const [inputHint, setInputHint]       = useState<string | null>(null)
+  const [visionBusy, setVisionBusy]     = useState(false)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
   const [sizeGuideOpen, setSizeGuideOpen]       = useState(false)
@@ -1701,8 +1702,8 @@ export default function FromApp({
     setImgDX(0)
   }
 
-  const doSearch = () => {
-    if (!canSend || loading) return
+  const doSearch = async () => {
+    if (!canSend || loading || visionBusy) return
     // Products attached → take the query to the stylist page instead of searching.
     if (barProducts.length > 0) {
       const q = input.trim() || (barProducts.length > 1 ? 'Compare these for me' : 'Tell me about this piece')
@@ -1710,8 +1711,38 @@ export default function FromApp({
       setBarProducts([]); setInput(''); setInputHint(null)
       return
     }
-    const names = uploadedImages.map(u => u.name).join(' ')
-    const q = [input.trim(), names].filter(Boolean).join(' '); if (!q) return
+
+    // Visual search: photos go to the vision model, which describes the piece
+    // as a catalog query. Graceful: any failure falls back to text + filenames —
+    // the search always runs, it just loses the visual understanding.
+    if (uploadedImages.length > 0) {
+      const text = input.trim()
+      const images = uploadedImages.slice(0, 3).map(u => u.url)
+      const fallback = [text, uploadedImages.map(u => u.name).join(' ')].filter(Boolean).join(' ')
+      setVisionBusy(true)
+      setInputHint('Reading your photo…')
+      let q = fallback
+      try {
+        const res = await fetch('/api/ai/vision-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ images, hint: text }),
+          signal: AbortSignal.timeout(20_000),
+        })
+        const data = await res.json()
+        if (typeof data?.query === 'string' && data.query.length >= 4) {
+          q = [data.query, text].filter(Boolean).join(' ').slice(0, 160)
+        }
+      } catch { /* fall back to text + filenames */ }
+      setVisionBusy(false)
+      if (!q) { setInputHint(null); return }
+      setShowExplore(false); setActiveBrand(null)
+      sendMessage(q); setUploaded([]); setInputHint(null)
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
+
+    const q = input.trim(); if (!q) return
     setShowExplore(false); setActiveBrand(null)
     sendMessage(q); setUploaded([]); setInputHint(null)
     if (fileRef.current) fileRef.current.value = ''
