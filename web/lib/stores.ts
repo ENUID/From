@@ -2648,6 +2648,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "babaa.es",
+    "name": "Babaa",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["artisan", "sustainable", "cozy", "minimalist"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["chunky knit sweater", "cardigan", "wool jumper", "knit vest", "beanie"],
+    "about": "Spanish slow knitwear — chunky natural-wool sweaters spun and knitted entirely in Spain, made to last generations"
+  },
+  {
     "domain": "blackhalo.com",
     "name": "Black Halo",
     "categories": ["dress", "top", "bottom"],
