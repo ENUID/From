@@ -2648,6 +2648,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "lans.lk",
+    "name": "Lans",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["casual", "resort", "minimalist"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress", "top", "skirt", "co-ord set", "jumpsuit"],
+    "about": "Sri Lankan womenswear — breezy contemporary pieces made for island warmth and easy everyday wear"
+  },
+  {
     "domain": "earlscollection.com",
     "name": "Earls Collection",
     "categories": ["top", "bottom", "outerwear", "accessory"],
