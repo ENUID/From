@@ -2648,6 +2648,114 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "youngla.com",
+    "name": "YoungLA",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["workout", "streetwear", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["tee", "hoodie", "joggers", "shorts", "tank top", "compression wear"],
+    "about": "LA gym and streetwear staple — oversized fits, lifting gear, and athleisure built for the fitness community"
+  },
+  {
+    "domain": "tentree.com",
+    "name": "Tentree",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["sustainable", "organic", "casual", "outdoor"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["tee", "hoodie", "joggers", "jacket", "flannel", "sweater"],
+    "about": "Earth-first essentials — ten trees planted for every item, organic cotton and recycled fabrics in relaxed everyday silhouettes"
+  },
+  {
+    "domain": "girlfriend.com",
+    "name": "Girlfriend Collective",
+    "categories": ["top", "bottom", "underwear"],
+    "vibe": ["active", "sustainable", "seamless", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["leggings", "sports bra", "bike shorts", "tank", "unitard", "tee"],
+    "about": "Recycled-fabric activewear in inclusive sizing — compressive leggings and bras made from plastic bottles and fishing nets"
+  },
+  {
+    "domain": "adoredvintage.com",
+    "name": "Adored Vintage",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["vintage", "romantic", "bohemian"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["vintage dress", "blouse", "midi dress", "skirt", "cardigan"],
+    "about": "Curated true vintage and vintage-inspired pieces — romantic, feminine, old-world Europe meets Pacific Northwest"
+  },
+  {
+    "domain": "cuyana.com",
+    "name": "Cuyana",
+    "categories": ["accessory", "top", "outerwear"],
+    "vibe": ["quiet-luxury", "minimalist", "luxury"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["leather tote", "handbag", "silk blouse", "cashmere sweater", "leather bag", "wallet"],
+    "about": "Fewer, better things — premium Italian leather bags and silk essentials with quiet-luxury restraint"
+  },
+  {
+    "domain": "mvmt.com",
+    "name": "MVMT",
+    "categories": ["accessory", "jewellery"],
+    "vibe": ["minimalist", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["watch", "sunglasses", "bracelet", "ring", "necklace"],
+    "about": "Minimalist watches, eyewear, and jewelry — clean modern design at accessible prices"
+  },
+  {
+    "domain": "killstar.com",
+    "name": "Killstar",
+    "categories": ["top", "bottom", "dress", "outerwear", "accessory"],
+    "vibe": ["streetwear", "maximalist"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["gothic dress", "graphic tee", "platform boots", "corset", "hoodie", "skirt"],
+    "about": "Gothic and occult-inspired fashion — dark romantic, witchy, alternative streetwear with heavy graphic identity"
+  },
+  {
+    "domain": "triangl.com",
+    "name": "Triangl",
+    "categories": ["swimwear"],
+    "vibe": ["resort", "bodycon"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["bikini", "one-piece", "swimsuit"],
+    "about": "Australian swimwear icon — neoprene bikinis in bold colours and sporty-feminine cuts"
+  },
+  {
+    "domain": "blackmilkclothing.com",
+    "name": "BlackMilk Clothing",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["maximalist", "bodycon", "streetwear"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["printed leggings", "bodycon dress", "swimsuit", "crop top", "skater dress"],
+    "about": "Australian bold-print specialists — galaxy leggings, pop-culture collabs, and statement bodycon made in Brisbane"
+  },
+  {
+    "domain": "kytebaby.com",
+    "name": "Kyte Baby",
+    "categories": ["underwear", "top", "bottom"],
+    "vibe": ["cozy", "organic", "casual"],
+    "priceRange": "mid",
+    "items": ["baby sleep bag", "baby romper", "pajamas", "footie", "toddler set"],
+    "about": "Buttery-soft bamboo sleepwear and essentials for babies, toddlers, and matching family sets"
+  },
+  {
+    "domain": "rags.com",
+    "name": "Rags",
+    "categories": ["top", "bottom"],
+    "vibe": ["casual", "cozy"],
+    "priceRange": "mid",
+    "items": ["kids romper", "kids tee", "kids joggers", "onesie", "kids set"],
+    "about": "Modern kids' essentials — signature rompers and everyday sets designed for comfort and play"
+  },
+  {
     "domain": "rareism.com",
     "name": "Rareism",
     "categories": ["top", "bottom", "dress", "outerwear"],
