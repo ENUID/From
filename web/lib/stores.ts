@@ -1903,6 +1903,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "vibe": ["streetwear"]
   },
   {
+    "domain": "bananaclub.co.in",
+    "name": "Banana Club",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["streetwear", "casual"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt", "tee", "polo", "trouser", "jeans", "shorts", "jacket"],
+    "about": "Indian D2C menswear from Bengaluru — casual and formal everyday styles"
+  },
+  {
     "domain": "bohemegoods.com",
     "name": "BOHEME",
     "categories": ["top", "bottom", "dress", "accessory"],
@@ -2789,6 +2799,7 @@ export const BRAND_NAMES: Record<string, string> = {
   "bysera.zid.store": "SERA",
   "aritzia.com": "Aritzia",
   "slowsteadyclub.com": "SlowSteadyClub",
+  "bananaclub.co.in": "Banana Club",
   "bohemegoods.com": "BOHEME",
   "turnblack.in": "Turn Black",
   "jucca.it": "Jucca",
