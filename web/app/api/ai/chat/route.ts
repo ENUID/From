@@ -194,7 +194,8 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
 }) {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
-  const products = await GlobalCatalogService.search(
+  const brandDomains = options.brandDomains || []
+  let products = await GlobalCatalogService.search(
     args.searchQuery,
     args.budgetMax,
     options.excludeIds || [],
@@ -209,10 +210,27 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
       loadMore: options.loadMore,
       debug: options.debug,
     },
-    options.brandDomains || [],
+    brandDomains,
     options.tasteProfile,
     options.rerankQuery,
   )
+
+  // Brand fallback: the shopper named a brand, but it returned nothing — its
+  // catalog isn't reachable (no UCP) or has no match. Retry across the whole
+  // roster with the brand stripped from the query, and flag it so the reply
+  // can say so and offer similar pieces instead of silently coming up empty.
+  let brandFallback: string[] | undefined
+  if (brandDomains.length > 0 && products.length === 0 && !options.loadMore) {
+    const debranded = stripBrandNames(args.searchQuery, brandDomains)
+    const retryQuery = debranded || args.searchQuery
+    const retry = await GlobalCatalogService.search(
+      retryQuery, args.budgetMax, options.excludeIds || [], options.countryCode,
+      args.isClothing, args.mandatoryConcepts || [], sort, budgetCurrency,
+      { fastFirstPage: true }, [], options.tasteProfile, options.rerankQuery,
+    )
+    products = retry
+    brandFallback = brandDomains.map(brandDisplayNameByDomain)
+  }
 
   return {
     products,
@@ -221,7 +239,43 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
     budgetCurrency,
     isClothing: args.isClothing,
     sort,
+    brandFallback,
   }
+}
+
+// Resolve a registry domain to its human brand name for messaging.
+function brandDisplayNameByDomain(domain: string): string {
+  const p = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain.toLowerCase().trim())
+  return p ? brandDisplayName(p) : domain
+}
+
+// Strip named-brand tokens from a query so a fallback search spans the roster
+// instead of re-detecting the same unavailable brand.
+function stripBrandNames(query: string, domains: string[]): string {
+  let q = query
+  for (const d of domains) {
+    const name = brandDisplayNameByDomain(d)
+    if (name && name.length >= 3) {
+      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      q = q
+        .replace(new RegExp(`\\b(?:from|at|by|in)\\s+${esc}\\b`, 'gi'), ' ')
+        .replace(new RegExp(`\\b${esc}\\b`, 'gi'), ' ')
+    }
+  }
+  return q.replace(/\s+/g, ' ').trim()
+}
+
+// Warm, on-brand line for when a requested brand has nothing to show.
+function brandUnavailableText(brands: string[], language: 'vi' | 'en', hasResults: boolean): string {
+  const name = brands.filter(Boolean).join(' & ') || 'that brand'
+  if (language === 'vi') {
+    return hasResults
+      ? `Mình chưa lấy được sản phẩm từ ${name} lúc này — nhưng đây là vài lựa chọn tương tự rất hợp với điều bạn đang tìm.`
+      : `Mình chưa có ${name} trong danh sách brand lúc này. Bạn thử mô tả kiểu dáng/chất liệu để mình tìm lựa chọn tương tự nhé.`
+  }
+  return hasResults
+    ? `I couldn't pull anything from ${name} just now — but here are some similar pieces that fit what you're after.`
+    : `I don't have ${name} in the roster just yet. Tell me the style or material you liked and I'll find you a close match.`
 }
 
 function formatSearchToolResult(products: UcpProduct[]) {
@@ -495,11 +549,14 @@ export async function POST(req: NextRequest) {
         tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
         rerankQuery: message,
       })
+      const compiledText = compiledResult.brandFallback
+        ? brandUnavailableText(compiledResult.brandFallback, inferLanguage(message), compiledResult.products.length > 0)
+        : compiledReplyText(compiled, compiledResult.products.length)
       return NextResponse.json({
-        text: compiledReplyText(compiled, compiledResult.products.length),
+        text: compiledText,
         ...compiledResult,
         suggestions: compiledSuggestions(compiled),
-        meta: { compiledIntent: true },
+        meta: { compiledIntent: true, brandFallback: compiledResult.brandFallback ?? null },
       })
     }
 
@@ -636,6 +693,26 @@ export async function POST(req: NextRequest) {
           products = result.products
           activeBudgetCurrency = result.budgetCurrency
           activeSort = result.sort
+
+          // The requested brand had nothing — lead with a warm note, then let
+          // the similar pieces (already in `products`) speak. Skip the LLM
+          // summary so the message stays honest about what happened.
+          if (result.brandFallback) {
+            finalContent = brandUnavailableText(result.brandFallback, inferLanguage(message), products.length > 0)
+            const extractedFb = extractSuggestions(aiResponse.content || '')
+            return NextResponse.json({
+              text: finalContent,
+              products,
+              searchQuery: activeSearchQuery,
+              budgetMax: activeBudgetMax,
+              budgetCurrency: activeBudgetCurrency,
+              isClothing: activeIsClothing,
+              sort: activeSort,
+              suggestions: extractedFb.suggestions,
+              meta: { brandFallback: result.brandFallback },
+            })
+          }
+
           const aiText = aiResponse.content?.trim()
           if (aiText) {
             finalContent = aiText

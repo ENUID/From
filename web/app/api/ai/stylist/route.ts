@@ -4,6 +4,28 @@ import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
+import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
+
+// Resolve a registry domain to its display name for brand-fallback messaging.
+function brandNameOf(domain: string): string {
+  const p = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain.toLowerCase().trim())
+  return p ? brandDisplayName(p) : domain
+}
+
+// Strip named-brand tokens so a fallback search spans the whole roster.
+function stripBrandNames(query: string, domains: string[]): string {
+  let q = query
+  for (const d of domains) {
+    const name = brandNameOf(d)
+    if (name && name.length >= 3) {
+      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      q = q
+        .replace(new RegExp(`\\b(?:from|at|by|in)\\s+${esc}\\b`, 'gi'), ' ')
+        .replace(new RegExp(`\\b${esc}\\b`, 'gi'), ' ')
+    }
+  }
+  return q.replace(/\s+/g, ' ').trim()
+}
 
 // Use Gemini if configured; fall back to Groq 70b
 async function stylistChat(
@@ -516,6 +538,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     const { reply, outfitQueries } = parseOutfitToken(replyWithOutfit)
 
     let foundProducts: any[] | null = null
+    let reply2 = reply
     if (searchQuery) {
       try {
         const concepts = buildMandatoryConcepts(searchQuery)
@@ -531,7 +554,29 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           memorySummary,
           question,
         )
-        if (results.length > 0) foundProducts = results.slice(0, 12)
+        if (results.length > 0) {
+          foundProducts = results.slice(0, 12)
+        } else {
+          // The query named a brand we can't reach (no UCP / not in roster) or
+          // that had no match. Retry across the roster with the brand stripped
+          // and tell the shopper honestly, then show the similar pieces.
+          const brands = detectBrandsInQuery(searchQuery)
+          if (brands.length > 0) {
+            const debranded = stripBrandNames(searchQuery, brands) || searchQuery
+            const broad = await GlobalCatalogService.search(
+              debranded, undefined, [], null, true, buildMandatoryConcepts(debranded),
+              'relevance', buyerCurrency, { fastFirstPage: true }, [],
+              memorySummary, question,
+            )
+            const names = brands.map(brandNameOf).filter(Boolean).join(' & ')
+            if (broad.length > 0) {
+              foundProducts = broad.slice(0, 12)
+              reply2 = `${reply}${reply ? ' ' : ''}I couldn't pull anything from ${names} just now, so here are some similar pieces that fit what you're after.`.trim()
+            } else {
+              reply2 = `${reply}${reply ? ' ' : ''}I don't have ${names} in the FROM roster yet — tell me the style or material you're drawn to and I'll find you a close match.`.trim()
+            }
+          }
+        }
       } catch (e) {
         console.error('[stylist] search error:', e)
       }
@@ -557,7 +602,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       }
     }
 
-    return NextResponse.json({ reply, comparison: comparison ?? null, foundProducts, outfitSlots })
+    return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, outfitSlots })
   } catch (e) {
     console.error('[stylist] error:', e)
     return NextResponse.json({ reply: null, comparison: null })
