@@ -1,14 +1,17 @@
 /**
- * FROM Catalog Search — clean implementation over the Shopify Global Catalog MCP.
+ * FROM Catalog Search — queries each curated brand's own Shopify store catalog.
  *
- * Architecture (single path):
- *   1. Build domain list: exact brand match OR category-filtered registry subset
- *   2. Chunk domains → parallel Global Catalog queries: (query) AND ("d1" OR "d2" OR ...)
- *   3. Parse, deduplicate, validate each product against the curated registry
- *   4. Filter (budget, non-fashion, excluded IDs) → sort → optional LLM rerank
+ * Data source: every brand in the registry exposes a Universal Commerce Protocol
+ * MCP endpoint at  https://{domain}/api/mcp  (search_catalog tool). We query the
+ * selected brands' own endpoints directly — so results come ONLY from the brands
+ * you've chosen, pulled live from each store's real Shopify catalog.
  *
- * Catalog endpoint: https://catalog.shopify.com/api/ucp/mcp  (search_catalog tool)
- * Domain filtering: injected directly into the query string using Shopify's AND/OR syntax
+ * Flow:
+ *   1. Choose domains: exact brand match (user named a brand) OR category-filtered
+ *      subset of the registry, relevance-sorted.
+ *   2. Query those stores' /api/mcp in parallel batches.
+ *   3. Parse → validate against registry → filter (budget / non-fashion) → sort.
+ *   4. Cache the fetched product pool per query so "load more" paginates cleanly.
  */
 
 import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES } from '../stores'
@@ -50,58 +53,56 @@ export type CatalogSearchDebug = {
   loadMoreQuery?: string
 }
 
+type ProductSort = 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc'
+
 // ─── Config ────────────────────────────────────────────────────────────────────
 
-const CATALOG_URL = 'https://catalog.shopify.com/api/ucp/mcp'
-const CATALOG_TIMEOUT_MS = 9000
-const DOMAINS_PER_CHUNK = 10
-const PRODUCTS_PER_CHUNK = 30
+const STORE_TIMEOUT_MS = 7000
+const BATCH_SIZE = 45          // stores queried in parallel per round
+const MAX_ROUNDS_PER_CALL = 2  // up to 90 stores fetched per search() call
 const INITIAL_LIMIT = 30
 const LOAD_MORE_LIMIT = 10
 const CACHE_TTL_MS = 15 * 60 * 1000
-const MAX_CACHE_ENTRIES = 400
+const MAX_CACHE_ENTRIES = 300
 const ZERO_DECIMAL_CURRENCIES = new Set(['VND', 'JPY', 'KRW'])
 
-// ─── LRU Cache ─────────────────────────────────────────────────────────────────
+// ─── LRU cache (per query) ─────────────────────────────────────────────────────
 
-type CacheEntry = { timestamp: number; products: UcpProduct[] }
+type CacheEntry = {
+  timestamp: number
+  products: UcpProduct[]   // everything fetched for this query so far
+  pending: string[]        // domains not yet queried, in relevance order
+  queried: Set<string>     // domains already queried
+}
 const lruCache = new Map<string, CacheEntry>()
 
 function cacheGet(key: string): CacheEntry | null {
-  const entry = lruCache.get(key)
-  if (!entry || Date.now() - entry.timestamp > CACHE_TTL_MS) {
+  const e = lruCache.get(key)
+  if (!e || Date.now() - e.timestamp > CACHE_TTL_MS) {
     lruCache.delete(key)
     return null
   }
-  // Promote to tail (most recently used)
   lruCache.delete(key)
-  lruCache.set(key, entry)
-  return entry
+  lruCache.set(key, e) // promote (most-recently-used)
+  return e
 }
 
-function cacheSet(key: string, entry: CacheEntry) {
-  if (lruCache.size >= MAX_CACHE_ENTRIES) {
-    // Evict the head (least recently used)
-    const lruKey = lruCache.keys().next().value
-    if (lruKey) lruCache.delete(lruKey)
+function cacheSet(key: string, e: CacheEntry) {
+  if (!lruCache.has(key) && lruCache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = lruCache.keys().next().value
+    if (oldest) lruCache.delete(oldest)
   }
-  lruCache.set(key, entry)
+  lruCache.set(key, e)
 }
 
 function makeCacheKey(
   query: string,
-  countryCode: string | null,
-  budgetMax: number | null,
-  budgetCurrency: string,
-  sort: string,
+  cc: string | null,
   brandDomains: string[],
 ): string {
   return JSON.stringify({
     q: query.toLowerCase().trim(),
-    cc: countryCode,
-    bmax: budgetMax ?? null,
-    bcur: budgetCurrency,
-    sort,
+    cc,
     brands: [...brandDomains].sort(),
   })
 }
@@ -113,76 +114,88 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'shirt', 'shirts', 'tee', 'tees', 't-shirt', 't-shirts', 'top', 'tops', 'blouse', 'blouses',
     'polo', 'polos', 'henley', 'henleys', 'tank', 'tanks', 'crop', 'button-down', 'oxford', 'overshirt',
     'sweatshirt', 'sweatshirts', 'hoodie', 'hoodies', 'sweater', 'sweaters', 'cardigan', 'cardigans',
-    'pullover', 'turtleneck', 'crewneck', 'knitwear', 'knit', 'flannel', 'camp collar',
-    'áo', 'シャツ', 'Tシャツ', 'セーター',
+    'pullover', 'turtleneck', 'crewneck', 'knitwear', 'knit', 'flannel',
+    'áo', 'シャツ', 'セーター',
   ],
   bottoms: [
     'pant', 'pants', 'trouser', 'trousers', 'jean', 'jeans', 'short', 'shorts', 'skirt', 'skirts',
     'legging', 'leggings', 'jogger', 'joggers', 'sweatpant', 'sweatpants', 'chino', 'chinos', 'cargo',
     'culottes', 'culotte', 'selvedge',
-    'quần', 'váy', 'パンツ', 'ジーンズ',
+    'quần', 'パンツ', 'ジーンズ',
   ],
   dress: [
     'dress', 'dresses', 'gown', 'gowns', 'jumpsuit', 'jumpsuits', 'bodysuit', 'bodysuits',
     'romper', 'rompers', 'playsuit', 'co-ord', 'coord', 'sundress',
-    'đầm', 'ワンピース',
+    'đầm', 'váy', 'ワンピース',
   ],
   outerwear: [
     'jacket', 'jackets', 'coat', 'coats', 'blazer', 'blazers', 'vest', 'vests', 'gilet', 'waistcoat',
     'fleece', 'parka', 'puffer', 'windbreaker', 'raincoat', 'overcoat', 'trench', 'bomber',
-    'harrington', 'trucker', 'sport coat',
+    'harrington', 'trucker',
     'khoác', 'ジャケット', 'コート',
   ],
   footwear: [
     'shoe', 'shoes', 'sneaker', 'sneakers', 'boot', 'boots', 'sandal', 'sandals', 'heel', 'heels',
     'loafer', 'loafers', 'slide', 'slides', 'flat', 'flats', 'oxford', 'oxfords', 'mule', 'mules',
-    'clog', 'clogs', 'espadrille', 'espadrilles', 'derby', 'derbies', 'brogue', 'brogues',
-    'chelsea', 'chukka', 'pump', 'pumps', 'stiletto', 'ballet flat', 'ballerina', 'trainer', 'trainers',
+    'clog', 'clogs', 'espadrille', 'espadrilles', 'derby', 'brogue', 'brogues',
+    'chelsea', 'chukka', 'pump', 'pumps', 'trainer', 'trainers',
     'giày', 'dép', '靴', 'footwear',
   ],
   underwear: [
     'sock', 'socks', 'underwear', 'bra', 'bras', 'briefs', 'boxer', 'boxers', 'thong', 'thongs',
     'sleepwear', 'robe', 'robes', 'lingerie', 'bralette', 'swimwear', 'swimsuit', 'bikini',
-    'swim trunk', 'board short', 'pajama', 'pyjama', 'loungewear',
-    'vớ', '下着',
+    'swim', 'pajama', 'pyjama', 'loungewear',
   ],
   accessory: [
-    'bag', 'bags', 'backpack', 'backpacks', 'tote', 'totes', 'pouch', 'pouches', 'clutch', 'clutches',
-    'wallet', 'wallets', 'purse', 'purses', 'cardholder', 'card holder', 'crossbody', 'handbag',
+    'bag', 'bags', 'backpack', 'backpacks', 'tote', 'totes', 'pouch', 'clutch', 'clutches',
+    'wallet', 'wallets', 'purse', 'purses', 'cardholder', 'crossbody', 'handbag',
     'weekender', 'duffle', 'messenger',
-    'hat', 'hats', 'cap', 'caps', 'beanie', 'beanies', 'bucket hat',
-    'belt', 'belts', 'sunglasses', 'shades', 'eyewear', 'scarf', 'scarves',
-    'watch', 'watches', 'jewelry', 'jewellery', 'necklace', 'necklaces',
+    'hat', 'hats', 'cap', 'caps', 'beanie', 'beanies', 'belt', 'belts', 'sunglasses', 'shades',
+    'eyewear', 'scarf', 'scarves', 'watch', 'watches', 'jewelry', 'jewellery', 'necklace',
     'bracelet', 'bracelets', 'earring', 'earrings', 'ring', 'rings', 'pendant', 'chain', 'anklet',
     'túi', 'ví', 'mũ', 'kính', 'バッグ', '帽子',
   ],
 }
 
-function getMatchingDomains(query: string): string[] {
+function matchedCategories(query: string): Set<string> {
   const q = query.toLowerCase().replace(/[()\"',]/g, ' ')
   const words = q.split(/\s+/).filter(w => w.length >= 2 && w !== 'or' && w !== 'and')
-
-  const matched = new Set<string>()
+  const cats = new Set<string>()
   for (const word of words) {
     for (const [cat, kws] of Object.entries(CATEGORY_KEYWORDS)) {
       if (kws.some(kw => {
         if (kw.length < 3) return word === kw
         return word === kw || (word.length >= 4 && (word.includes(kw) || kw.includes(word)))
       })) {
-        matched.add(cat)
+        cats.add(cat)
       }
     }
   }
+  return cats
+}
 
-  if (matched.size === 0) {
-    return UCP_REGISTRY.map(s => s.domain.toLowerCase().trim())
-  }
+/** Returns registry domains matching the query's categories, sorted by relevance to the query. */
+function getCategoryDomains(query: string): string[] {
+  const cats = matchedCategories(query)
+  const qLower = query.toLowerCase()
 
-  const domains = UCP_REGISTRY
-    .filter(s => s.categories.some(c => matched.has(c)))
-    .map(s => s.domain.toLowerCase().trim())
+  const candidates = cats.size === 0
+    ? UCP_REGISTRY
+    : UCP_REGISTRY.filter(s => s.categories.some(c => cats.has(c)))
 
-  return domains.length > 0 ? domains : UCP_REGISTRY.map(s => s.domain.toLowerCase().trim())
+  const pool = candidates.length > 0 ? candidates : UCP_REGISTRY
+
+  // Relevance score: vibe terms appearing in the query rank a brand higher,
+  // plus a small boost for category breadth.
+  return [...pool]
+    .map(s => {
+      let score = 0
+      for (const vibe of s.vibe) if (qLower.includes(vibe.toLowerCase())) score += 10
+      score += s.categories.length
+      return { domain: s.domain.toLowerCase().trim(), score }
+    })
+    .sort((a, b) => b.score - a.score)
+    .map(x => x.domain)
 }
 
 // ─── Non-fashion filter ────────────────────────────────────────────────────────
@@ -201,6 +214,27 @@ function isNonFashion(p: UcpProduct): boolean {
   return (p.tags || []).some(t => NON_FASHION_TAGS.has(t.toLowerCase()))
 }
 
+// ─── EN→JA translation for Japanese-catalog stores ─────────────────────────────
+
+const EN_TO_JA: Record<string, string> = {
+  shirt: 'シャツ', shirts: 'シャツ', tee: 'Tシャツ', 't-shirt': 'Tシャツ',
+  pants: 'パンツ', trousers: 'パンツ', jeans: 'ジーンズ', denim: 'デニム',
+  jacket: 'ジャケット', coat: 'コート', sweater: 'セーター', hoodie: 'フーディー',
+  cardigan: 'カーディガン', vest: 'ベスト', blazer: 'ブレザー',
+  dress: 'ワンピース', skirt: 'スカート', shorts: 'ショーツ',
+  shoes: '靴', sneakers: 'スニーカー', boots: 'ブーツ', sandals: 'サンダル', loafers: 'ローファー',
+  bag: 'バッグ', backpack: 'リュック', hat: '帽子', cap: 'キャップ', belt: 'ベルト',
+  wallet: '財布', socks: '靴下', scarf: 'スカーフ',
+  linen: 'リネン', cotton: 'コットン', wool: 'ウール', silk: 'シルク', leather: 'レザー',
+  cashmere: 'カシミヤ', fleece: 'フリース', nylon: 'ナイロン',
+}
+
+function translateEnToJa(query: string): string {
+  const words = query.toLowerCase().split(/\s+/)
+  const out = words.map(w => EN_TO_JA[w]).filter(Boolean)
+  return out.length > 0 ? out.join(' ') : ''
+}
+
 // ─── Utilities ─────────────────────────────────────────────────────────────────
 
 function normalizeImageUrl(url?: string): string {
@@ -216,110 +250,120 @@ function normalizeImageUrl(url?: string): string {
   return u
 }
 
-function getStoreDomain(storeUrl: string): string {
-  try { return new URL(storeUrl).hostname.replace(/^www\./i, '').toLowerCase() } catch { return '' }
+function cleanDomainToken(d: string): string {
+  return d.toLowerCase().replace(/^www\./, '').replace(/[\-_]/g, '').split('.')[0] ?? ''
 }
 
 function domainMatches(productDomain: string, registryDomain: string): boolean {
-  const clean = (d: string) =>
-    d.toLowerCase().replace(/^www\./, '').replace(/[\-_]/g, '').split('.')[0] ?? ''
-  const p = clean(productDomain)
-  const r = clean(registryDomain)
+  const p = cleanDomainToken(productDomain)
+  const r = cleanDomainToken(registryDomain)
   if (!p || !r || p.length < 3) return false
   return p === r || p.startsWith(r) || r.startsWith(p)
 }
 
-function convertPrice(
-  price: number,
-  from: string,
-  to: string,
-  rates: Record<string, number>,
-): number {
-  from = from.toUpperCase()
-  to = to.toUpperCase()
-  if (from === to) return price
-  const fRate = rates[from]
-  const tRate = rates[to]
-  if (!fRate || !tRate) return price
-  return (price / fRate) * tRate
+function getStoreDomain(storeUrl: string): string {
+  try { return new URL(storeUrl).hostname.replace(/^www\./i, '').toLowerCase() } catch { return '' }
 }
 
-// ─── Shopify Global Catalog fetch ──────────────────────────────────────────────
+function convertPrice(price: number, from: string, to: string, rates: Record<string, number>): number {
+  from = from.toUpperCase(); to = to.toUpperCase()
+  if (from === to) return price
+  const f = rates[from]; const t = rates[to]
+  if (!f || !t) return price
+  return (price / f) * t
+}
 
-async function fetchCatalog(query: string, countryCode: string | null): Promise<any[]> {
+function normalizeCurrency(c?: string | null): string {
+  return String(c || 'USD').trim().toUpperCase() || 'USD'
+}
+
+// ─── Per-store MCP fetch ───────────────────────────────────────────────────────
+
+function extractProducts(data: any): any[] {
+  if (data?.result?.structuredContent?.products) return data.result.structuredContent.products
+  const text = data?.result?.content?.[0]?.text
+  if (typeof text === 'string') {
+    try {
+      const inner = JSON.parse(text)
+      if (Array.isArray(inner?.products)) return inner.products
+    } catch {}
+  }
+  if (data?.result?.products) return data.result.products
+  return []
+}
+
+/** Query one brand's own Shopify catalog via its UCP endpoint. */
+async function fetchStore(domain: string, query: string, countryCode: string | null): Promise<any[]> {
+  const profile = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain)
+  const langs = profile?.languages || ['en']
+
+  // Build query variants: English plus a Japanese rendering for JA-catalog stores.
+  const queries = new Set<string>([query])
+  if (langs.includes('ja')) {
+    const ja = translateEnToJa(query)
+    if (ja) queries.add(ja)
+  }
+
   const filters: Record<string, unknown> = { available: true }
   if (countryCode) filters.ships_to = { country: countryCode }
 
-  const body = {
-    jsonrpc: '2.0',
-    method: 'tools/call',
-    id: '1',
-    params: {
-      name: 'search_catalog',
-      arguments: {
-        meta: {
-          'ucp-agent': {
-            profile: 'https://shopify.dev/ucp/agent-profiles/2026-04-08/valid-with-capabilities.json',
-          },
-        },
-        catalog: {
-          query,
-          filters,
-          pagination: { limit: PRODUCTS_PER_CHUNK },
-        },
+  const runOne = async (q: string): Promise<any[]> => {
+    const payload = {
+      jsonrpc: '2.0',
+      method: 'tools/call',
+      id: 1,
+      params: {
+        name: 'search_catalog',
+        arguments: { catalog: { query: q, filters, pagination: { limit: 30 } } },
       },
-    },
-  }
-
-  try {
-    const res = await fetch(CATALOG_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(CATALOG_TIMEOUT_MS),
-    })
-    if (!res.ok) {
-      console.warn(`[Catalog] HTTP ${res.status} for query: ${query.slice(0, 80)}`)
+    }
+    try {
+      const res = await fetch(`https://${domain}/api/mcp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(STORE_TIMEOUT_MS),
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      const products = extractProducts(data)
+      for (const p of products) p._sourceDomain = domain
+      return products
+    } catch {
       return []
     }
-    const json = await res.json()
-    // Handle both structured content format and legacy text-wrapped format
-    if (json.result?.structuredContent?.products) {
-      return json.result.structuredContent.products
-    }
-    if (json.result?.products) {
-      return json.result.products
-    }
-    const textContent = json.result?.content?.[0]?.text
-    if (typeof textContent === 'string') {
-      try {
-        const inner = JSON.parse(textContent)
-        if (Array.isArray(inner?.products)) return inner.products
-      } catch {}
-    }
-    return []
-  } catch (err) {
-    console.error('[Catalog] fetch error:', err instanceof Error ? err.message : String(err))
-    return []
   }
+
+  const results = await Promise.all(Array.from(queries).map(runOne))
+  return results.flat()
 }
 
 // ─── Product normalization ─────────────────────────────────────────────────────
 
-function parseProduct(raw: any): UcpProduct | null {
+function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
   try {
     const variant = raw.variants?.[0] ?? {}
-    const currency = (
-      variant.price?.currency ?? raw.price_range?.min?.currency ?? 'USD'
-    ).toUpperCase()
+    const currency = normalizeCurrency(variant.price?.currency ?? raw.price_range?.min?.currency)
     const isZero = ZERO_DECIMAL_CURRENCIES.has(currency)
     const rawAmount = variant.price?.amount ?? raw.price_range?.min?.amount ?? 0
     const price = isZero ? rawAmount : rawAmount / 100
 
-    const vendor = variant.seller?.name ?? variant.seller?.domain ?? 'Independent'
+    const domain = sourceDomain ?? raw._sourceDomain
+    let vendor = variant.seller?.name ?? variant.seller?.domain
+    if (!vendor && domain) {
+      const token = cleanDomainToken(domain)
+      vendor = token ? token.charAt(0).toUpperCase() + token.slice(1) : domain
+    }
+    vendor = vendor || 'Independent'
 
+    // Build a usable product URL, defaulting to the source store's domain.
     let store_url = variant.url ?? raw.url ?? ''
-    if (store_url && !store_url.startsWith('http')) {
+    if (store_url && store_url.startsWith('/') && domain) {
+      store_url = `https://${domain}${store_url}`
+    } else if (!store_url && domain) {
+      const idPart = String(raw.id ?? '').split('/').pop()
+      store_url = `https://${domain}/products/${idPart}`
+    } else if (store_url && !store_url.startsWith('http')) {
       store_url = `https://${store_url}`
     }
     try {
@@ -349,7 +393,7 @@ function parseProduct(raw: any): UcpProduct | null {
       : undefined
 
     const variants = (raw.variants ?? []).map((v: any) => {
-      const vc = (v.price?.currency ?? currency).toUpperCase()
+      const vc = normalizeCurrency(v.price?.currency ?? currency)
       const vz = ZERO_DECIMAL_CURRENCIES.has(vc)
       return {
         id: v.id,
@@ -370,9 +414,7 @@ function parseProduct(raw: any): UcpProduct | null {
       alt: m.alt ?? m.altText ?? m.alt_text ?? '',
     }))
 
-    const image_url = normalizeImageUrl(
-      raw.media?.[0]?.url ?? variant.media?.[0]?.url ?? '',
-    )
+    const image_url = normalizeImageUrl(raw.media?.[0]?.url ?? variant.media?.[0]?.url ?? '')
     if (!image_url) return null
 
     return {
@@ -407,30 +449,27 @@ function applyFiltersAndSort(
     budgetMax?: number | null
     budgetCurrency: string
     excludeIds: string[]
-    sort: string
+    sort: ProductSort
     limit: number
     rates: Record<string, number>
   },
 ): UcpProduct[] {
   const excluded = new Set(params.excludeIds)
-
-  let filtered = products.filter(p => {
+  let out = products.filter(p => {
     if (excluded.has(p.id)) return false
     if (params.budgetMax && params.budgetMax > 0) {
-      const converted = convertPrice(p.price, p.currency, params.budgetCurrency, params.rates)
-      if (converted > params.budgetMax) return false
+      if (convertPrice(p.price, p.currency, params.budgetCurrency, params.rates) > params.budgetMax) {
+        return false
+      }
     }
     return true
   })
 
-  if (params.sort === 'price_asc') {
-    filtered = [...filtered].sort((a, b) => a.price - b.price)
-  } else if (params.sort === 'price_desc') {
-    filtered = [...filtered].sort((a, b) => b.price - a.price)
-  }
-  // 'relevance' and 'trust_desc': preserve Shopify catalog order (already relevance-ranked)
+  if (params.sort === 'price_asc') out = [...out].sort((a, b) => a.price - b.price)
+  else if (params.sort === 'price_desc') out = [...out].sort((a, b) => b.price - a.price)
+  // 'relevance' / 'trust_desc': preserve store catalog order (already relevance-ranked)
 
-  return filtered.slice(0, params.limit)
+  return out.slice(0, params.limit)
 }
 
 // ─── Main search ───────────────────────────────────────────────────────────────
@@ -443,7 +482,7 @@ export class GlobalCatalogService {
     countryCode?: string | null,
     _isClothing?: boolean,
     _mandatoryConcepts: string[][] = [],
-    sort: 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc' = 'relevance',
+    sort: ProductSort = 'relevance',
     budgetCurrency: string | null = 'USD',
     options: {
       loadMore?: boolean
@@ -454,122 +493,96 @@ export class GlobalCatalogService {
     brandDomains: string[] = [],
     _tasteProfile?: string,
   ): Promise<UcpProduct[]> {
-    const q = query.trim()
-    if (!q) return []
+    const rawQuery = query.trim()
+    if (!rawQuery) return []
 
     const isLoadMore = Boolean(options.loadMore)
     const limit = isLoadMore ? LOAD_MORE_LIMIT : INITIAL_LIMIT
     const cc = countryCode?.trim().toUpperCase() || null
-    const bcur = (budgetCurrency || 'USD').toUpperCase()
-    const cacheKey = makeCacheKey(q, cc, budgetMax ?? null, bcur, sort, brandDomains)
-
+    const bcur = normalizeCurrency(budgetCurrency)
     const rates = await getExchangeRates().catch(() => ({} as Record<string, number>))
 
-    // Cache hit — skip on load-more to deliver different products than page 1
-    if (!isLoadMore && !options.refreshReserve) {
-      const hit = cacheGet(cacheKey)
-      if (hit) {
-        return applyFiltersAndSort(hit.products, {
-          budgetMax,
-          budgetCurrency: bcur,
-          excludeIds,
-          sort,
-          limit,
-          rates,
-        })
+    // Which brands? Explicit brandDomains → else detect a named brand → else category subset.
+    const detectedBrands = brandDomains.length > 0 ? brandDomains : detectBrandsInQuery(rawQuery)
+    const validBrands = detectedBrands.filter(d =>
+      UCP_REGISTRY.some(s => s.domain.toLowerCase() === d.toLowerCase()),
+    )
+    const isBrandSearch = validBrands.length > 0
+
+    // Strip the brand name from the query sent to the store ("shirts from Banana Club" → "shirts").
+    let storeQuery = rawQuery
+    if (isBrandSearch) {
+      for (const d of detectedBrands) {
+        const name = BRAND_NAMES[d]
+        if (name && name.length >= 3) {
+          const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          storeQuery = storeQuery
+            .replace(new RegExp(`\\b(?:from|at|by|in)\\s+${esc}\\b`, 'gi'), ' ')
+            .replace(new RegExp(`\\b${esc}\\b`, 'gi'), ' ')
+        }
       }
+      storeQuery = storeQuery.replace(/\s+/g, ' ').trim() || rawQuery
+    }
+
+    const cacheKey = makeCacheKey(storeQuery, cc, validBrands)
+
+    // Reuse the fetched pool across pages; rebuild it on a cold cache.
+    let entry = options.refreshReserve ? cacheGet(cacheKey) : cacheGet(cacheKey)
+    if (!entry) {
+      const orderedDomains = isBrandSearch
+        ? validBrands.map(d => d.toLowerCase().trim())
+        : getCategoryDomains(storeQuery)
+      entry = { timestamp: Date.now(), products: [], pending: [...orderedDomains], queried: new Set() }
+      cacheSet(cacheKey, entry)
     }
 
     if (options.debug) options.debug.catalogFetched = true
 
-    // Determine which brand domains to search
-    const detectedBrands = brandDomains.length > 0 ? brandDomains : detectBrandsInQuery(q)
-    const domains =
-      detectedBrands.length > 0
-        ? detectedBrands.filter(d =>
-            UCP_REGISTRY.some(s => s.domain.toLowerCase() === d.toLowerCase()),
-          )
-        : getMatchingDomains(q)
+    const enough = () =>
+      applyFiltersAndSort(entry!.products, {
+        budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
+      }).length >= limit
 
-    if (domains.length === 0) return []
+    // Fetch in batches until we have enough to serve this page or run out of stores.
+    let rounds = 0
+    while (!enough() && entry.pending.length > 0 && rounds < MAX_ROUNDS_PER_CALL) {
+      rounds++
+      const batch = entry.pending.splice(0, BATCH_SIZE)
+      const batchRaw = await Promise.all(batch.map(d => fetchStore(d, storeQuery, cc)))
+      for (const d of batch) entry.queried.add(d)
 
-    // Strip brand names from the query when searching a brand-specific request
-    // so "shirts from Taylor Stitch" → "shirts" when sent to the catalog
-    let searchQuery = q
-    if (detectedBrands.length > 0) {
-      for (const d of detectedBrands) {
-        const name = BRAND_NAMES[d]
-        if (name && name.length >= 3) {
-          const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-          searchQuery = searchQuery
-            .replace(new RegExp(`\\b(?:from|at|by|in)?\\s*${escaped}\\b`, 'gi'), '')
-            .trim()
+      const seen = new Set(entry.products.map(p => p.id))
+      for (const list of batchRaw) {
+        for (const raw of list) {
+          if (!raw?.id || seen.has(raw.id)) continue
+          const p = parseProduct(raw, raw._sourceDomain)
+          if (!p) continue
+          if (isNonFashion(p)) continue
+          // Trust the source store, but validate when a URL points elsewhere.
+          const dom = getStoreDomain(p.store_url)
+          if (dom && !UCP_REGISTRY.some(s => domainMatches(dom, s.domain))) continue
+          seen.add(raw.id)
+          entry.products.push(p)
         }
       }
-      if (!searchQuery) searchQuery = q
     }
-
-    // Chunk domains → parallel catalog queries with domain filters
-    const chunks: string[][] = []
-    for (let i = 0; i < domains.length; i += DOMAINS_PER_CHUNK) {
-      chunks.push(domains.slice(i, i + DOMAINS_PER_CHUNK))
-    }
+    cacheSet(cacheKey, entry)
 
     console.log(
-      `[Catalog] "${searchQuery.slice(0, 60)}" → ${chunks.length} chunk(s), ${domains.length} domain(s)`,
+      `[Catalog] "${storeQuery.slice(0, 50)}" ${isBrandSearch ? '(brand)' : '(category)'} → ` +
+      `${entry.products.length} products, ${entry.queried.size} stores queried, ${entry.pending.length} pending`,
     )
 
-    const rawBatches = await Promise.all(
-      chunks.map(chunk => {
-        const domainClause = chunk.map(d => `"${d}"`).join(' OR ')
-        return fetchCatalog(`(${searchQuery}) AND (${domainClause})`, cc)
-      }),
-    )
-
-    // Deduplicate, parse, validate against registry
-    const seen = new Set<string>()
-    const products: UcpProduct[] = []
-
-    for (const batch of rawBatches) {
-      for (const raw of batch) {
-        if (!raw?.id || seen.has(raw.id)) continue
-        seen.add(raw.id)
-
-        const p = parseProduct(raw)
-        if (!p) continue
-        if (isNonFashion(p)) continue
-
-        // Only surface products from our curated registry
-        const domain = getStoreDomain(p.store_url)
-        if (domain && !UCP_REGISTRY.some(s => domainMatches(domain, s.domain))) continue
-
-        products.push(p)
-      }
-    }
-
-    console.log(`[Catalog] ${products.length} products from ${domains.length} domains`)
-
-    // Cache the full product set before filtering (load-more reuses this)
-    cacheSet(cacheKey, { timestamp: Date.now(), products })
-
-    let result = applyFiltersAndSort(products, {
-      budgetMax,
-      budgetCurrency: bcur,
-      excludeIds,
-      sort,
-      limit,
-      rates,
+    let result = applyFiltersAndSort(entry.products, {
+      budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
     })
 
-    // Optional LLM rerank for relevance sort (improves quality for nuanced queries)
+    // Optional LLM rerank for nuanced relevance queries (first page only).
     if (sort === 'relevance' && result.length >= 4 && !isLoadMore) {
       try {
-        result = await rerankByRelevance(q, result, _tasteProfile)
+        result = await rerankByRelevance(rawQuery, result, _tasteProfile)
       } catch (err) {
-        console.warn(
-          '[Catalog] rerank skipped:',
-          err instanceof Error ? err.message : String(err),
-        )
+        console.warn('[Catalog] rerank skipped:', err instanceof Error ? err.message : String(err))
       }
     }
 
