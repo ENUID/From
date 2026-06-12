@@ -115,7 +115,8 @@ export const authOptions: NextAuthOptions = {
   cookies: makeCookies(),
 
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
+      console.log('[auth] signIn provider:', account?.provider, 'email:', user?.email)
       if (user?.email) {
         try {
           const convex = getConvex()
@@ -125,7 +126,7 @@ export const authOptions: NextAuthOptions = {
             image: user.image || undefined,
           })
         } catch (err) {
-          console.error('Failed to sync user to Convex:', err)
+          console.error('[auth] Failed to sync user to Convex:', String(err))
         }
       }
       return true

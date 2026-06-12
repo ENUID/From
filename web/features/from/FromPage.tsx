@@ -1145,6 +1145,24 @@ export default function FromApp({
   const [otpVerifying, setOtpVerifying] = useState(false)
   const [otpError, setOtpError]         = useState<string | null>(null)
   const [otpResendIn, setOtpResendIn]   = useState(0)
+  const [authUrlError, setAuthUrlError] = useState<string | null>(null)
+  useEffect(() => {
+    // Read error from URL params — NextAuth redirects here with ?error=XXX on failure
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error')
+    if (err) {
+      const map: Record<string, string> = {
+        Configuration: 'Google sign-in is not configured. Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel.',
+        OAuthSignin: 'Could not start Google sign-in. Try again.',
+        OAuthCallback: 'Google sign-in failed. Make sure the redirect URI in Google Console is exactly: https://from.enuid.com/api/auth/callback/google',
+        OAuthAccountNotLinked: 'This email is already registered with a different sign-in method. Use email OTP instead.',
+        AccessDenied: 'Sign-in was denied.',
+        Verification: 'The sign-in link has expired or already been used.',
+      }
+      setAuthUrlError(map[err] ?? `Sign-in error: ${err}`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
   useEffect(() => {
     if (otpResendIn <= 0) return
     const t = setTimeout(() => setOtpResendIn(s => Math.max(0, s - 1)), 1000)
@@ -2365,6 +2383,11 @@ export default function FromApp({
                     </button>
                   </>) : (<>
                     {/* Not signed in — email OTP + Google */}
+                    {authUrlError && (
+                      <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.15)', borderRadius: 8, padding: '10px 12px', marginBottom: 14, lineHeight: 1.5 }}>
+                        {authUrlError}
+                      </div>
+                    )}
                     <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK, marginBottom: 6, textAlign: 'center' }}>
                       {otpStep === 'code' ? 'Check your email' : 'Sign in'}
                     </div>
@@ -2429,7 +2452,9 @@ export default function FromApp({
                             code: otpCode.trim(),
                             redirect: false,
                           })
-                          if (result?.error) throw new Error('Invalid or expired code — try again')
+                          if (result?.error) throw new Error(
+                            result.error === 'CredentialsSignin' ? 'Invalid or expired code — try again' : `Sign-in failed: ${result.error}`
+                          )
                           setOtpStep('email')
                           setOtpCode('')
                         } catch (err: any) {
