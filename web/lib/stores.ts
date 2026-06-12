@@ -2658,36 +2658,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "LA soft dressing — buttery knits, easy matching sets, and elevated comfort in a sun-washed neutral palette"
   },
   {
-    "domain": "highchicofficial.co",
-    "name": "Highchic Official",
-    "categories": ["top", "bottom", "dress"],
-    "vibe": ["casual", "minimalist"],
-    "gender": ["women"],
-    "priceRange": "mid",
-    "items": ["shirt", "trousers", "top", "dress", "co-ord set"],
-    "about": "Casual womenswear — easy shirts, trousers, and everyday pieces for effortless daily dressing"
-  },
-  {
-    "domain": "alldesignlab.co",
-    "name": "All Design Lab",
-    "categories": ["top", "bottom", "outerwear", "accessory"],
-    "vibe": ["streetwear", "artistic", "minimalist"],
-    "gender": ["men", "women"],
-    "priceRange": "premium",
-    "items": ["tee", "hoodie", "trousers", "jacket", "bag"],
-    "about": "Design-led contemporary apparel — experimental cuts and considered details at the intersection of street and studio"
-  },
-  {
-    "domain": "lans.lk",
-    "name": "Lans",
-    "categories": ["top", "bottom", "dress", "accessory"],
-    "vibe": ["casual", "minimalist", "resort"],
-    "gender": ["men", "women"],
-    "priceRange": "mid",
-    "items": ["shirt", "tee", "trousers", "dress", "kids wear", "accessories"],
-    "about": "Sri Lankan family fashion house — menswear-led contemporary basics, with Anokhi womenswear and Noah kidswear lines"
-  },
-  {
     "domain": "earlscollection.com",
     "name": "Earls Collection",
     "categories": ["top", "bottom", "outerwear", "accessory"],
@@ -2698,16 +2668,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Vancouver-born streetwear — relaxed essential fits and community-driven drops with West Coast ease"
   },
   {
-    "domain": "babaa.es",
-    "name": "Babaa",
-    "categories": ["top", "bottom", "accessory"],
-    "vibe": ["artisan", "sustainable", "cozy", "minimalist"],
-    "gender": ["men", "women"],
-    "priceRange": "premium",
-    "items": ["chunky knit sweater", "cardigan", "wool jumper", "knit vest", "beanie"],
-    "about": "Spanish slow knitwear — chunky natural-wool sweaters spun and knitted entirely in Spain, made to last generations"
-  },
-  {
     "domain": "blackhalo.com",
     "name": "Black Halo",
     "categories": ["dress", "top", "bottom"],
@@ -2716,16 +2676,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "priceRange": "premium",
     "items": ["sheath dress", "jumpsuit", "midi dress", "blazer dress"],
     "about": "LA-made sculpted dressing — the iconic Jackie O sheath and precision-cut event wear"
-  },
-  {
-    "domain": "asphalte.com",
-    "name": "Asphalte",
-    "categories": ["top", "bottom", "outerwear"],
-    "vibe": ["minimalist", "casual", "french"],
-    "gender": ["men"],
-    "priceRange": "mid",
-    "items": ["tee", "chinos", "overshirt", "sweater", "jacket"],
-    "about": "French menswear on a made-to-order model — community-designed essentials without waste"
   },
   {
     "domain": "flagandanthem.com",
@@ -2746,16 +2696,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "priceRange": "budget",
     "items": ["mini dress", "bodycon dress", "co-ord set", "going-out top"],
     "about": "Australian going-out fashion — figure-hugging dresses and party sets for the night out"
-  },
-  {
-    "domain": "noseridersurfclub.com",
-    "name": "Noserider Surf Club",
-    "categories": ["swimwear", "top", "bottom"],
-    "vibe": ["coastal", "vintage", "casual"],
-    "gender": ["women"],
-    "priceRange": "mid",
-    "items": ["swimsuit", "bikini", "surf suit", "boardshorts", "tee"],
-    "about": "Retro-inspired surfwear — 70s longboard style in sustainable swim and beach pieces"
   },
   {
     "domain": "ohpolly.com",
@@ -2846,16 +2786,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "priceRange": "budget",
     "items": ["graphic tee", "hoodie", "shorts", "cap", "plushie"],
     "about": "Official MrBeast merch — bold Beast-branded basics from the biggest creator on the planet"
-  },
-  {
-    "domain": "shoprhode.com",
-    "name": "Rhode",
-    "categories": ["dress", "top", "bottom"],
-    "vibe": ["resort", "romantic", "maximalist"],
-    "gender": ["women"],
-    "priceRange": "premium",
-    "items": ["printed dress", "maxi dress", "co-ord set", "blouse"],
-    "about": "Joyful printed resort dressing — bold patterns and easy silhouettes made for sunshine"
   },
   {
     "domain": "rezekstudio.com",
