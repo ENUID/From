@@ -3801,7 +3801,7 @@ export default function FromApp({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                   <div>
                     <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>FROM Community</div>
-                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginTop: 5 }}>One payment. Everything, forever.</div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginTop: 5 }}>$20 / month. Cancel anytime.</div>
                   </div>
                   <button onClick={() => setShowUpgradeSheet(false)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: INK3 }}>
@@ -3813,15 +3813,15 @@ export default function FromApp({
 
                 {/* Community pitch */}
                 <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, marginBottom: 20, fontWeight: 300 }}>
-                  FROM is built independently — no VC, no team. One person building the shopping OS independent fashion deserved. Join the founding community and get lifetime access to everything FROM ever ships. No subscriptions. No upgrades. Never pay again.
+                  FROM is built independently — no VC, no team. One person building the shopping OS independent fashion deserved. $20/month gets you unlimited AI search, taste memory, Fabrics stylist, and everything else FROM ships — with no algorithm tax.
                 </p>
 
                 {/* Benefits */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
                   {[
-                    ['Unlimited AI search', 'Every result ranked by agents, not algorithms'],
-                    ['Everything that ships', 'Agentic checkout, try-ons, tracking — all of it, forever'],
-                    ['Founding member status', 'Locked in before FROM is finished'],
+                    ['Unlimited AI search', 'Every result ranked by taste intelligence, not keywords'],
+                    ['Fabrics stylist with memory', 'Knows your sizes, budget, and saved pieces across sessions'],
+                    ['Everything that ships', 'New features, stores, and tools — included automatically'],
                     ['Direct access', 'Shape what gets built — your feedback goes straight to the builder'],
                   ].map(([title, desc]) => (
                     <div key={title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -3861,10 +3861,10 @@ export default function FromApp({
                     border: 'none', cursor: 'pointer',
                   }}
                 >
-                  Join the Community — $20
+                  Join the Community — $20/mo
                 </button>
                 <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 10, opacity: 0.55 }}>
-                  One-time payment. Lifetime access. When it's full, it's gone.
+                  Cancel anytime. No commitments.
                 </p>
               </div>
             </>

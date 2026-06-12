@@ -5,10 +5,9 @@ import { api } from '@/convex/_generated/api'
 
 export const runtime = 'nodejs'
 
-function getPeriodEnd(sub: any): number {
-  // Field name changed across Stripe API versions; fall back to 30 days from now
+function getPeriodEnd(sub: Stripe.Subscription): number {
   const ts: number =
-    sub.current_period_end ??
+    (sub as any).current_period_end ??
     sub.billing_cycle_anchor ??
     Math.floor(Date.now() / 1000) + 30 * 24 * 3600
   return ts * 1000
@@ -39,12 +38,41 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        // One-time payment — lifetime community access, no expiry
+        // Fetch the subscription to get the real billing period end
+        if (!session.subscription) {
+          console.warn('[webhook] checkout.session.completed missing subscription id')
+          break
+        }
+        const sub = await stripe.subscriptions.retrieve(session.subscription as string)
         await convex.mutation(api.subscriptions.upgradeSubscription, {
           userEmail,
           stripeCustomerId: (session.customer as string | null) ?? session.customer_email ?? userEmail,
-          stripeSubscriptionId: session.id,
-          currentPeriodEnd: 99999999999999, // lifetime — never expires
+          stripeSubscriptionId: sub.id,
+          currentPeriodEnd: getPeriodEnd(sub),
+        })
+        break
+      }
+
+      case 'customer.subscription.updated': {
+        // Fires on renewal — extend the period end so the user stays premium
+        const sub = event.data.object as Stripe.Subscription
+        if (sub.status !== 'active') break
+        const customer = await stripe.customers.retrieve(sub.customer as string) as Stripe.Customer
+        if (!customer.email) break
+        await convex.mutation(api.subscriptions.upgradeSubscription, {
+          userEmail: customer.email,
+          stripeCustomerId: sub.customer as string,
+          stripeSubscriptionId: sub.id,
+          currentPeriodEnd: getPeriodEnd(sub),
+        })
+        break
+      }
+
+      case 'customer.subscription.deleted': {
+        // Subscription cancelled — downgrade to free
+        const sub = event.data.object as Stripe.Subscription
+        await convex.mutation(api.subscriptions.cancelSubscriptionByStripeCustomer, {
+          stripeCustomerId: sub.customer as string,
         })
         break
       }
