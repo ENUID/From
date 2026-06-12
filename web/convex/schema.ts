@@ -74,4 +74,3 @@ export default defineSchema({
     attempts: v.optional(v.number()),
   }).index("by_email", ["email"]),
 });
-# deployed 2026-06-12T11:42:08Z
