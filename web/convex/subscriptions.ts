@@ -79,7 +79,7 @@ export const ensureFreeSubscription = mutation({
 export const upgradeSubscription = mutation({
   args: {
     userEmail: v.string(),
-    stripeCustomerId: v.string(),
+    stripeCustomerId: v.optional(v.string()),
     stripeSubscriptionId: v.string(),
     currentPeriodEnd: v.number(),
   },

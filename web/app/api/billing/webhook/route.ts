@@ -34,12 +34,15 @@ export async function POST(req: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         const userEmail = session.metadata?.userEmail
-        if (!userEmail) break
+        if (!userEmail) {
+          console.warn('[webhook] checkout.session.completed missing userEmail in metadata')
+          break
+        }
 
         // One-time payment — lifetime community access, no expiry
         await convex.mutation(api.subscriptions.upgradeSubscription, {
           userEmail,
-          stripeCustomerId: session.customer as string,
+          stripeCustomerId: (session.customer as string | null) ?? session.customer_email ?? userEmail,
           stripeSubscriptionId: session.id,
           currentPeriodEnd: 99999999999999, // lifetime — never expires
         })

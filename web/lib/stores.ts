@@ -2637,6 +2637,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "items": ["cashmere sweater", "cashmere cardigan", "cashmere wrap", "cashmere hoodie", "knit scarf"],
     "about": "American cashmere brand — lightweight breathable cashmere in seasonless neutrals for everyday luxury"
   },
+  {
+    "domain": "vastrado.com",
+    "name": "Vastrado",
+    "categories": ["top", "bottom", "dress", "outerwear"],
+    "vibe": ["minimalist", "sustainable", "quiet-luxury", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["linen dress", "linen blouse", "linen trousers", "cotton top", "jacket", "skirt"],
+    "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
+  },
 ];
 
 // ── Brand directory ───────────────────────────────────────────────────────────

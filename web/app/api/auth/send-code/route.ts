@@ -29,7 +29,17 @@ function codeEmail(code: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
+  // Guard: surface missing config immediately instead of cryptic "Internal error"
+  if (!process.env.RESEND_API_KEY) {
+    console.error('[send-code] RESEND_API_KEY is not set')
+    return NextResponse.json({ error: 'Email service not configured' }, { status: 503 })
+  }
+  if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
+    console.error('[send-code] NEXT_PUBLIC_CONVEX_URL is not set')
+    return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+  }
+
+  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
   const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const { email } = await req.json()
@@ -57,12 +67,14 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('[send-code] Resend error:', error)
-      return NextResponse.json({ error: 'Failed to send email' }, { status: 500 })
+      // Surface the real Resend error (e.g. domain not verified, invalid API key)
+      const msg = (error as any)?.message ?? JSON.stringify(error)
+      return NextResponse.json({ error: `Failed to send email: ${msg}` }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error('[send-code]', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 })
   }
 }

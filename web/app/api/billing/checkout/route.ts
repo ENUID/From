@@ -4,8 +4,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-  const COMMUNITY_PRICE_ID = process.env.STRIPE_COMMUNITY_PRICE_ID!
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error('[billing/checkout] STRIPE_SECRET_KEY is not set')
+    return NextResponse.json({ error: 'Billing not configured' }, { status: 503 })
+  }
+  if (!process.env.STRIPE_COMMUNITY_PRICE_ID) {
+    console.error('[billing/checkout] STRIPE_COMMUNITY_PRICE_ID is not set')
+    return NextResponse.json({ error: 'Billing not configured' }, { status: 503 })
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+  const COMMUNITY_PRICE_ID = process.env.STRIPE_COMMUNITY_PRICE_ID
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
