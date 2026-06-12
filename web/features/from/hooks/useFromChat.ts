@@ -107,6 +107,13 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
       ].filter(Boolean).join(', ')
       if (sizeStr) parts.push(`sizes: ${sizeStr}`)
     }
+    const wardrobe = (tasteProfileData as any).wardrobe
+    if (wardrobe?.summary) {
+      parts.push(`wardrobe: ${String(wardrobe.summary).slice(0, 200)}`)
+      if (Array.isArray(wardrobe.gaps) && wardrobe.gaps.length > 0) {
+        parts.push(`wardrobe gaps: ${wardrobe.gaps.slice(0, 4).join(', ')}`)
+      }
+    }
     return parts.length > 0 ? parts.join(' | ') : undefined
   }, [isPremium, tasteProfileData])
 

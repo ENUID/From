@@ -17,6 +17,7 @@
 import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES } from '../stores'
 import { getExchangeRates } from '../exchangeRates'
 import { rerankByRelevance } from './relevanceRerank'
+import { matchStyles } from '../styleVocabulary'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ type CacheEntry = {
   products: UcpProduct[]   // everything fetched for this query so far
   pending: string[]        // domains not yet queried, in relevance order
   queried: Set<string>     // domains already queried
+  broadened?: boolean      // garment-only retry already performed for this query
 }
 const lruCache = new Map<string, CacheEntry>()
 
@@ -185,17 +187,91 @@ function getCategoryDomains(query: string): string[] {
 
   const pool = candidates.length > 0 ? candidates : UCP_REGISTRY
 
+  // Aesthetic intelligence: when the query carries a style ("quiet luxury",
+  // "gorpcore"…), favor brands whose vibe tags and price tier fit that style.
+  const styles = matchStyles(query)
+  const styleSignals = new Set<string>()
+  const stylePriceTiers = new Set<string>()
+  for (const s of styles) {
+    for (const k of s.keywords) styleSignals.add(k.toLowerCase())
+    for (const m of s.materials) styleSignals.add(m.toLowerCase())
+    stylePriceTiers.add(s.priceSignal)
+  }
+
+  // Gender routing: "men's shirt" should hit menswear brands first.
+  const wantsMen   = /\b(men|men's|mens|menswear|male|him|guys)\b/i.test(qLower)
+  const wantsWomen = /\b(women|women's|womens|womenswear|female|her|ladies)\b/i.test(qLower)
+
   // Relevance score: vibe terms appearing in the query rank a brand higher,
-  // plus a small boost for category breadth.
+  // plus style-vocabulary fit, gender fit, and a small boost for category breadth.
   return [...pool]
     .map(s => {
       let score = 0
-      for (const vibe of s.vibe) if (qLower.includes(vibe.toLowerCase())) score += 10
+      for (const vibe of s.vibe) {
+        const v = vibe.toLowerCase()
+        if (qLower.includes(v)) score += 10
+        if (styleSignals.has(v)) score += 6
+      }
+      if (s.priceRange && stylePriceTiers.has(s.priceRange)) score += 4
+      if (wantsMen !== wantsWomen && s.gender && s.gender.length > 0) {
+        const hasMen = s.gender.includes('men') || s.gender.includes('unisex')
+        const hasWomen = s.gender.includes('women') || s.gender.includes('unisex')
+        if (wantsMen) score += hasMen ? 12 : -20
+        if (wantsWomen) score += hasWomen ? 12 : -20
+      }
+      if (s.items && s.items.some(it => qLower.includes(it.toLowerCase()))) score += 8
       score += s.categories.length
       return { domain: s.domain.toLowerCase().trim(), score }
     })
     .sort((a, b) => b.score - a.score)
     .map(x => x.domain)
+}
+
+// ─── Concept relevance ─────────────────────────────────────────────────────────
+// mandatoryConcepts are synonym groups extracted from the request:
+//   [["shirt","shirts","tee"], ["linen"], ["black"]]
+// The FIRST group is the garment — products missing it are off-category. The
+// rest (color/material/origin) are ranking signals. Always graceful: if hard
+// filtering would leave too few results, we fall back to scoring only.
+
+function productHaystack(p: UcpProduct): string {
+  const opts = (p.options || []).map(o => `${o.name} ${o.values.join(' ')}`).join(' ')
+  return `${p.title} ${(p.tags || []).join(' ')} ${p.description || ''} ${opts}`.toLowerCase()
+}
+
+function conceptHit(haystack: string, group: string[]): boolean {
+  return group.some(term => {
+    const t = term.toLowerCase().trim()
+    if (!t) return false
+    if (t.length < 4 || t.includes(' ') || t.includes('-')) return haystack.includes(t)
+    return new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(haystack)
+  })
+}
+
+/** Orders products by concept-group matches; hard-filters off-garment items when safe. */
+function applyConceptRelevance(products: UcpProduct[], concepts: string[][], minKeep: number): UcpProduct[] {
+  const groups = (concepts || []).filter(g => Array.isArray(g) && g.length > 0)
+  if (groups.length === 0 || products.length === 0) return products
+
+  const scored = products.map((p, i) => {
+    const hay = productHaystack(p)
+    let score = 0
+    let garmentHit = false
+    groups.forEach((g, gi) => {
+      if (conceptHit(hay, g)) {
+        score += gi === 0 ? 100 : 10  // garment group dominates
+        if (gi === 0) garmentHit = true
+      }
+    })
+    return { p, i, score, garmentHit }
+  })
+
+  // Hard-filter to on-garment products only when enough survive — never empty the page.
+  const onGarment = scored.filter(s => s.garmentHit)
+  const pool = onGarment.length >= Math.min(minKeep, products.length) ? onGarment : scored
+
+  // Stable: concept score desc, then original (store relevance) order.
+  return [...pool].sort((a, b) => b.score - a.score || a.i - b.i).map(s => s.p)
 }
 
 // ─── Non-fashion filter ────────────────────────────────────────────────────────
@@ -452,6 +528,7 @@ function applyFiltersAndSort(
     sort: ProductSort
     limit: number
     rates: Record<string, number>
+    concepts?: string[][]
   },
 ): UcpProduct[] {
   const excluded = new Set(params.excludeIds)
@@ -465,9 +542,14 @@ function applyFiltersAndSort(
     return true
   })
 
+  // Concept layer: drop off-garment items (when safe) and rank by concept fit.
+  if (params.concepts && params.concepts.length > 0) {
+    out = applyConceptRelevance(out, params.concepts, 4)
+  }
+
   if (params.sort === 'price_asc') out = [...out].sort((a, b) => a.price - b.price)
   else if (params.sort === 'price_desc') out = [...out].sort((a, b) => b.price - a.price)
-  // 'relevance' / 'trust_desc': preserve store catalog order (already relevance-ranked)
+  // 'relevance' / 'trust_desc': preserve concept + store catalog order
 
   return out.slice(0, params.limit)
 }
@@ -481,7 +563,7 @@ export class GlobalCatalogService {
     excludeIds: string[] = [],
     countryCode?: string | null,
     _isClothing?: boolean,
-    _mandatoryConcepts: string[][] = [],
+    mandatoryConcepts: string[][] = [],
     sort: ProductSort = 'relevance',
     budgetCurrency: string | null = 'USD',
     options: {
@@ -545,17 +627,11 @@ export class GlobalCatalogService {
     const enough = () =>
       applyFiltersAndSort(entry!.products, {
         budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
+        concepts: mandatoryConcepts,
       }).length >= limit
 
-    // Fetch in batches until we have enough to serve this page or run out of stores.
-    let rounds = 0
-    while (!enough() && entry.pending.length > 0 && rounds < MAX_ROUNDS_PER_CALL) {
-      rounds++
-      const batch = entry.pending.splice(0, BATCH_SIZE)
-      const batchRaw = await Promise.all(batch.map(d => fetchStore(d, storeQuery, cc)))
-      for (const d of batch) entry.queried.add(d)
-
-      const seen = new Set(entry.products.map(p => p.id))
+    const ingest = (batchRaw: any[][]) => {
+      const seen = new Set(entry!.products.map(p => p.id))
       for (const list of batchRaw) {
         for (const raw of list) {
           if (!raw?.id || seen.has(raw.id)) continue
@@ -566,7 +642,38 @@ export class GlobalCatalogService {
           const dom = getStoreDomain(p.store_url)
           if (dom && !UCP_REGISTRY.some(s => domainMatches(dom, s.domain))) continue
           seen.add(raw.id)
-          entry.products.push(p)
+          entry!.products.push(p)
+        }
+      }
+    }
+
+    // Fetch in batches until we have enough to serve this page or run out of stores.
+    let rounds = 0
+    while (!enough() && entry.pending.length > 0 && rounds < MAX_ROUNDS_PER_CALL) {
+      rounds++
+      const batch = entry.pending.splice(0, BATCH_SIZE)
+      const batchRaw = await Promise.all(batch.map(d => fetchStore(d, storeQuery, cc)))
+      for (const d of batch) entry.queried.add(d)
+      ingest(batchRaw)
+    }
+
+    // Second-chance recall: a specific multi-word query ("oxford camp collar
+    // shirt") can miss on Shopify's literal search. If results are thin, retry
+    // the same stores once with just the garment term. Runs at most once per
+    // cached query — worst case it adds nothing and the page renders as before.
+    if (!isLoadMore && !entry.broadened && storeQuery.includes(' ')) {
+      const current = applyFiltersAndSort(entry.products, {
+        budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
+        concepts: mandatoryConcepts,
+      })
+      if (current.length < 5) {
+        const garment = mandatoryConcepts[0]?.[0] || storeQuery.split(' ').pop() || ''
+        if (garment && garment.length >= 3 && garment.toLowerCase() !== storeQuery.toLowerCase()) {
+          entry.broadened = true
+          const retryDomains = Array.from(entry.queried).slice(0, 20)
+          const retryRaw = await Promise.all(retryDomains.map(d => fetchStore(d, garment, cc)))
+          ingest(retryRaw)
+          console.log(`[Catalog] broadened "${storeQuery}" → "${garment}" (+${entry.products.length} pool)`)
         }
       }
     }
@@ -579,6 +686,7 @@ export class GlobalCatalogService {
 
     let result = applyFiltersAndSort(entry.products, {
       budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
+      concepts: mandatoryConcepts,
     })
 
     // Optional LLM rerank for nuanced relevance queries (first page only).

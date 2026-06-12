@@ -516,11 +516,17 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     if (searchQuery) {
       try {
         const concepts = buildMandatoryConcepts(searchQuery)
+        // 'relevance' engages the BM25 + LLM reranker; the shopper's actual
+        // question is the judge query so occasion/aesthetic context ranks too.
+        // Memory summary biases ranking toward their known taste. Falls back
+        // to catalog order silently if the reranker errs — never blocks.
         const results = await GlobalCatalogService.search(
           searchQuery,
           undefined, [], null, true, concepts,
-          'trust_desc', buyerCurrency,
-          { fastFirstPage: true }, []
+          'relevance', buyerCurrency,
+          { fastFirstPage: true }, [],
+          memorySummary,
+          question,
         )
         if (results.length > 0) foundProducts = results.slice(0, 12)
       } catch (e) {
@@ -536,7 +542,8 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
             const concepts = buildMandatoryConcepts(q)
             const results = await GlobalCatalogService.search(
               q, undefined, [], null, true, concepts,
-              'trust_desc', buyerCurrency, { fastFirstPage: true }, []
+              'relevance', buyerCurrency, { fastFirstPage: true }, [],
+              memorySummary,
             )
             return { query: q, products: results.slice(0, 6) }
           })
