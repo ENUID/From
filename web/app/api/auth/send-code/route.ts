@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
       })
     } catch (e: any) {
       // Convex errors can be structured differently — extract message from all known shapes
-      const msg: string = e?.message || e?.data?.message || e?.data || (typeof e === 'string' ? e : '') || ''
-      const detail = msg || JSON.stringify(e) || 'unknown'
+      const msg: string = e?.message || e?.data?.message || (typeof e?.data === 'string' ? e.data : '') || ''
+      const detail = msg || String(e) || 'unknown'
       console.error('[send-code] createCode failed:', detail, e)
       if (msg.toLowerCase().includes('wait') || msg.toLowerCase().includes('moment')) {
         return NextResponse.json({ error: 'Please wait 60 seconds before requesting a new code.' }, { status: 429 })
