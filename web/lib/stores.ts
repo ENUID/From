@@ -2648,6 +2648,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "earlscollection.com",
+    "name": "Earls Collection",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["streetwear", "casual", "cozy"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["hoodie", "tee", "sweatpants", "cap", "crewneck"],
+    "about": "Vancouver-born streetwear — relaxed essential fits and community-driven drops with West Coast ease"
+  },
+  {
     "domain": "babaa.es",
     "name": "Babaa",
     "categories": ["top", "bottom", "accessory"],
