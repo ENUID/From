@@ -2648,6 +2648,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "alldesignlab.co",
+    "name": "All Design Lab",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["streetwear", "artistic", "minimalist"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["tee", "hoodie", "trousers", "jacket", "bag"],
+    "about": "Design-led contemporary apparel — experimental cuts and considered details at the intersection of street and studio"
+  },
+  {
     "domain": "lans.lk",
     "name": "Lans",
     "categories": ["top", "bottom", "dress", "accessory"],
