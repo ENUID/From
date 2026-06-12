@@ -2650,12 +2650,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "lans.lk",
     "name": "Lans",
-    "categories": ["dress", "top", "bottom"],
-    "vibe": ["casual", "resort", "minimalist"],
-    "gender": ["women"],
+    "categories": ["top", "bottom", "dress", "accessory"],
+    "vibe": ["casual", "minimalist", "resort"],
+    "gender": ["men", "women"],
     "priceRange": "mid",
-    "items": ["dress", "top", "skirt", "co-ord set", "jumpsuit"],
-    "about": "Sri Lankan womenswear — breezy contemporary pieces made for island warmth and easy everyday wear"
+    "items": ["shirt", "tee", "trousers", "dress", "kids wear", "accessories"],
+    "about": "Sri Lankan family fashion house — menswear-led contemporary basics, with Anokhi womenswear and Noah kidswear lines"
   },
   {
     "domain": "earlscollection.com",
