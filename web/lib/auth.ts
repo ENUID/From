@@ -130,8 +130,22 @@ export const authOptions: NextAuthOptions = {
       }
       return true
     },
-    async jwt({ token, user }) {
-      if (user) token.id = user.id ?? token.id ?? token.sub
+    async jwt({ token, user, account }) {
+      if (user) {
+        if (account?.provider === 'google' && user.email) {
+          try {
+            const convex = getConvex()
+            const convexUser = await convex.query(api.users.getUserByEmail, {
+              email: user.email.toLowerCase().trim(),
+            }) as any
+            token.id = convexUser?._id ?? user.id ?? token.sub
+          } catch {
+            token.id = user.id ?? token.id ?? token.sub
+          }
+        } else {
+          token.id = user.id ?? token.id ?? token.sub
+        }
+      }
       return token
     },
     async session({ session, token }) {

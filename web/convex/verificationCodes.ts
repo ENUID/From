@@ -25,6 +25,7 @@ export const createCode = mutation({
         code: args.code,
         expiresAt: now + CODE_TTL_MS,
         used: false,
+        attempts: 0,
       })
     } else {
       await ctx.db.insert("verification_codes", {
