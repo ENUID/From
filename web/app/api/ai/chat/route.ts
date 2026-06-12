@@ -235,50 +235,70 @@ function formatSearchToolResult(products: UcpProduct[]) {
 function formatSearchDiagnostics(
   args: SearchToolArgs,
   ctx: { countryCode: string | null; buyerCurrency: string },
+  language: 'vi' | 'en',
 ) {
   let searchDiagnostics = args.searchQuery
-    ? `search: "${args.searchQuery}"`
+    ? (language === 'vi'
+      ? `tìm kiếm: "${args.searchQuery}"`
+      : `search: "${args.searchQuery}"`)
     : 'browsing products';
 
   if (args.mandatoryConcepts?.length) {
     const concepts = args.mandatoryConcepts.map(c => `[${c.join(' | ')}]`).join(' AND ');
-    searchDiagnostics += `, filter: ${concepts}`;
+    searchDiagnostics += language === 'vi'
+      ? `, lọc: ${concepts}`
+      : `, filter: ${concepts}`;
   }
 
   if (args.budgetMax) {
     const currency = (args.budgetCurrency || ctx.buyerCurrency).toUpperCase()
-    searchDiagnostics += `, max ${args.budgetMax} ${currency}`;
+    searchDiagnostics += language === 'vi'
+      ? `, tối đa ${args.budgetMax} ${currency}`
+      : `, max ${args.budgetMax} ${currency}`;
   }
 
   if (args.sort) {
-    searchDiagnostics += `, sort: ${args.sort}`;
+    searchDiagnostics += language === 'vi'
+      ? `, sắp xếp: ${args.sort}`
+      : `, sort: ${args.sort}`;
   }
 
   if (ctx.countryCode) {
-    searchDiagnostics += `, ships to: ${ctx.countryCode}`;
+    searchDiagnostics += language === 'vi'
+      ? `, giao hàng: ${ctx.countryCode}`
+      : `, ships to: ${ctx.countryCode}`;
   }
 
   return searchDiagnostics
 }
 
 function fallbackText(
-  _message: string,
+  message: string,
   products: UcpProduct[],
   options?: { budgetMax?: number | null; diagnostics?: string },
 ) {
+  const language = inferLanguage(message)
   if (products.length === 0) {
     const hadBudget = typeof options?.budgetMax === 'number' && options.budgetMax > 0
-    let text = hadBudget
-      ? "I couldn't find anything within that budget yet. Try raising the limit or broadening what you're looking for."
-      : "I couldn't find a match yet. Try a broader description or different keywords (color, material, style)."
+    let text = language === 'vi'
+      ? (hadBudget
+        ? 'Mình chưa tìm thấy sản phẩm trong ngân sách đó. Bạn thử nới budget hoặc mô tả rộng hơn một chút nhé.'
+        : 'Mình chưa tìm thấy sản phẩm phù hợp. Thử mô tả rộng hơn hoặc đổi từ khóa (màu, chất liệu, kiểu dáng) nhé.')
+      : (hadBudget
+        ? "I couldn't find anything within that budget yet. Try raising the limit or broadening what you're looking for."
+        : "I couldn't find a match yet. Try a broader description or different keywords (color, material, style).")
 
     if (options?.diagnostics) {
-      text += `\n\nSearched catalog: ${options.diagnostics}`
+      text += language === 'vi'
+        ? `\n\nĐã tìm trên Shopify catalog: ${options.diagnostics}`
+        : `\n\nSearched Shopify catalog: ${options.diagnostics}`
     }
     return text
   }
 
-  return "I found a few options that match what you're looking for."
+  return language === 'vi'
+    ? 'Mình tìm được vài lựa chọn phù hợp với yêu cầu của bạn.'
+    : "I found a few options that match what you're looking for."
 }
 
 function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] {
@@ -351,69 +371,40 @@ function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] 
   return clean;
 }
 
-const SYSTEM_PROMPT = `You are FROM — an AI fashion curator with impeccable taste and deep knowledge of independent fashion. You connect shoppers with exceptional pieces from a hand-picked roster of boutique and independent brands through the Universal Commerce Protocol (UCP). Every brand in your roster is personally vetted. You never recommend anything outside it.
+const SYSTEM_PROMPT = `You are "From" — a high-end AI personal shopper. You help people discover beautiful, high-quality pieces from a hand-picked roster of independent and premium boutique stores, connected through the Universal Commerce Protocol (UCP). Every brand in your roster is vetted; you never recommend anything outside it.
 
-━━━ WHO YOU ARE ━━━
-You are not a search engine. You are a trusted fashion friend who happens to know every piece in 200+ independent stores cold. You have genuine opinions, a distinct aesthetic point of view, and the kind of taste that makes people ask "where did you find that?"
+PERSONALITY & TONE:
+- You are a warm, perceptive personal stylist with genuinely good taste — think of a trusted boutique curator who remembers what each person likes.
+- Be conversational, natural and human. Never robotic or corporate. Don't say "Here are the results." Say something like "I pulled a few pieces I think are so you."
+- Show real enthusiasm for great materials, considered design, sustainable choices and craftsmanship. Have a point of view — gently guide people toward the better pick when it helps.
+- Be concise and elegant. A sentence or two is usually plenty. Every word should earn its place and build a little connection.
+- Use the person's name occasionally and naturally when you know it — never force it into every message.
 
-You understand fashion at the level of: materials and their properties, seasonal appropriateness, silhouette construction, colour temperature, brand DNA, and the invisible social signals clothes send. When someone says "quiet luxury", you know they mean cashmere, clean lines, no logos, neutral palette — and you know exactly which brands in the roster deliver that.
+HOW TO READ A REQUEST (style intelligence):
+- People describe clothes by occasion, mood, fit, material, colour and vibe — not just product type. Translate that into the right pieces. ("something for a beach wedding" → linen shirts, lightweight trousers, breathable dresses; "cozy night in" → knits, loungewear, fleece.)
+- Use the CATEGORY TAXONOMY to map vague asks to specific item types, and the VIBE GLOSSARY + each brand's style tags to choose which brands fit the mood. A request for "minimalist organic basics" points to brands tagged organic/seamless; "bold streetwear" points to brands tagged streetwear.
+- When a person names a brand, search only that brand (the system enforces this). When they describe a vibe or occasion, lean on the best-matching brands for it.
+- If a request is genuinely ambiguous, you may ask ONE short clarifying question instead of searching — but prefer making a confident, well-reasoned choice and showing pieces.
 
-━━━ PERSONALITY & TONE ━━━
-• Warm, direct, and genuinely enthusiastic about great pieces — like a stylish friend who's excited to show you something, not a sales assistant trying to close a deal.
-• Be concise. One or two sentences is usually perfect. Every word earns its place.
-• Have a point of view. "I'd go with the linen — the cotton version reads a bit fast fashion." Not "Here are some options."
-• Show real excitement for exceptional materials, considered construction, and independent brands doing something genuinely different.
-• Never hollow openers: "Great choice!", "Of course!", "Certainly!", "Absolutely!". Start with the actual point.
-• Use the person's name occasionally and naturally when you know it. Never in every message.
+TOOL USAGE:
+- Assess intent first. If the user is asking ABOUT products already on screen ("compare them", "which is better", "what's the first one made of"), DO NOT search — just answer in text using the product context provided.
+- Use the 'search_ucp' tool ONLY when they want NEW products or a NEW filter ("find linen shirts", "show cheaper ones", "I meant in black").
+- searchQuery: keep it simple, specific and focused — the product type plus key descriptors (e.g. "linen shirt", "black chelsea boots"). Do NOT use the 'OR' operator and do NOT pad it with synonyms.
+  * Strip brand names from searchQuery — "shirts from Taylor Stitch" → searchQuery "shirts". The brand is targeted separately.
+  * Query language: write searchQuery in the targeted store's catalog language (English for English stores; Japanese for a Japanese-catalog store like coverchord.com, e.g. "シャツ"). Never put Vietnamese words in searchQuery. Never mix languages in one query.
+- mandatoryConcepts: ALWAYS set this — extract the critical concepts (product type, specific material, country of origin) as groups of synonyms. The system uses these to hard-rank results and reject off-category products.
+  * ALWAYS include the primary product type as the first concept group, even for simple requests. E.g. "show me shoes" → [["shoe","shoes","sneaker","sneakers","footwear","boot","boots"]]. "shirts" → [["shirt","shirts","tee","tees","top","tops"]]. Never leave mandatoryConcepts empty for a product search.
+  * E.g. "sustainable leather bags from vietnam" → [["bag","bags","backpack","tote","túi"], ["leather","da","cuero"], ["vietnam","việt nam","vietnamese"]]
+  * On a brand-new request for a different item, DROP the old concepts — only carry the concepts explicitly asked for now.
+- Pagination: if the user asks for "more", call 'search_ucp' with the EXACT SAME query as before — no "more"/"other" added. Pagination is automatic.
 
-━━━ STYLE INTELLIGENCE — READING A REQUEST ━━━
-Translate lifestyle, mood, occasion, and aesthetic into the right product type and brand.
-
-AESTHETIC → PRODUCT SIGNALS:
-• "quiet luxury / old money / stealth wealth" → cashmere, merino, linen, fine wool; no logos, no graphics; neutral palette (ivory, stone, camel, navy, black); tailored silhouette; clean finish
-• "gorpcore / heritage workwear" → Gore-Tex, nylon, fleece, canvas; utility details; earthy palette; functional-first construction; trail-ready
-• "dark academia" → tweed, herringbone, flannel; dark earth tones (brown, tan, dark green, burgundy); Oxford collar; structured; layered
-• "streetwear" → graphic tees, dropped shoulder, oversized silhouette; sneaker-forward; bold branding
-• "minimalist / Japanese minimalism" → clean construction, raw hem, deconstructed or asymmetric, natural fibres, tonal dressing
-• "cottagecore / romantic" → floral prints, linen, lace, puff sleeve, loose silhouette, soft palette
-• "clean girl / coastal grandmother" → elevated basics, neutral easy dressing, quality fabrics, relaxed fit with intention
-• "bohemian" → loose drape, natural dye, fringe, layered textures, earthy palette, artisan-made
-• "athleisure / sport luxe" → technical fabric, clean sneaker, structured fleece, tailored jogger
-
-OCCASION → PRODUCT TYPE:
-• "beach wedding" → linen shirt, linen trousers, light dress, breathable suit
-• "rooftop dinner" → silk blouse, smart trousers, a blazer, clean heel or loafer
-• "first date" → something confident but not overdressed — well-cut jeans, a quality top, clean shoe
-• "job interview" → unstructured blazer, straight trouser, elevated flat or loafer; nothing too trendy
-• "weekend brunch" → clean denim, quality tee, relaxed blazer or knit, leather sneaker
-• "travel" → wrinkle-resistant, versatile, quality mid-weight layers
-• "cold weather layering" → merino base, mid-layer fleece or cardigan, quality outerwear
-
-WHAT CLASHES — avoid recommending:
-• More than 2 competing accent colours in one look
-• Very casual + very formal fabric in the same outfit without context
-• TikTok micro-trends (6–12mo lifespan) — almost never worth recommending
-• Anything that reads costume over clothing
-
-━━━ TOOL USAGE ━━━
-• Assess intent first. If the user asks ABOUT products already on screen ("compare them", "what's the first one made of", "which is better"), DO NOT search — answer in text using the product context.
-• Use 'search_ucp' ONLY when they want NEW products or a new filter ("find linen shirts", "show cheaper ones", "in black instead").
-• searchQuery: simple, specific, product-focused — garment type + key descriptors. E.g. "linen shirt", "black chelsea boots", "cashmere turtleneck". No OR operator. No padded synonyms.
-  · Strip brand names from searchQuery. "shirts from Taylor Stitch" → searchQuery "shirts". Brand is targeted separately.
-  · Write searchQuery in the store's catalog language (English for English stores; Japanese for Japanese-catalog stores like coverchord.com, e.g. "シャツ"). Never put Vietnamese words in searchQuery.
-• mandatoryConcepts: ALWAYS set this — the critical concepts as synonym groups. The system uses these to hard-rank results and reject off-category products.
-  · ALWAYS include the primary product type as the first concept group. E.g. "show me shoes" → [["shoe","shoes","sneaker","footwear","boot"]]. "shirts" → [["shirt","tee","top","blouse"]]. Never leave empty for a product search.
-  · "sustainable leather bags from vietnam" → [["bag","backpack","tote","túi"], ["leather","da"], ["vietnam","việt nam"]]
-  · On a brand-new request for a different item, DROP the old concepts — only carry what's explicitly asked for now.
-• Pagination: if the user asks for "more", use the EXACT SAME query — no "more" or "other" added.
-
-━━━ OUTPUT RULES ━━━
-• Never manually list products, prices, or URLs — the UI renders product cards automatically. Write a short, elegant, conversational lead-in.
-• Be honest: if search returns nothing, say so warmly and suggest a specific tweak (broader description, different colour, different material, different occasion framing).
-• Always respond in English, regardless of the language the user writes in. You understand all languages but always reply in English. When discussing products with non-English names or descriptions, translate them to English.
-• At the very end of EVERY response, output exactly 2 or 3 natural follow-up questions in this exact format:
+OUTPUT RULES:
+- Never manually list products, bullet points, prices or URLs — the UI renders product cards automatically below your message. Just give a short, elegant, conversational lead-in or piece of advice.
+- Honesty: never invent products or details. If the search returns nothing, apologise warmly and suggest a tweak (broader description, different colour/material, or another brand).
+- Always reply in the exact same language the user wrote in.
+- At the very end of EVERY response, output exactly 2 or 3 natural follow-up questions the user might ask next, in this exact format:
   [SUGGESTIONS: "Question 1", "Question 2"]
-  e.g. after showing linen shirts: [SUGGESTIONS: "Do you have any under $80?", "Show me something similar in white", "What would pair well with these?"]`
+  e.g. after showing denim jackets: [SUGGESTIONS: "Do you have any under $100?", "What are the first two made of?", "Show me lighter washes"]`
 
 function extractSuggestions(text: string): { cleanText: string, suggestions: string[] } {
   const match = text.match(/\[SUGGESTIONS:\s*(.*?)\]/i)
@@ -481,37 +472,23 @@ export async function POST(req: NextRequest) {
     // can restrict to just those store(s) rather than scanning the whole registry.
     const detectedBrandDomains = detectBrandsInQuery(message)
 
-    // ── FAST PATH: deterministic intent compilation ──────────────────────────
-    // Clear product queries ("black linen shirt under $80") compile directly to
-    // a search plan — no LLM round-trip, no rate limits, no degradation.
-    // Conversational/ambiguous messages fall through to the LLM planner below.
+    // Fast path: deterministic compiler for clear product queries.
+    // Skips the LLM entirely — instant response with no model latency.
     const compiled = compileIntent(message, activeBuyerCurrency)
-    if (compiled && !/\b(more|others?|another|different ones)\b/i.test(message)) {
-      // Fold aesthetic signals into the taste profile so ranking favors them
-      const aestheticSignal = compiled.aesthetics.length > 0
-        ? compiled.aesthetics.map(a => a.keywords.slice(0, 4).join(' ')).join('; ')
-        : ''
-      const mergedTaste = [
-        typeof tasteProfile === 'string' ? tasteProfile.trim() : '',
-        aestheticSignal ? `style signals: ${aestheticSignal}` : '',
-      ].filter(Boolean).join('. ') || undefined
-
-      const catalogDebug: CatalogSearchDebug = {}
-      const result = await runCatalogSearch(compiled.args, {
+    if (compiled && !/\b(more|others?|another|different ones?)\b/i.test(message)) {
+      const compiledResult = await runCatalogSearch(compiled.args, {
         countryCode,
         buyerCurrency: activeBuyerCurrency,
         excludeIds: collectProductIds(history || []),
         fastFirstPage: true,
         brandDomains: detectedBrandDomains,
-        tasteProfile: mergedTaste,
-        debug: catalogDebug,
+        tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
       })
-
       return NextResponse.json({
-        text: compiledReplyText(compiled, result.products.length),
-        ...result,
+        text: compiledReplyText(compiled, compiledResult.products.length),
+        ...compiledResult,
         suggestions: compiledSuggestions(compiled),
-        meta: { ...catalogDebug, compiledIntent: true },
+        meta: { compiledIntent: true },
       })
     }
 
@@ -569,7 +546,7 @@ export async function POST(req: NextRequest) {
 
     dynamicSystemPrompt += `\n\nVIBE GLOSSARY — what each brand's style tag signals (use it to match mood/occasion to brands):\n${buildVibeGlossary()}`;
 
-    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from this curated brand roster. Each entry: Name (domain) | gender | price | categories | style-vibes | catalog-language:\n${buildCompactBrandDirectory()}\nThe 'search_ucp' tool strictly filters to these brands only. Never recommend or discuss products from any store outside this roster.`;
+    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from this curated brand roster. Each entry lists what the brand sells, its style tags, and its catalog language — use this to pick the brands that best fit the request:\n${buildCompactBrandDirectory()}\nThe 'search_ucp' tool strictly filters to these brands only. Never recommend or discuss products from any store outside this roster.`;
 
     if (detectedBrandDomains.length > 0) {
       const brandNames = detectedBrandDomains.map(d => {
@@ -600,7 +577,7 @@ export async function POST(req: NextRequest) {
       const diagnostics = formatSearchDiagnostics(fallbackIntent, {
         countryCode,
         buyerCurrency: activeBuyerCurrency,
-      })
+      }, inferLanguage(message))
 
       return NextResponse.json({
         text: fallbackText(message, result.products, {
@@ -633,7 +610,7 @@ export async function POST(req: NextRequest) {
           const searchDiagnostics = formatSearchDiagnostics(args, {
             countryCode,
             buyerCurrency: activeBuyerCurrency,
-          })
+          }, inferLanguage(message))
 
           const result = await runCatalogSearch(args, {
             countryCode,
@@ -650,16 +627,18 @@ export async function POST(req: NextRequest) {
           if (aiText) {
             finalContent = aiText
             if (products.length === 0) {
-              finalContent += `\n\nSearched catalog: ${searchDiagnostics}`
+              finalContent += inferLanguage(message) === 'vi'
+                ? `\n\nĐã tìm trên Shopify catalog: ${searchDiagnostics}`
+                : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
             }
           } else {
-            const POST_TOOL_PROMPT = `You are FROM — a high-end AI fashion curator.
+            const POST_TOOL_PROMPT = `You are a high-end AI shopping assistant.
 The system has ALREADY searched for the products and displayed them to the user.
 Your ONLY job right now is to write a short, elegant, conversational summary (1-2 sentences) of what you just found.
 DO NOT use any tools. DO NOT output any JSON. DO NOT try to search again.
-Always respond in English regardless of the language the user wrote in.
 At the very end of your final response, you MUST output exactly 2 or 3 follow-up questions that the user might want to ask you next, wrapped in this specific format:
-[SUGGESTIONS: "Question 1", "Question 2"]`
+[SUGGESTIONS: "Question 1", "Question 2"]
+Mirror the language the user wrote in.`
 
             const postSearchText = await generatePostToolReply(
               messages,
@@ -689,7 +668,7 @@ At the very end of your final response, you MUST output exactly 2 or 3 follow-up
             const diagnostics = formatSearchDiagnostics(fallbackIntent, {
               countryCode,
               buyerCurrency: activeBuyerCurrency,
-            })
+            }, inferLanguage(message))
 
             return NextResponse.json({
               text: fallbackText(message, result.products, {
@@ -701,7 +680,7 @@ At the very end of your final response, you MUST output exactly 2 or 3 follow-up
           }
           products = []
           if (error.message?.includes('429')) {
-            finalContent = "The search AI is under high load right now. Please try again in a few seconds."
+            finalContent = "Tôi xin lỗi, hệ thống AI hiện đang chịu tải cao và gặp giới hạn lượt yêu cầu (Rate Limit). Bạn vui lòng thử gửi lại tin nhắn sau vài giây nhé!"
           } else {
             finalContent = "Search could not complete cleanly. Please try again in a moment."
           }
@@ -732,7 +711,7 @@ At the very end of your final response, you MUST output exactly 2 or 3 follow-up
     console.error('Chat API Error:', error)
     let errorMessage = 'The search request did not complete. Please try again in a moment.'
     if (error.message?.includes('429')) {
-      errorMessage = "The AI is under high load right now. Please wait a moment and try again."
+      errorMessage = "Hệ thống AI hiện đang nhận quá nhiều yêu cầu cùng lúc. Xin bạn vui lòng đợi vài giây rồi thử lại!"
     }
     return NextResponse.json({ 
       text: errorMessage,
