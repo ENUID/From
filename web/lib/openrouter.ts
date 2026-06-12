@@ -1,6 +1,6 @@
 export const OPENROUTER_BASE = 'https://openrouter.ai/api/v1'
 export const OPENROUTER_STYLIST_MODEL =
-  process.env.OPENROUTER_STYLIST_MODEL ?? 'deepseek/deepseek-chat'
+  process.env.OPENROUTER_STYLIST_MODEL ?? 'deepseek/deepseek-v4-flash'
 
 export type OpenRouterMessage = {
   role: 'system' | 'user' | 'assistant'
