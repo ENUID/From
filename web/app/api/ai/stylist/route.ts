@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, groqVisionChat, VisionMessage } from '@/lib/groq'
-import { openrouterChat } from '@/lib/openrouter'
+import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 
-// Use DeepSeek via OpenRouter if configured; fall back to Groq
+// Use Gemini if configured; fall back to Groq 70b
 async function stylistChat(
   messages: any[],
   system: string,
   opts?: { max_tokens?: number; temperature?: number }
 ): Promise<{ role: string; content: string | null }> {
-  if (process.env.OPENROUTER_API_KEY) {
+  if (process.env.GOOGLE_AI_API_KEY) {
     try {
-      return await openrouterChat(messages, system, opts)
+      return await geminiChat(messages, system, opts)
     } catch (err) {
-      console.warn('[stylist] OpenRouter failed, falling back to Groq:', (err as Error).message)
+      console.warn('[stylist] Gemini failed, falling back to Groq:', (err as Error).message)
     }
   }
   return groqChat(messages, system, undefined, opts)
