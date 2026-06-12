@@ -2698,16 +2698,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Danish knitwear — five-gauge merino sailor sweaters built like workwear, made to last decades"
   },
   {
-    "domain": "asphalte.com",
-    "name": "Asphalte",
-    "categories": ["top", "bottom", "outerwear"],
-    "vibe": ["minimalist", "casual", "french"],
-    "gender": ["men"],
-    "priceRange": "mid",
-    "items": ["tee", "chinos", "overshirt", "sweater", "jacket"],
-    "about": "French menswear on a made-to-order model — community-designed essentials without waste"
-  },
-  {
     "domain": "babyboofashion.com",
     "name": "BABYBOO Fashion",
     "categories": ["dress", "top", "bottom"],
@@ -3037,16 +3027,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Swedish footwear — Goodyear-welted dress shoes and minimal sneakers, handmade in Portugal at honest prices"
   },
   {
-    "domain": "noseridersurfclub.com",
-    "name": "Noserider Surf Club",
-    "categories": ["swimwear", "top", "bottom"],
-    "vibe": ["coastal", "vintage", "casual"],
-    "gender": ["women"],
-    "priceRange": "mid",
-    "items": ["swimsuit", "bikini", "surf suit", "boardshorts", "tee"],
-    "about": "Retro-inspired surfwear — 70s longboard style in sustainable swim and beach pieces"
-  },
-  {
     "domain": "ohpolly.com",
     "name": "Oh Polly",
     "categories": ["dress", "top", "bottom", "swimwear"],
@@ -3164,16 +3144,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "priceRange": "premium",
     "items": ["draped dress", "linen top", "wide-leg trousers", "knit"],
     "about": "LA-made sculptural minimalism — fluid natural-fibre pieces with quiet Japanese-inflected drape"
-  },
-  {
-    "domain": "shoprhode.com",
-    "name": "Rhode",
-    "categories": ["dress", "top", "bottom"],
-    "vibe": ["resort", "romantic", "maximalist"],
-    "gender": ["women"],
-    "priceRange": "premium",
-    "items": ["printed dress", "maxi dress", "co-ord set", "blouse"],
-    "about": "Joyful printed resort dressing — bold patterns and easy silhouettes made for sunshine"
   },
   {
     "domain": "starcadet.com",
