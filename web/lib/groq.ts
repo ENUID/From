@@ -1,7 +1,7 @@
 export const GROQ_BASE = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1'
 export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
-export const CHAT_MODEL = process.env.GROQ_CHAT_MODEL ?? 'llama-3.3-70b-versatile'
-export const STYLIST_MODEL = process.env.GROQ_STYLIST_MODEL ?? 'llama-3.3-70b-versatile'
+export const CHAT_MODEL = process.env.GROQ_CHAT_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct'
+export const STYLIST_MODEL = process.env.GROQ_STYLIST_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct'
 export const VISION_MODEL = process.env.GROQ_VISION_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 export type ChatMessage = {
@@ -43,7 +43,7 @@ export async function groqChat(
     model: CHAT_MODEL,
     messages: allMessages,
     temperature: opts?.temperature ?? 0.1,
-    max_tokens: opts?.max_tokens ?? 500,
+    max_tokens: opts?.max_tokens ?? 1200,
   }
 
   if (tools && tools.length > 0) {
@@ -56,7 +56,7 @@ export async function groqChat(
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(25000),
     })
 
     if (res.status === 429 && retryCount < 2) {
@@ -235,7 +235,7 @@ export async function generatePostToolReply(
   try {
     const reply = await withTimeout(
       groqChat(followUp, systemPrompt, undefined, {
-        max_tokens: 200,
+        max_tokens: 450,
         temperature: 0.5,
       }).catch(() => null),
       timeoutMs,

@@ -9,7 +9,7 @@ import {
   UCP_REGISTRY,
   detectBrandsInQuery,
   brandDisplayName,
-  buildBrandDirectory,
+  buildCompactBrandDirectory,
   buildCategoryTaxonomy,
   buildVibeGlossary,
 } from '@/lib/stores'
@@ -534,7 +534,7 @@ export async function POST(req: NextRequest) {
 
     dynamicSystemPrompt += `\n\nVIBE GLOSSARY — what each brand's style tag signals (use it to match mood/occasion to brands):\n${buildVibeGlossary()}`;
 
-    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from this curated brand roster. Each entry lists what the brand sells, its style tags, and its catalog language — use this to pick the brands that best fit the request:\n${buildBrandDirectory()}\nThe 'search_ucp' tool strictly filters to these brands only. Never recommend or discuss products from any store outside this roster.`;
+    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from this curated brand roster. Each entry: Name (domain) | gender | price | categories | style-vibes | catalog-language:\n${buildCompactBrandDirectory()}\nThe 'search_ucp' tool strictly filters to these brands only. Never recommend or discuss products from any store outside this roster.`;
 
     if (detectedBrandDomains.length > 0) {
       const brandNames = detectedBrandDomains.map(d => {

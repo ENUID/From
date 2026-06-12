@@ -3044,6 +3044,19 @@ export function buildBrandDirectory(): string {
   }).join("\n");
 }
 
+/** Compact brand directory for chat AI — omits long about text to cut token usage. */
+export function buildCompactBrandDirectory(): string {
+  return UCP_REGISTRY.map(store => {
+    const name = brandDisplayName(store);
+    const cats = store.categories.join(", ");
+    const vibes = store.vibe.length > 0 ? store.vibe.join(", ") : "general";
+    const lang = storeLanguageLabel(store);
+    const genderPart = store.gender ? ` | ${store.gender.join(", ")}` : "";
+    const pricePart = store.priceRange ? ` | ${store.priceRange}` : "";
+    return `- ${name} (${store.domain})${genderPart}${pricePart} [${cats}] {${vibes}} lang:${lang}`;
+  }).join("\n");
+}
+
 /** Human-readable category taxonomy (categories → subcategories → item types). */
 export function buildCategoryTaxonomy(): string {
   return Object.entries(CATEGORY_TAXONOMY).map(([key, val]) => {
