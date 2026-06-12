@@ -234,70 +234,50 @@ function formatSearchToolResult(products: UcpProduct[]) {
 function formatSearchDiagnostics(
   args: SearchToolArgs,
   ctx: { countryCode: string | null; buyerCurrency: string },
-  language: 'vi' | 'en',
 ) {
   let searchDiagnostics = args.searchQuery
-    ? (language === 'vi'
-      ? `tìm kiếm: "${args.searchQuery}"`
-      : `search: "${args.searchQuery}"`)
+    ? `search: "${args.searchQuery}"`
     : 'browsing products';
 
   if (args.mandatoryConcepts?.length) {
     const concepts = args.mandatoryConcepts.map(c => `[${c.join(' | ')}]`).join(' AND ');
-    searchDiagnostics += language === 'vi'
-      ? `, lọc: ${concepts}`
-      : `, filter: ${concepts}`;
+    searchDiagnostics += `, filter: ${concepts}`;
   }
 
   if (args.budgetMax) {
     const currency = (args.budgetCurrency || ctx.buyerCurrency).toUpperCase()
-    searchDiagnostics += language === 'vi'
-      ? `, tối đa ${args.budgetMax} ${currency}`
-      : `, max ${args.budgetMax} ${currency}`;
+    searchDiagnostics += `, max ${args.budgetMax} ${currency}`;
   }
 
   if (args.sort) {
-    searchDiagnostics += language === 'vi'
-      ? `, sắp xếp: ${args.sort}`
-      : `, sort: ${args.sort}`;
+    searchDiagnostics += `, sort: ${args.sort}`;
   }
 
   if (ctx.countryCode) {
-    searchDiagnostics += language === 'vi'
-      ? `, giao hàng: ${ctx.countryCode}`
-      : `, ships to: ${ctx.countryCode}`;
+    searchDiagnostics += `, ships to: ${ctx.countryCode}`;
   }
 
   return searchDiagnostics
 }
 
 function fallbackText(
-  message: string,
+  _message: string,
   products: UcpProduct[],
   options?: { budgetMax?: number | null; diagnostics?: string },
 ) {
-  const language = inferLanguage(message)
   if (products.length === 0) {
     const hadBudget = typeof options?.budgetMax === 'number' && options.budgetMax > 0
-    let text = language === 'vi'
-      ? (hadBudget
-        ? 'Mình chưa tìm thấy sản phẩm trong ngân sách đó. Bạn thử nới budget hoặc mô tả rộng hơn một chút nhé.'
-        : 'Mình chưa tìm thấy sản phẩm phù hợp. Thử mô tả rộng hơn hoặc đổi từ khóa (màu, chất liệu, kiểu dáng) nhé.')
-      : (hadBudget
-        ? "I couldn't find anything within that budget yet. Try raising the limit or broadening what you're looking for."
-        : "I couldn't find a match yet. Try a broader description or different keywords (color, material, style).")
+    let text = hadBudget
+      ? "I couldn't find anything within that budget yet. Try raising the limit or broadening what you're looking for."
+      : "I couldn't find a match yet. Try a broader description or different keywords (color, material, style)."
 
     if (options?.diagnostics) {
-      text += language === 'vi'
-        ? `\n\nĐã tìm trên Shopify catalog: ${options.diagnostics}`
-        : `\n\nSearched Shopify catalog: ${options.diagnostics}`
+      text += `\n\nSearched catalog: ${options.diagnostics}`
     }
     return text
   }
 
-  return language === 'vi'
-    ? 'Mình tìm được vài lựa chọn phù hợp với yêu cầu của bạn.'
-    : "I found a few options that match what you're looking for."
+  return "I found a few options that match what you're looking for."
 }
 
 function sanitizeHistory(history: any[], currentMessage: string): ChatMessage[] {
@@ -429,7 +409,7 @@ WHAT CLASHES — avoid recommending:
 ━━━ OUTPUT RULES ━━━
 • Never manually list products, prices, or URLs — the UI renders product cards automatically. Write a short, elegant, conversational lead-in.
 • Be honest: if search returns nothing, say so warmly and suggest a specific tweak (broader description, different colour, different material, different occasion framing).
-• Always reply in the exact same language the user wrote in.
+• Always respond in English, regardless of the language the user writes in. You understand all languages but always reply in English. When discussing products with non-English names or descriptions, translate them to English.
 • At the very end of EVERY response, output exactly 2 or 3 natural follow-up questions in this exact format:
   [SUGGESTIONS: "Question 1", "Question 2"]
   e.g. after showing linen shirts: [SUGGESTIONS: "Do you have any under $80?", "Show me something similar in white", "What would pair well with these?"]`
@@ -585,7 +565,7 @@ export async function POST(req: NextRequest) {
       const diagnostics = formatSearchDiagnostics(fallbackIntent, {
         countryCode,
         buyerCurrency: activeBuyerCurrency,
-      }, inferLanguage(message))
+      })
 
       return NextResponse.json({
         text: fallbackText(message, result.products, {
@@ -618,7 +598,7 @@ export async function POST(req: NextRequest) {
           const searchDiagnostics = formatSearchDiagnostics(args, {
             countryCode,
             buyerCurrency: activeBuyerCurrency,
-          }, inferLanguage(message))
+          })
 
           const result = await runCatalogSearch(args, {
             countryCode,
@@ -635,18 +615,16 @@ export async function POST(req: NextRequest) {
           if (aiText) {
             finalContent = aiText
             if (products.length === 0) {
-              finalContent += inferLanguage(message) === 'vi'
-                ? `\n\nĐã tìm trên Shopify catalog: ${searchDiagnostics}`
-                : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
+              finalContent += `\n\nSearched catalog: ${searchDiagnostics}`
             }
           } else {
-            const POST_TOOL_PROMPT = `You are a high-end AI shopping assistant.
+            const POST_TOOL_PROMPT = `You are FROM — a high-end AI fashion curator.
 The system has ALREADY searched for the products and displayed them to the user.
 Your ONLY job right now is to write a short, elegant, conversational summary (1-2 sentences) of what you just found.
 DO NOT use any tools. DO NOT output any JSON. DO NOT try to search again.
+Always respond in English regardless of the language the user wrote in.
 At the very end of your final response, you MUST output exactly 2 or 3 follow-up questions that the user might want to ask you next, wrapped in this specific format:
-[SUGGESTIONS: "Question 1", "Question 2"]
-Mirror the language the user wrote in.`
+[SUGGESTIONS: "Question 1", "Question 2"]`
 
             const postSearchText = await generatePostToolReply(
               messages,
@@ -676,7 +654,7 @@ Mirror the language the user wrote in.`
             const diagnostics = formatSearchDiagnostics(fallbackIntent, {
               countryCode,
               buyerCurrency: activeBuyerCurrency,
-            }, inferLanguage(message))
+            })
 
             return NextResponse.json({
               text: fallbackText(message, result.products, {
@@ -688,7 +666,7 @@ Mirror the language the user wrote in.`
           }
           products = []
           if (error.message?.includes('429')) {
-            finalContent = "Tôi xin lỗi, hệ thống AI hiện đang chịu tải cao và gặp giới hạn lượt yêu cầu (Rate Limit). Bạn vui lòng thử gửi lại tin nhắn sau vài giây nhé!"
+            finalContent = "The search AI is under high load right now. Please try again in a few seconds."
           } else {
             finalContent = "Search could not complete cleanly. Please try again in a moment."
           }
@@ -719,7 +697,7 @@ Mirror the language the user wrote in.`
     console.error('Chat API Error:', error)
     let errorMessage = 'The search request did not complete. Please try again in a moment.'
     if (error.message?.includes('429')) {
-      errorMessage = "Hệ thống AI hiện đang nhận quá nhiều yêu cầu cùng lúc. Xin bạn vui lòng đợi vài giây rồi thử lại!"
+      errorMessage = "The AI is under high load right now. Please wait a moment and try again."
     }
     return NextResponse.json({ 
       text: errorMessage,
