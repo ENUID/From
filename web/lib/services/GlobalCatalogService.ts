@@ -19,6 +19,7 @@ import { getExchangeRates } from '../exchangeRates'
 import { rerankByRelevance } from './relevanceRerank'
 import { matchStyles } from '../styleVocabulary'
 import { recordBrandOutcome, deprioritizeDead } from './brandHealth'
+import { readPersistentCache, writePersistentCache } from './persistentSearchCache'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -624,12 +625,24 @@ export class GlobalCatalogService {
 
     // Reuse the fetched pool across pages; rebuild it on a cold cache.
     let entry = options.refreshReserve ? cacheGet(cacheKey) : cacheGet(cacheKey)
+    let seededFromPersistent = false
     if (!entry) {
       const orderedDomains = isBrandSearch
         ? validBrands.map(d => d.toLowerCase().trim())
         : getCategoryDomains(storeQuery)
       entry = { timestamp: Date.now(), products: [], pending: [...orderedDomains], queried: new Set() }
       cacheSet(cacheKey, entry)
+
+      // Cold in-memory cache — try the persistent (cross-cold-start) cache. The
+      // pool is seeded but `pending` is kept, so the first page serves instantly
+      // while load-more can still fetch fresh stores. 15-min TTL enforced in Convex.
+      if (!isLoadMore) {
+        const persisted = await readPersistentCache(cacheKey)
+        if (persisted && persisted.length > 0) {
+          entry.products = persisted
+          seededFromPersistent = true
+        }
+      }
     }
 
     if (options.debug) options.debug.catalogFetched = true
@@ -689,9 +702,18 @@ export class GlobalCatalogService {
     }
     cacheSet(cacheKey, entry)
 
+    // Persist a fresh pool so the next cold start serves it instantly. Skip when
+    // we just seeded from the persistent cache (already stored). Awaited but
+    // failure-silent — on a fetch path that already took seconds, the write is
+    // negligible and never blocks the response on error.
+    if (!isLoadMore && !seededFromPersistent && entry.queried.size > 0 && entry.products.length > 0) {
+      await writePersistentCache(cacheKey, entry.products)
+    }
+
     console.log(
       `[Catalog] "${storeQuery.slice(0, 50)}" ${isBrandSearch ? '(brand)' : '(category)'} → ` +
-      `${entry.products.length} products, ${entry.queried.size} stores queried, ${entry.pending.length} pending`,
+      `${entry.products.length} products, ${entry.queried.size} stores queried, ${entry.pending.length} pending` +
+      `${seededFromPersistent ? ' [warm:persistent]' : ''}`,
     )
 
     let result = applyFiltersAndSort(entry.products, {

@@ -88,4 +88,24 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_signal", ["signal"])
     .index("by_query", ["query"]),
+
+  // Persisted brand health from the daily probe. consecutiveDown drives
+  // auto-pruning: a store down for several days running is skipped in search
+  // until it recovers (a healthy probe resets the counter).
+  brand_health: defineTable({
+    domain: v.string(),
+    healthy: v.boolean(),
+    lastProductCount: v.number(),
+    consecutiveDown: v.number(),
+    lastProbedAt: v.number(),
+  }).index("by_domain", ["domain"]),
+
+  // Persistent search cache — lets the existing 15-minute result cache survive
+  // serverless cold starts. Same freshness window as in-memory; entries past
+  // TTL are ignored. Discovery only — checkout/detail always hit the live store.
+  search_cache: defineTable({
+    key: v.string(),         // hash of query + country + brands
+    products: v.string(),    // JSON-encoded product snapshot (capped)
+    createdAt: v.number(),
+  }).index("by_key", ["key"]),
 });

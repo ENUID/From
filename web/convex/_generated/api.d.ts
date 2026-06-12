@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as brandHealth from "../brandHealth.js";
 import type * as qualitySignals from "../qualitySignals.js";
+import type * as searchCache from "../searchCache.js";
 import type * as shop from "../shop.js";
 import type * as stylistMemory from "../stylistMemory.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -23,7 +25,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  brandHealth: typeof brandHealth;
   qualitySignals: typeof qualitySignals;
+  searchCache: typeof searchCache;
   shop: typeof shop;
   stylistMemory: typeof stylistMemory;
   subscriptions: typeof subscriptions;

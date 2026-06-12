@@ -12,6 +12,8 @@
  * one specific query does NOT mark a brand dead (it may simply lack that item).
  */
 
+import { isPrunedDead } from './deadBrands'
+
 export type BrandOutcome = { productCount: number; errored: boolean }
 
 type BrandStat = {
@@ -69,11 +71,12 @@ export function isLikelyDead(domain: string): boolean {
   return Date.now() - s.lastTriedAt < RECHECK_AFTER_MS
 }
 
-/** Partition a list of domains into healthy-first, likely-dead-last (stable). */
+/** Partition a list of domains into healthy-first, likely-dead-last (stable).
+ *  Consults both the live in-instance signal and the persisted auto-prune set. */
 export function deprioritizeDead(domains: string[]): string[] {
   const live: string[] = []
   const dead: string[] = []
-  for (const d of domains) (isLikelyDead(d) ? dead : live).push(d)
+  for (const d of domains) ((isLikelyDead(d) || isPrunedDead(d)) ? dead : live).push(d)
   return [...live, ...dead]
 }
 
