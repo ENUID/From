@@ -2648,6 +2648,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "shopdonni.com",
+    "name": "Donni",
+    "categories": ["top", "bottom", "dress", "outerwear"],
+    "vibe": ["cozy", "minimalist", "casual", "quiet-luxury"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["knit set", "sweater", "wide-leg pants", "duster", "henley", "skirt"],
+    "about": "LA soft dressing — buttery knits, easy matching sets, and elevated comfort in a sun-washed neutral palette"
+  },
+  {
     "domain": "highchicofficial.co",
     "name": "Highchic Official",
     "categories": ["dress", "top", "bottom"],
