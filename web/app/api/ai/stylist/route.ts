@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat, groqVisionChat, VisionMessage, STYLIST_MODEL } from '@/lib/groq'
+import { groqChat, groqVisionChat, VisionMessage } from '@/lib/groq'
+import { openrouterChat } from '@/lib/openrouter'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
+
+// Use DeepSeek via OpenRouter if configured; fall back to Groq
+async function stylistChat(
+  messages: any[],
+  system: string,
+  opts?: { max_tokens?: number; temperature?: number }
+): Promise<{ role: string; content: string | null }> {
+  if (process.env.OPENROUTER_API_KEY) {
+    try {
+      return await openrouterChat(messages, system, opts)
+    } catch (err) {
+      console.warn('[stylist] OpenRouter failed, falling back to Groq:', (err as Error).message)
+    }
+  }
+  return groqChat(messages, system, undefined, opts)
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type StylistProduct = {
@@ -446,7 +463,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         ...history,
         { role: 'user' as const, content: question },
       ]
-      const msg = await groqChat(messages, SYSTEM, undefined, { max_tokens: 700, temperature: 0.4 })
+      const msg = await stylistChat(messages, SYSTEM, { max_tokens: 700, temperature: 0.4 })
       raw = (msg?.content ?? '').trim()
     }
 
