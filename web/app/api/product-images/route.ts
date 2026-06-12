@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { BoundedCache } from '@/lib/boundedCache'
+import { safeParseStoreUrl } from '@/lib/ssrfGuard'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('url')
   if (!raw) return NextResponse.json({ images: [] })
 
-  try { new URL(raw) } catch { return NextResponse.json({ images: [] }) }
+  const parsed = safeParseStoreUrl(raw)
+  if (!parsed) return NextResponse.json({ images: [] })
 
   if (cache.has(raw)) return NextResponse.json({ images: cache.get(raw) })
 
@@ -32,7 +34,7 @@ export async function GET(req: NextRequest) {
   const handleMatch = raw.match(/\/products\/([^/?#]+)/)
   if (!handleMatch) return NextResponse.json({ images: [] })
 
-  const { protocol, hostname } = new URL(raw)
+  const { protocol, hostname } = parsed
   const jsonUrl = `${protocol}//${hostname}/products/${handleMatch[1]}.json`
 
   try {

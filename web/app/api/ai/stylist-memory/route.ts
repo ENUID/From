@@ -7,9 +7,11 @@ import { api } from '@/convex/_generated/api'
 
 export const runtime = 'nodejs'
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
-
 export async function POST(req: NextRequest) {
+  if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
+    return NextResponse.json({ ok: false }, { status: 500 })
+  }
+  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {

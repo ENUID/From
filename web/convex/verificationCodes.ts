@@ -51,7 +51,12 @@ export const verifyAndConsumeCode = mutation({
     if (!record) return false
     if (record.used) return false
     if (record.expiresAt < now) return false
-    if (record.code !== args.code.trim()) return false
+    if ((record.attempts ?? 0) >= 5) return false
+
+    if (record.code !== args.code.trim()) {
+      await ctx.db.patch(record._id, { attempts: (record.attempts ?? 0) + 1 })
+      return false
+    }
 
     await ctx.db.patch(record._id, { used: true })
     return true

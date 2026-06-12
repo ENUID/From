@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { groqChat } from '@/lib/groq'
 import { BoundedCache } from '@/lib/boundedCache'
+import { safeParseStoreUrl } from '@/lib/ssrfGuard'
 
 const cache = new BoundedCache<string, { shipping: string; returns: string } | null>(2000)
 
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('url')
   if (!raw) return NextResponse.json({ data: null })
 
-  try { new URL(raw) } catch { return NextResponse.json({ data: null }) }
+  if (!safeParseStoreUrl(raw)) return NextResponse.json({ data: null })
 
   const cached = cache.get(raw)
   if (cached !== undefined) return NextResponse.json({ data: cached })

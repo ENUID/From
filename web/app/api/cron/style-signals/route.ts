@@ -8,7 +8,7 @@ export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get('authorization')
-  if (process.env.CRON_SECRET && secret !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || secret !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -57,6 +57,6 @@ ${queries.map((q: string) => `- ${q}`).join('\n')}`
     return NextResponse.json({ ok: true, queriesAnalyzed: queries.length, concepts })
   } catch (err: any) {
     console.error('[style-signals] error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

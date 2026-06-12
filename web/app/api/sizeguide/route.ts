@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { BoundedCache } from '@/lib/boundedCache'
+import { safeParseStoreUrl } from '@/lib/ssrfGuard'
 
 const SIZE_KWS = /\b(size|chest|waist|hip|inseam|sleeve|shoulder|length|neck|bust|height|weight|measurements?|XS|XL|XXL)\b/i
 
@@ -206,15 +207,9 @@ export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('url')
   if (!raw) return NextResponse.json({ html: null })
 
-  let origin: string
-  try {
-    const u = new URL(raw)
-    if (!['http:', 'https:'].includes(u.protocol)) throw new Error()
-    if (/^(localhost|127\.|10\.|192\.168\.|::1)/.test(u.hostname)) throw new Error()
-    origin = `${u.protocol}//${u.hostname}`
-  } catch {
-    return NextResponse.json({ html: null })
-  }
+  const parsed = safeParseStoreUrl(raw)
+  if (!parsed) return NextResponse.json({ html: null })
+  const origin = parsed.origin
 
   // Check cache first
   if (cache.has(origin)) return NextResponse.json({ html: cache.get(origin) ?? null })

@@ -11,6 +11,7 @@ import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
 import { BRAND_NAMES } from '@/lib/stores'
 import { TAGLINES, shuffledIndices } from './taglines'
+import DOMPurify from 'dompurify'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const INK   = "#2C1206"   // dark brown
@@ -309,14 +310,8 @@ function getDescriptionText(p: Product): string {
 }
 
 function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed[^>]*>/gi, '')
-    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '')
-    .replace(/href\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '')
+  if (typeof window === 'undefined') return ''
+  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
 }
 
 const SIZE_TABLE_KWS = /\b(size|chest|waist|hip|inseam|sleeve|shoulder|length|neck|bust|height|weight|measurements?|XS|XL|XXL)\b/i

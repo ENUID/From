@@ -14,15 +14,19 @@ function getPeriodEnd(sub: Stripe.Subscription): number {
 }
 
 export async function POST(req: NextRequest) {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || !process.env.NEXT_PUBLIC_CONVEX_URL) {
+    console.error('[webhook] Missing required env vars')
+    return NextResponse.json({ error: 'Not configured' }, { status: 500 })
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
   const body = await req.text()
   const sig = req.headers.get('stripe-signature')
   if (!sig) return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET)
   } catch (err: any) {
     console.error('[webhook] signature verification failed:', err.message)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })

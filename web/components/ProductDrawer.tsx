@@ -604,7 +604,7 @@ export default function ProductDrawer({
                 <a
                   href={checkoutUrl}
                   target="_blank"
-                  rel="noopener"
+                  rel="noopener noreferrer"
                   style={{
                     display: 'block',
                     width: '100%',

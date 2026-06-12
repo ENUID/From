@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomInt } from 'crypto'
 import { ConvexHttpClient } from 'convex/browser'
 import { Resend } from 'resend'
 import { api } from '@/convex/_generated/api'
@@ -8,7 +9,7 @@ export const runtime = 'nodejs'
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'FROM <noreply@from.enuid.com>'
 
 function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  return String(randomInt(100000, 1000000))
 }
 
 function codeEmail(code: string): string {
