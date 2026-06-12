@@ -2660,12 +2660,12 @@ export const UCP_REGISTRY: StoreProfile[] = [
   {
     "domain": "highchicofficial.co",
     "name": "Highchic Official",
-    "categories": ["dress", "top", "bottom"],
-    "vibe": ["bodycon", "formal", "casual"],
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["casual", "minimalist"],
     "gender": ["women"],
     "priceRange": "mid",
-    "items": ["dress", "co-ord set", "top", "skirt", "jumpsuit"],
-    "about": "Trend-forward womenswear — polished going-out dresses and elevated everyday sets"
+    "items": ["shirt", "trousers", "top", "dress", "co-ord set"],
+    "about": "Casual womenswear — easy shirts, trousers, and everyday pieces for effortless daily dressing"
   },
   {
     "domain": "alldesignlab.co",
