@@ -57,12 +57,14 @@ export async function POST(req: NextRequest) {
         code,
       })
     } catch (e: any) {
-      const msg: string = e.message || ''
-      console.error('[send-code] createCode failed:', msg, e)
+      // Convex errors can be structured differently — extract message from all known shapes
+      const msg: string = e?.message || e?.data?.message || e?.data || (typeof e === 'string' ? e : '') || ''
+      const detail = msg || JSON.stringify(e) || 'unknown'
+      console.error('[send-code] createCode failed:', detail, e)
       if (msg.toLowerCase().includes('wait') || msg.toLowerCase().includes('moment')) {
         return NextResponse.json({ error: 'Please wait 60 seconds before requesting a new code.' }, { status: 429 })
       }
-      return NextResponse.json({ error: `Could not create sign-in code: ${msg || 'unknown error'}` }, { status: 500 })
+      return NextResponse.json({ error: `Sign-in error: ${detail}` }, { status: 500 })
     }
 
     const { error } = await resend.emails.send({
