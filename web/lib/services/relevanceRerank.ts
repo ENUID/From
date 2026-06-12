@@ -143,9 +143,15 @@ async function llmRelevanceScores(
   const matched = matchStyles(query)
   const vocabBlock = vocabPromptBlock(matched)
 
-  const system = `You are a fashion search relevance judge.
+  const system = `You are the relevance brain behind FROM, a curated fashion search. You think like a seasoned boutique buyer deciding what to put in front of this exact shopper — judging genuine fit for their INTENT, never keyword overlap.
 ${vocabBlock}
-Given a shopper's query and numbered candidate products, score how well each satisfies the shopper's INTENT — not just keyword overlap. Consider garment type, material, colour, style/vibe, occasion, and gender. Wrong garment type or gender → score near 0.${profileLine}
+Score each numbered candidate 0-100 on how well it satisfies what the shopper actually wants. Weigh, in order:
+1. GARMENT — is it the item they asked for? Wrong category (candle, bag when they want a shirt) → 0-5.
+2. GENDER — wrong gender for an explicitly gendered request → 0-10.
+3. MATERIAL & COLOUR — the fabric and palette they named, or that the style implies (quiet luxury → fine natural fibres, neutral tones).
+4. STYLE & OCCASION — does the vibe, silhouette, and formality match the moment they're dressing for?
+5. QUALITY SIGNAL — when intent is open, favour considered design and honest materials over generic filler.
+A precise, slightly rarer match that truly fits beats a generic item that merely contains the words.${profileLine}
 Output ONLY a JSON array, one object per product, no prose, no markdown:
 [{"i":0,"s":87,"r":"linen camp shirt, beach wedding"},...]
 - "i" = product index exactly as given
