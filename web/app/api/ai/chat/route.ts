@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
+import { compileIntent, compiledReplyText, compiledSuggestions } from '@/lib/intentCompiler'
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
@@ -9,7 +10,7 @@ import {
   UCP_REGISTRY,
   detectBrandsInQuery,
   brandDisplayName,
-  buildBrandDirectory,
+  buildCompactBrandDirectory,
   buildCategoryTaxonomy,
   buildVibeGlossary,
 } from '@/lib/stores'
@@ -471,6 +472,26 @@ export async function POST(req: NextRequest) {
     // can restrict to just those store(s) rather than scanning the whole registry.
     const detectedBrandDomains = detectBrandsInQuery(message)
 
+    // Fast path: deterministic compiler for clear product queries.
+    // Skips the LLM entirely — instant response with no model latency.
+    const compiled = compileIntent(message, activeBuyerCurrency)
+    if (compiled && !/\b(more|others?|another|different ones?)\b/i.test(message)) {
+      const compiledResult = await runCatalogSearch(compiled.args, {
+        countryCode,
+        buyerCurrency: activeBuyerCurrency,
+        excludeIds: collectProductIds(history || []),
+        fastFirstPage: true,
+        brandDomains: detectedBrandDomains,
+        tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
+      })
+      return NextResponse.json({
+        text: compiledReplyText(compiled, compiledResult.products.length),
+        ...compiledResult,
+        suggestions: compiledSuggestions(compiled),
+        meta: { compiledIntent: true },
+      })
+    }
+
     let dynamicSystemPrompt = SYSTEM_PROMPT;
 
     // ── Personalization: name, location, taste signals from saves & recent searches ──
@@ -525,7 +546,7 @@ export async function POST(req: NextRequest) {
 
     dynamicSystemPrompt += `\n\nVIBE GLOSSARY — what each brand's style tag signals (use it to match mood/occasion to brands):\n${buildVibeGlossary()}`;
 
-    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from this curated brand roster. Each entry lists what the brand sells, its style tags, and its catalog language — use this to pick the brands that best fit the request:\n${buildBrandDirectory()}\nThe 'search_ucp' tool strictly filters to these brands only. Never recommend or discuss products from any store outside this roster.`;
+    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from this curated brand roster. Each entry lists what the brand sells, its style tags, and its catalog language — use this to pick the brands that best fit the request:\n${buildCompactBrandDirectory()}\nThe 'search_ucp' tool strictly filters to these brands only. Never recommend or discuss products from any store outside this roster.`;
 
     if (detectedBrandDomains.length > 0) {
       const brandNames = detectedBrandDomains.map(d => {

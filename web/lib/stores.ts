@@ -3024,6 +3024,20 @@ export function buildBrandDirectory(): string {
   }).join("\n");
 }
 
+/** Compact directory — same as buildBrandDirectory but omits the verbose `about` field (~40% fewer tokens). */
+export function buildCompactBrandDirectory(): string {
+  return UCP_REGISTRY.map(store => {
+    const name = brandDisplayName(store);
+    const cats = store.categories.join(", ");
+    const vibes = store.vibe.length > 0 ? store.vibe.join(", ") : "general";
+    const lang = storeLanguageLabel(store);
+    const genderPart = store.gender ? ` | ${store.gender.join(", ")}` : "";
+    const pricePart = store.priceRange ? ` | price: ${store.priceRange}` : "";
+    const itemsPart = store.items ? ` | items: ${store.items.join(", ")}` : "";
+    return `- ${name} — ${store.domain}${genderPart}${pricePart} | sells: [${cats}]${itemsPart} | style: [${vibes}] | language: ${lang}`;
+  }).join("\n");
+}
+
 /** Human-readable category taxonomy (categories → subcategories → item types). */
 export function buildCategoryTaxonomy(): string {
   return Object.entries(CATEGORY_TAXONOMY).map(([key, val]) => {
