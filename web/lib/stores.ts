@@ -2648,6 +2648,376 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "pierrehardy.com",
+    "name": "Pierre Hardy",
+    "categories": ["footwear", "accessory"],
+    "vibe": ["luxury", "artistic", "french"],
+    "gender": ["men", "women"],
+    "priceRange": "luxury",
+    "items": ["sneakers", "loafers", "heels", "boots", "handbag"],
+    "about": "Parisian luxury footwear — graphic colour-blocking and architectural lines from a former Hermès designer"
+  },
+  {
+    "domain": "oscardelarenta.com",
+    "name": "Oscar de la Renta",
+    "categories": ["dress", "top", "bottom", "outerwear", "accessory"],
+    "vibe": ["luxury", "formal", "romantic"],
+    "gender": ["women"],
+    "priceRange": "luxury",
+    "items": ["gown", "cocktail dress", "blouse", "skirt", "evening bag"],
+    "about": "American couture house — occasion dressing, embroidered gowns, and ladylike glamour for evening and bridal"
+  },
+  {
+    "domain": "bronxandbanco.com",
+    "name": "Bronx and Banco",
+    "categories": ["dress", "top"],
+    "vibe": ["bodycon", "maximalist", "resort"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["evening dress", "gown", "mini dress", "lace dress", "jumpsuit"],
+    "about": "Glamour eveningwear — lace, fringe, and statement silhouettes for parties, weddings, and red-carpet moments"
+  },
+  {
+    "domain": "vessi.com",
+    "name": "Vessi",
+    "categories": ["footwear"],
+    "vibe": ["casual", "active", "outdoor"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["waterproof sneakers", "slip-on", "knit sneaker"],
+    "about": "Canadian waterproof knit sneakers — fully breathable, machine-washable, built for rain-city life"
+  },
+  {
+    "domain": "rouje.com",
+    "name": "Rouje",
+    "categories": ["dress", "top", "bottom", "outerwear"],
+    "vibe": ["french", "romantic", "vintage"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["wrap dress", "cardigan", "blouse", "jeans", "skirt"],
+    "about": "Jeanne Damas's Parisian label — effortless French-girl wrap dresses, knits, and vintage-inspired femininity"
+  },
+  {
+    "domain": "marcellanyc.com",
+    "name": "Marcella NYC",
+    "categories": ["dress", "top", "bottom", "outerwear"],
+    "vibe": ["minimalist", "formal", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress", "blazer", "knit top", "trousers", "skirt"],
+    "about": "NYC contemporary womenswear — sharp minimalist pieces with an edge, ethically made in Europe"
+  },
+  {
+    "domain": "kookai.com.au",
+    "name": "Kookai",
+    "categories": ["dress", "top", "bottom", "outerwear"],
+    "vibe": ["bodycon", "formal", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["mini dress", "blazer", "knit top", "trousers", "midi dress"],
+    "about": "Australian fashion house — fitted silhouettes, occasion dressing, and polished everyday pieces"
+  },
+  {
+    "domain": "fiorucci.com",
+    "name": "Fiorucci",
+    "categories": ["top", "bottom", "outerwear", "dress"],
+    "vibe": ["streetwear", "vintage", "maximalist"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["graphic tee", "jeans", "hoodie", "jacket", "mini dress"],
+    "about": "Italian retro streetwear icon — cherub graphics, vinyl, and disco-era pop energy revived"
+  },
+  {
+    "domain": "albuslumen.com",
+    "name": "Albus Lumen",
+    "categories": ["dress", "top", "bottom", "swimwear"],
+    "vibe": ["resort", "minimalist", "coastal"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["linen dress", "resort shirt", "swimsuit", "maxi dress", "linen trousers"],
+    "about": "Australian resort wear — fluid linen and earth-toned minimalism for sun-drenched escapes"
+  },
+  {
+    "domain": "allthingsmochi.com",
+    "name": "All Things Mochi",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["bohemian", "artisan", "maximalist"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["embroidered dress", "blouse", "skirt", "co-ord set"],
+    "about": "Hand-embroidered statement pieces — global artisan craft traditions woven into vibrant modern silhouettes"
+  },
+  {
+    "domain": "tallermarmo.com",
+    "name": "Taller Marmo",
+    "categories": ["dress", "top"],
+    "vibe": ["luxury", "maximalist", "resort"],
+    "gender": ["women"],
+    "priceRange": "luxury",
+    "items": ["fringed gown", "kaftan", "evening dress", "blouse"],
+    "about": "Milan-based eveningwear — fringe-trimmed kaftans and dramatic gowns with 1970s jet-set glamour"
+  },
+  {
+    "domain": "thefrankieshop.com",
+    "name": "The Frankie Shop",
+    "categories": ["top", "bottom", "outerwear", "dress"],
+    "vibe": ["minimalist", "streetwear", "formal"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["oversized blazer", "trousers", "shirt", "tee", "leather jacket"],
+    "about": "Paris/NYC cult label — oversized blazers and sharply minimal staples that defined the modern silhouette"
+  },
+  {
+    "domain": "olivercabell.com",
+    "name": "Oliver Cabell",
+    "categories": ["footwear"],
+    "vibe": ["minimalist", "luxury", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["leather sneakers", "low-top", "chelsea boots", "loafers"],
+    "about": "Direct-to-consumer Italian-made leather sneakers — luxury craftsmanship without the markup"
+  },
+  {
+    "domain": "elleandriley.com",
+    "name": "Elle and Riley",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["quiet-luxury", "cozy", "minimalist"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["cashmere sweater", "cashmere cardigan", "knit dress", "lounge set"],
+    "about": "Cashmere everyday essentials — buttery knits and elevated loungewear in a soft neutral palette"
+  },
+  {
+    "domain": "casablancaparis.com",
+    "name": "Casablanca Paris",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["luxury", "resort", "maximalist"],
+    "gender": ["men", "women"],
+    "priceRange": "luxury",
+    "items": ["silk shirt", "track jacket", "printed shirt", "knit polo", "trousers"],
+    "about": "French luxury leisurewear — printed silk shirts and après-sport elegance with Moroccan-riviera flair"
+  },
+  {
+    "domain": "patta.nl",
+    "name": "Patta",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["streetwear"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["graphic tee", "hoodie", "track jacket", "cap", "cargo pants"],
+    "about": "Amsterdam streetwear institution — community-rooted graphics and collabs from the Dutch scene's founders"
+  },
+  {
+    "domain": "andersen-andersen.com",
+    "name": "Andersen-Andersen",
+    "categories": ["top", "accessory"],
+    "vibe": ["heritage-workwear", "minimalist", "coastal"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["sailor sweater", "merino sweater", "beanie", "cardigan"],
+    "about": "Danish knitwear — five-gauge merino sailor sweaters built like workwear, made to last decades"
+  },
+  {
+    "domain": "relode.se",
+    "name": "Relode",
+    "categories": ["top", "bottom"],
+    "vibe": ["workout", "active", "seamless"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["training tee", "shorts", "leggings", "hoodie", "tank"],
+    "about": "Swedish gymwear — clean Scandinavian training essentials with technical fabrics"
+  },
+  {
+    "domain": "myrqvist.com",
+    "name": "Myrqvist",
+    "categories": ["footwear"],
+    "vibe": ["minimalist", "formal", "quiet-luxury"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["loafers", "derbies", "chelsea boots", "sneakers", "oxfords"],
+    "about": "Swedish footwear — Goodyear-welted dress shoes and minimal sneakers, handmade in Portugal at honest prices"
+  },
+  {
+    "domain": "hope-sthlm.com",
+    "name": "Hope Stockholm",
+    "categories": ["top", "bottom", "outerwear", "dress"],
+    "vibe": ["minimalist", "formal", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["tailored trousers", "blazer", "shirt", "wool coat", "jeans"],
+    "about": "Swedish tailoring with size-neutral design — relaxed suiting and sharp Scandinavian everyday wear"
+  },
+  {
+    "domain": "toteme-studio.com",
+    "name": "Toteme",
+    "categories": ["top", "bottom", "outerwear", "dress", "accessory"],
+    "vibe": ["quiet-luxury", "minimalist"],
+    "gender": ["women"],
+    "priceRange": "luxury",
+    "items": ["wool coat", "knit sweater", "tailored trousers", "silk blouse", "scarf jacket"],
+    "about": "Stockholm's quiet-luxury benchmark — disciplined silhouettes and impeccable everyday uniform dressing"
+  },
+  {
+    "domain": "cdlp.com",
+    "name": "CDLP",
+    "categories": ["underwear", "top", "swimwear"],
+    "vibe": ["quiet-luxury", "minimalist", "seamless"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["boxer briefs", "lounge pants", "swim shorts", "tank", "socks"],
+    "about": "Swedish premium underwear — lyocell luxury basics and refined loungewear with sustainable fabric focus"
+  },
+  {
+    "domain": "kotn.com",
+    "name": "Kotn",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["sustainable", "organic", "minimalist", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["tee", "sweater", "trousers", "shirt", "hoodie"],
+    "about": "Canadian sustainable basics — traceable Egyptian cotton essentials that fund schools in farming communities"
+  },
+  {
+    "domain": "knix.com",
+    "name": "Knix",
+    "categories": ["underwear", "top"],
+    "vibe": ["seamless", "active", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["leakproof underwear", "wireless bra", "shapewear", "tank", "sleep set"],
+    "about": "Canadian intimates — leakproof underwear and wireless bras engineered for real bodies and real life"
+  },
+  {
+    "domain": "judithandcharles.com",
+    "name": "Judith & Charles",
+    "categories": ["top", "bottom", "dress", "outerwear"],
+    "vibe": ["formal", "minimalist", "quiet-luxury"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["blazer", "dress", "trousers", "silk blouse", "coat"],
+    "about": "Canadian contemporary womenswear — architectural tailoring and polished workwear made in Montreal"
+  },
+  {
+    "domain": "tenthousand.cc",
+    "name": "Ten Thousand",
+    "categories": ["top", "bottom"],
+    "vibe": ["workout", "sport", "active"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["training shorts", "tee", "tank", "joggers", "compression"],
+    "about": "Performance training gear for men — durable minimalist kit built and tested by athletes"
+  },
+  {
+    "domain": "elder-statesman.com",
+    "name": "The Elder Statesman",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["luxury", "bohemian", "artisan"],
+    "gender": ["men", "women"],
+    "priceRange": "luxury",
+    "items": ["cashmere sweater", "tie-dye knit", "cashmere beanie", "lounge pants"],
+    "about": "LA luxury cashmere — hand-dyed, hand-loomed knits with laid-back California artistry"
+  },
+  {
+    "domain": "fearofgod.com",
+    "name": "Fear of God",
+    "categories": ["top", "bottom", "outerwear", "footwear"],
+    "vibe": ["streetwear", "minimalist", "luxury"],
+    "gender": ["men", "women"],
+    "priceRange": "luxury",
+    "items": ["hoodie", "sweatpants", "overcoat", "tee", "sneakers"],
+    "about": "Jerry Lorenzo's American luxury — elevated essentials and relaxed tailoring that redefined premium casual"
+  },
+  {
+    "domain": "johnelliott.com",
+    "name": "John Elliott",
+    "categories": ["top", "bottom", "outerwear", "footwear"],
+    "vibe": ["streetwear", "minimalist", "luxury"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["hoodie", "french terry sweatpants", "tee", "denim", "bomber"],
+    "about": "LA luxury streetwear — obsessively engineered fleece, refined cuts, and elevated everyday staples"
+  },
+  {
+    "domain": "buckmason.com",
+    "name": "Buck Mason",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "heritage-workwear", "minimalist"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["slub tee", "oxford shirt", "jeans", "field jacket", "henley"],
+    "about": "Modern American classics — perfected tees, denim, and timeless staples made to wear for years"
+  },
+  {
+    "domain": "golfwang.com",
+    "name": "Golf Wang",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["streetwear", "maximalist"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["graphic tee", "hoodie", "cardigan", "beanie", "varsity jacket"],
+    "about": "Tyler, the Creator's label — saturated colour, playful graphics, and golf-le-fleur whimsy"
+  },
+  {
+    "domain": "whimsyandrow.com",
+    "name": "Whimsy + Row",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["sustainable", "romantic", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["midi dress", "linen top", "skirt", "jumpsuit"],
+    "about": "LA slow fashion — small-batch feminine pieces in deadstock and eco fabrics"
+  },
+  {
+    "domain": "shainamote.com",
+    "name": "Shaina Mote",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["minimalist", "artisan", "japanese"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["draped dress", "linen top", "wide-leg trousers", "knit"],
+    "about": "LA-made sculptural minimalism — fluid natural-fibre pieces with quiet Japanese-inflected drape"
+  },
+  {
+    "domain": "proclub.com",
+    "name": "Pro Club",
+    "categories": ["top", "bottom"],
+    "vibe": ["streetwear", "casual"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["heavyweight tee", "hoodie", "sweatpants", "thermal"],
+    "about": "The heavyweight blank tee institution — LA streetwear's foundation layer since 1986"
+  },
+  {
+    "domain": "michaelstars.com",
+    "name": "Michael Stars",
+    "categories": ["top", "bottom", "dress"],
+    "vibe": ["casual", "cozy", "minimalist"],
+    "gender": ["women", "men"],
+    "priceRange": "mid",
+    "items": ["tee", "knit dress", "cardigan", "joggers", "tank"],
+    "about": "LA-made luxe basics — supima tees and easy knits with laid-back California polish"
+  },
+  {
+    "domain": "alphaindustries.com",
+    "name": "Alpha Industries",
+    "categories": ["outerwear", "top"],
+    "vibe": ["streetwear", "heritage-workwear", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["MA-1 bomber", "field jacket", "parka", "flight jacket", "tee"],
+    "about": "The original military bomber — MA-1 flight jackets and mil-spec outerwear since 1959"
+  },
+  {
+    "domain": "christydawn.com",
+    "name": "Christy Dawn",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["romantic", "vintage", "sustainable", "cottagecore"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["prairie dress", "midi dress", "blouse", "skirt"],
+    "about": "Vintage-inspired prairie dresses in deadstock and regeneratively farmed cotton — romantic, honest, heirloom-worthy"
+  },
+  {
     "domain": "youngla.com",
     "name": "YoungLA",
     "categories": ["top", "bottom", "outerwear"],
