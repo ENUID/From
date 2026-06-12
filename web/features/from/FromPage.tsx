@@ -1067,6 +1067,7 @@ export default function FromApp({
     onboardEmail ? { userEmail: onboardEmail } : 'skip'
   )
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
+  const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
   const [showOnboarding, setShowOnboarding]     = useState(false)
   const [onboardingStep, setOnboardingStep]     = useState(0)
   const [selectedStyles, setSelectedStyles]     = useState<string[]>([])
@@ -1871,6 +1872,26 @@ export default function FromApp({
     const q = buildMoreLikeQuery(p)
     setSelected(null)        // close the detail sheet
     sendMessage(q)           // runs the normal search pipeline (graceful fallback included)
+  }
+
+  // ── Learning loop: flag a result as a bad match ───────────────────────────
+  // Highest-signal training data for tuning the search. Fire-and-forget, with
+  // a one-shot confirmation; failures are swallowed so feedback never blocks.
+  const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set())
+  function flagBadMatch(p: Product | null) {
+    if (!p || flaggedIds.has(p.id)) return
+    setFlaggedIds(prev => new Set(prev).add(p.id))
+    const q = lastProductMsg?.searchQuery || [...messages].reverse().find(m => m.role === 'user')?.content || ''
+    try {
+      flagQualitySignal({
+        userEmail: onboardEmail,
+        query: String(q).slice(0, 200),
+        productId: p.id,
+        productTitle: p.title,
+        vendor: p.vendor,
+        signal: 'bad_match',
+      })
+    } catch { /* never block on feedback */ }
   }
 
   // Restore/persist unit preference across products
@@ -4462,6 +4483,13 @@ export default function FromApp({
                         </a>
                       </div>
 
+                      <div style={{ padding: '10px 24px 0' }}>
+                        <button type="button" onClick={() => flagBadMatch(selectedProduct)} disabled={flaggedIds.has(selectedProduct.id)}
+                          style={{ fontFamily: SANS, fontSize: 11, color: INK3, background: 'none', border: 'none', cursor: flaggedIds.has(selectedProduct.id) ? 'default' : 'pointer', padding: 0 }}>
+                          {flaggedIds.has(selectedProduct.id) ? 'Thanks — noted.' : "Not what you searched for?"}
+                        </button>
+                      </div>
+
                       <div key={selectedProduct.id} style={{ padding: '16px 24px 0' }}>
                         {(sheetDesc || sheetDescHtml) && (
                           <Accordion label="Description & Fit" defaultOpen>
@@ -4698,6 +4726,13 @@ export default function FromApp({
                         style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", color: INK, textDecoration: "underline", textUnderlineOffset: 3 }}>
                         Visit store
                       </a>
+                    </div>
+
+                    <div style={{ padding: "10px 20px 0" }}>
+                      <button type="button" onClick={() => flagBadMatch(selectedProduct)} disabled={flaggedIds.has(selectedProduct.id)}
+                        style={{ fontFamily: SANS, fontSize: 11, color: INK3, background: "none", border: "none", cursor: flaggedIds.has(selectedProduct.id) ? "default" : "pointer", padding: 0 }}>
+                        {flaggedIds.has(selectedProduct.id) ? "Thanks — noted." : "Not what you searched for?"}
+                      </button>
                     </div>
 
                     <div key={selectedProduct.id} style={{ padding: "22px 20px 0" }}>

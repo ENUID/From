@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as qualitySignals from "../qualitySignals.js";
 import type * as shop from "../shop.js";
 import type * as stylistMemory from "../stylistMemory.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -22,6 +23,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  qualitySignals: typeof qualitySignals;
   shop: typeof shop;
   stylistMemory: typeof stylistMemory;
   subscriptions: typeof subscriptions;

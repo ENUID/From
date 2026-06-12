@@ -11,6 +11,20 @@ export function isRerankEnabled(): boolean {
 const RERANK_TOP_N   = Number(process.env.RELEVANCE_RERANK_TOP_N   ?? 40)
 const DESC_CHARS     = Number(process.env.RELEVANCE_RERANK_DESC_CHARS ?? 220)
 const TIMEOUT_MS     = Number(process.env.RELEVANCE_RERANK_TIMEOUT_MS ?? 6000)
+// Cost guard: cap LLM judge calls per rolling minute. Over budget → BM25 order
+// (still good, still free). 0 disables the cap. Default 120/min headroom.
+const MAX_LLM_PER_MIN = Number(process.env.RELEVANCE_RERANK_MAX_PER_MIN ?? 120)
+
+let llmWindowStart = Date.now()
+let llmCallsThisWindow = 0
+function llmBudgetAvailable(): boolean {
+  if (MAX_LLM_PER_MIN <= 0) return true
+  const now = Date.now()
+  if (now - llmWindowStart >= 60_000) { llmWindowStart = now; llmCallsThisWindow = 0 }
+  if (llmCallsThisWindow >= MAX_LLM_PER_MIN) return false
+  llmCallsThisWindow++
+  return true
+}
 
 // ── Simple cache ──────────────────────────────────────────────────────────────
 type CacheEntry = { ts: number; ids: string[]; scores: Map<string, number> }
@@ -249,6 +263,11 @@ export async function rerankByRelevance(
     const remaining = products.filter(p => !seenIds.has(p.id))
     void idxMap
     return [...reordered, ...remaining]
+  }
+
+  // Cost guard: if we're over the per-minute LLM budget, serve BM25 order.
+  if (!llmBudgetAvailable()) {
+    return [...topN, ...rest]
   }
 
   // Stage 2: LLM batch score

@@ -18,6 +18,7 @@ import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES } from '../stores'
 import { getExchangeRates } from '../exchangeRates'
 import { rerankByRelevance } from './relevanceRerank'
 import { matchStyles } from '../styleVocabulary'
+import { recordBrandOutcome, deprioritizeDead } from './brandHealth'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -204,7 +205,7 @@ function getCategoryDomains(query: string): string[] {
 
   // Relevance score: vibe terms appearing in the query rank a brand higher,
   // plus style-vocabulary fit, gender fit, and a small boost for category breadth.
-  return [...pool]
+  const ranked = [...pool]
     .map(s => {
       let score = 0
       for (const vibe of s.vibe) {
@@ -225,6 +226,10 @@ function getCategoryDomains(query: string): string[] {
     })
     .sort((a, b) => b.score - a.score)
     .map(x => x.domain)
+
+  // Push stores that have been hard-failing to the back — they're queried only
+  // if the healthy ones don't fill the page, and rejoin automatically on recovery.
+  return deprioritizeDead(ranked)
 }
 
 // ─── Concept relevance ─────────────────────────────────────────────────────────
@@ -383,7 +388,7 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
   const filters: Record<string, unknown> = { available: true }
   if (countryCode) filters.ships_to = { country: countryCode }
 
-  const runOne = async (q: string): Promise<any[]> => {
+  const runOne = async (q: string): Promise<{ products: any[]; errored: boolean }> => {
     const payload = {
       jsonrpc: '2.0',
       method: 'tools/call',
@@ -400,18 +405,23 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(STORE_TIMEOUT_MS),
       })
-      if (!res.ok) return []
+      if (!res.ok) return { products: [] as any[], errored: true }
       const data = await res.json()
       const products = extractProducts(data)
       for (const p of products) p._sourceDomain = domain
-      return products
+      return { products, errored: false }
     } catch {
-      return []
+      // Timeout / network / parse error — a "down" signal for health tracking.
+      return { products: [] as any[], errored: true }
     }
   }
 
   const results = await Promise.all(Array.from(queries).map(runOne))
-  return results.flat()
+  // A store is healthy if ANY query variant succeeded without erroring.
+  const errored = results.every(r => r.errored)
+  const products = results.flatMap(r => r.products)
+  recordBrandOutcome(domain, { productCount: products.length, errored })
+  return products
 }
 
 // ─── Product normalization ─────────────────────────────────────────────────────

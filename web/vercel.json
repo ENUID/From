@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/style-signals",
       "schedule": "0 6 */2 * *"
+    },
+    {
+      "path": "/api/cron/brand-health",
+      "schedule": "0 5 * * *"
     }
   ]
 }

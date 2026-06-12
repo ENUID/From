@@ -73,4 +73,19 @@ export default defineSchema({
     used: v.boolean(),
     attempts: v.optional(v.number()),
   }).index("by_email", ["email"]),
+
+  // Learning loop: explicit relevance feedback. A shopper flagging a result as
+  // a bad match is the highest-signal training data the search can get — these
+  // accumulate for periodic review and rerank/threshold tuning.
+  quality_signals: defineTable({
+    userId: v.optional(v.id("users")),
+    query: v.string(),
+    productId: v.string(),
+    productTitle: v.optional(v.string()),
+    vendor: v.optional(v.string()),
+    signal: v.union(v.literal("bad_match"), v.literal("good_match")),
+    reason: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_signal", ["signal"])
+    .index("by_query", ["query"]),
 });
