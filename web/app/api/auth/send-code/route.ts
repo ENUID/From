@@ -40,7 +40,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }
 
-  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
+  // Normalize and validate the Convex URL — a .convex.site URL or trailing
+  // slash makes /api/mutation 404 with an empty body (empty Error message).
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL.trim().replace(/\/+$/, '')
+  if (convexUrl.includes('.convex.site')) {
+    console.error('[send-code] NEXT_PUBLIC_CONVEX_URL points to .convex.site:', convexUrl)
+    return NextResponse.json(
+      { error: 'Configuration error: NEXT_PUBLIC_CONVEX_URL must be the .convex.cloud deployment URL, not .convex.site' },
+      { status: 503 },
+    )
+  }
+
+  const convex = new ConvexHttpClient(convexUrl)
   const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const { email } = await req.json()
@@ -67,10 +78,22 @@ export async function POST(req: NextRequest) {
       // Real failure (not rate limiting). Convex redacts thrown Error messages
       // in prod, so collect every shape we can for the logs and the response.
       const msg: string = e?.message || e?.data?.message || (typeof e?.data === 'string' ? e.data : '') || ''
-      const props = e && typeof e === 'object'
-        ? Object.getOwnPropertyNames(e).map(k => `${k}=${String((e as any)[k]).slice(0, 120)}`).join(' | ')
-        : ''
-      const detail = msg || props || String(e) || 'unknown'
+      let detail = msg
+      if (!detail) {
+        // Empty message = the HTTP call to Convex failed with an empty body
+        // (wrong URL, paused deployment, network). Probe to name the failure.
+        try {
+          const probe = await fetch(`${convexUrl}/api/query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: 'users:getUserByEmail', format: 'convex_encoded_json', args: [{ email: 'probe@example.com' }] }),
+            signal: AbortSignal.timeout(5000),
+          })
+          detail = `Convex endpoint ${new URL(convexUrl).host} answered HTTP ${probe.status} ${probe.statusText}`.trim()
+        } catch (probeErr: any) {
+          detail = `Convex endpoint ${new URL(convexUrl).host} unreachable: ${probeErr?.message || 'network error'}`
+        }
+      }
       console.error('[send-code] createCode failed:', detail)
       return NextResponse.json({ error: `Sign-in error: ${detail}` }, { status: 500 })
     }

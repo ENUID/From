@@ -6,8 +6,8 @@ import { api } from '../convex/_generated/api'
 
 function getConvex() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
-  if (!url) throw new Error('NEXT_PUBLIC_CONVEX_URL is not set')
-  return new ConvexHttpClient(url)
+  if (!url) throw new Error('NEXTAUTH: NEXT_PUBLIC_CONVEX_URL is not set')
+  return new ConvexHttpClient(url.trim().replace(/\/+$/, ''))
 }
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30
