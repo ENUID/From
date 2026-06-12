@@ -2648,6 +2648,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "highchicofficial.co",
+    "name": "Highchic Official",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["bodycon", "formal", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress", "co-ord set", "top", "skirt", "jumpsuit"],
+    "about": "Trend-forward womenswear — polished going-out dresses and elevated everyday sets"
+  },
+  {
     "domain": "alldesignlab.co",
     "name": "All Design Lab",
     "categories": ["top", "bottom", "outerwear", "accessory"],
