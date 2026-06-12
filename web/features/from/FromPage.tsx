@@ -1195,6 +1195,18 @@ export default function FromApp({
   const [isWide, setIsWide]             = useState(false)
   const [isMedium, setIsMedium]         = useState(false)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
+  const attachBtnRef = useRef<HTMLButtonElement>(null)
+  const [attachRect, setAttachRect] = useState<{ left: number; top: number } | null>(null)
+  const openAttachMenu = () => {
+    setAttachMenuOpen(o => {
+      const next = !o
+      if (next && attachBtnRef.current) {
+        const r = attachBtnRef.current.getBoundingClientRect()
+        setAttachRect({ left: r.left, top: r.top })
+      }
+      return next
+    })
+  }
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
@@ -2250,6 +2262,123 @@ export default function FromApp({
       <input ref={cameraRef}   type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleFile} />
       <input ref={fileRef}     type="file" accept="*/*" multiple style={{ display:'none' }} onChange={handleFile} />
 
+      {/* ── Mandatory account gate ── */}
+      {/* Blocks the app until signed in. No close button, no dismiss-on-tap, fixed
+          so it never scrolls away. Email-OTP unifies sign-up and sign-in (a code
+          to a new email creates the account; to an existing one, signs in), and
+          Google does the same — so there is no separate login screen to add. */}
+      {authStatus === 'unauthenticated' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 4000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 18, background: 'rgba(28,12,4,0.46)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        }}>
+          <div style={{
+            width: '100%', maxWidth: 392, background: BG, borderRadius: 22,
+            padding: '30px 26px 22px', boxShadow: '0 24px 70px rgba(28,12,4,.34)',
+            animation: 'fadeScale .26s ease', maxHeight: '94vh', overflowY: 'auto',
+          }}>
+            <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 600, letterSpacing: '.04em', color: INK, marginBottom: 18 }}>FROM</div>
+            <div style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.1 }}>
+              {otpStep === 'code' ? 'Check your email' : 'Create account'}
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 6, marginBottom: 22, lineHeight: 1.5 }}>
+              {otpStep === 'code' ? `We sent a 6-digit code to ${otpEmail}` : 'Join From to start exploring'}
+            </div>
+
+            {authUrlError && (
+              <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.15)', borderRadius: 10, padding: '10px 12px', marginBottom: 14, lineHeight: 1.5 }}>
+                {authUrlError}
+              </div>
+            )}
+
+            {otpStep === 'email' && (
+              <>
+                <button type="button" onClick={() => signIn('google', { callbackUrl: window.location.origin + '/' })}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    padding: '13px 16px', borderRadius: 30, background: '#fff', border: `1px solid ${BRD}`,
+                    fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, cursor: 'pointer', marginBottom: 18 }}>
+                  <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+                  Continue with Google
+                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 18px' }}>
+                  <div style={{ flex: 1, height: 1, background: BRD }} />
+                  <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: '.08em' }}>OR</span>
+                  <div style={{ flex: 1, height: 1, background: BRD }} />
+                </div>
+
+                <form onSubmit={async e => {
+                  e.preventDefault()
+                  if (!otpEmail.trim() || otpSending) return
+                  setOtpError(null); setOtpSending(true)
+                  try {
+                    const r = await fetch('/api/auth/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: otpEmail.trim() }) })
+                    const d = await r.json()
+                    if (!r.ok) throw new Error(d.error || 'Failed to send code')
+                    setOtpStep('code'); setOtpResendIn(60)
+                  } catch (err: any) { setOtpError(err.message) } finally { setOtpSending(false) }
+                }}>
+                  <input type="email" value={otpEmail} placeholder="Email address" onChange={e => setOtpEmail(e.target.value)} autoComplete="email"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '13px 16px', borderRadius: 12, marginBottom: 12,
+                      border: `1px solid ${BRD}`, fontFamily: SANS, fontSize: 14, color: INK, background: BG2, outline: 'none' }} />
+                  {otpError && <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 12 }}>{otpError}</div>}
+                  <button type="submit" disabled={otpSending || !otpEmail.trim()}
+                    style={{ width: '100%', padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none',
+                      cursor: otpSending ? 'default' : 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, letterSpacing: '.08em',
+                      textTransform: 'uppercase', opacity: otpSending || !otpEmail.trim() ? 0.5 : 1 }}>
+                    {otpSending ? 'Sending…' : 'Create account'}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {otpStep === 'code' && (
+              <form onSubmit={async e => {
+                e.preventDefault()
+                if (!otpCode.trim() || otpVerifying) return
+                setOtpError(null); setOtpVerifying(true)
+                try {
+                  const result = await signIn('email-otp', { email: otpEmail.trim(), code: otpCode.trim(), redirect: false })
+                  if (result?.error) throw new Error(result.error === 'CredentialsSignin' ? 'Invalid or expired code — try again' : `Sign-in failed: ${result.error}`)
+                  setOtpStep('email'); setOtpCode('')
+                } catch (err: any) { setOtpError(err.message) } finally { setOtpVerifying(false) }
+              }}>
+                <input type="text" value={otpCode} placeholder="000000" onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputMode="numeric" autoComplete="one-time-code" autoFocus
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '13px 16px', borderRadius: 12, marginBottom: 12,
+                    border: `1px solid ${BRD}`, fontFamily: SANS, fontSize: 22, fontWeight: 600, letterSpacing: '0.3em',
+                    color: INK, background: BG2, outline: 'none', textAlign: 'center' }} />
+                {otpError && <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 12 }}>{otpError}</div>}
+                <button type="submit" disabled={otpCode.length < 6 || otpVerifying}
+                  style={{ width: '100%', padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none',
+                    cursor: otpCode.length < 6 || otpVerifying ? 'default' : 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                    letterSpacing: '.08em', textTransform: 'uppercase', opacity: otpCode.length < 6 || otpVerifying ? 0.5 : 1, marginBottom: 12 }}>
+                  {otpVerifying ? 'Verifying…' : 'Verify & continue'}
+                </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <button type="button" onClick={() => { setOtpStep('email'); setOtpCode(''); setOtpError(null) }}
+                    style={{ background: 'none', border: 'none', fontFamily: SANS, fontSize: 12, color: INK3, cursor: 'pointer', padding: 0 }}>← Change email</button>
+                  <button type="button" disabled={otpResendIn > 0} onClick={async () => {
+                    if (otpResendIn > 0) return
+                    setOtpError(null); setOtpSending(true)
+                    try {
+                      const r = await fetch('/api/auth/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: otpEmail.trim() }) })
+                      const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); setOtpResendIn(60)
+                    } catch (err: any) { setOtpError(err.message) } finally { setOtpSending(false) }
+                  }} style={{ background: 'none', border: 'none', fontFamily: SANS, fontSize: 12, color: otpResendIn > 0 ? INK3 : INK, cursor: otpResendIn > 0 ? 'default' : 'pointer', padding: 0, opacity: otpResendIn > 0 ? 0.45 : 1 }}>
+                    {otpResendIn > 0 ? `Resend in ${otpResendIn}s` : 'Resend code'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 20, lineHeight: 1.6, opacity: 0.8 }}>
+              By continuing you agree to From's Terms &amp; Privacy Policy.
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="fr-wrap">
         <div className="fr-shell">
@@ -3125,7 +3254,7 @@ export default function FromApp({
 
                     {/* Paperclip — custom ordered attach menu */}
                     <div style={{ position: 'relative' }}>
-                    <button type="button" className="fr-icon-btn" onClick={() => setAttachMenuOpen(o => !o)}>
+                    <button ref={attachBtnRef} type="button" className="fr-icon-btn" onClick={openAttachMenu}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                       </svg>
@@ -3133,8 +3262,13 @@ export default function FromApp({
                       {attachMenuOpen && (
                         <>
                           <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={() => setAttachMenuOpen(false)} />
-                          <div style={{ position: 'absolute', bottom: 'calc(100% + 10px)', left: 0, zIndex: 301,
-                            background: '#fff', borderRadius: 14, overflow: 'hidden', minWidth: 200,
+                          {/* Fixed positioning escapes the search bar's overflow:hidden clip,
+                              anchored just above the paperclip via its measured position. */}
+                          <div style={{ position: 'fixed',
+                            left: attachRect ? Math.max(12, attachRect.left) : 16,
+                            bottom: attachRect ? (window.innerHeight - attachRect.top + 10) : 86,
+                            zIndex: 301,
+                            background: '#fff', borderRadius: 14, overflow: 'hidden', minWidth: 210,
                             boxShadow: '0 8px 28px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.07)' }}>
                             {([
                               { label: 'Photo Library', action: () => photoLibRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
