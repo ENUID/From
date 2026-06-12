@@ -3,8 +3,10 @@ import type { UcpProduct } from './GlobalCatalogService'
 import { matchStyles, vocabPromptBlock } from '../styleVocabulary'
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
+// LLM rerank is ON by default — set RELEVANCE_RERANK=off to disable.
+// Always graceful: 6s timeout, silent fallback to BM25 order, 15-min cache.
 export function isRerankEnabled(): boolean {
-  return (process.env.RELEVANCE_RERANK ?? 'off').toLowerCase() === 'on'
+  return (process.env.RELEVANCE_RERANK ?? 'on').toLowerCase() === 'on'
 }
 const RERANK_TOP_N   = Number(process.env.RELEVANCE_RERANK_TOP_N   ?? 40)
 const DESC_CHARS     = Number(process.env.RELEVANCE_RERANK_DESC_CHARS ?? 220)
