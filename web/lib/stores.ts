@@ -2648,6 +2648,166 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Spanish slow fashion — natural fibres, clean lines, and timeless silhouettes crafted for the conscious wardrobe"
   },
   {
+    "domain": "blackhalo.com",
+    "name": "Black Halo",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["formal", "bodycon", "minimalist"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["sheath dress", "jumpsuit", "midi dress", "blazer dress"],
+    "about": "LA-made sculpted dressing — the iconic Jackie O sheath and precision-cut event wear"
+  },
+  {
+    "domain": "asphalte.com",
+    "name": "Asphalte",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["minimalist", "casual", "french"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["tee", "chinos", "overshirt", "sweater", "jacket"],
+    "about": "French menswear on a made-to-order model — community-designed essentials without waste"
+  },
+  {
+    "domain": "flagandanthem.com",
+    "name": "Flag & Anthem",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "heritage-workwear"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["henley", "flannel", "jeans", "tee", "jacket"],
+    "about": "Small-town American menswear — rugged casual staples with vintage soul"
+  },
+  {
+    "domain": "babyboofashion.com",
+    "name": "BABYBOO Fashion",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["bodycon", "resort"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["mini dress", "bodycon dress", "co-ord set", "going-out top"],
+    "about": "Australian going-out fashion — figure-hugging dresses and party sets for the night out"
+  },
+  {
+    "domain": "noseridersurfclub.com",
+    "name": "Noserider Surf Club",
+    "categories": ["swimwear", "top", "bottom"],
+    "vibe": ["coastal", "vintage", "casual"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["swimsuit", "bikini", "surf suit", "boardshorts", "tee"],
+    "about": "Retro-inspired surfwear — 70s longboard style in sustainable swim and beach pieces"
+  },
+  {
+    "domain": "ohpolly.com",
+    "name": "Oh Polly",
+    "categories": ["dress", "top", "bottom", "swimwear"],
+    "vibe": ["bodycon", "formal"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["bodycon dress", "corset dress", "mini dress", "bikini", "gown"],
+    "about": "UK glamour label — sculpting occasion dresses and contour fits for events and nights out"
+  },
+  {
+    "domain": "starcadet.com",
+    "name": "Star Cadet",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["streetwear", "maximalist", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["graphic tee", "hoodie", "shorts", "cap"],
+    "about": "Playful indie apparel — colourful graphics and limited drops with a creator-community spirit"
+  },
+  {
+    "domain": "krosskulture.com",
+    "name": "Kross Kulture",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["indian-ethnic", "formal"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "embroidered dress", "co-ord set", "tunic"],
+    "about": "Pakistani contemporary ethnic wear — embroidered kurtas and modern eastern silhouettes"
+  },
+  {
+    "domain": "kirrinfinch.com",
+    "name": "Kirrin Finch",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["formal", "preppy", "minimalist"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["button-up shirt", "blazer", "trousers", "suit"],
+    "about": "Menswear-inspired tailoring for women and non-binary bodies — dapper shirts and suits, ethically made"
+  },
+  {
+    "domain": "loveluna.com.au",
+    "name": "Love Luna",
+    "categories": ["underwear"],
+    "vibe": ["seamless", "casual"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["period underwear", "briefs", "sleep shorts"],
+    "about": "Australian period underwear — leakproof everyday styles at accessible prices"
+  },
+  {
+    "domain": "wearfigs.com",
+    "name": "FIGS",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["workout", "minimalist", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["scrub top", "scrub pants", "underscrub", "vest", "jogger scrubs"],
+    "about": "Premium medical apparel — technical scrubs with athletic-wear comfort and a tailored fit"
+  },
+  {
+    "domain": "universalstore.com",
+    "name": "Universal Store",
+    "categories": ["top", "bottom", "dress", "outerwear", "footwear"],
+    "vibe": ["streetwear", "casual", "denim"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["graphic tee", "jeans", "mini dress", "hoodie", "sneakers"],
+    "about": "Australian youth fashion destination — streetwear, denim, and festival-ready brands under one roof"
+  },
+  {
+    "domain": "deadstock.ca",
+    "name": "Deadstock",
+    "categories": ["footwear", "top", "accessory"],
+    "vibe": ["streetwear"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["sneakers", "graphic tee", "cap", "hoodie"],
+    "about": "Toronto sneaker and streetwear boutique — curated drops and Canadian street culture"
+  },
+  {
+    "domain": "mrbeast.store",
+    "name": "MrBeast Store",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["streetwear", "casual"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["graphic tee", "hoodie", "shorts", "cap", "plushie"],
+    "about": "Official MrBeast merch — bold Beast-branded basics from the biggest creator on the planet"
+  },
+  {
+    "domain": "shoprhode.com",
+    "name": "Rhode",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["resort", "romantic", "maximalist"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["printed dress", "maxi dress", "co-ord set", "blouse"],
+    "about": "Joyful printed resort dressing — bold patterns and easy silhouettes made for sunshine"
+  },
+  {
+    "domain": "rezekstudio.com",
+    "name": "Rezek Studio",
+    "categories": ["dress", "top", "bottom"],
+    "vibe": ["romantic", "vintage", "resort"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["mini dress", "matching set", "top", "skirt"],
+    "about": "LA it-girl label — flirty vintage-inspired dresses and sets with a sunny California spirit"
+  },
+  {
     "domain": "pierrehardy.com",
     "name": "Pierre Hardy",
     "categories": ["footwear", "accessory"],
