@@ -863,6 +863,13 @@ type StylistLoadingPhase = { main: string; sub: string; subsub?: string }
 function buildStylistLoadingPhases(question: string, hasImages: boolean): StylistLoadingPhase[] {
   const q = question.toLowerCase()
 
+  // Short social exchanges don't need an elaborate loading animation — just a quiet wait indicator
+  const PLEASANTRY_RE = /^(ok|okay|got it|sounds good|perfect|great|awesome|cool|sure|noted|thanks|thank you|ty|cheers|done|yes|no|yep|nope|hi|hey|hello|sup|what'?s\s*up|good morning|good afternoon|good evening|nice|love it|makes sense|understood|agreed|fair enough|exactly|right|brilliant|fab|i see|that'?s?\s*(great|good|nice|perfect)|go on|tell me)\b/i
+  const wordCount = q.trim().split(/\s+/).filter(Boolean).length
+  if (!hasImages && wordCount <= 7 && PLEASANTRY_RE.test(q.trim())) {
+    return [{ main: '…', sub: '' }]
+  }
+
   // ── Extract meaningful terms from the query ─────────────────────────────────
   const GARMENT_WORDS: [RegExp, string][] = [
     [/\bt-?shirts?\b|\btees?\b/, 't-shirt'],
@@ -954,16 +961,21 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
 
   if (isSearch) {
     const what = subject ?? (foundOccasion ? `something for ${foundOccasion}` : 'the right piece')
-    return [
-      { main: `Looking for ${what}…`,
-        sub: 'Moving through the catalog' },
-      { main: 'Filtering by what actually matters…',
-        sub: 'Fabric, proportion, and versatility', subsub: 'Weeding out the noise' },
-      { main: 'Narrowing it down to the best…',
-        sub: 'Quality and wearability first' },
-      { main: 'Selecting a shortlist…',
-        sub: 'A few things worth considering' },
+    const searchVariants: StylistLoadingPhase[][] = [
+      [
+        { main: `Looking for ${what}…`, sub: 'Moving through the catalog' },
+        { main: 'Filtering by what actually matters…', sub: 'Fabric, proportion, and versatility', subsub: 'Weeding out the noise' },
+        { main: 'Narrowing it down to the best…', sub: 'Quality and wearability first' },
+        { main: 'Selecting a shortlist…', sub: 'A few things worth considering' },
+      ],
+      [
+        { main: `Searching for ${what}…`, sub: 'Casting a wide net first' },
+        { main: 'Cutting out what doesn't make sense…', sub: 'Material, cut, and occasion register' },
+        { main: 'Ranking what's left by real quality…', sub: 'Construction and longevity' },
+        { main: 'Almost done…', sub: '' },
+      ],
     ]
+    return searchVariants[Math.floor(Math.random() * searchVariants.length)]
   }
 
   if (isColor) {
@@ -1010,30 +1022,46 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
   if (isOutfit || foundOccasion) {
     const occ = foundOccasion ? `for ${foundOccasion}` : ''
     const piece = subject ?? 'the piece'
-    return [
-      { main: `Thinking about ${piece}${occ ? ` ${occ}` : ''}…`,
-        sub: 'Silhouette, proportion, and occasion register' },
-      { main: 'Working through the layers…',
-        sub: 'Color story and texture contrast', subsub: 'Volume and structure balance' },
-      { main: 'Considering what else belongs…',
-        sub: 'Shoes, outerwear, and the finishing details' },
-      { main: 'Pulling the look together…',
-        sub: 'A complete and considered picture' },
+    const outfitVariants: StylistLoadingPhase[][] = [
+      [
+        { main: `Thinking about ${piece}${occ ? ` ${occ}` : ''}…`, sub: 'Silhouette, proportion, and occasion register' },
+        { main: 'Working through the layers…', sub: 'Color story and texture contrast', subsub: 'Volume and structure balance' },
+        { main: 'Considering what else belongs…', sub: 'Shoes, outerwear, and the finishing details' },
+        { main: 'Pulling the look together…', sub: '' },
+      ],
+      [
+        { main: `Building a look${occ ? ` ${occ}` : ''}…`, sub: 'Starting with the anchor piece' },
+        { main: 'Layering in colour and texture…', sub: 'Warm and cool relationships', subsub: 'Proportion and structure' },
+        { main: 'Finishing the details…', sub: 'Shoes and outerwear make or break it' },
+        { main: 'Almost there…', sub: '' },
+      ],
     ]
+    return outfitVariants[Math.floor(Math.random() * outfitVariants.length)]
   }
 
-  // ── Default — use whatever we extracted ──────────────────────────────────────
-  return [
-    { main: `Thinking about ${yours}…`,
-      sub: 'Silhouette, color, and fabric' },
-    { main: 'Considering style and context…',
-      sub: foundOccasion ? `What works for ${foundOccasion}` : 'When and how you would wear it',
-      subsub: 'Seasonal relevance and versatility' },
-    { main: 'Working through the options…',
-      sub: 'What is worth knowing' },
-    { main: 'Almost there…',
-      sub: 'A considered answer on its way' },
+  // ── Default — two variants, picked at random to avoid feeling scripted ────────
+  const defaultVariants: StylistLoadingPhase[][] = [
+    [
+      { main: `Thinking about ${yours}…`,
+        sub: 'Silhouette, color, and fabric' },
+      { main: 'Reading the occasion and context…',
+        sub: foundOccasion ? `What reads right for ${foundOccasion}` : 'When and how you would reach for it' },
+      { main: 'Forming a point of view…',
+        sub: 'A specific answer, not a general one' },
+      { main: 'Nearly there…', sub: '' },
+    ],
+    [
+      { main: `Sitting with ${yours}…`,
+        sub: 'What the piece needs around it' },
+      { main: 'Thinking through proportion and colour…',
+        sub: foundOccasion ? `Register for ${foundOccasion}` : 'What elevates and what clashes',
+        subsub: 'The specific details that matter' },
+      { main: 'Working out the clearest answer…',
+        sub: 'One recommendation, with a reason' },
+      { main: 'Just about there…', sub: '' },
+    ],
   ]
+  return defaultVariants[Math.floor(Math.random() * defaultVariants.length)]
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
