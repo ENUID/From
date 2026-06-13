@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat, groqVisionChat, VisionMessage } from '@/lib/groq'
+import { groqChat, groqVisionChat, wardrobeVisionChat, VisionMessage } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts } from '@/lib/queryParser'
@@ -457,23 +457,12 @@ The JSON inside [WARDROBE: {...}] must have this shape:
 After the token, write 1–2 warm sentences acknowledging what you see and inviting next steps.
 Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natural and encouraging.`
 
-      const visionMessages: VisionMessage[] = [
-        { role: 'system' as const, content: WARDROBE_SYSTEM },
-      ]
-      const imageParts = images.map(url => ({
-        type: 'image_url' as const,
-        image_url: { url, detail: 'low' as const },
-      }))
-      visionMessages.push({
-        role: 'user',
-        content: [
-          { type: 'text' as const, text: question || 'Please analyze my wardrobe pieces.' },
-          ...imageParts,
-        ],
-      })
-
-      const msg = await groqVisionChat(visionMessages, WARDROBE_SYSTEM, { max_tokens: 900, temperature: 0.3 })
-      const raw = (msg?.content ?? '').trim()
+      const raw = await wardrobeVisionChat(
+        WARDROBE_SYSTEM,
+        question || 'Please analyze my wardrobe pieces.',
+        images,
+        { max_tokens: 900, temperature: 0.3 }
+      )
       const { reply, wardrobeScan } = parseWardrobeToken(raw)
       return NextResponse.json({ reply, wardrobeScan: wardrobeScan ?? null, comparison: null })
     }

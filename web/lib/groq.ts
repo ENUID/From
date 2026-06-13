@@ -300,3 +300,71 @@ export async function groqVisionChat(
     throw err
   }
 }
+
+// ── Gemini Flash vision ───────────────────────────────────────────────────────
+// Primary for wardrobe scans. Throws {status:429} on rate-limit so the caller
+// can fall back to Groq without wrapping in a try/catch everywhere.
+
+async function geminiVisionChat(
+  systemPrompt: string,
+  question: string,
+  imageDataUrls: string[],
+  opts?: { max_tokens?: number; temperature?: number }
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) { const e: any = new Error('GEMINI_API_KEY not set'); e.status = 0; throw e }
+
+  const parts: any[] = [{ text: `${systemPrompt}\n\n${question}` }]
+  for (const url of imageDataUrls) {
+    const m = url.match(/^data:([^;]+);base64,(.+)$/)
+    if (m) parts.push({ inline_data: { mime_type: m[1], data: m[2] } })
+  }
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts }],
+        generationConfig: { maxOutputTokens: opts?.max_tokens ?? 900, temperature: opts?.temperature ?? 0.3 },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    }
+  )
+
+  if (res.status === 429) { const e: any = new Error('Gemini rate limit'); e.status = 429; throw e }
+  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}: ${await res.text()}`)
+  const data = await res.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+}
+
+// ── Wardrobe vision — Gemini with Groq fallback ───────────────────────────────
+// Tries Gemini 2.0 Flash first (better clothing recognition). On 429 (rate
+// limit hit) or missing key, falls back seamlessly to Groq Llama 4 Scout.
+
+export async function wardrobeVisionChat(
+  systemPrompt: string,
+  question: string,
+  imageDataUrls: string[],
+  opts?: { max_tokens?: number; temperature?: number }
+): Promise<string> {
+  try {
+    return await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)
+  } catch (err: any) {
+    // 429 = Gemini rate limit, 0 = key not set — fall back to Groq
+    if (err.status === 429 || err.status === 0) {
+      const imageParts = imageDataUrls.map(url => ({
+        type: 'image_url' as const,
+        image_url: { url, detail: 'low' as const },
+      }))
+      const msg = await groqVisionChat(
+        [{ role: 'user', content: [{ type: 'text', text: question }, ...imageParts] }],
+        systemPrompt,
+        opts
+      )
+      return (msg?.content ?? '').trim()
+    }
+    throw err
+  }
+}
