@@ -1138,6 +1138,7 @@ export default function FromApp({
   const [consentSaving, setConsentSaving]       = useState(false)
   const [showOnboarding, setShowOnboarding]     = useState(false)
   const [onboardingStep, setOnboardingStep]     = useState(0)
+  const [onboardGender, setOnboardGender]       = useState('')
   const [selectedStyles, setSelectedStyles]     = useState<string[]>([])
   const [onboardSizes, setOnboardSizes]         = useState({ tops: '', bottoms: '', shoes: '' })
   const [selectedBudget, setSelectedBudget]     = useState<number | null>(null)
@@ -1218,13 +1219,16 @@ export default function FromApp({
     if (!onboardEmail) { setShowOnboarding(false); return }
     const BUDGET_RANGES = [[0, 50], [50, 150], [150, 400], [400, 9999]]
     try {
+      const hasSizes = onboardSizes.tops || onboardSizes.bottoms || onboardSizes.shoes
+      const sizesObj = (onboardGender || hasSizes)
+        ? { ...onboardSizes, ...(onboardGender ? { gender: onboardGender } : {}) }
+        : undefined
       await upsertProfile({
         userEmail: onboardEmail,
         styles: skip ? [] : selectedStyles,
         budgetMin: (!skip && selectedBudget !== null) ? BUDGET_RANGES[selectedBudget][0] : undefined,
         budgetMax: (!skip && selectedBudget !== null) ? BUDGET_RANGES[selectedBudget][1] : undefined,
-        sizes: (!skip && (onboardSizes.tops || onboardSizes.bottoms || onboardSizes.shoes))
-          ? onboardSizes : undefined,
+        sizes: skip ? undefined : sizesObj,
       })
     } catch { /* ignore */ }
     setShowOnboarding(false)
@@ -2686,25 +2690,53 @@ export default function FromApp({
                 </div>
 
                 {/* Gender */}
-                <div style={{ marginBottom: 18 }}>
-                  <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7, marginBottom: 8 }}>I shop for</label>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {['Men', 'Women', 'Both'].map(g => (
-                      <button key={g} onClick={() => setProfileGender(profileGender === g ? '' : g)}
-                        style={{ padding: '9px 18px', borderRadius: 30, fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all .15s', border: profileGender === g ? `1.5px solid ${INK}` : `1px solid ${BRD}`, background: profileGender === g ? INK : 'rgba(255,255,255,0.7)', color: profileGender === g ? '#fff' : INK }}>
-                        {g}
-                      </button>
-                    ))}
-                    <button onClick={() => setProfileGender(profileGender === 'Non-binary' ? '' : 'Non-binary')}
-                      style={{ padding: '9px 18px', borderRadius: 30, fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all .15s', border: profileGender === 'Non-binary' ? `1.5px solid ${INK}` : `1px solid ${BRD}`, background: profileGender === 'Non-binary' ? INK : 'rgba(255,255,255,0.7)', color: profileGender === 'Non-binary' ? '#fff' : INK }}>
-                      Non-binary
-                    </button>
+                <div style={{ marginBottom: 22 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7 }}>I shop for</label>
+                    <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.6 }}>sets your default search</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                    {(['Men', 'Women'] as const).map(g => {
+                      const active = profileGender === g
+                      return (
+                        <button key={g} onClick={() => setProfileGender(active ? '' : g)} style={{
+                          padding: '12px 16px', borderRadius: 12,
+                          border: `1.5px solid ${active ? INK : BRD}`,
+                          background: active ? INK : 'rgba(255,255,255,0.7)',
+                          cursor: 'pointer', transition: 'all .15s',
+                          display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                          <span style={{ fontSize: 18 }}>{g === 'Men' ? '👔' : '👗'}</span>
+                          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: active ? '#fff' : INK }}>{g}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {(['Both', 'Non-binary'] as const).map(g => {
+                      const active = profileGender === g
+                      return (
+                        <button key={g} onClick={() => setProfileGender(active ? '' : g)} style={{
+                          flex: 1, padding: '9px 12px', borderRadius: 10,
+                          border: `1.5px solid ${active ? INK : BRD}`,
+                          background: active ? INK : 'transparent',
+                          cursor: 'pointer', transition: 'all .15s',
+                          fontFamily: SANS, fontSize: 12, fontWeight: active ? 600 : 400,
+                          color: active ? '#fff' : INK3,
+                        }}>
+                          {g}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
                 {/* Sizes */}
                 <div style={{ marginBottom: 24 }}>
-                  <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7, marginBottom: 8 }}>Sizes</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7 }}>Sizes</label>
+                    <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.6 }}>Fabrics uses this for fit advice</span>
+                  </div>
                   <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden' }}>
                     {[
                       { label: 'Tops', value: profileSizeTops, set: setProfileSizeTops, placeholder: 'e.g. M, L, 38' },
@@ -4530,37 +4562,46 @@ export default function FromApp({
             <>
               <div
                 onClick={() => finishOnboarding(true)}
-                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(44,18,6,0.35)', backdropFilter: 'blur(2px)' }}
+                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(44,18,6,0.38)', backdropFilter: 'blur(3px)' }}
               />
               <div style={{
                 position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9101,
-                background: BG, borderRadius: '20px 20px 0 0',
-                padding: '28px 24px 40px',
+                background: BG, borderRadius: '24px 24px 0 0',
+                padding: '28px 24px 44px',
                 boxShadow: '0 -8px 48px rgba(44,18,6,0.18)',
                 animation: 'sheetUp .32s cubic-bezier(0.32,0.72,0,1)',
                 maxWidth: 480, margin: '0 auto',
               }}>
+                {/* Drag handle */}
+                <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.12)', margin: '0 auto 22px' }} />
+
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                   <div>
-                    <div style={{ fontFamily: SEASON, fontSize: 22, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>
-                      {onboardingStep === 0 ? 'Your aesthetic' : onboardingStep === 1 ? 'Your sizes' : 'Your budget'}
+                    <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.01em', lineHeight: 1.1 }}>
+                      {onboardingStep === 0 ? 'Who do you shop for?' : onboardingStep === 1 ? 'Your sizes' : onboardingStep === 2 ? 'Your aesthetic' : 'Your budget'}
                     </div>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 4 }}>
-                      Step {onboardingStep + 1} of 3 — helps FROM find the right fit
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 5, lineHeight: 1.5 }}>
+                      {onboardingStep === 0
+                        ? 'FROM shows the right clothes by default — no filtering every search'
+                        : onboardingStep === 1
+                        ? 'Fabrics uses this to advise on fit without asking every time'
+                        : onboardingStep === 2
+                        ? 'Helps FROM surface styles you actually want to wear'
+                        : 'Sets the price range so results always feel relevant'}
                     </div>
                   </div>
                   <button onClick={() => finishOnboarding(true)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: INK3 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    style={{ background: 'rgba(44,18,6,.06)', border: 'none', cursor: 'pointer', padding: 8, borderRadius: '50%', color: INK3, flexShrink: 0, marginLeft: 12 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
                   </button>
                 </div>
 
-                {/* Progress dots */}
-                <div style={{ display: 'flex', gap: 5, marginBottom: 22 }}>
-                  {[0, 1, 2].map(i => (
+                {/* Progress bars */}
+                <div style={{ display: 'flex', gap: 5, marginBottom: 28 }}>
+                  {[0, 1, 2, 3].map(i => (
                     <div key={i} style={{
                       height: 3, flex: 1, borderRadius: 2,
                       background: i <= onboardingStep ? INK : BRD,
@@ -4569,8 +4610,81 @@ export default function FromApp({
                   ))}
                 </div>
 
-                {/* Step 0 — aesthetic tiles */}
+                {/* Step 0 — gender */}
                 {onboardingStep === 0 && (
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                      {(['Men', 'Women'] as const).map(g => {
+                        const active = onboardGender === g
+                        return (
+                          <button key={g} onClick={() => setOnboardGender(active ? '' : g)} style={{
+                            padding: '22px 16px', borderRadius: 16,
+                            border: `2px solid ${active ? INK : BRD}`,
+                            background: active ? INK : 'rgba(255,255,255,0.6)',
+                            cursor: 'pointer', transition: 'all .15s',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                          }}>
+                            <span style={{ fontSize: 28 }}>{g === 'Men' ? '👔' : '👗'}</span>
+                            <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: active ? '#fff' : INK }}>{g}</span>
+                            <span style={{ fontFamily: SANS, fontSize: 11, color: active ? 'rgba(255,255,255,0.65)' : INK3 }}>
+                              {g === 'Men' ? "menswear by default" : "womenswear by default"}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                      {(['Both', 'Non-binary'] as const).map(g => {
+                        const active = onboardGender === g
+                        return (
+                          <button key={g} onClick={() => setOnboardGender(active ? '' : g)} style={{
+                            padding: '8px 18px', borderRadius: 30,
+                            border: `1.5px solid ${active ? INK : BRD}`,
+                            background: active ? INK : 'transparent',
+                            cursor: 'pointer', transition: 'all .15s',
+                            fontFamily: SANS, fontSize: 12, fontWeight: active ? 600 : 400,
+                            color: active ? '#fff' : INK3,
+                          }}>
+                            {g}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 1 — sizes */}
+                {onboardingStep === 1 && (
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
+                      {[
+                        { label: 'Tops', key: 'tops', placeholder: onboardGender === 'Women' ? 'XS, S, M, L…' : 'S, M, L, XL…' },
+                        { label: 'Bottoms', key: 'bottoms', placeholder: onboardGender === 'Women' ? '26, 28, 30…' : '30, 32, 34…' },
+                        { label: 'Shoes', key: 'shoes', placeholder: onboardGender === 'Women' ? '6, 7, 8, EU 38…' : '9, 10, 11, EU 43…' },
+                      ].map(({ label, key, placeholder }, i) => (
+                        <div key={key} style={{ borderTop: i > 0 ? `0.5px solid rgba(44,18,6,.07)` : 'none', display: 'flex', alignItems: 'center', padding: '13px 16px', gap: 14 }}>
+                          <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, width: 66, flexShrink: 0 }}>{label}</span>
+                          <input
+                            value={onboardSizes[key as 'tops' | 'bottoms' | 'shoes']}
+                            onChange={e => setOnboardSizes(prev => ({ ...prev, [key]: e.target.value }))}
+                            placeholder={placeholder}
+                            style={{
+                              flex: 1, border: 'none', background: 'transparent',
+                              fontFamily: SANS, fontSize: 14, color: INK,
+                              outline: 'none', textAlign: 'right',
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', lineHeight: 1.5 }}>
+                      Fabrics will say &quot;go up a size — it runs small&quot; without asking what you wear
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2 — aesthetic tiles */}
+                {onboardingStep === 2 && (
                   <>
                     {([
                       { label: 'Classic', tiles: [
@@ -4646,34 +4760,9 @@ export default function FromApp({
                   </>
                 )}
 
-                {/* Step 1 — sizes */}
-                {onboardingStep === 1 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 22 }}>
-                    {[
-                      { label: 'Tops', key: 'tops', placeholder: 'XS, S, M, L…' },
-                      { label: 'Bottoms', key: 'bottoms', placeholder: '28, 30, 32…' },
-                      { label: 'Shoes', key: 'shoes', placeholder: '8, 9, 10, 42…' },
-                    ].map(({ label, key, placeholder }) => (
-                      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ fontFamily: SANS, fontSize: 12, color: INK2, width: 60, flexShrink: 0 }}>{label}</span>
-                        <input
-                          value={onboardSizes[key as 'tops' | 'bottoms' | 'shoes']}
-                          onChange={e => setOnboardSizes(prev => ({ ...prev, [key]: e.target.value }))}
-                          placeholder={placeholder}
-                          style={{
-                            flex: 1, padding: '9px 12px', borderRadius: 8, border: `1px solid ${BRD}`,
-                            fontFamily: SANS, fontSize: 13, color: INK, background: BG2,
-                            outline: 'none',
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Step 2 — budget */}
-                {onboardingStep === 2 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22 }}>
+                {/* Step 3 — budget */}
+                {onboardingStep === 3 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
                     {[
                       { label: 'Under $50', sub: 'Finds the hidden gems' },
                       { label: '$50–150', sub: 'The sweet spot' },
@@ -4684,11 +4773,11 @@ export default function FromApp({
                       return (
                         <button key={i} onClick={() => setSelectedBudget(i)} style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${active ? INK : BRD}`,
-                          background: active ? INK : 'transparent', cursor: 'pointer', textAlign: 'left',
+                          padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${active ? INK : BRD}`,
+                          background: active ? INK : 'rgba(255,255,255,0.6)', cursor: 'pointer', textAlign: 'left',
                           transition: 'all .14s',
                         }}>
-                          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: active ? '#fff' : INK }}>{opt.label}</span>
+                          <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: active ? '#fff' : INK }}>{opt.label}</span>
                           <span style={{ fontFamily: SANS, fontSize: 11, color: active ? 'rgba(255,255,255,0.6)' : INK3 }}>{opt.sub}</span>
                         </button>
                       )
@@ -4699,25 +4788,33 @@ export default function FromApp({
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => {
-                    if (onboardingStep < 2) setOnboardingStep(s => s + 1)
+                    if (onboardingStep < 3) setOnboardingStep(s => s + 1)
                     else finishOnboarding(false)
                   }} style={{
-                    flex: 1, padding: '13px', borderRadius: 10,
+                    flex: 1, padding: '14px', borderRadius: 12,
                     background: INK, color: '#fff',
                     fontFamily: SANS, fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer',
                   }}>
-                    {onboardingStep < 2 ? 'Next' : 'Done'}
+                    {onboardingStep < 3 ? (onboardingStep === 0 && !onboardGender ? 'Skip for now' : 'Next') : 'Done'}
                   </button>
-                  <button onClick={() => {
-                    if (onboardingStep < 2) setOnboardingStep(s => s + 1)
-                    else finishOnboarding(true)
-                  }} style={{
-                    padding: '13px 18px', borderRadius: 10,
-                    background: 'transparent', color: INK3,
-                    fontFamily: SANS, fontSize: 13, border: `1px solid ${BRD}`, cursor: 'pointer',
-                  }}>
-                    Skip
-                  </button>
+                  {onboardingStep > 0 && onboardingStep < 3 && (
+                    <button onClick={() => setOnboardingStep(s => s + 1)} style={{
+                      padding: '14px 18px', borderRadius: 12,
+                      background: 'transparent', color: INK3,
+                      fontFamily: SANS, fontSize: 13, border: `1px solid ${BRD}`, cursor: 'pointer',
+                    }}>
+                      Skip
+                    </button>
+                  )}
+                  {onboardingStep === 3 && (
+                    <button onClick={() => finishOnboarding(true)} style={{
+                      padding: '14px 18px', borderRadius: 12,
+                      background: 'transparent', color: INK3,
+                      fontFamily: SANS, fontSize: 13, border: `1px solid ${BRD}`, cursor: 'pointer',
+                    }}>
+                      Skip
+                    </button>
+                  )}
                 </div>
               </div>
             </>
