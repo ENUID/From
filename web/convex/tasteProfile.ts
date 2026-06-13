@@ -8,6 +8,22 @@ async function getUserByEmail(ctx: any, email: string) {
     .first();
 }
 
+// Get the user row, creating a minimal one if it doesn't exist yet. This makes
+// profile saves resilient: if ensureUser failed during sign-in (e.g. Convex was
+// briefly unreachable), the save still succeeds instead of throwing "User not
+// found" and silently losing the data.
+async function getOrCreateUser(ctx: any, email: string) {
+  const normalized = email.toLowerCase().trim();
+  const existing = await getUserByEmail(ctx, normalized);
+  if (existing) return existing;
+  const id = await ctx.db.insert("users", {
+    email: normalized,
+    role: "buyer",
+    createdAt: Date.now(),
+  });
+  return ctx.db.get(id);
+}
+
 export const getTasteProfile = query({
   args: { userEmail: v.string() },
   handler: async (ctx, args) => {
@@ -30,7 +46,7 @@ export const upsertTasteProfile = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getUserByEmail(ctx, args.userEmail);
+    const user = await getOrCreateUser(ctx, args.userEmail);
     if (!user) throw new Error("User not found");
     const existing = await ctx.db
       .query("taste_profile")

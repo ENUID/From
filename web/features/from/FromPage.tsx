@@ -1131,6 +1131,7 @@ export default function FromApp({
   const [profileSizeBottoms, setProfileSizeBottoms] = useState('')
   const [profileSizeShoes, setProfileSizeShoes] = useState('')
   const [profileSaving, setProfileSaving]       = useState(false)
+  const [profileError, setProfileError]         = useState('')
   const [showConsent, setShowConsent]           = useState(false)
   const [consentFromSettings, setConsentFromSettings] = useState(false)
   const [consentAnalytics, setConsentAnalytics] = useState(true)
@@ -1188,6 +1189,7 @@ export default function FromApp({
 
   function openProfileView() {
     const existingSizes = tasteProfileData?.sizes as any
+    setProfileError('')
     setProfileName(userRecord?.name || session?.user?.name || '')
     setProfileGender(existingSizes?.gender || '')
     setProfileSizeTops(existingSizes?.tops || '')
@@ -1199,19 +1201,27 @@ export default function FromApp({
   async function saveProfile() {
     if (!onboardEmail || profileSaving) return
     setProfileSaving(true)
+    setProfileError('')
     try {
-      if (profileName.trim()) {
-        await updateUserNameMutation({ email: onboardEmail, name: profileName.trim() })
-      }
       const sizes: Record<string, string> = {}
       if (profileSizeTops.trim()) sizes.tops = profileSizeTops.trim()
       if (profileSizeBottoms.trim()) sizes.bottoms = profileSizeBottoms.trim()
       if (profileSizeShoes.trim()) sizes.shoes = profileSizeShoes.trim()
       if (profileGender) sizes.gender = profileGender
+      // Profile write first — this auto-provisions the user row if needed, so the
+      // name update below (and everything else) can rely on the user existing.
       await upsertProfile({ userEmail: onboardEmail, sizes: Object.keys(sizes).length ? sizes : undefined })
-    } catch { /* ignore */ } finally {
+      if (profileName.trim()) {
+        await updateUserNameMutation({ email: onboardEmail, name: profileName.trim() })
+      }
       setProfileSaving(false)
       setSettingsView('main')
+    } catch (err) {
+      // Surface the failure instead of swallowing it — a silent failure looked
+      // identical to a save, which is why details appeared not to persist.
+      console.error('[saveProfile] failed:', err)
+      setProfileError("Couldn't save — check your connection and try again.")
+      setProfileSaving(false)
     }
   }
 
@@ -2739,6 +2749,11 @@ export default function FromApp({
                   </div>
                 </div>
 
+                {profileError && (
+                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: '#B81C1C', textAlign: 'center', marginBottom: 12 }}>
+                    {profileError}
+                  </div>
+                )}
                 <button onClick={saveProfile} disabled={profileSaving}
                   style={{ width: '100%', padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none', fontFamily: SANS, fontSize: 13, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', opacity: profileSaving ? 0.55 : 1, cursor: profileSaving ? 'default' : 'pointer' }}>
                   {profileSaving ? 'Saving…' : 'Save profile'}
