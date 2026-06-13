@@ -1094,6 +1094,13 @@ export default function FromApp({
     api.tasteProfile.getTasteProfile,
     onboardEmail ? { userEmail: onboardEmail } : 'skip'
   )
+  // Gender from profile — passed to AI so all search/styling defaults to it.
+  // Values: 'Men' | 'Women' | 'Both' | 'Non-binary'. undefined = not set.
+  const shopperGenderFromProfile = useMemo(() => {
+    if (!tasteProfileData?.sizes) return undefined
+    const s = tasteProfileData.sizes as Record<string, string>
+    return s.gender || undefined
+  }, [tasteProfileData])
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
   const updateUserNameMutation = useMutation(api.users.updateUserName)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
@@ -1473,6 +1480,7 @@ export default function FromApp({
           images: capturedImages,
           buyerCurrency: shopperContext.currency,
           memorySummary: stylistMemorySummary,
+          shopperGender: shopperGenderFromProfile,
         }),
       })
       const data = await res.json()

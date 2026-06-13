@@ -88,18 +88,24 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
 
   const { isPremium, canSearch, dailySearchesRemaining } = useSubscription()
 
-  // Compact taste profile string for premium users — injected into search API
+  // Gender from profile — used for all logged-in users, not just premium.
+  // Values: 'Men' | 'Women' | 'Both' | 'Non-binary' | '' (unset)
+  const shopperGender = useMemo(() => {
+    if (!tasteProfileData?.sizes) return undefined
+    const s = tasteProfileData.sizes as Record<string, string>
+    return s.gender || undefined
+  }, [tasteProfileData])
+
+  // Compact taste profile string injected into search & stylist APIs.
+  // Gender and sizes are available for all logged-in users; styles, budget, and
+  // wardrobe are premium-only (they require more personalisation infrastructure).
   const tasteProfileText = useMemo(() => {
-    if (!isPremium || !tasteProfileData) return undefined
+    if (!tasteProfileData) return undefined
     const parts: string[] = []
-    if (tasteProfileData.styles?.length) parts.push(`styles: ${tasteProfileData.styles.join(', ')}`)
-    if (tasteProfileData.budgetMin !== undefined || tasteProfileData.budgetMax !== undefined) {
-      const min = tasteProfileData.budgetMin ?? 0
-      const max = tasteProfileData.budgetMax ?? 9999
-      parts.push(`budget: $${min}–${max === 9999 ? '∞' : '$' + max}`)
-    }
     if (tasteProfileData.sizes) {
       const s = tasteProfileData.sizes as Record<string, string>
+      // Gender first — drives default search gender prefix
+      if (s.gender) parts.push(`shops for: ${s.gender.toLowerCase()}`)
       const sizeStr = [
         s.tops     && `tops ${s.tops}`,
         s.bottoms  && `bottoms ${s.bottoms}`,
@@ -107,11 +113,19 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
       ].filter(Boolean).join(', ')
       if (sizeStr) parts.push(`sizes: ${sizeStr}`)
     }
-    const wardrobe = (tasteProfileData as any).wardrobe
-    if (wardrobe?.summary) {
-      parts.push(`wardrobe: ${String(wardrobe.summary).slice(0, 200)}`)
-      if (Array.isArray(wardrobe.gaps) && wardrobe.gaps.length > 0) {
-        parts.push(`wardrobe gaps: ${wardrobe.gaps.slice(0, 4).join(', ')}`)
+    if (isPremium) {
+      if (tasteProfileData.styles?.length) parts.push(`styles: ${tasteProfileData.styles.join(', ')}`)
+      if (tasteProfileData.budgetMin !== undefined || tasteProfileData.budgetMax !== undefined) {
+        const min = tasteProfileData.budgetMin ?? 0
+        const max = tasteProfileData.budgetMax ?? 9999
+        parts.push(`budget: $${min}–${max === 9999 ? '∞' : '$' + max}`)
+      }
+      const wardrobe = (tasteProfileData as any).wardrobe
+      if (wardrobe?.summary) {
+        parts.push(`wardrobe: ${String(wardrobe.summary).slice(0, 200)}`)
+        if (Array.isArray(wardrobe.gaps) && wardrobe.gaps.length > 0) {
+          parts.push(`wardrobe gaps: ${wardrobe.gaps.slice(0, 4).join(', ')}`)
+        }
       }
     }
     return parts.length > 0 ? parts.join(' | ') : undefined
@@ -254,6 +268,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
           userName: typeof window !== 'undefined' ? (window.localStorage.getItem('from_user_name') || undefined) : undefined,
           recentSearches: searchHistory.slice(0, 8).map(entry => entry.query),
           tasteProfile: tasteProfileText,
+          shopperGender: shopperGender,
         }),
         signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
       })
@@ -402,6 +417,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     deleteHistoryEntry,
     renameHistoryEntry,
     isPremium,
+    shopperGender,
     dailySearchesRemaining,
     showUpgradeSheet,
     setShowUpgradeSheet,

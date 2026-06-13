@@ -488,7 +488,16 @@ function extractSuggestions(text: string): { cleanText: string, suggestions: str
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile } = await req.json()
+    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile, shopperGender } = await req.json()
+    // 'Men' → 'men', 'Women' → 'women', 'Both'/'Non-binary'/unset → null (no prefix)
+    const genderPrefix = shopperGender === 'Men' ? 'men' : shopperGender === 'Women' ? 'women' : null
+    // Regex to detect if a query already specifies a gender (user's explicit override)
+    const GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|gender.neutral)\b/i
+    const applyGenderPrefix = (q: string): string => {
+      if (!genderPrefix) return q
+      if (GENDER_TERM_RE.test(q) || GENDER_TERM_RE.test(message)) return q
+      return `${genderPrefix} ${q}`
+    }
     if (!message) throw new Error('No message provided')
     const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
     const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
@@ -540,6 +549,7 @@ export async function POST(req: NextRequest) {
     // Skips the LLM entirely — instant response with no model latency.
     const compiled = compileIntent(message, activeBuyerCurrency)
     if (compiled && !/\b(more|others?|another|different ones?)\b/i.test(message)) {
+      compiled.args.searchQuery = applyGenderPrefix(compiled.args.searchQuery)
       const compiledResult = await runCatalogSearch(compiled.args, {
         countryCode,
         buyerCurrency: activeBuyerCurrency,
@@ -598,6 +608,9 @@ export async function POST(req: NextRequest) {
 
     if (typeof tasteProfile === 'string' && tasteProfile.trim()) {
       personalLines.push(`- Taste profile: ${tasteProfile.trim()}. Use this to bias search results and recommendations toward their preferred styles, sizes, and budget.`)
+    }
+    if (genderPrefix) {
+      personalLines.push(`- GENDER DEFAULT: This shopper's profile says they shop for ${genderPrefix}'s clothing. ALWAYS include "${genderPrefix}" in the searchQuery (e.g. "${genderPrefix} linen shirt") UNLESS their current message explicitly specifies a different gender or says "unisex".`)
     }
 
     if (personalLines.length > 0) {
@@ -670,6 +683,7 @@ export async function POST(req: NextRequest) {
       if (toolCall.function.name === 'search_ucp') {
         try {
           const args = parseSearchToolArguments(toolCall.function.arguments)
+          args.searchQuery = applyGenderPrefix(args.searchQuery)
           activeSearchQuery = args.searchQuery
           activeBudgetMax = args.budgetMax
           activeBudgetCurrency = (args.budgetCurrency || activeBuyerCurrency).toUpperCase()

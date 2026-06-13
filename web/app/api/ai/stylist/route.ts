@@ -455,6 +455,9 @@ export async function POST(req: NextRequest) {
     const memorySummary: string | undefined = typeof body?.memorySummary === 'string' && body.memorySummary.trim()
       ? body.memorySummary.trim()
       : undefined
+    const shopperGender: string | undefined = typeof body?.shopperGender === 'string' && body.shopperGender.trim()
+      ? body.shopperGender.trim()
+      : undefined
 
     if (!question) {
       return NextResponse.json({ reply: null, comparison: null })
@@ -509,10 +512,15 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       ? `The shopper has also shared ${images.length} photo${images.length > 1 ? 's' : ''} of their own clothing. Analyze the garment(s) in the photo${images.length > 1 ? 's' : ''} and incorporate that into your advice.`
       : ''
 
+    const genderBlock = shopperGender && shopperGender !== 'Both' && shopperGender !== 'Non-binary'
+      ? `SHOPPER PROFILE: This shopper's profile says they shop for ${shopperGender.toLowerCase()}'s clothing. Default all product searches and recommendations to ${shopperGender.toLowerCase()}'s unless they explicitly ask for something else.`
+      : shopperGender === 'Both'
+        ? 'SHOPPER PROFILE: This shopper shops for both men\'s and women\'s clothing — be attentive to context clues in the conversation.'
+        : ''
     const memoryBlock = memorySummary
       ? `SHOPPER MEMORY (from previous Fabrics sessions):\n${memorySummary}`
       : ''
-    const contextBlock = [memoryBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
+    const contextBlock = [genderBlock, memoryBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
 
     let raw = ''
 
