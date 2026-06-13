@@ -1068,6 +1068,7 @@ export default function FromApp({
   )
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
+  const [settingsOpen, setSettingsOpen]         = useState(false)
   const [showConsent, setShowConsent]           = useState(false)
   const [consentAnalytics, setConsentAnalytics] = useState(true)
   const [consentLocation, setConsentLocation]   = useState(false)
@@ -2283,6 +2284,13 @@ export default function FromApp({
           .fr-gate-card{max-width:420px;border-radius:22px;padding:36px 32px 28px;box-shadow:0 28px 80px rgba(28,12,4,.38);animation:fadeScale .28s cubic-bezier(.32,.72,0,1);}
           .fr-gate-handle{display:none;}
         }
+        /* Settings sheet */
+        .fr-settings-outer{position:fixed;inset:0;z-index:3800;display:flex;align-items:flex-end;justify-content:center;background:rgba(28,12,4,0.42);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+        .fr-settings-card{width:100%;background:#fff;border-radius:22px 22px 0 0;display:flex;flex-direction:column;max-height:88vh;animation:sheetUp .32s cubic-bezier(.32,.72,0,1);box-shadow:0 -8px 48px rgba(28,12,4,.22);}
+        @media(min-width:768px){
+          .fr-settings-outer{align-items:center;padding:18px;}
+          .fr-settings-card{max-width:440px;border-radius:22px;max-height:85vh;animation:fadeScale .26s cubic-bezier(.32,.72,0,1);}
+        }
 
         @keyframes glassSpring{0%{opacity:0;transform:scale(0.82) translateY(28px);}45%{opacity:1;transform:scale(1.035) translateY(-7px);}65%{transform:scale(0.978) translateY(4px);}80%{transform:scale(1.012) translateY(-2px);}91%{transform:scale(0.994) translateY(1px);}100%{opacity:1;transform:scale(1) translateY(0);}}
         @keyframes glassSweep{0%{transform:translateX(-120%) skewX(-20deg);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateX(350%) skewX(-20deg);opacity:0;}}
@@ -2459,7 +2467,127 @@ export default function FromApp({
         </div>
       )}
 
-<div className="fr-wrap">
+      {/* ── Settings sheet ── */}
+      {settingsOpen && (
+        <div className="fr-settings-outer" onClick={() => setSettingsOpen(false)}>
+          <div className="fr-settings-card" onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ padding: '14px 18px 0', flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.14)', margin: '0 auto 14px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK }}>Settings</span>
+                <button onClick={() => setSettingsOpen(false)} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(44,18,6,.07)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              {/* Email row */}
+              <div style={{ background: 'rgba(44,18,6,.04)', borderRadius: 12, padding: '10px 14px', marginBottom: 18 }}>
+                <div style={{ fontFamily: SANS, fontSize: 13, color: INK3 }}>{session?.user?.email || ''}</div>
+              </div>
+            </div>
+
+            {/* Scrollable body */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '0 18px 32px', scrollbarWidth: 'none' }}>
+
+              {/* Account section */}
+              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, opacity: 0.6, marginBottom: 8 }}>Account</div>
+              <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
+                {[
+                  {
+                    label: 'My Style',
+                    sub: 'Update your taste profile',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><path d="M12 2L9.5 9.5H2l6 4.5-2.5 7.5L12 17l6.5 4.5L16 14l6-4.5h-7.5z"/></svg>,
+                    action: () => { setSettingsOpen(false); setShowOnboarding(true) },
+                  },
+                  {
+                    label: isPremium ? 'Community Member' : 'Free plan',
+                    sub: isPremium ? 'Your plan is active' : `${dailySearchesRemaining} searches left today`,
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
+                    action: isPremium ? undefined : () => { setSettingsOpen(false); setShowUpgradeSheet(true) },
+                    badge: isPremium ? null : 'Upgrade',
+                  },
+                ].map(({ label, sub, icon, action, badge }, i, arr) => (
+                  <div key={label}>
+                    <button onClick={action} disabled={!action}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: 'none', border: 'none', cursor: action ? 'pointer' : 'default', textAlign: 'left' }}
+                      onPointerDown={e => action && (e.currentTarget.style.background = 'rgba(44,18,6,.05)')}
+                      onPointerUp={e => (e.currentTarget.style.background = 'none')}
+                      onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
+                      <div style={{ flexShrink: 0 }}>{icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK }}>{label}</div>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 1 }}>{sub}</div>
+                      </div>
+                      {badge && <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: '#fff', background: INK, borderRadius: 20, padding: '3px 10px', letterSpacing: '.04em' }}>{badge}</span>}
+                      {action && !badge && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>}
+                    </button>
+                    {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(44,18,6,.08)', margin: '0 14px' }} />}
+                  </div>
+                ))}
+              </div>
+
+              {/* Privacy section */}
+              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, opacity: 0.6, marginBottom: 8 }}>Privacy</div>
+              <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
+                {[
+                  {
+                    label: 'Data & Consent',
+                    sub: 'Manage what FROM can collect',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+                    action: () => { setSettingsOpen(false); setShowConsent(true) },
+                  },
+                  {
+                    label: 'Privacy Policy',
+                    sub: 'How FROM handles your data',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+                    href: '/privacy',
+                  },
+                ].map(({ label, sub, icon, action, href }: any, i, arr) => (
+                  <div key={label}>
+                    {href ? (
+                      <a href={href} target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', textDecoration: 'none' }}>
+                        <div style={{ flexShrink: 0 }}>{icon}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK }}>{label}</div>
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 1 }}>{sub}</div>
+                        </div>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                      </a>
+                    ) : (
+                      <button onClick={action} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                        onPointerDown={e => (e.currentTarget.style.background = 'rgba(44,18,6,.05)')}
+                        onPointerUp={e => (e.currentTarget.style.background = 'none')}
+                        onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
+                        <div style={{ flexShrink: 0 }}>{icon}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK }}>{label}</div>
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 1 }}>{sub}</div>
+                        </div>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    )}
+                    {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(44,18,6,.08)', margin: '0 14px' }} />}
+                  </div>
+                ))}
+              </div>
+
+              {/* Sign out */}
+              <button onClick={() => signOut({ callbackUrl: window.location.origin + '/' })}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: 'rgba(44,18,6,.03)', borderRadius: 14, border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                onPointerDown={e => (e.currentTarget.style.background = 'rgba(192,57,43,.08)')}
+                onPointerUp={e => (e.currentTarget.style.background = 'rgba(44,18,6,.03)')}
+                onPointerLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.03)')}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c0392b" strokeWidth="1.7" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: '#c0392b' }}>Sign out</span>
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="fr-wrap">
         <div className="fr-shell">
 
           {/* ── Sidebar overlay ── */}
@@ -2476,7 +2604,7 @@ export default function FromApp({
             }}>
               <FromLogo size={24} color={SHUFFLED_PALETTE[logoIdx]} />
               <div
-                onClick={() => setSidebarView(v => v === 'profile' ? 'nav' : 'profile')}
+                onClick={() => setSettingsOpen(true)}
                 style={{
                   width: 38, height: 38, borderRadius: "50%",
                   background: sidebarView === 'profile' ? INK : "#ffffff",
