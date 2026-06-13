@@ -1231,7 +1231,15 @@ export default function FromApp({
   const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false)
   const [isMedium, setIsMedium]         = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : false)
-  const nativeFileRef = useRef<HTMLInputElement>(null)
+  // Shared attach inputs — onChange dispatches to search or Fabrics based on attachContext
+  const attachPhotoRef  = useRef<HTMLInputElement>(null)
+  const attachCameraRef = useRef<HTMLInputElement>(null)
+  const attachFileRef   = useRef<HTMLInputElement>(null)
+  const [attachMenuOpen, setAttachMenuOpen]   = useState(false)
+  const [attachContext, setAttachContext]     = useState<'search' | 'fabrics'>('search')
+  const [attachRect, setAttachRect]           = useState<{ left: number; top: number } | null>(null)
+  const attachBtnSearchRef  = useRef<HTMLButtonElement>(null)
+  const attachBtnFabricsRef = useRef<HTMLButtonElement>(null)
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
@@ -1773,14 +1781,14 @@ export default function FromApp({
       if (!q) { setInputHint(null); return }
       setShowExplore(false); setActiveBrand(null)
       sendMessage(q); setUploaded([]); setInputHint(null)
-      if (nativeFileRef.current) nativeFileRef.current.value = ''
+      if (attachPhotoRef.current) attachPhotoRef.current.value = ''
       return
     }
 
     const q = input.trim(); if (!q) return
     setShowExplore(false); setActiveBrand(null)
     sendMessage(q); setUploaded([]); setInputHint(null)
-    if (nativeFileRef.current) nativeFileRef.current.value = ''
+    if (attachPhotoRef.current) attachPhotoRef.current.value = ''
   }
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -1794,7 +1802,7 @@ export default function FromApp({
       }
       reader.readAsDataURL(file)
     })
-    if (nativeFileRef.current) nativeFileRef.current.value = ''
+    if (attachPhotoRef.current) attachPhotoRef.current.value = ''
   }
   const removeUpload = (idx: number) => setUploaded(prev => {
     const next = prev.filter((_, i) => i !== idx)
@@ -2299,8 +2307,13 @@ export default function FromApp({
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
-      {/* Single native file input — no capture attr lets the OS show its own picker sheet */}
-      <input ref={nativeFileRef} type="file" accept="image/*,video/*" multiple style={{ display:'none' }} onChange={handleFile} />
+      {/* Shared attach inputs — onChange routes to search or Fabrics based on attachContext */}
+      <input ref={attachPhotoRef}  type="file" accept="image/*,video/*" multiple style={{ display:'none' }}
+        onChange={e => { attachContext === 'fabrics' ? handleStylistFile(e) : handleFile(e) }} />
+      <input ref={attachCameraRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }}
+        onChange={e => { attachContext === 'fabrics' ? handleStylistFile(e) : handleFile(e) }} />
+      <input ref={attachFileRef}   type="file" accept="*/*" multiple style={{ display:'none' }}
+        onChange={e => { attachContext === 'fabrics' ? handleStylistFile(e) : handleFile(e) }} />
 
       {/* ── Mandatory account gate ── */}
       {/* Blocks the app until signed in. No close button, no dismiss-on-tap, fixed
@@ -2585,6 +2598,65 @@ export default function FromApp({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Shared attach menu — root level, outside transform wrappers ── */}
+      {attachMenuOpen && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9600 }} onClick={() => setAttachMenuOpen(false)} />
+          <div style={{
+            position: 'fixed',
+            left: attachRect ? Math.max(12, Math.min(attachRect.left, window.innerWidth - 230)) : 16,
+            top: attachRect ? Math.max(8, attachRect.top - 200) : undefined,
+            bottom: attachRect ? undefined : 80,
+            zIndex: 9601,
+            background: '#fff', borderRadius: 16, overflow: 'hidden', minWidth: 220,
+            boxShadow: '0 8px 32px rgba(0,0,0,.14), 0 2px 8px rgba(0,0,0,.08)',
+          }}>
+            {([
+              {
+                label: 'Add Photo',
+                sub: 'Choose from library',
+                icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+                action: () => { attachPhotoRef.current?.click() },
+              },
+              {
+                label: 'Capture Picture',
+                sub: 'Open camera',
+                icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+                action: () => { attachCameraRef.current?.click() },
+              },
+              {
+                label: 'Choose File',
+                sub: 'Browse documents',
+                icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>,
+                action: () => { attachFileRef.current?.click() },
+              },
+              {
+                label: 'Google Drive',
+                sub: 'Import from Drive',
+                icon: <svg width="17" height="17" viewBox="0 0 87.3 78" fill={INK2}><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" opacity=".8"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" opacity=".9"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" opacity=".8"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" opacity=".9"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z"/></svg>,
+                action: () => { attachFileRef.current?.click() },
+              },
+            ] as { label: string; sub: string; icon: React.ReactNode; action: () => void }[]).map(({ label, sub, icon, action }, i, arr) => (
+              <div key={label}>
+                <button type="button" onClick={() => { action(); setAttachMenuOpen(false) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                    padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,.05)')}
+                  onPointerUp={e => (e.currentTarget.style.background = 'none')}
+                  onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
+                  <div style={{ flexShrink: 0, display: 'flex' }}>{icon}</div>
+                  <div>
+                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, lineHeight: 1.2 }}>{label}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 1 }}>{sub}</div>
+                  </div>
+                </button>
+                {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(0,0,0,.07)', margin: '0 14px' }} />}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <div className="fr-wrap">
@@ -3456,9 +3528,13 @@ export default function FromApp({
                   {/* Row 2: actions */}
                   <div className="fr-bar-btm">
 
-                    {/* Paperclip — triggers native OS file picker */}
+                    {/* Paperclip — opens shared attach menu */}
                     <div style={{ position: 'relative' }}>
-                    <button type="button" className="fr-icon-btn" onClick={() => nativeFileRef.current?.click()}>
+                    <button ref={attachBtnSearchRef} type="button" className="fr-icon-btn" onClick={() => {
+                      const r = attachBtnSearchRef.current?.getBoundingClientRect()
+                      setAttachRect(r ? { left: r.left, top: r.top } : null)
+                      setAttachContext('search'); setAttachMenuOpen(true)
+                    }}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                       </svg>
@@ -3928,7 +4004,12 @@ export default function FromApp({
                     {/* Row 2: actions */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <button type="button" className="fr-icon-btn" onClick={() => stylistFileRef.current?.click()} disabled={stylistImages.length >= 8} title="Attach image">
+                        <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={stylistImages.length >= 8}
+                          onClick={() => {
+                            const r = attachBtnFabricsRef.current?.getBoundingClientRect()
+                            setAttachRect(r ? { left: r.left, top: r.top } : null)
+                            setAttachContext('fabrics'); setAttachMenuOpen(true)
+                          }}>
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                           </svg>
