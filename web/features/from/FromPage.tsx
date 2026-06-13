@@ -3129,15 +3129,16 @@ export default function FromApp({
               })()}
               <p style={{
                 fontFamily: SANS,
-                fontSize: "clamp(10px,1.4vw,13px)",
-                letterSpacing: ".16em",
+                fontSize: "clamp(8.5px,2.2vw,13px)",
+                letterSpacing: ".06em",
                 textTransform: "uppercase", color: INK3, lineHeight: 1.7,
-                maxWidth: "min(900px,80vw)",
+                maxWidth: "95vw",
                 minHeight: "1.7em",
-                textWrap: "balance",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
                 opacity: tagVis ? .5 : 0,
                 transition: tagVis ? "opacity .42s ease" : "opacity .3s linear",
-              } as React.CSSProperties}>
+              }}>
                 {tagText}
               </p>
             </div>
