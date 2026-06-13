@@ -610,7 +610,12 @@ export async function POST(req: NextRequest) {
       personalLines.push(`- Taste profile: ${tasteProfile.trim()}. Use this to bias search results and recommendations toward their preferred styles, sizes, and budget.`)
     }
     if (genderPrefix) {
-      personalLines.push(`- GENDER DEFAULT: This shopper's profile says they shop for ${genderPrefix}'s clothing. ALWAYS include "${genderPrefix}" in the searchQuery (e.g. "${genderPrefix} linen shirt") UNLESS their current message explicitly specifies a different gender or says "unisex".`)
+      // Extract the labeled size string if present (e.g. "women's sizes: tops M, bottoms 28")
+      const sizeContext = typeof tasteProfile === 'string'
+        ? (tasteProfile.match(/(?:men'?s?|women'?s?)\s+sizes?:\s*([^|]+)/i)?.[1]?.trim() ?? '')
+        : ''
+      const sizeNote = sizeContext ? ` Their ${genderPrefix}'s sizes: ${sizeContext}.` : ''
+      personalLines.push(`- GENDER + SIZE DEFAULT: This shopper shops for ${genderPrefix}'s clothing.${sizeNote} ALWAYS include "${genderPrefix}" in the searchQuery (e.g. "${genderPrefix} linen shirt"). Never ask for gender or size — you already know. When relevant, use their sizes to give specific fit advice.`)
     }
 
     if (personalLines.length > 0) {

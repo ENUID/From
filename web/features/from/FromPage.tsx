@@ -1101,6 +1101,25 @@ export default function FromApp({
     const s = tasteProfileData.sizes as Record<string, string>
     return s.gender || undefined
   }, [tasteProfileData])
+
+  // Full profile summary for Fabrics — gender + sizes so it never has to ask.
+  const shopperProfileForStylist = useMemo(() => {
+    if (!tasteProfileData?.sizes) return shopperGenderFromProfile || undefined
+    const s = tasteProfileData.sizes as Record<string, string>
+    const gender = s.gender || ''
+    const genderLabel = gender && gender !== 'Both' && gender !== 'Non-binary'
+      ? `${gender.toLowerCase()}'s `
+      : ''
+    const parts: string[] = []
+    if (gender) parts.push(`shops for: ${gender.toLowerCase()}`)
+    const sizeStr = [
+      s.tops && `tops ${s.tops}`,
+      s.bottoms && `bottoms ${s.bottoms}`,
+      s.shoes && `shoes ${s.shoes}`,
+    ].filter(Boolean).join(', ')
+    if (sizeStr) parts.push(`${genderLabel}sizes: ${sizeStr}`)
+    return parts.length > 0 ? parts.join(' | ') : undefined
+  }, [tasteProfileData, shopperGenderFromProfile])
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
   const updateUserNameMutation = useMutation(api.users.updateUserName)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
@@ -1481,6 +1500,7 @@ export default function FromApp({
           buyerCurrency: shopperContext.currency,
           memorySummary: stylistMemorySummary,
           shopperGender: shopperGenderFromProfile,
+          shopperProfile: shopperProfileForStylist,
         }),
       })
       const data = await res.json()

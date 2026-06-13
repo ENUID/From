@@ -458,6 +458,10 @@ export async function POST(req: NextRequest) {
     const shopperGender: string | undefined = typeof body?.shopperGender === 'string' && body.shopperGender.trim()
       ? body.shopperGender.trim()
       : undefined
+    // Full profile string: "shops for: women | women's sizes: tops M, bottoms 28, shoes 7"
+    const shopperProfile: string | undefined = typeof body?.shopperProfile === 'string' && body.shopperProfile.trim()
+      ? body.shopperProfile.trim()
+      : undefined
 
     if (!question) {
       return NextResponse.json({ reply: null, comparison: null })
@@ -512,11 +516,24 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       ? `The shopper has also shared ${images.length} photo${images.length > 1 ? 's' : ''} of their own clothing. Analyze the garment(s) in the photo${images.length > 1 ? 's' : ''} and incorporate that into your advice.`
       : ''
 
-    const genderBlock = shopperGender && shopperGender !== 'Both' && shopperGender !== 'Non-binary'
-      ? `SHOPPER PROFILE: This shopper's profile says they shop for ${shopperGender.toLowerCase()}'s clothing. Default all product searches and recommendations to ${shopperGender.toLowerCase()}'s unless they explicitly ask for something else.`
-      : shopperGender === 'Both'
-        ? 'SHOPPER PROFILE: This shopper shops for both men\'s and women\'s clothing — be attentive to context clues in the conversation.'
-        : ''
+    // Build the shopper profile block for Fabrics context.
+    // shopperProfile is the richer string (gender + labeled sizes); shopperGender is the fallback.
+    const profileSrc = shopperProfile || (shopperGender ? `shops for: ${shopperGender.toLowerCase()}` : '')
+    const genderBlock = profileSrc
+      ? (() => {
+          const isWomen = /women/i.test(profileSrc)
+          const isMen = /\bmen\b/i.test(profileSrc)
+          const isBoth = shopperGender === 'Both'
+          const genderNote = isWomen
+            ? "Default all product searches and [SEARCH:] / [OUTFIT:] queries to women's. Never ask for their gender or sizes — you already know."
+            : isMen
+              ? "Default all product searches and [SEARCH:] / [OUTFIT:] queries to men's. Never ask for their gender or sizes — you already know."
+              : isBoth
+                ? 'They shop for both men\'s and women\'s — read context clues. Never ask for their size — you already know.'
+                : 'Never ask for their size — you already know.'
+          return `SHOPPER PROFILE — use this for every recommendation, search token, and size comment:\n${profileSrc}\n${genderNote}\nWhen discussing fit, use their listed size as the baseline and note if something runs small/large relative to it.`
+        })()
+      : ''
     const memoryBlock = memorySummary
       ? `SHOPPER MEMORY (from previous Fabrics sessions):\n${memorySummary}`
       : ''

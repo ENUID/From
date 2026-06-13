@@ -104,14 +104,19 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     const parts: string[] = []
     if (tasteProfileData.sizes) {
       const s = tasteProfileData.sizes as Record<string, string>
+      const gender = s.gender || ''
       // Gender first — drives default search gender prefix
-      if (s.gender) parts.push(`shops for: ${s.gender.toLowerCase()}`)
+      if (gender) parts.push(`shops for: ${gender.toLowerCase()}`)
+      // Label sizes with gender so the AI knows e.g. "M" means women's M, not men's
+      const genderLabel = gender && gender !== 'Both' && gender !== 'Non-binary'
+        ? `${gender.toLowerCase()}'s `
+        : ''
       const sizeStr = [
         s.tops     && `tops ${s.tops}`,
         s.bottoms  && `bottoms ${s.bottoms}`,
         s.shoes    && `shoes ${s.shoes}`,
       ].filter(Boolean).join(', ')
-      if (sizeStr) parts.push(`sizes: ${sizeStr}`)
+      if (sizeStr) parts.push(`${genderLabel}sizes: ${sizeStr}`)
     }
     if (isPremium) {
       if (tasteProfileData.styles?.length) parts.push(`styles: ${tasteProfileData.styles.join(', ')}`)
