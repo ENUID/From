@@ -2479,6 +2479,38 @@ export default function FromApp({
         </div>
       )}
 
+      {/* ── Attach menu — rendered at root level to escape transform stacking context ── */}
+      {attachMenuOpen && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9600 }} onClick={() => setAttachMenuOpen(false)} />
+          <div style={{ position: 'fixed',
+            left: attachRect ? Math.max(12, attachRect.left) : 16,
+            bottom: attachRect ? (window.innerHeight - attachRect.top + 10) : 86,
+            zIndex: 9601,
+            background: '#fff', borderRadius: 14, overflow: 'hidden', minWidth: 210,
+            boxShadow: '0 8px 28px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.07)' }}>
+            {([
+              { label: 'Photo Library',       action: () => photoLibRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+              { label: 'Take Photo or Video', action: () => cameraRef.current?.click(),   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> },
+              { label: 'Choose Files',        action: () => fileRef.current?.click(),     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> },
+            ] as { label: string; action: () => void; icon: React.ReactNode }[]).map(({ label, action, icon }, i, arr) => (
+              <div key={label}>
+                <button type="button" onClick={() => { action(); setAttachMenuOpen(false) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+                    padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK, textAlign: 'left' }}
+                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,.05)')}
+                  onPointerUp={e => (e.currentTarget.style.background = 'none')}
+                  onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
+                  {icon}{label}
+                </button>
+                {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(0,0,0,.08)', margin: '0 16px' }} />}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="fr-wrap">
         <div className="fr-shell">
 
@@ -3354,38 +3386,6 @@ export default function FromApp({
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                       </svg>
                     </button>
-                      {attachMenuOpen && (
-                        <>
-                          <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={() => setAttachMenuOpen(false)} />
-                          {/* Fixed positioning escapes the search bar's overflow:hidden clip,
-                              anchored just above the paperclip via its measured position. */}
-                          <div style={{ position: 'fixed',
-                            left: attachRect ? Math.max(12, attachRect.left) : 16,
-                            bottom: attachRect ? (window.innerHeight - attachRect.top + 10) : 86,
-                            zIndex: 301,
-                            background: '#fff', borderRadius: 14, overflow: 'hidden', minWidth: 210,
-                            boxShadow: '0 8px 28px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.07)' }}>
-                            {([
-                              { label: 'Photo Library', action: () => photoLibRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
-                              { label: 'Take Photo or Video', action: () => cameraRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> },
-                              { label: 'Choose Files', action: () => fileRef.current?.click(), icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> },
-                            ] as { label: string; action: () => void; icon: React.ReactNode }[]).map(({ label, action, icon }, i, arr) => (
-                              <div key={label}>
-                                <button type="button" onClick={() => { action(); setAttachMenuOpen(false) }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%',
-                                    padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
-                                    fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK, textAlign: 'left' }}
-                                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,.05)')}
-                                  onPointerUp={e => (e.currentTarget.style.background = 'none')}
-                                  onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
-                                  {icon}{label}
-                                </button>
-                                {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(0,0,0,.08)', margin: '0 16px' }} />}
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
                     </div>
                     {/* Fabrics pill — icon + label, left-aligned after paperclip */}
                     <button type="button" onClick={() => setStylistOpen(true)}
