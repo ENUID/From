@@ -4,7 +4,7 @@ export default function PrivacyPage() {
   return (
     <main style={{ maxWidth: 680, margin: '0 auto', padding: '60px 24px 80px', fontFamily: "'DM Sans', system-ui, sans-serif", color: '#2C1206', lineHeight: 1.7 }}>
       <h1 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 38, fontWeight: 500, marginBottom: 8 }}>Privacy Policy</h1>
-      <p style={{ color: '#9B7060', fontSize: 13, marginBottom: 40 }}>Last updated: June 2025</p>
+      <p style={{ color: '#9B7060', fontSize: 13, marginBottom: 40 }}>Last updated: June 2026</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>1. What we collect</h2>
       <p><strong>Account data:</strong> Your email address when you sign up.<br />
@@ -26,8 +26,7 @@ export default function PrivacyPage() {
       <p>FROM uses the following services that may process your data under their own policies:<br />
       — <strong>Convex</strong> — database hosting (US)<br />
       — <strong>Groq</strong> — AI inference (your search queries are processed by Groq; they are not stored for training)<br />
-      — <strong>Google</strong> — optional sign-in only<br />
-      — <strong>Skimlinks</strong> — affiliate link management (anonymous click data only)<br />
+      — <strong>Google</strong> — optional sign-in, and AI inference for the Fabrics stylist and image-based search (Gemini); inputs are not stored for training<br />
       — <strong>Vercel</strong> — hosting and serverless functions</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>5. Data retention</h2>

@@ -4,7 +4,7 @@ export default function TermsPage() {
   return (
     <main style={{ maxWidth: 680, margin: '0 auto', padding: '60px 24px 80px', fontFamily: "'DM Sans', system-ui, sans-serif", color: '#2C1206', lineHeight: 1.7 }}>
       <h1 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 38, fontWeight: 500, marginBottom: 8 }}>Terms of Service</h1>
-      <p style={{ color: '#9B7060', fontSize: 13, marginBottom: 40 }}>Last updated: June 2025</p>
+      <p style={{ color: '#9B7060', fontSize: 13, marginBottom: 40 }}>Last updated: June 2026</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>1. About FROM</h2>
       <p>FROM is an AI-powered fashion discovery platform that surfaces products from independent and emerging brands. By using FROM, you agree to these terms.</p>
@@ -16,7 +16,7 @@ export default function TermsPage() {
       <p>FROM helps you discover and explore products from third-party stores. We do not sell products directly. All purchases are made on the brand's own store. FROM is not responsible for products, shipping, returns, or disputes with those stores.</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>4. Affiliate disclosure</h2>
-      <p>FROM may earn a commission when you click through to a product and make a purchase (via Skimlinks or similar affiliate programs). This does not affect the price you pay.</p>
+      <p>FROM may earn a commission through affiliate partnerships if you click through to a product and make a purchase on a brand's store. This never affects the price you pay or which products we surface for you.</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>5. Acceptable use</h2>
       <p>You may not use FROM to scrape data, attempt to access systems you are not authorised to access, or engage in any activity that would harm FROM or other users.</p>
