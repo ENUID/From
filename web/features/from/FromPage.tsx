@@ -4100,9 +4100,9 @@ export default function FromApp({
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={stylistImages.length >= 8}
-                          onClick={() => { stylistFileRef.current?.click() }}>
+                          onClick={() => { stylistFileRef.current?.click() }} title="Add clothing photos">
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="8" cy="9" r="2"/><path d="M21 15l-5-5-4 4-3-3-3 3"/>
                           </svg>
                         </button>
                       </div>
