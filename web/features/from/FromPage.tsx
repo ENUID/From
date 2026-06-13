@@ -1228,8 +1228,8 @@ export default function FromApp({
   }
   const [renameId, setRenameId]         = useState<string | null>(null)
   const [renameVal, setRenameVal]       = useState("")
-  const [isWide, setIsWide]             = useState(false)
-  const [isMedium, setIsMedium]         = useState(false)
+  const [isWide, setIsWide]             = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false)
+  const [isMedium, setIsMedium]         = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : false)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const attachBtnRef = useRef<HTMLButtonElement>(null)
   const [attachRect, setAttachRect] = useState<{ left: number; top: number } | null>(null)
