@@ -1149,9 +1149,7 @@ export default function FromApp({
   useEffect(() => {
     if (authStatus !== 'authenticated') return
     if (userRecord === undefined) return // still loading
-    if (userRecord && userRecord.consentGivenAt == null) {
-      setShowConsent(true)
-    } else if (tasteProfileData === null) {
+    if (userRecord && tasteProfileData === null) {
       setShowOnboarding(true)
     }
   }, [authStatus, tasteProfileData, userRecord])
@@ -2193,7 +2191,7 @@ export default function FromApp({
   const sgColStart = sgGroupIdx * 3
 
   return (
-    <div style={{ fontFamily: SANS, background: "#ffffff", height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+    <div style={{ fontFamily: SANS, background: BG2, height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
 
       {/* ── SVG filter for glass edge refraction ── */}
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -2212,17 +2210,26 @@ export default function FromApp({
         ::-webkit-scrollbar{display:none;}
 
         /* ── Outer wrapper & shell ──
-           The app fills the whole device — phone, tablet or laptop — rather than a
-           fixed phone-width strip. Only on very large monitors do we cap the width
-           and centre it so the layout never stretches absurdly wide. */
+           Phone: fills the viewport edge-to-edge.
+           Tablet/desktop (≥600px): floats as a centred popup card on a warm parchment
+           background — the app stays phone-width so the UI never looks stretched. */
         .fr-wrap{display:flex;align-items:stretch;justify-content:center;height:100dvh;width:100%;
           background:#ffffff;}
-        .fr-shell{width:100%;max-width:1600px;height:100dvh;position:relative;display:flex;flex-direction:column;
+        .fr-shell{width:100%;max-width:430px;height:100dvh;position:relative;display:flex;flex-direction:column;
           overflow:hidden;overscroll-behavior:none;
           background:#ffffff;}
-        @media(min-width:1601px){
-          .fr-wrap{background:#f2ede8;}
-          .fr-shell{box-shadow:0 0 0 1px rgba(44,18,6,.06);}
+        @media(min-width:600px){
+          .fr-wrap{align-items:center;padding:20px;background:${BG2};}
+          .fr-shell{
+            height:min(880px,calc(100dvh - 40px));
+            border-radius:36px;
+            box-shadow:0 32px 96px rgba(44,18,6,.18),0 8px 24px rgba(44,18,6,.10),0 0 0 0.5px rgba(44,18,6,.09);
+          }
+          /* 430px card: viewport-width media queries would push to 3–5 cols; reset to 2 */
+          .fr-grid{grid-template-columns:repeat(2,1fr);}
+          /* Sidebar and overlays inherit card border-radius so they don't bleed outside */
+          .fr-sb{border-radius:inherit;}
+          .fr-ov{border-radius:inherit;}
         }
 
         /* ── Header ── */
