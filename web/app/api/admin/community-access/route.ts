@@ -20,11 +20,15 @@ export async function POST(req: NextRequest) {
   if (!email || typeof email !== 'string') {
     return NextResponse.json({ error: 'email required' }, { status: 400 })
   }
-  const id = await convex.mutation(anyApi.subscriptions.grantAllowlistAccess, {
-    email: email.toLowerCase().trim(),
-    note: typeof note === 'string' ? note : undefined,
-  })
-  return NextResponse.json({ ok: true, id, email: email.toLowerCase().trim() })
+  try {
+    const id = await convex.mutation(anyApi.subscriptions.grantAllowlistAccess, {
+      email: email.toLowerCase().trim(),
+      note: typeof note === 'string' && note ? note : undefined,
+    })
+    return NextResponse.json({ ok: true, id, email: email.toLowerCase().trim() })
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Convex error', detail: e?.message ?? String(e) }, { status: 500 })
+  }
 }
 
 // DELETE — revoke access
@@ -36,10 +40,14 @@ export async function DELETE(req: NextRequest) {
   if (!email || typeof email !== 'string') {
     return NextResponse.json({ error: 'email required' }, { status: 400 })
   }
-  const id = await convex.mutation(anyApi.subscriptions.revokeAllowlistAccess, {
-    email: email.toLowerCase().trim(),
-  })
-  return NextResponse.json({ ok: true, removed: !!id })
+  try {
+    const id = await convex.mutation(anyApi.subscriptions.revokeAllowlistAccess, {
+      email: email.toLowerCase().trim(),
+    })
+    return NextResponse.json({ ok: true, removed: !!id })
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Convex error', detail: e?.message ?? String(e) }, { status: 500 })
+  }
 }
 
 // GET — auth check (?check=1) OR list everyone on the allowlist
