@@ -389,13 +389,17 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
   // ships_to is not part of Shopify's public MCP spec — omitting it prevents
   // the endpoint from returning empty when the filter format is unrecognised.
   const runOne = async (q: string): Promise<{ products: any[]; errored: boolean }> => {
+    // Empty query = browse full catalog. Shopify MCP returns all available products
+    // when no query is specified, so we omit the field rather than sending "".
+    const catalogArgs: Record<string, any> = { filters: { available: true }, pagination: { limit: 30 } }
+    if (q) catalogArgs.query = q
     const payload = {
       jsonrpc: '2.0',
       method: 'tools/call',
       id: 1,
       params: {
         name: 'search_catalog',
-        arguments: { catalog: { query: q, filters: { available: true }, pagination: { limit: 30 } } },
+        arguments: { catalog: catalogArgs },
       },
     }
     try {
@@ -585,7 +589,9 @@ export class GlobalCatalogService {
     rerankQuery?: string,
   ): Promise<UcpProduct[]> {
     const rawQuery = query.trim()
-    if (!rawQuery) return []
+    // For brand-only searches (brandDomains pre-supplied), allow empty rawQuery —
+    // we'll browse the brand's catalog with a broad/empty query instead of returning early.
+    if (!rawQuery && brandDomains.length === 0) return []
 
     const isLoadMore = Boolean(options.loadMore)
     const limit = isLoadMore ? LOAD_MORE_LIMIT : INITIAL_LIMIT
@@ -601,10 +607,12 @@ export class GlobalCatalogService {
     const isBrandSearch = validBrands.length > 0
 
     // Strip the brand name from the query sent to the store ("shirts from Banana Club" → "shirts").
+    // For brand-only searches where the whole query IS the brand name, storeQuery becomes empty —
+    // that's intentional: an empty Shopify query returns all available products in the store.
     let storeQuery = rawQuery
     if (isBrandSearch) {
       for (const d of detectedBrands) {
-        const name = BRAND_NAMES[d]
+        const name = BRAND_NAMES[d] || (UCP_REGISTRY.find(s => s.domain === d)?.name)
         if (name && name.length >= 3) {
           const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
           storeQuery = storeQuery
@@ -612,7 +620,9 @@ export class GlobalCatalogService {
             .replace(new RegExp(`\\b${esc}\\b`, 'gi'), ' ')
         }
       }
-      storeQuery = storeQuery.replace(/\s+/g, ' ').trim() || rawQuery
+      // Don't fall back to rawQuery (which has the brand name) — empty storeQuery
+      // intentionally browses the brand's full available catalog.
+      storeQuery = storeQuery.replace(/\s+/g, ' ').trim()
     }
 
     const cacheKey = makeCacheKey(storeQuery, cc, validBrands)
