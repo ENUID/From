@@ -4579,16 +4579,12 @@ export default function FromApp({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                   <div>
                     <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.01em', lineHeight: 1.1 }}>
-                      {onboardingStep === 0 ? 'Who do you shop for?' : onboardingStep === 1 ? 'Your sizes' : onboardingStep === 2 ? 'Your aesthetic' : 'Your budget'}
+                      {onboardingStep === 0 ? 'Who do you shop for?' : 'Your sizes'}
                     </div>
                     <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 5, lineHeight: 1.5 }}>
                       {onboardingStep === 0
                         ? 'FROM shows the right clothes by default — no filtering every search'
-                        : onboardingStep === 1
-                        ? 'Fabrics uses this to advise on fit without asking every time'
-                        : onboardingStep === 2
-                        ? 'Helps FROM surface styles you actually want to wear'
-                        : 'Sets the price range so results always feel relevant'}
+                        : 'Fabrics uses this to advise on fit without asking every time'}
                     </div>
                   </div>
                   <button onClick={() => finishOnboarding(true)}
@@ -4601,7 +4597,7 @@ export default function FromApp({
 
                 {/* Progress bars */}
                 <div style={{ display: 'flex', gap: 5, marginBottom: 28 }}>
-                  {[0, 1, 2, 3].map(i => (
+                  {[0, 1].map(i => (
                     <div key={i} style={{
                       height: 3, flex: 1, borderRadius: 2,
                       background: i <= onboardingStep ? INK : BRD,
@@ -4627,7 +4623,7 @@ export default function FromApp({
                             <span style={{ fontSize: 28 }}>{g === 'Men' ? '👔' : '👗'}</span>
                             <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: active ? '#fff' : INK }}>{g}</span>
                             <span style={{ fontFamily: SANS, fontSize: 11, color: active ? 'rgba(255,255,255,0.65)' : INK3 }}>
-                              {g === 'Men' ? "menswear by default" : "womenswear by default"}
+                              {g === 'Men' ? 'menswear by default' : 'womenswear by default'}
                             </span>
                           </button>
                         )
@@ -4683,130 +4679,19 @@ export default function FromApp({
                   </div>
                 )}
 
-                {/* Step 2 — aesthetic tiles */}
-                {onboardingStep === 2 && (
-                  <>
-                    {([
-                      { label: 'Classic', tiles: [
-                        { name: 'Quiet Luxury', key: 'quiet luxury', emoji: '🤍', sub: 'no logo' },
-                        { name: 'Old Money', key: 'old money', emoji: '🧥', sub: 'heritage' },
-                        { name: 'Minimalist', key: 'minimalist', emoji: '◻️', sub: 'clean lines' },
-                        { name: 'Preppy', key: 'preppy', emoji: '🎓', sub: 'collegiate' },
-                        { name: 'Corporate', key: 'corporate minimalism', emoji: '💼', sub: 'tailored' },
-                        { name: 'Nautical', key: 'nautical', emoji: '⚓', sub: 'coastal' },
-                      ]},
-                      { label: 'Street', tiles: [
-                        { name: 'Streetwear', key: 'streetwear', emoji: '🧢', sub: 'urban' },
-                        { name: 'Techwear', key: 'techwear', emoji: '🔧', sub: 'utility' },
-                        { name: 'Dark Academia', key: 'dark academia', emoji: '📚', sub: 'scholarly' },
-                        { name: 'Grunge', key: 'grunge', emoji: '🎸', sub: 'distressed' },
-                        { name: 'Y2K', key: 'Y2K', emoji: '💿', sub: '2000s' },
-                        { name: 'Vintage', key: 'vintage', emoji: '🪡', sub: 'pre-loved' },
-                      ]},
-                      { label: 'Outdoors', tiles: [
-                        { name: 'Gorpcore', key: 'gorpcore', emoji: '🏔️', sub: 'trail-ready' },
-                        { name: 'Heritage', key: 'heritage workwear', emoji: '🔨', sub: 'crafted' },
-                        { name: 'Athleisure', key: 'athleisure', emoji: '🏃', sub: 'sport-casual' },
-                        { name: 'Sport Luxe', key: 'sport luxe', emoji: '🎾', sub: 'premium active' },
-                        { name: 'Workwear', key: 'workwear', emoji: '🧱', sub: 'functional' },
-                        { name: 'Utility', key: 'utility', emoji: '🪜', sub: 'multi-pocket' },
-                      ]},
-                      { label: 'Soft', tiles: [
-                        { name: 'Bohemian', key: 'bohemian', emoji: '🌿', sub: 'free spirit' },
-                        { name: 'Cottagecore', key: 'cottagecore', emoji: '🌸', sub: 'pastoral' },
-                        { name: 'Ballet Core', key: 'ballet core', emoji: '🩰', sub: 'soft feminine' },
-                        { name: 'Romantic', key: 'romantic', emoji: '🌹', sub: 'delicate' },
-                        { name: 'Clean Girl', key: 'clean girl', emoji: '✨', sub: 'effortless' },
-                        { name: 'Coastal', key: 'coastal grandmother', emoji: '🌊', sub: 'breezy linen' },
-                      ]},
-                      { label: 'Bold', tiles: [
-                        { name: 'Maximalist', key: 'maximalist', emoji: '🎨', sub: 'more is more' },
-                        { name: 'Eclectic', key: 'eclectic', emoji: '🦋', sub: 'curated chaos' },
-                        { name: 'Artistic', key: 'artistic', emoji: '🖼️', sub: 'avant-garde' },
-                        { name: 'Mob Wife', key: 'mob wife', emoji: '🐆', sub: 'bold luxury' },
-                        { name: 'Dark Romantic', key: 'dark romantic', emoji: '🕯️', sub: 'gothic soft' },
-                        { name: 'Resort', key: 'resort wear', emoji: '🌴', sub: 'vacation chic' },
-                      ]},
-                    ] as const).map(row => (
-                      <div key={row.label} style={{ marginBottom: 10 }}>
-                        <div style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{row.label}</div>
-                        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
-                          {row.tiles.map(tile => {
-                            const active = selectedStyles.includes(tile.key)
-                            return (
-                              <button key={tile.key} onClick={() => setSelectedStyles(prev =>
-                                active ? prev.filter(s => s !== tile.key)
-                                       : prev.length < 5 ? [...prev, tile.key] : prev
-                              )} style={{
-                                flexShrink: 0, padding: '8px 10px', borderRadius: 10,
-                                border: `1.5px solid ${active ? INK : BRD}`,
-                                background: active ? INK : 'transparent', cursor: 'pointer',
-                                fontFamily: SANS, fontSize: 11, fontWeight: active ? 600 : 400,
-                                color: active ? '#fff' : INK, transition: 'all .14s',
-                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 72,
-                              }}>
-                                <span style={{ fontSize: 16 }}>{tile.emoji}</span>
-                                <span style={{ whiteSpace: 'nowrap' }}>{tile.name}</span>
-                                <span style={{ fontSize: 9, color: active ? 'rgba(255,255,255,0.65)' : INK3, whiteSpace: 'nowrap' }}>{tile.sub}</span>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginBottom: 16, textAlign: 'center' }}>
-                      Pick up to 5
-                    </div>
-                  </>
-                )}
-
-                {/* Step 3 — budget */}
-                {onboardingStep === 3 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-                    {[
-                      { label: 'Under $50', sub: 'Finds the hidden gems' },
-                      { label: '$50–150', sub: 'The sweet spot' },
-                      { label: '$150–400', sub: 'Investment pieces' },
-                      { label: '$400+', sub: 'No ceiling' },
-                    ].map((opt, i) => {
-                      const active = selectedBudget === i
-                      return (
-                        <button key={i} onClick={() => setSelectedBudget(i)} style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${active ? INK : BRD}`,
-                          background: active ? INK : 'rgba(255,255,255,0.6)', cursor: 'pointer', textAlign: 'left',
-                          transition: 'all .14s',
-                        }}>
-                          <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: active ? '#fff' : INK }}>{opt.label}</span>
-                          <span style={{ fontFamily: SANS, fontSize: 11, color: active ? 'rgba(255,255,255,0.6)' : INK3 }}>{opt.sub}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => {
-                    if (onboardingStep < 3) setOnboardingStep(s => s + 1)
+                    if (onboardingStep < 1) setOnboardingStep(s => s + 1)
                     else finishOnboarding(false)
                   }} style={{
                     flex: 1, padding: '14px', borderRadius: 12,
                     background: INK, color: '#fff',
                     fontFamily: SANS, fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer',
                   }}>
-                    {onboardingStep < 3 ? (onboardingStep === 0 && !onboardGender ? 'Skip for now' : 'Next') : 'Done'}
+                    {onboardingStep < 1 ? (onboardGender ? 'Next' : 'Skip for now') : 'Done'}
                   </button>
-                  {onboardingStep > 0 && onboardingStep < 3 && (
-                    <button onClick={() => setOnboardingStep(s => s + 1)} style={{
-                      padding: '14px 18px', borderRadius: 12,
-                      background: 'transparent', color: INK3,
-                      fontFamily: SANS, fontSize: 13, border: `1px solid ${BRD}`, cursor: 'pointer',
-                    }}>
-                      Skip
-                    </button>
-                  )}
-                  {onboardingStep === 3 && (
+                  {onboardingStep === 1 && (
                     <button onClick={() => finishOnboarding(true)} style={{
                       padding: '14px 18px', borderRadius: 12,
                       background: 'transparent', color: INK3,
