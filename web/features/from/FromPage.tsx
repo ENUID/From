@@ -2294,12 +2294,12 @@ export default function FromApp({
             </div>
 
             <div style={{ fontFamily: SERIF, fontSize: isMedium ? 32 : 28, fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.2, letterSpacing: '-.01em' }}>
-              {otpStep === 'code' ? 'Check your email' : <>Independent fashion,<br />personally curated</>}
+              {otpStep === 'code' ? 'Check your email' : <>Dress like<br />you mean it.</>}
             </div>
-            <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 8, marginBottom: 24, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 8, marginBottom: 24, lineHeight: 1.65, whiteSpace: 'pre-line' }}>
               {otpStep === 'code'
                 ? `We sent a 6-digit code to\n${otpEmail}`
-                : "Discover the brands the algorithm hasn't found yet.\nYour taste profile. Your wardrobe. No noise."}
+                : "Independent brands from around the world,\ncurated in one place."}
             </div>
 
             {authUrlError && (
