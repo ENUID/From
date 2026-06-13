@@ -1202,6 +1202,14 @@ export default function FromApp({
     if (!onboardEmail || profileSaving) return
     setProfileSaving(true)
     setProfileError('')
+    // Never let the button hang on "Saving…" — if the Convex client can't reach
+    // the backend, a mutation can stay pending forever (it never rejects). Race
+    // every save against a timeout so the user always gets a definitive result.
+    const withTimeout = <T,>(p: Promise<T>, ms = 12000): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+      ])
     try {
       const sizes: Record<string, string> = {}
       if (profileSizeTops.trim()) sizes.tops = profileSizeTops.trim()
@@ -1210,9 +1218,9 @@ export default function FromApp({
       if (profileGender) sizes.gender = profileGender
       // Profile write first — this auto-provisions the user row if needed, so the
       // name update below (and everything else) can rely on the user existing.
-      await upsertProfile({ userEmail: onboardEmail, sizes: Object.keys(sizes).length ? sizes : undefined })
+      await withTimeout(upsertProfile({ userEmail: onboardEmail, sizes: Object.keys(sizes).length ? sizes : undefined }))
       if (profileName.trim()) {
-        await updateUserNameMutation({ email: onboardEmail, name: profileName.trim() })
+        await withTimeout(updateUserNameMutation({ email: onboardEmail, name: profileName.trim() }))
       }
       setProfileSaving(false)
       setSettingsView('main')
@@ -1220,7 +1228,10 @@ export default function FromApp({
       // Surface the failure instead of swallowing it — a silent failure looked
       // identical to a save, which is why details appeared not to persist.
       console.error('[saveProfile] failed:', err)
-      setProfileError("Couldn't save — check your connection and try again.")
+      const timedOut = err instanceof Error && err.message === 'timeout'
+      setProfileError(timedOut
+        ? "Couldn't reach the server — your changes weren't saved. Please try again."
+        : "Couldn't save — please try again.")
       setProfileSaving(false)
     }
   }
