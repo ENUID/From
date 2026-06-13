@@ -4,17 +4,18 @@ import { anyApi } from 'convex/server'
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
-function authorized(req: NextRequest): boolean {
+function authorized(req: NextRequest): { ok: boolean; reason?: string } {
   const secret = process.env.ADMIN_SECRET
-  if (!secret) return false
+  if (!secret) return { ok: false, reason: 'not_configured' }
   const header = req.headers.get('x-admin-secret')
-  return header === secret
+  return { ok: header === secret, reason: header !== secret ? 'wrong_secret' : undefined }
 }
 
 // POST — grant access
 // Body: { email: string, note?: string }
 export async function POST(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = authorized(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized', reason: auth.reason }, { status: 401 })
   const { email, note } = await req.json().catch(() => ({}))
   if (!email || typeof email !== 'string') {
     return NextResponse.json({ error: 'email required' }, { status: 400 })
@@ -29,7 +30,8 @@ export async function POST(req: NextRequest) {
 // DELETE — revoke access
 // Body: { email: string }
 export async function DELETE(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = authorized(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized', reason: auth.reason }, { status: 401 })
   const { email } = await req.json().catch(() => ({}))
   if (!email || typeof email !== 'string') {
     return NextResponse.json({ error: 'email required' }, { status: 400 })
@@ -42,7 +44,8 @@ export async function DELETE(req: NextRequest) {
 
 // GET — list everyone on the allowlist
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = authorized(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized', reason: auth.reason }, { status: 401 })
   const list = await convex.query(anyApi.subscriptions.listAllowlist, {})
   return NextResponse.json({ ok: true, count: list.length, list })
 }
