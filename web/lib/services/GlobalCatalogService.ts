@@ -538,6 +538,7 @@ function applyFiltersAndSort(
   const excluded = new Set(params.excludeIds)
   let out = products.filter(p => {
     if (excluded.has(p.id)) return false
+    if (!p.in_stock) return false
     if (params.budgetMax && params.budgetMax > 0) {
       if (convertPrice(p.price, p.currency, params.budgetCurrency, params.rates) > params.budgetMax) {
         return false
