@@ -3275,6 +3275,16 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "items": ["tee", "hoodie", "joggers", "shorts", "tank top", "compression wear"],
     "about": "LA gym and streetwear staple — oversized fits, lifting gear, and athleisure built for the fitness community"
   },
+  {
+    "domain": "offduty.in",
+    "name": "Off Duty India",
+    "categories": ["top", "bottom", "dress", "outerwear", "accessory"],
+    "vibe": ["resort", "bohemian", "relaxed", "vacation", "tropical", "printed", "co-ord"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["co-ord set", "dress", "blouse", "shorts", "skirt", "kaftan", "jumpsuit", "top"],
+    "about": "Indian resort and vacation wear — vibrant prints, easy silhouettes, and co-ord sets for warm-weather dressing"
+  },
 ];
 
 // ── Brand directory ───────────────────────────────────────────────────────────
