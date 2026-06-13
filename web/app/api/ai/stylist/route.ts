@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat, groqVisionChat, wardrobeVisionChat, VisionMessage } from '@/lib/groq'
+import { groqChat, wardrobeVisionChat } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts } from '@/lib/queryParser'
@@ -331,11 +331,20 @@ After analyzing, give the shopper one of:
 • If store products are pinned alongside the photo, treat them as the recommended items — connect the visual to the product.
 
 ━━━ RESPONSE RULES ━━━
-• 2–3 sentences for most visual analyses. Lead with the observation, follow with the action.
+• 2–3 sentences for most visual analyses. Lead with the observation, follow with the action. (When building a full outfit you may use up to 4 sentences to justify the pieces.)
 • No bullet points. No headers. Natural flowing sentences only.
 • One **bolded** key term per reply maximum.
 • When recommending a product from the pinned items, use [PRODUCT:N] (0-indexed).
-• If a new product search is needed, end with [SEARCH: precise query].`
+• If ONE new item would complete the look, end with [SEARCH: precise query].
+
+━━━ BUILDING A COMPLETE OUTFIT FROM WHAT THEY OWN ━━━
+The shopper often shares pieces they already own (their wardrobe) and asks you to style or build a complete outfit around them. When they want a full look or several complementary pieces:
+1. Identify what's in the photo(s) — garment type, colour + undertone, fabric, formality.
+2. Work out which categories are MISSING to finish the outfit. A shirt needs bottoms, shoes, and usually a layer (overshirt / blazer / coat). A dress may just need shoes and outerwear.
+3. End your reply with an [OUTFIT: ...] token — one precise shopping query per missing piece, separated by " | ", up to 4. Be specific (gender, colour, material, cut):
+   [OUTFIT: men's dark navy slim trousers | men's tan leather loafers | men's camel unstructured wool blazer]
+4. In the sentences before the token, name WHY each piece works with what they own — colour temperature, formality match, proportion. The pieces must combine into ONE cohesive look that genuinely goes together, not a random list.
+Use [OUTFIT: ...] (not [SEARCH: ...]) whenever they want a complete outfit or multiple complementary pieces; use [SEARCH: ...] only for a single item. Never output both tokens.`
 
 // ── Parse reply ─────────────────────────────────────────────────────────────
 function parseReply(raw: string): { reply: string; comparison?: Comparison } {
@@ -493,22 +502,20 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     let raw = ''
 
     if (hasImages) {
-      // Build multimodal messages for vision model
-      const visionMessages: VisionMessage[] = [
-        { role: 'system' as const, content: contextBlock },
-        ...history,
-      ]
+      // Vision path — Gemini 2.0 Flash first (best garment recognition), Groq
+      // Llama 4 Scout as automatic fallback on rate-limit. Context + prior turns
+      // are flattened into the prompt so wardrobe pieces stay in scope across
+      // the whole conversation (build an outfit, find gaps, restyle, etc.).
+      const convo = history
+        .map(m => `${m.role === 'assistant' ? 'Fabrics' : m.role === 'system' ? 'Context' : 'Shopper'}: ${m.content}`)
+        .join('\n')
+      const visionPrompt = [
+        contextBlock,
+        convo ? `CONVERSATION SO FAR:\n${convo}` : '',
+        `Shopper's current message: ${question}`,
+      ].filter(Boolean).join('\n\n')
 
-      // Build the final user message with text + images
-      const imageParts = images.map(url => ({
-        type: 'image_url' as const,
-        image_url: { url, detail: 'low' as const },
-      }))
-      const textPart = { type: 'text' as const, text: question }
-      visionMessages.push({ role: 'user', content: [textPart, ...imageParts] })
-
-      const msg = await groqVisionChat(visionMessages, VISION_SYSTEM, { max_tokens: 700, temperature: 0.3 })
-      raw = (msg?.content ?? '').trim()
+      raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 900, temperature: 0.3 })
     } else {
       // Text-only path (no images)
       const messages = [

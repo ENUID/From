@@ -1310,8 +1310,10 @@ export default function FromApp({
   const stylistFileRef                      = useRef<HTMLInputElement>(null)
   const stylistSessionId                    = useRef<string | null>(null)
   const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
-  const [wardrobeScanLoading, setWardrobeScanLoading] = useState(false)
-  const [wardrobeScanResult, setWardrobeScanResult]   = useState<{ summary: string; gaps: string[] } | null>(null)
+  // Wardrobe pieces the shopper owns — persist across the whole conversation as
+  // context, so they can attach what they have and then ask Fabrics to build a
+  // full outfit, find what's missing, or style combinations over many turns.
+  const [wardrobeImages, setWardrobeImages] = useState<{ url: string }[]>([])
   const wardrobeFileRef                     = useRef<HTMLInputElement>(null)
   // Products attached to the search bar — sending a query with these opens the stylist.
   const [barProducts, setBarProducts]       = useState<Product[]>([])
@@ -1362,14 +1364,49 @@ export default function FromApp({
     if (stylistFileRef.current) stylistFileRef.current.value = ''
   }
 
+  // Wardrobe attach — same compression as handleStylistFile, but lands in the
+  // persistent wardrobeImages strip instead of the one-off attach.
+  const handleWardrobeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    files.slice(0, 8 - wardrobeImages.length).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = ev => {
+        const dataUrl = ev.target?.result as string
+        const img = new window.Image()
+        img.onload = () => {
+          const MAX = 768
+          const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+          const canvas = document.createElement('canvas')
+          canvas.width  = Math.round(img.width * ratio)
+          canvas.height = Math.round(img.height * ratio)
+          canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+          const compressed = canvas.toDataURL('image/jpeg', 0.82)
+          setWardrobeImages(prev => prev.length < 8 ? [...prev, { url: compressed }] : prev)
+        }
+        img.src = dataUrl
+      }
+      reader.readAsDataURL(file)
+    })
+    if (wardrobeFileRef.current) wardrobeFileRef.current.value = ''
+  }
+
   const sendStylist = async (q: string, productsArg?: Product[], historyArg?: StylistMsg[], imagesArg?: { url: string }[]) => {
-    const question = q.trim() || (stylistImages.length > 0 ? 'What would work well with these?' : '')
+    const hasWardrobe = wardrobeImages.length > 0
+    const images   = imagesArg ?? stylistImages
+    const question = q.trim() || (
+      hasWardrobe ? 'Build me a complete outfit around these pieces.'
+      : images.length > 0 ? 'What would work well with these?'
+      : ''
+    )
     const products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
-    const images   = imagesArg ?? stylistImages
     if (!question || stylistLoading) return
     setStylistInput('')
-    const capturedImages = images.map(i => i.url)
+    const transientImages = images.map(i => i.url)
+    // Wardrobe pieces persist as context every turn; one-off attaches don't.
+    // Both are sent to the vision model so it can style what they actually own.
+    const capturedImages = [...wardrobeImages.map(i => i.url), ...transientImages]
     setStylistImages([])
     const isNewSession = history.length === 0
     if (isNewSession) {
@@ -1380,7 +1417,7 @@ export default function FromApp({
         ...prev,
       ].slice(0, 30))
     }
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined }])
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: transientImages.length > 0 ? transientImages : undefined }])
     setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0))
     setStylistLoadingStep(0)
     setStylistLoading(true)
@@ -3846,7 +3883,7 @@ export default function FromApp({
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {stylistMsgs.length > 0 && (
-                      <button onClick={() => { setStylistMsgs([]); setStylistProducts([]); setStylistImages([]); stylistSessionId.current = null }} title="New conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
+                      <button onClick={() => { setStylistMsgs([]); setStylistProducts([]); setStylistImages([]); setWardrobeImages([]); stylistSessionId.current = null }} title="New conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -3877,15 +3914,39 @@ export default function FromApp({
                   ))}
                 </div>
 
+                {/* Your wardrobe — persistent pieces the shopper owns */}
+                {wardrobeImages.length > 0 && (
+                  <div style={{ flexShrink: 0, padding: '10px 16px', borderBottom: `1px solid ${BRD}` }}>
+                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 7 }}>Your wardrobe · {wardrobeImages.length}</div>
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+                      {wardrobeImages.map((img, idx) => (
+                        <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
+                          <div style={{ width: 58, height: 72, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                            <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          </div>
+                          <button type="button" onClick={() => setWardrobeImages(prev => prev.filter((_, i) => i !== idx))}
+                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: INK, border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                            <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Conversation */}
                 <div ref={stylistScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', WebkitOverflowScrolling: 'touch', minHeight: 130 } as React.CSSProperties}>
                   {stylistMsgs.length === 0 && !stylistLoading && (
                     <div>
                       <p style={{ fontFamily: SERIF, fontSize: 18, color: INK3, lineHeight: 1.4, marginBottom: 12 }}>
-                        {stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Ask me anything about style.'}
+                        {wardrobeImages.length > 0
+                          ? `Ask me to build a full outfit around ${wardrobeImages.length > 1 ? 'these pieces' : 'this piece'}.`
+                          : stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Ask me anything about style.'}
                       </p>
                       <p style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(44,18,6,0.4)', lineHeight: 1.5 }}>
-                        Get outfit ideas, styling advice, and recommendations — or share photos of your own clothes for colour matching and combinations.
+                        {wardrobeImages.length > 0
+                          ? 'I can see what you own — ask me to complete the outfit with bottoms, shoes and a layer, find what’s missing, or style combinations.'
+                          : 'Get outfit ideas, styling advice, and recommendations — or tap the wardrobe icon to add photos of your own clothes and build outfits around them.'}
                       </p>
                     </div>
                   )}
@@ -4032,70 +4093,10 @@ export default function FromApp({
                   )}
                 </div>
 
-                {/* Wardrobe scan result card */}
-                {(wardrobeScanLoading || wardrobeScanResult) && (
-                  <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}`, padding: '12px 14px', background: BG2 }}>
-                    {wardrobeScanLoading ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK, display: 'inline-block', animation: 'fr-bounce 1.1s 0s infinite' }} />
-                        <span style={{ fontFamily: SANS, fontSize: 13, color: INK2 }}>Scanning your wardrobe…</span>
-                      </div>
-                    ) : wardrobeScanResult && (
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                          <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3 }}>Wardrobe scan</span>
-                          <button onClick={() => setWardrobeScanResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: INK3, fontSize: 18, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                        </div>
-                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK, margin: '0 0 10px', lineHeight: 1.55 }}>{wardrobeScanResult.summary}</p>
-                        {wardrobeScanResult.gaps.length > 0 && (
-                          <>
-                            <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 5 }}>Gaps to fill</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                              {wardrobeScanResult.gaps.map((g, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
-                                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: INK3, marginTop: 5, flexShrink: 0 }} />
-                                  <span style={{ fontFamily: SANS, fontSize: 12, color: INK2, lineHeight: 1.5 }}>{g}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* Input */}
                 <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}`, padding: '10px 14px calc(10px + env(safe-area-inset-bottom, 0px))' }}>
                   <input ref={stylistFileRef} type="file" accept="image/*,*/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
-                  <input ref={wardrobeFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={async (e) => {
-                    const files = Array.from(e.target.files || []).slice(0, 10)
-                    if (!files.length) return
-                    setWardrobeScanLoading(true)
-                    setWardrobeScanResult(null)
-                    const dataUrls = await Promise.all(files.map(f => new Promise<string>((res) => {
-                      const reader = new FileReader()
-                      reader.onload = () => res(reader.result as string)
-                      reader.readAsDataURL(f)
-                    })))
-                    try {
-                      const resp = await fetch('/api/ai/stylist', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ mode: 'wardrobe-scan', question: 'Analyze my wardrobe pieces.', images: dataUrls }),
-                      })
-                      const data = await resp.json()
-                      if (data?.wardrobeScan) {
-                        setWardrobeScanResult({ summary: data.wardrobeScan.summary, gaps: data.wardrobeScan.gaps })
-                        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply || 'Here is what I found in your wardrobe.' }])
-                      } else if (data?.reply) {
-                        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply }])
-                      }
-                    } catch { /* silent */ } finally {
-                      setWardrobeScanLoading(false)
-                    }
-                    if (wardrobeFileRef.current) wardrobeFileRef.current.value = ''
-                  }} />
+                  <input ref={wardrobeFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleWardrobeFile} />
                   {/* Attached image strip */}
                   {stylistImages.length > 0 && (
                     <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 8, scrollbarWidth: 'none' } as React.CSSProperties}>
@@ -4117,20 +4118,20 @@ export default function FromApp({
                     {/* Row 1: text */}
                     <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
-                      placeholder={stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask Fabrics…'}
+                      placeholder={wardrobeImages.length > 0 ? 'Build an outfit, find what’s missing…' : stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask Fabrics…'}
                       style={{ width: '100%', fontFamily: SANS, fontSize: 15, color: INK, caretColor: INK, background: 'transparent', border: 'none', outline: 'none', padding: 0, lineHeight: 1.5 }} />
                     {/* Row 2: actions */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={wardrobeScanLoading}
-                          onClick={() => { wardrobeFileRef.current?.click() }} title="Scan wardrobe">
+                        <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={wardrobeImages.length >= 8}
+                          onClick={() => { wardrobeFileRef.current?.click() }} title="Add your wardrobe pieces">
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="8" cy="9" r="2"/><path d="M21 15l-5-5-4 4-3-3-3 3"/>
                           </svg>
                         </button>
                       </div>
-                      <button type="button" className="fr-send-btn" onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0) || stylistLoading}
-                        style={{ background: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.18)', cursor: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? 'pointer' : 'default', boxShadow: (stylistInput.trim() || stylistImages.length > 0) && !stylistLoading ? '0 4px 14px rgba(44,18,6,.35),0 1px 4px rgba(44,18,6,.2),inset 0 1px 0 rgba(255,255,255,.12)' : 'none' }}>
+                      <button type="button" className="fr-send-btn" onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0 && wardrobeImages.length === 0) || stylistLoading}
+                        style={{ background: (stylistInput.trim() || stylistImages.length > 0 || wardrobeImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.18)', cursor: (stylistInput.trim() || stylistImages.length > 0 || wardrobeImages.length > 0) && !stylistLoading ? 'pointer' : 'default', boxShadow: (stylistInput.trim() || stylistImages.length > 0 || wardrobeImages.length > 0) && !stylistLoading ? '0 4px 14px rgba(44,18,6,.35),0 1px 4px rgba(44,18,6,.2),inset 0 1px 0 rgba(255,255,255,.12)' : 'none' }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                           <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
                         </svg>
