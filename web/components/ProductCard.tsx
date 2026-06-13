@@ -181,20 +181,22 @@ export default function ProductCard({
             {formatMoney(Number(product.price), product.currency, product.base_currency, rates)}
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span
-              style={{
-                display: 'inline-block',
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: product.in_stock ? '#5a9a5a' : '#d9534f',
-              }}
-            />
-            <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 500 }}>
-              {product.in_stock ? 'In Stock' : 'Out of Stock'}
-            </span>
-          </div>
+          {!product.in_stock && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: '#d9534f',
+                }}
+              />
+              <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 500 }}>
+                Sold out
+              </span>
+            </div>
+          )}
         </div>
 
         {shortDesc && (

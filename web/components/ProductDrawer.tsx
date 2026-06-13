@@ -631,6 +631,9 @@ export default function ProductDrawer({
                 >
                   {matchedVariant ? `${ctaLabel} (${matchedVariant.title})` : ctaLabel}
                 </a>
+                <p style={{ margin: '8px 0 0', textAlign: 'center', fontSize: 11, color: 'var(--ink3)' }}>
+                  Stock confirmed on the brand&apos;s site at checkout
+                </p>
               </div>
 
             </div>

@@ -428,6 +428,20 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
 
 // ─── Product normalization ─────────────────────────────────────────────────────
 
+// Read availability from a raw variant/product object. Shopify and various UCP
+// implementations use different field names — try all known paths in order.
+// Returns true (available) or false (sold out). When no availability signal is
+// present at all we return null (unknown) so callers can decide the default.
+function readAvailability(v: any): boolean | null {
+  if (typeof v.availability?.available === 'boolean') return v.availability.available
+  if (typeof v.available === 'boolean') return v.available
+  if (typeof v.availableForSale === 'boolean') return v.availableForSale
+  if (typeof v.available_for_sale === 'boolean') return v.available_for_sale
+  if (typeof v.inventoryQuantity === 'number') return v.inventoryQuantity > 0
+  if (typeof v.inventory_quantity === 'number') return v.inventory_quantity > 0
+  return null
+}
+
 function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
   try {
     const variant = raw.variants?.[0] ?? {}
@@ -476,6 +490,8 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
     const variants = (raw.variants ?? []).map((v: any) => {
       const vc = normalizeCurrency(v.price?.currency ?? currency)
       const vz = ZERO_DECIMAL_CURRENCIES.has(vc)
+      // null (no availability data) → optimistically trust the API's available:true filter
+      const avail = readAvailability(v) ?? true
       return {
         id: v.id,
         title: v.title,
@@ -483,7 +499,7 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
           const va = v.price?.amount ?? 0
           return vz ? va : va / 100
         })(),
-        availability: v.availability?.available ?? true,
+        availability: avail,
         options: v.options ?? [],
         media: (v.media ?? []).map((m: any) => ({
           url: normalizeImageUrl(m.url),
@@ -501,6 +517,12 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
     const image_url = normalizeImageUrl(raw.media?.[0]?.url ?? variant.media?.[0]?.url ?? '')
     if (!image_url) return null
 
+    // Product is in-stock if at least one parsed variant is available.
+    // Fall back to the raw product-level availability when no variants exist.
+    const inStock = variants.length > 0
+      ? variants.some(v => v.availability)
+      : (readAvailability(raw) ?? readAvailability(variant) ?? true)
+
     return {
       id: raw.id,
       title: raw.title ?? 'Untitled',
@@ -509,7 +531,7 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
       currency,
       store_url,
       image_url,
-      in_stock: variant.availability?.available ?? true,
+      in_stock: inStock,
       tags: raw.tags ?? [],
       description,
       description_html:
