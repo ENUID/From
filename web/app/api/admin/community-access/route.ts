@@ -42,10 +42,14 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({ ok: true, removed: !!id })
 }
 
-// GET — list everyone on the allowlist
+// GET — auth check (?check=1) OR list everyone on the allowlist
 export async function GET(req: NextRequest) {
   const auth = authorized(req)
   if (!auth.ok) return NextResponse.json({ error: 'Unauthorized', reason: auth.reason }, { status: 401 })
+  // Fast auth-only path — never touches Convex, so login can't hang on it.
+  if (req.nextUrl.searchParams.get('check') === '1') {
+    return NextResponse.json({ ok: true, authed: true })
+  }
   try {
     const list = await convex.query(anyApi.subscriptions.listAllowlist, {})
     return NextResponse.json({ ok: true, count: list.length, list })
