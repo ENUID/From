@@ -1414,19 +1414,9 @@ export default function FromApp({
       if (data?.reply) {
         const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : []
         const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0 ? data.outfitSlots : undefined
-        if (newProducts.length > 0) {
-          setStylistProducts(prev => {
-            const ids = new Set(prev.map(p => p.id))
-            return [...prev, ...newProducts.filter(p => !ids.has(p.id))]
-          })
-        }
-        if (outfitSlots) {
-          const allOutfitProducts = outfitSlots.flatMap(s => s.products)
-          setStylistProducts(prev => {
-            const ids = new Set(prev.map(p => p.id))
-            return [...prev, ...allOutfitProducts.filter(p => !ids.has(p.id))]
-          })
-        }
+        // Products Fabrics surfaces from a search/outfit live ONLY in the chat
+        // message (foundProducts / outfitSlots below). The pinned strip at the
+        // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, outfitSlots }])
         // Background memory compression — non-blocking, premium users only
