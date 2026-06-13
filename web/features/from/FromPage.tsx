@@ -2191,7 +2191,7 @@ export default function FromApp({
   const sgColStart = sgGroupIdx * 3
 
   return (
-    <div style={{ fontFamily: SANS, background: BG2, height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+    <div style={{ fontFamily: SANS, background: "#ffffff", height: "100dvh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
 
       {/* ── SVG filter for glass edge refraction ── */}
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -2210,26 +2210,17 @@ export default function FromApp({
         ::-webkit-scrollbar{display:none;}
 
         /* ── Outer wrapper & shell ──
-           Phone: fills the viewport edge-to-edge.
-           Tablet/desktop (≥600px): floats as a centred popup card on a warm parchment
-           background — the app stays phone-width so the UI never looks stretched. */
+           The app fills the whole device — phone, tablet or laptop — rather than a
+           fixed phone-width strip. Only on very large monitors do we cap the width
+           and centre it so the layout never stretches absurdly wide. */
         .fr-wrap{display:flex;align-items:stretch;justify-content:center;height:100dvh;width:100%;
           background:#ffffff;}
-        .fr-shell{width:100%;max-width:430px;height:100dvh;position:relative;display:flex;flex-direction:column;
+        .fr-shell{width:100%;max-width:1600px;height:100dvh;position:relative;display:flex;flex-direction:column;
           overflow:hidden;overscroll-behavior:none;
           background:#ffffff;}
-        @media(min-width:600px){
-          .fr-wrap{align-items:center;padding:20px;background:${BG2};}
-          .fr-shell{
-            height:min(880px,calc(100dvh - 40px));
-            border-radius:36px;
-            box-shadow:0 32px 96px rgba(44,18,6,.18),0 8px 24px rgba(44,18,6,.10),0 0 0 0.5px rgba(44,18,6,.09);
-          }
-          /* 430px card: viewport-width media queries would push to 3–5 cols; reset to 2 */
-          .fr-grid{grid-template-columns:repeat(2,1fr);}
-          /* Sidebar and overlays inherit card border-radius so they don't bleed outside */
-          .fr-sb{border-radius:inherit;}
-          .fr-ov{border-radius:inherit;}
+        @media(min-width:1601px){
+          .fr-wrap{background:#f2ede8;}
+          .fr-shell{box-shadow:0 0 0 1px rgba(44,18,6,.06);}
         }
 
         /* ── Header ── */
@@ -4584,16 +4575,24 @@ export default function FromApp({
                 onClick={() => finishOnboarding(true)}
                 style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(44,18,6,0.38)', backdropFilter: 'blur(3px)' }}
               />
+              {/* Tablet/desktop: centred popup. Phone: bottom sheet. */}
               <div style={{
-                position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9101,
-                background: BG, borderRadius: '24px 24px 0 0',
-                padding: '28px 24px 44px',
-                boxShadow: '0 -8px 48px rgba(44,18,6,0.18)',
-                animation: 'sheetUp .32s cubic-bezier(0.32,0.72,0,1)',
-                maxWidth: 480, margin: '0 auto',
+                position: 'fixed', zIndex: 9101, pointerEvents: 'none',
+                ...(isMedium
+                  ? { inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }
+                  : { left: 0, right: 0, bottom: 0 }),
               }}>
-                {/* Drag handle */}
-                <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.12)', margin: '0 auto 22px' }} />
+              <div style={{
+                pointerEvents: 'auto',
+                background: BG,
+                borderRadius: isMedium ? '24px' : '24px 24px 0 0',
+                padding: '28px 24px 44px',
+                boxShadow: isMedium ? '0 24px 80px rgba(44,18,6,.28),0 0 0 0.5px rgba(44,18,6,.08)' : '0 -8px 48px rgba(44,18,6,0.18)',
+                animation: isMedium ? 'fadeScale .28s cubic-bezier(0.32,0.72,0,1)' : 'sheetUp .32s cubic-bezier(0.32,0.72,0,1)',
+                width: '100%', maxWidth: 480,
+              }}>
+                {/* Drag handle — phone only */}
+                {!isMedium && <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.12)', margin: '0 auto 22px' }} />}
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
@@ -4706,6 +4705,7 @@ export default function FromApp({
                     </button>
                   )}
                 </div>
+              </div>
               </div>
             </>
           )}
