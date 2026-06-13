@@ -157,21 +157,23 @@ async function llmRelevanceScores(
   const matched = matchStyles(query)
   const vocabBlock = vocabPromptBlock(matched)
 
-  const system = `You are the relevance brain behind FROM, a curated fashion search. You think like a seasoned boutique buyer deciding what to put in front of this exact shopper — judging genuine fit for their INTENT, never keyword overlap.
-${vocabBlock}
-Score each numbered candidate 0-100 on how well it satisfies what the shopper actually wants. Weigh, in order:
-1. GARMENT — is it the item they asked for? Wrong category (candle, bag when they want a shirt) → 0-5.
-2. GENDER — wrong gender for an explicitly gendered request → 0-10.
-3. MATERIAL & COLOUR — the fabric and palette they named, or that the style implies (quiet luxury → fine natural fibres, neutral tones).
-4. STYLE & OCCASION — does the vibe, silhouette, and formality match the moment they're dressing for?
-5. QUALITY SIGNAL — when intent is open, favour considered design and honest materials over generic filler.
-A precise, slightly rarer match that truly fits beats a generic item that merely contains the words.${profileLine}
-Output ONLY a JSON array, one object per product, no prose, no markdown:
-[{"i":0,"s":87,"r":"linen camp shirt, beach wedding"},...]
-- "i" = product index exactly as given
-- "s" = relevance 0-100
+  const system = `You are the relevance engine behind FROM — a curated independent fashion platform. Your job: score how well each product actually satisfies the shopper's intent. Think like a seasoned boutique buyer, not a keyword matcher.
+${vocabBlock}${profileLine}
+SCORING RUBRIC (0–100). Apply in strict order — a low score at any step caps the total:
+1. GARMENT CATEGORY (0–30 pts): Is it the item type they asked for? Completely wrong category (homeware, book, candle when they want a shirt) → 0–5. Adjacent but not quite right → 10–15. Correct → 25–30.
+2. GENDER (0–20 pts): Explicitly gendered request + wrong gender → 0–8. Unisex or ambiguous request → full pts.
+3. MATERIAL & COLOUR (0–20 pts): Exact match to named material/colour → 20. Implied by the aesthetic (quiet luxury → cashmere/linen/silk) → 15–18. Irrelevant material for the vibe → 0–8.
+4. STYLE & OCCASION (0–20 pts): Silhouette, formality level, and vibe match the moment they described → 15–20. Partially → 8–14. Mismatched (formal piece for beach, etc.) → 0–7.
+5. QUALITY SIGNAL (0–10 pts): When intent is open, prefer considered design, honest materials, and independent brands over generic filler.
+
+A precise match that truly fits the intent beats a generic item that merely contains the query words.
+
+Output ONLY a JSON array — one object per product, no prose, no markdown, no explanation outside the JSON:
+[{"i":0,"s":87,"r":"linen camp collar, beach wedding vibe"},{"i":1,"s":12,"r":"synthetic — wrong material"},...]
+- "i" = product index (integer, 0-based, exactly as given)
+- "s" = relevance score 0–100 (integer)
 - "r" = max 8-word reason
-Return an entry for EVERY index. No trailing text.`
+Return an entry for EVERY index. No trailing text after the closing bracket.`
 
   const userMsg = `Query: "${query}"\n\nProducts:\n${productLines}`
 
@@ -182,12 +184,12 @@ Return an entry for EVERY index. No trailing text.`
       [{ role: 'user', content: userMsg }],
       system,
       undefined,
-      { temperature: 0, max_tokens: 1400 },
+      { temperature: 0, max_tokens: 1600 },
     ).then((r: any) => {
-      // groqChat returns the raw API response object — extract text
+      // groqChat returns data.choices[0].message — the message object itself.
+      // Extract .content directly; do not drill into .choices again.
       if (typeof r === 'string') return r
-      const content = r?.choices?.[0]?.message?.content
-      return typeof content === 'string' ? content : null
+      return typeof r?.content === 'string' ? r.content : null
     }).catch(() => null)
     raw = await Promise.race([call, timeout])
   } catch {
@@ -279,11 +281,17 @@ export async function rerankByRelevance(
   }
 
   // Blend scores: 0.7 * llm + 0.3 * bm25
+  // Products with LLM score < 20 (wrong category entirely) are demoted below
+  // all relevant products — BM25 cannot rescue a fundamentally wrong item.
+  const MIN_LLM_SCORE = 20
   const blended = topN.map(p => {
-    const lScore  = (llm.get(p.id)?.score ?? 50) / 100  // 0–1
-    const bScore  = bm25.get(p.id) ?? 0                 // 0–1
-    const final   = 0.7 * lScore + 0.3 * bScore
-    const reason  = llm.get(p.id)?.reason ?? ''
+    const llmEntry = llm.get(p.id)
+    const lScore   = (llmEntry?.score ?? 50) / 100  // 0–1
+    const bScore   = bm25.get(p.id) ?? 0             // 0–1
+    const demoted  = (llmEntry?.score ?? 50) < MIN_LLM_SCORE
+    // Demoted items get a strongly negative offset so they sort after everything relevant
+    const final    = demoted ? -(1 - lScore) : 0.7 * lScore + 0.3 * bScore
+    const reason   = llmEntry?.reason ?? ''
     return { p, final, reason }
   })
 

@@ -559,13 +559,17 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
 
       raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 900, temperature: 0.3 })
     } else {
-      // Text-only path (no images)
+      // Text-only path (no images).
+      // contextBlock is merged into the system string — not added as a second
+      // system-role message, which would confuse the model and produce null replies.
+      const combinedSystem = contextBlock
+        ? `${SYSTEM}\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}`
+        : SYSTEM
       const messages = [
-        { role: 'system' as const, content: contextBlock },
         ...history,
         { role: 'user' as const, content: question },
       ]
-      const msg = await stylistChat(messages, SYSTEM, { max_tokens: 700, temperature: 0.4 })
+      const msg = await stylistChat(messages, combinedSystem, { max_tokens: 700, temperature: 0.4 })
       raw = (msg?.content ?? '').trim()
     }
 
