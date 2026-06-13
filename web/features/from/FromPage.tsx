@@ -2983,22 +2983,19 @@ export default function FromApp({
                       {session?.user?.email || ''}
                     </div>
 
-                    {/* Plan badge */}
-                    <div style={{
-                      padding: '8px 14px', borderRadius: 20, marginBottom: 20,
-                      background: isPremium ? 'rgba(60,110,55,0.08)' : 'rgba(44,18,6,0.04)',
-                      border: `1px solid ${isPremium ? 'rgba(60,110,55,0.18)' : 'rgba(44,18,6,0.08)'}`,
-                      display: 'flex', alignItems: 'center', gap: 7,
-                    }}>
-                      <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: isPremium ? '#3d7a3a' : INK3 }}>
-                        {isPremium ? 'Community Member' : 'Free plan'}
-                      </span>
-                      {!isPremium && (
-                        <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
-                          · Unlimited searches
+                    {/* Plan badge — only shown for Community members */}
+                    {isPremium && (
+                      <div style={{
+                        padding: '8px 14px', borderRadius: 20, marginBottom: 20,
+                        background: 'rgba(60,110,55,0.08)',
+                        border: '1px solid rgba(60,110,55,0.18)',
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                      }}>
+                        <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: '#3d7a3a' }}>
+                          Community Member
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     {/* Upgrade button for free users */}
                     {!isPremium && (

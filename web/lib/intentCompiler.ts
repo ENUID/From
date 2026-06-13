@@ -21,7 +21,7 @@ import { matchStyles, type StyleEntry } from '@/lib/styleVocabulary'
 // First entry in each group is the searchQuery term.
 const GARMENTS: Record<string, string[]> = {
   shirt:        ['shirt', 'shirts', 'button-down', 'button down', 'oxford', 'overshirt', 'camp collar', 'flannel'],
-  tee:          ['tee', 'tees', 't-shirt', 't shirt', 'tshirt', 'tank top', 'crop top'],
+  tee:          ['tee', 'tees', 't-shirt', 't-shirts', 't shirt', 'tshirt', 'tshirts', 'tank top', 'crop top'],
   polo:         ['polo', 'polos', 'henley', 'rugby shirt'],
   blouse:       ['blouse', 'blouses', 'camisole', 'bodysuit'],
   sweater:      ['sweater', 'sweaters', 'jumper', 'knitwear', 'knit', 'turtleneck', 'cardigan', 'pullover', 'roll-neck', 'mock-neck'],

@@ -374,7 +374,7 @@ function extractProducts(data: any): any[] {
   return []
 }
 
-/** Query one brand's own Shopify catalog via its UCP endpoint. */
+/** Query one brand's own Shopify catalog via its MCP endpoint. */
 async function fetchStore(domain: string, query: string, countryCode: string | null): Promise<any[]> {
   const profile = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain)
   const langs = profile?.languages || ['en']
@@ -386,9 +386,8 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
     if (ja) queries.add(ja)
   }
 
-  const filters: Record<string, unknown> = { available: true }
-  if (countryCode) filters.ships_to = { country: countryCode }
-
+  // ships_to is not part of Shopify's public MCP spec — omitting it prevents
+  // the endpoint from returning empty when the filter format is unrecognised.
   const runOne = async (q: string): Promise<{ products: any[]; errored: boolean }> => {
     const payload = {
       jsonrpc: '2.0',
@@ -396,7 +395,7 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
       id: 1,
       params: {
         name: 'search_catalog',
-        arguments: { catalog: { query: q, filters, pagination: { limit: 30 } } },
+        arguments: { catalog: { query: q, filters: { available: true }, pagination: { limit: 30 } } },
       },
     }
     try {
@@ -412,13 +411,11 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
       for (const p of products) p._sourceDomain = domain
       return { products, errored: false }
     } catch {
-      // Timeout / network / parse error — a "down" signal for health tracking.
       return { products: [] as any[], errored: true }
     }
   }
 
   const results = await Promise.all(Array.from(queries).map(runOne))
-  // A store is healthy if ANY query variant succeeded without erroring.
   const errored = results.every(r => r.errored)
   const products = results.flatMap(r => r.products)
   recordBrandOutcome(domain, { productCount: products.length, errored })
@@ -485,7 +482,10 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
       return {
         id: v.id,
         title: v.title,
-        price: vz ? (v.price?.amount ?? 0) : (v.price?.amount ?? 0) / 100,
+        price: (() => {
+          const va = v.price?.amount ?? 0
+          return vz ? va : va / 100
+        })(),
         availability: v.availability?.available ?? true,
         options: v.options ?? [],
         media: (v.media ?? []).map((m: any) => ({
