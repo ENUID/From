@@ -311,8 +311,9 @@ async function geminiVisionChat(
   imageDataUrls: string[],
   opts?: { max_tokens?: number; temperature?: number }
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) { const e: any = new Error('GEMINI_API_KEY not set'); e.status = 0; throw e }
+  // Matches the rest of the codebase (lib/gemini.ts) — the key you add in Vercel.
+  const apiKey = process.env.GOOGLE_AI_API_KEY
+  if (!apiKey) { const e: any = new Error('GOOGLE_AI_API_KEY not set'); e.status = 0; throw e }
 
   const parts: any[] = [{ text: `${systemPrompt}\n\n${question}` }]
   for (const url of imageDataUrls) {
