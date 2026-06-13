@@ -237,13 +237,6 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     const messageText = text ?? input.trim()
     if (!messageText || loading) return
 
-    // Paywall gate: block free-tier users who have hit their daily limit
-    const isFirstMessage = !messages.some(m => m.role === 'user')
-    if (isFirstMessage && !canSearch) {
-      setShowUpgradeSheet(true)
-      return
-    }
-
     setActiveView('discover')
     setInput('')
     setLoading(true)
@@ -271,7 +264,8 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
         ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
         : []
 
-      if (!opts?.skipHistory && isFirstMessage) rememberSearch(messageText, products.length)
+      const isFirstMsg = messages.filter(m => m.role === 'user').length === 1
+      if (!opts?.skipHistory && isFirstMsg) rememberSearch(messageText, products.length)
       setMessages(previous => [
         ...previous,
         {

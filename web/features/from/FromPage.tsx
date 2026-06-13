@@ -1067,8 +1067,16 @@ export default function FromApp({
     onboardEmail ? { userEmail: onboardEmail } : 'skip'
   )
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
+  const updateUserNameMutation = useMutation(api.users.updateUserName)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
   const [settingsOpen, setSettingsOpen]         = useState(false)
+  const [settingsView, setSettingsView]         = useState<'main' | 'profile'>('main')
+  const [profileName, setProfileName]           = useState('')
+  const [profileGender, setProfileGender]       = useState('')
+  const [profileSizeTops, setProfileSizeTops]   = useState('')
+  const [profileSizeBottoms, setProfileSizeBottoms] = useState('')
+  const [profileSizeShoes, setProfileSizeShoes] = useState('')
+  const [profileSaving, setProfileSaving]       = useState(false)
   const [showConsent, setShowConsent]           = useState(false)
   const [consentFromSettings, setConsentFromSettings] = useState(false)
   const [consentAnalytics, setConsentAnalytics] = useState(true)
@@ -1120,6 +1128,35 @@ export default function FromApp({
       } else if (tasteProfileData === null) {
         setShowOnboarding(true)
       }
+    }
+  }
+
+  function openProfileView() {
+    const existingSizes = tasteProfileData?.sizes as any
+    setProfileName(userRecord?.name || session?.user?.name || '')
+    setProfileGender(existingSizes?.gender || '')
+    setProfileSizeTops(existingSizes?.tops || '')
+    setProfileSizeBottoms(existingSizes?.bottoms || '')
+    setProfileSizeShoes(existingSizes?.shoes || '')
+    setSettingsView('profile')
+  }
+
+  async function saveProfile() {
+    if (!onboardEmail || profileSaving) return
+    setProfileSaving(true)
+    try {
+      if (profileName.trim()) {
+        await updateUserNameMutation({ email: onboardEmail, name: profileName.trim() })
+      }
+      const sizes: Record<string, string> = {}
+      if (profileSizeTops.trim()) sizes.tops = profileSizeTops.trim()
+      if (profileSizeBottoms.trim()) sizes.bottoms = profileSizeBottoms.trim()
+      if (profileSizeShoes.trim()) sizes.shoes = profileSizeShoes.trim()
+      if (profileGender) sizes.gender = profileGender
+      await upsertProfile({ userEmail: onboardEmail, sizes: Object.keys(sizes).length ? sizes : undefined })
+    } catch { /* ignore */ } finally {
+      setProfileSaving(false)
+      setSettingsView('main')
     }
   }
 
@@ -1296,6 +1333,7 @@ export default function FromApp({
     setStylistProducts(prev => prev.filter(p => p.id !== id))
   }
   const addStylistProduct = (p: Product) => {
+    if (!isPremium) { setShowUpgradeSheet(true); return }
     setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 8) ? prev : [...prev, p])
     setStylistOpen(true)
   }
@@ -1412,6 +1450,7 @@ export default function FromApp({
   }
   // Open the stylist page with attached products and immediately ask the query.
   const openStylistWith = (products: Product[], query: string) => {
+    if (!isPremium) { setShowUpgradeSheet(true); return }
     stylistSessionId.current = null
     setStylistProducts(products)
     setStylistMsgs([])
@@ -2537,27 +2576,106 @@ export default function FromApp({
             <div style={{ padding: '14px 18px 0', flexShrink: 0 }}>
               <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.14)', margin: '0 auto 14px' }} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK }}>Settings</span>
-                <button onClick={() => setSettingsOpen(false)} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(44,18,6,.07)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                {settingsView === 'profile' ? (
+                  <button onClick={() => setSettingsView('main')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK, padding: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    My Profile
+                  </button>
+                ) : (
+                  <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK }}>Settings</span>
+                )}
+                <button onClick={() => { setSettingsOpen(false); setSettingsView('main') }} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(44,18,6,.07)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
-              {/* Email row */}
-              <div style={{ background: 'rgba(44,18,6,.04)', borderRadius: 12, padding: '10px 14px', marginBottom: 18 }}>
-                <div style={{ fontFamily: SANS, fontSize: 13, color: INK3 }}>{session?.user?.email || ''}</div>
-              </div>
+              {settingsView === 'main' && (
+                <div style={{ background: 'rgba(44,18,6,.04)', borderRadius: 12, padding: '10px 14px', marginBottom: 18 }}>
+                  <div style={{ fontFamily: SANS, fontSize: 13, color: INK3 }}>{session?.user?.email || ''}</div>
+                </div>
+              )}
             </div>
 
             {/* Scrollable body */}
-            <div style={{ overflowY: 'auto', flex: 1, padding: '0 18px 32px', scrollbarWidth: 'none' }}>
+            <div style={{ overflowY: 'auto', flex: 1, padding: '0 18px 32px', scrollbarWidth: 'none' } as React.CSSProperties}>
 
+            {settingsView === 'profile' ? (
+              /* ── Profile edit view ── */
+              <div>
+                {/* Avatar / name display */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', background: 'rgba(44,18,6,.08)', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {session?.user?.image
+                      ? <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(44,18,6,.35)" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                    }
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: INK3 }}>{session?.user?.email || ''}</div>
+                </div>
+
+                {/* Full name */}
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7, marginBottom: 8 }}>Full name</label>
+                  <input value={profileName} onChange={e => setProfileName(e.target.value)}
+                    placeholder="Your name"
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1px solid ${BRD}`, fontFamily: SANS, fontSize: 15, color: INK, background: 'rgba(255,255,255,0.7)', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+
+                {/* Gender */}
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7, marginBottom: 8 }}>I shop for</label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {['Men', 'Women', 'Both'].map(g => (
+                      <button key={g} onClick={() => setProfileGender(profileGender === g ? '' : g)}
+                        style={{ padding: '9px 18px', borderRadius: 30, fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all .15s', border: profileGender === g ? `1.5px solid ${INK}` : `1px solid ${BRD}`, background: profileGender === g ? INK : 'rgba(255,255,255,0.7)', color: profileGender === g ? '#fff' : INK }}>
+                        {g}
+                      </button>
+                    ))}
+                    <button onClick={() => setProfileGender(profileGender === 'Non-binary' ? '' : 'Non-binary')}
+                      style={{ padding: '9px 18px', borderRadius: 30, fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all .15s', border: profileGender === 'Non-binary' ? `1.5px solid ${INK}` : `1px solid ${BRD}`, background: profileGender === 'Non-binary' ? INK : 'rgba(255,255,255,0.7)', color: profileGender === 'Non-binary' ? '#fff' : INK }}>
+                      Non-binary
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sizes */}
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7, marginBottom: 8 }}>Sizes</label>
+                  <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden' }}>
+                    {[
+                      { label: 'Tops', value: profileSizeTops, set: setProfileSizeTops, placeholder: 'e.g. M, L, 38' },
+                      { label: 'Bottoms', value: profileSizeBottoms, set: setProfileSizeBottoms, placeholder: 'e.g. S, 32, W30 L32' },
+                      { label: 'Shoes', value: profileSizeShoes, set: setProfileSizeShoes, placeholder: 'e.g. EU 42, UK 8, US 9' },
+                    ].map(({ label, value, set, placeholder }, i) => (
+                      <div key={label} style={{ borderTop: i > 0 ? `0.5px solid rgba(44,18,6,.07)` : 'none', display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12 }}>
+                        <div style={{ fontFamily: SANS, fontSize: 14, color: INK, width: 72, flexShrink: 0 }}>{label}</div>
+                        <input value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
+                          style={{ flex: 1, border: 'none', background: 'transparent', fontFamily: SANS, fontSize: 14, color: INK, outline: 'none', textAlign: 'right' }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button onClick={saveProfile} disabled={profileSaving}
+                  style={{ width: '100%', padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none', fontFamily: SANS, fontSize: 13, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', opacity: profileSaving ? 0.55 : 1, cursor: profileSaving ? 'default' : 'pointer' }}>
+                  {profileSaving ? 'Saving…' : 'Save profile'}
+                </button>
+              </div>
+            ) : (
+              /* ── Main settings view ── */
+              <div>
               {/* Account section */}
               <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, opacity: 0.6, marginBottom: 8 }}>Account</div>
               <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
                 {[
                   {
+                    label: 'My Profile',
+                    sub: userRecord?.name ? userRecord.name : 'Name, sizes, gender',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>,
+                    action: () => openProfileView(),
+                  },
+                  {
                     label: isPremium ? 'Community Member' : 'Free plan',
-                    sub: isPremium ? 'Your plan is active' : `${dailySearchesRemaining} searches left today`,
+                    sub: isPremium ? 'Your plan is active' : 'Upgrade to unlock Fabrics AI',
                     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
                     action: isPremium ? undefined : () => { setSettingsOpen(false); setShowUpgradeSheet(true) },
                     badge: isPremium ? null : 'Upgrade',
@@ -2637,6 +2755,8 @@ export default function FromApp({
                 <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: '#c0392b' }}>Sign out</span>
               </button>
 
+              </div>
+            )}
             </div>
           </div>
         </div>
@@ -2811,14 +2931,18 @@ export default function FromApp({
                 )}
               </div>
 
-              {/* Fabrics (AI stylist conversations) */}
-              <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`} onClick={() => setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics')}>
+              {/* Fabrics (AI stylist — Community only) */}
+              <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`}
+                onClick={() => isPremium ? setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics') : setShowUpgradeSheet(true)}>
                 <FabricsIcon size={17} stroke={INK3} strokeWidth={1.05}/>
                 Fabrics
-                {stylistHistory.length > 0 && (
+                {isPremium && stylistHistory.length > 0 && (
                   <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
                     {stylistHistory.length}
                   </span>
+                )}
+                {!isPremium && (
+                  <svg style={{ marginLeft: 'auto' }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 )}
               </div>
 
@@ -2871,7 +2995,7 @@ export default function FromApp({
                       </span>
                       {!isPremium && (
                         <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
-                          · {dailySearchesRemaining} search{dailySearchesRemaining !== 1 ? 'es' : ''} left today
+                          · Unlimited searches
                         </span>
                       )}
                     </div>
@@ -3084,7 +3208,16 @@ export default function FromApp({
               ) : sidebarView === 'fabrics' ? (
                 <>
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
-                  {stylistHistory.length === 0 ? (
+                  {!isPremium ? (
+                    <div style={{ padding: '12px 8px 4px' }}>
+                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK, fontWeight: 500, marginBottom: 6 }}>Fabrics is FROM Community only.</p>
+                      <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, lineHeight: 1.5, marginBottom: 14 }}>Your personal AI stylist — knows your taste, remembers your wardrobe, and builds complete outfits.</p>
+                      <button onClick={() => { setSidebarView('nav'); setShowUpgradeSheet(true) }}
+                        style={{ padding: '10px 20px', borderRadius: 30, background: INK, color: '#fff', border: 'none', fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                        Join Community
+                      </button>
+                    </div>
+                  ) : stylistHistory.length === 0 ? (
                     <div style={{ padding: '12px 8px 4px' }}>
                       <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, opacity: .45, marginBottom: 8 }}>No conversations with Fabrics yet!</p>
                       <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, opacity: .35, lineHeight: 1.5 }}>Pin a product from your search results and ask Fabrics to style it, compare it, or find what pairs with it.</p>
@@ -3582,15 +3715,16 @@ export default function FromApp({
                       </svg>
                     </button>
                     </div>
-                    {/* Fabrics pill — icon + label, left-aligned after paperclip */}
-                    <button type="button" onClick={() => setStylistOpen(true)}
+                    {/* Fabrics pill — Community only */}
+                    <button type="button" onClick={() => isPremium ? setStylistOpen(true) : setShowUpgradeSheet(true)}
                       style={{ display: 'flex', alignItems: 'center', gap: 5,
                         padding: '4px 9px 4px 7px', borderRadius: 20,
                         border: `1px solid rgba(44,18,6,.18)`, background: 'transparent',
-                        cursor: 'pointer', flexShrink: 0 }}>
+                        cursor: 'pointer', flexShrink: 0, opacity: isPremium ? 1 : 0.55 }}>
                       <FabricsIcon size={13} stroke={INK2} strokeWidth={1.05}/>
                       <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 400,
                         color: INK, letterSpacing: '.01em', lineHeight: 1 }}>Fabrics</span>
+                      {!isPremium && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
                     </button>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
