@@ -495,6 +495,7 @@ export async function POST(req: NextRequest) {
     const GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|gender.neutral)\b/i
     const applyGenderPrefix = (q: string): string => {
       if (!genderPrefix) return q
+      if (!q.trim()) return q  // empty query = full catalog browse — don't add gender prefix
       if (GENDER_TERM_RE.test(q) || GENDER_TERM_RE.test(message)) return q
       return `${genderPrefix} ${q}`
     }
@@ -544,6 +545,40 @@ export async function POST(req: NextRequest) {
     // Detect explicit brand mentions in the user message so the catalog search
     // can restrict to just those store(s) rather than scanning the whole registry.
     const detectedBrandDomains = detectBrandsInQuery(message)
+
+    // Brand-only fast path: message is just a brand name, no product type.
+    // Bypass LLM entirely and browse the brand's full catalog with an empty query.
+    if (detectedBrandDomains.length > 0 && !/\b(more|others?|another|different ones?)\b/i.test(message)) {
+      const stripped = stripBrandNames(message, detectedBrandDomains).replace(/\b(show|find|see|get|browse|from|at|by|in|the|all|products?)\b/gi, ' ').replace(/\s+/g, ' ').trim()
+      const isBrandOnly = !stripped || stripped.length < 3
+      if (isBrandOnly) {
+        const brandNames = detectedBrandDomains.map(brandDisplayNameByDomain).join(' & ')
+        const lang = inferLanguage(message)
+        const brandResult = await runCatalogSearch(
+          SearchToolSchema.parse({ searchQuery: '', mandatoryConcepts: [], isClothing: true, sort: 'relevance' }),
+          {
+            countryCode,
+            buyerCurrency: activeBuyerCurrency,
+            excludeIds: collectProductIds(history || []),
+            fastFirstPage: true,
+            brandDomains: detectedBrandDomains,
+            tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
+            rerankQuery: message,
+          }
+        )
+        const text = brandResult.brandFallback
+          ? brandUnavailableText(brandResult.brandFallback, lang, brandResult.products.length > 0)
+          : brandResult.products.length > 0
+            ? (lang === 'vi' ? `Đây là những gì ${brandNames} có hiện tại.` : `Here's what ${brandNames} has right now.`)
+            : brandUnavailableText([brandNames], lang, false)
+        return NextResponse.json({
+          text,
+          ...brandResult,
+          suggestions: [`What are the bestsellers from ${brandNames}?`, `Show me ${brandNames} under $100`, `Do you have ${brandNames} in my size?`],
+          meta: { brandOnly: true },
+        })
+      }
+    }
 
     // Fast path: deterministic compiler for clear product queries.
     // Skips the LLM entirely — instant response with no model latency.

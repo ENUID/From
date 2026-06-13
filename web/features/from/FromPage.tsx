@@ -2692,11 +2692,14 @@ export default function FromApp({
                 {/* Gender */}
                 <div style={{ marginBottom: 22 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-                    <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7 }}>I shop for</label>
+                    <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7 }}>I am</label>
                     <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.6 }}>sets your default search</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                    {(['Men', 'Women'] as const).map(g => {
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {([
+                      { g: 'Men', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6" r="3.5"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><line x1="9" y1="15" x2="15" y2="15"/></svg> },
+                      { g: 'Women', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6" r="3.5"/><path d="M8 21l4-10 4 10"/><path d="M7 17h10"/></svg> },
+                    ] as const).map(({ g, icon }) => {
                       const active = profileGender === g
                       return (
                         <button key={g} onClick={() => setProfileGender(active ? '' : g)} style={{
@@ -2705,26 +2708,10 @@ export default function FromApp({
                           background: active ? INK : 'rgba(255,255,255,0.7)',
                           cursor: 'pointer', transition: 'all .15s',
                           display: 'flex', alignItems: 'center', gap: 8,
+                          color: active ? '#fff' : INK,
                         }}>
-                          <span style={{ fontSize: 18 }}>{g === 'Men' ? '👔' : '👗'}</span>
+                          {icon}
                           <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: active ? '#fff' : INK }}>{g}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {(['Both', 'Non-binary'] as const).map(g => {
-                      const active = profileGender === g
-                      return (
-                        <button key={g} onClick={() => setProfileGender(active ? '' : g)} style={{
-                          flex: 1, padding: '9px 12px', borderRadius: 10,
-                          border: `1.5px solid ${active ? INK : BRD}`,
-                          background: active ? INK : 'transparent',
-                          cursor: 'pointer', transition: 'all .15s',
-                          fontFamily: SANS, fontSize: 12, fontWeight: active ? 600 : 400,
-                          color: active ? '#fff' : INK3,
-                        }}>
-                          {g}
                         </button>
                       )
                     })}
@@ -2739,9 +2726,9 @@ export default function FromApp({
                   </div>
                   <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden' }}>
                     {[
-                      { label: 'Tops', value: profileSizeTops, set: setProfileSizeTops, placeholder: 'e.g. M, L, 38' },
-                      { label: 'Bottoms', value: profileSizeBottoms, set: setProfileSizeBottoms, placeholder: 'e.g. S, 32, W30 L32' },
-                      { label: 'Shoes', value: profileSizeShoes, set: setProfileSizeShoes, placeholder: 'e.g. EU 42, UK 8, US 9' },
+                      { label: 'Tops', value: profileSizeTops, set: setProfileSizeTops, placeholder: profileGender === 'Women' ? 'XS, S, M, L…' : profileGender === 'Men' ? 'S, M, L, XL…' : 'e.g. M, L, 38' },
+                      { label: 'Bottoms', value: profileSizeBottoms, set: setProfileSizeBottoms, placeholder: profileGender === 'Women' ? '26, 28, 30, 32…' : profileGender === 'Men' ? '30, 32, 34, 36…' : 'e.g. 32, W30 L32' },
+                      { label: 'Shoes', value: profileSizeShoes, set: setProfileSizeShoes, placeholder: profileGender === 'Women' ? '6, 7, 8, EU 38…' : profileGender === 'Men' ? '9, 10, 11, EU 43…' : 'e.g. EU 42, UK 8' },
                     ].map(({ label, value, set, placeholder }, i) => (
                       <div key={label} style={{ borderTop: i > 0 ? `0.5px solid rgba(44,18,6,.07)` : 'none', display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12 }}>
                         <div style={{ fontFamily: SANS, fontSize: 14, color: INK, width: 72, flexShrink: 0 }}>{label}</div>
@@ -4609,8 +4596,11 @@ export default function FromApp({
                 {/* Step 0 — gender */}
                 {onboardingStep === 0 && (
                   <div style={{ marginBottom: 24 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                      {(['Men', 'Women'] as const).map(g => {
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      {([
+                        { g: 'Men', sub: 'menswear by default', icon: <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6" r="3.5"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><line x1="9" y1="15" x2="15" y2="15"/></svg> },
+                        { g: 'Women', sub: 'womenswear by default', icon: <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6" r="3.5"/><path d="M8 21l4-10 4 10"/><path d="M7 17h10"/></svg> },
+                      ] as const).map(({ g, sub, icon }) => {
                         const active = onboardGender === g
                         return (
                           <button key={g} onClick={() => setOnboardGender(active ? '' : g)} style={{
@@ -4619,29 +4609,11 @@ export default function FromApp({
                             background: active ? INK : 'rgba(255,255,255,0.6)',
                             cursor: 'pointer', transition: 'all .15s',
                             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                            color: active ? '#fff' : INK,
                           }}>
-                            <span style={{ fontSize: 28 }}>{g === 'Men' ? '👔' : '👗'}</span>
+                            {icon}
                             <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: active ? '#fff' : INK }}>{g}</span>
-                            <span style={{ fontFamily: SANS, fontSize: 11, color: active ? 'rgba(255,255,255,0.65)' : INK3 }}>
-                              {g === 'Men' ? 'menswear by default' : 'womenswear by default'}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                      {(['Both', 'Non-binary'] as const).map(g => {
-                        const active = onboardGender === g
-                        return (
-                          <button key={g} onClick={() => setOnboardGender(active ? '' : g)} style={{
-                            padding: '8px 18px', borderRadius: 30,
-                            border: `1.5px solid ${active ? INK : BRD}`,
-                            background: active ? INK : 'transparent',
-                            cursor: 'pointer', transition: 'all .15s',
-                            fontFamily: SANS, fontSize: 12, fontWeight: active ? 600 : 400,
-                            color: active ? '#fff' : INK3,
-                          }}>
-                            {g}
+                            <span style={{ fontFamily: SANS, fontSize: 11, color: active ? 'rgba(255,255,255,0.65)' : INK3 }}>{sub}</span>
                           </button>
                         )
                       })}
