@@ -1280,9 +1280,6 @@ export default function FromApp({
   const [attachContext, setAttachContext]     = useState<'search' | 'fabrics'>('search')
   const attachBtnSearchRef  = useRef<HTMLButtonElement>(null)
   const attachBtnFabricsRef = useRef<HTMLButtonElement>(null)
-  // Fabrics paperclip menu — one icon, two actions (attach photos / scan wardrobe)
-  const [fabricsAttachOpen, setFabricsAttachOpen] = useState(false)
-  const [fabricsAttachRect, setFabricsAttachRect] = useState<{ left: number; top: number } | null>(null)
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [liveRates, setLiveRates]       = useState<ExchangeRates>(rates)
@@ -4103,11 +4100,7 @@ export default function FromApp({
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={stylistImages.length >= 8}
-                          onClick={() => {
-                            const r = attachBtnFabricsRef.current?.getBoundingClientRect()
-                            setFabricsAttachRect(r ? { left: r.left, top: r.top } : null)
-                            setFabricsAttachOpen(true)
-                          }}>
+                          onClick={() => { stylistFileRef.current?.click() }}>
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                           </svg>
@@ -4124,55 +4117,6 @@ export default function FromApp({
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Fabrics paperclip menu — one icon, two actions. Rendered above the
-              Fabrics modal (z 9990) so it never hides behind it. */}
-          {fabricsAttachOpen && (
-            <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 9994 }} onClick={() => setFabricsAttachOpen(false)} />
-              <div style={{
-                position: 'fixed',
-                left: fabricsAttachRect ? Math.max(12, Math.min(fabricsAttachRect.left, window.innerWidth - 230)) : 16,
-                top: fabricsAttachRect ? Math.max(8, fabricsAttachRect.top - 120) : undefined,
-                bottom: fabricsAttachRect ? undefined : 80,
-                zIndex: 9995,
-                background: '#fff', borderRadius: 16, overflow: 'hidden', minWidth: 210,
-                border: '1px solid rgba(44,18,6,.08)',
-                boxShadow: '0 12px 40px rgba(28,12,4,.20), 0 2px 8px rgba(28,12,4,.10)',
-              }}>
-                {([
-                  {
-                    label: 'Add photos',
-                    sub: 'Attach to the chat',
-                    icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
-                    action: () => { stylistFileRef.current?.click() },
-                  },
-                  {
-                    label: 'Scan wardrobe',
-                    sub: 'Analyze clothes you own',
-                    icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="8" cy="9" r="2"/><path d="M21 15l-5-5-4 4-3-3-3 3"/></svg>,
-                    action: () => { wardrobeFileRef.current?.click() },
-                  },
-                ] as { label: string; sub: string; icon: React.ReactNode; action: () => void }[]).map(({ label, sub, icon, action }, i, arr) => (
-                  <div key={label}>
-                    <button type="button" onClick={() => { action(); setFabricsAttachOpen(false) }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-                        padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                      onPointerDown={e => (e.currentTarget.style.background = 'rgba(44,18,6,.05)')}
-                      onPointerUp={e => (e.currentTarget.style.background = 'none')}
-                      onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
-                      <div style={{ flexShrink: 0, display: 'flex' }}>{icon}</div>
-                      <div>
-                        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, lineHeight: 1.2 }}>{label}</div>
-                        <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 1 }}>{sub}</div>
-                      </div>
-                    </button>
-                    {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(44,18,6,.08)', margin: '0 14px' }} />}
-                  </div>
-                ))}
-              </div>
-            </>
           )}
 
           {/* ── Size Guide modal — interactive ── */}
