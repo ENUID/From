@@ -520,7 +520,7 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
     // Product is in-stock if at least one parsed variant is available.
     // Fall back to the raw product-level availability when no variants exist.
     const inStock = variants.length > 0
-      ? variants.some(v => v.availability)
+      ? variants.some((v: { availability: boolean }) => v.availability)
       : (readAvailability(raw) ?? readAvailability(variant) ?? true)
 
     return {
