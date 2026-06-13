@@ -11,6 +11,18 @@ interface Entry {
 
 const STORAGE_KEY = 'from_admin_secret'
 
+// Fetch with a hard timeout so the UI can never hang silently — if the
+// server/Convex doesn't answer in time, we surface a clear error instead.
+async function fetchT(url: string, init: RequestInit = {}, ms = 12000): Promise<Response> {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal })
+  } finally {
+    clearTimeout(t)
+  }
+}
+
 export default function AdminCommunityPage() {
   const [view, setView] = useState<'loading' | 'login' | 'admin'>('loading')
   const [secret, setSecret] = useState('')
@@ -25,7 +37,7 @@ export default function AdminCommunityPage() {
   // Fast auth-only check — does NOT touch Convex, so it can't hang.
   const checkAuth = useCallback(async (s: string): Promise<boolean> => {
     try {
-      const r = await fetch('/api/admin/community-access?check=1', {
+      const r = await fetchT('/api/admin/community-access?check=1', {
         headers: { 'x-admin-secret': s },
       })
       return r.ok
@@ -39,7 +51,7 @@ export default function AdminCommunityPage() {
   const loadList = useCallback(async (s: string) => {
     setListErr('')
     try {
-      const r = await fetch('/api/admin/community-access', {
+      const r = await fetchT('/api/admin/community-access', {
         headers: { 'x-admin-secret': s },
       })
       const d = await r.json().catch(() => ({}))
@@ -49,7 +61,7 @@ export default function AdminCommunityPage() {
       }
       setList(d.list ?? [])
     } catch (e: any) {
-      setListErr('Network error loading list: ' + (e?.message ?? 'unknown'))
+      setListErr(e?.name === 'AbortError' ? 'Timed out loading list — database may be unreachable' : 'Network error loading list: ' + (e?.message ?? 'unknown'))
     }
   }, [])
 
@@ -68,7 +80,7 @@ export default function AdminCommunityPage() {
     setWorking(true)
     setLoginErr('')
     try {
-      const r = await fetch('/api/admin/community-access?check=1', {
+      const r = await fetchT('/api/admin/community-access?check=1', {
         headers: { 'x-admin-secret': s },
       })
       if (r.ok) {
@@ -82,7 +94,7 @@ export default function AdminCommunityPage() {
         setLoginErr(`Error ${r.status}`)
       }
     } catch (e: any) {
-      setLoginErr('Network error: ' + (e?.message ?? 'unknown'))
+      setLoginErr(e?.name === 'AbortError' ? 'Timed out — server not responding' : 'Network error: ' + (e?.message ?? 'unknown'))
     }
     setWorking(false)
   }
@@ -93,7 +105,7 @@ export default function AdminCommunityPage() {
     setWorking(true)
     setMsg('')
     try {
-      const r = await fetch('/api/admin/community-access', {
+      const r = await fetchT('/api/admin/community-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-secret': s },
         body: JSON.stringify({ email: email.trim(), note: note.trim() || undefined }),
@@ -105,10 +117,10 @@ export default function AdminCommunityPage() {
         setMsg('✓ ' + d.email + ' added')
         loadList(s)
       } else {
-        setMsg(d.detail ?? d.error ?? 'Error adding member')
+        setMsg(d.detail ?? d.error ?? `Error adding member (${r.status})`)
       }
     } catch (e: any) {
-      setMsg('Network error: ' + (e?.message ?? 'unknown'))
+      setMsg(e?.name === 'AbortError' ? 'Timed out — database not responding. Likely CONVEX_DEPLOY_KEY missing in Vercel.' : 'Network error: ' + (e?.message ?? 'unknown'))
     }
     setWorking(false)
   }
@@ -118,15 +130,17 @@ export default function AdminCommunityPage() {
     if (working) return
     setWorking(true)
     try {
-      await fetch('/api/admin/community-access', {
+      const r = await fetchT('/api/admin/community-access', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', 'x-admin-secret': s },
         body: JSON.stringify({ email: em }),
       })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setMsg(d.detail ?? d.error ?? `Couldn't remove (${r.status})`); setWorking(false); return }
       setMsg('Removed ' + em)
       loadList(s)
     } catch (e: any) {
-      setMsg('Network error: ' + (e?.message ?? 'unknown'))
+      setMsg(e?.name === 'AbortError' ? 'Timed out — database not responding' : 'Network error: ' + (e?.message ?? 'unknown'))
     }
     setWorking(false)
   }
