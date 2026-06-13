@@ -2293,8 +2293,8 @@ export default function FromApp({
               <FromLogo size={isMedium ? 30 : 26} color="#000000" />
             </div>
 
-            <div style={{ fontFamily: SERIF, fontSize: isMedium ? 32 : 28, fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.2, letterSpacing: '-.01em' }}>
-              {otpStep === 'code' ? 'Check your email' : <>Dress like<br />you mean it.</>}
+            <div style={{ fontFamily: SERIF, fontSize: isMedium ? 32 : 22, fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.2, letterSpacing: '-.01em', whiteSpace: 'nowrap' }}>
+              {otpStep === 'code' ? 'Check your email' : 'Dress like you mean it.'}
             </div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 8, marginBottom: 24, lineHeight: 1.65, whiteSpace: 'pre-line' }}>
               {otpStep === 'code'
