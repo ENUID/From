@@ -970,8 +970,8 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
       ],
       [
         { main: `Searching for ${what}…`, sub: 'Casting a wide net first' },
-        { main: 'Cutting out what doesn't make sense…', sub: 'Material, cut, and occasion register' },
-        { main: 'Ranking what's left by real quality…', sub: 'Construction and longevity' },
+        { main: "Cutting out what doesn't make sense…", sub: 'Material, cut, and occasion register' },
+        { main: "Ranking what's left by real quality…", sub: 'Construction and longevity' },
         { main: 'Almost done…', sub: '' },
       ],
     ]
