@@ -491,8 +491,10 @@ export async function POST(req: NextRequest) {
     const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile, shopperGender } = await req.json()
     // 'Men' → 'men', 'Women' → 'women', 'Both'/'Non-binary'/unset → null (no prefix)
     const genderPrefix = shopperGender === 'Men' ? 'men' : shopperGender === 'Women' ? 'women' : null
-    // Regex to detect if a query already specifies a gender (user's explicit override)
-    const GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|gender.neutral)\b/i
+    // Regex to detect if a query specifies a gender — or clearly refers to someone else
+    // (wife, girlfriend, sister, daughter, him, her). In these cases the user's default
+    // gender should NOT be applied; the LLM decides the right gender from context.
+    const GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|gender.neutral|wife|husband|girlfriend|boyfriend|sister|brother|daughter|son|her|his)\b/i
     const applyGenderPrefix = (q: string): string => {
       if (!genderPrefix) return q
       if (!q.trim()) return q  // empty query = full catalog browse — don't add gender prefix
@@ -650,7 +652,7 @@ export async function POST(req: NextRequest) {
         ? (tasteProfile.match(/(?:men'?s?|women'?s?)\s+sizes?:\s*([^|]+)/i)?.[1]?.trim() ?? '')
         : ''
       const sizeNote = sizeContext ? ` Their ${genderPrefix}'s sizes: ${sizeContext}.` : ''
-      personalLines.push(`- GENDER + SIZE DEFAULT: This shopper shops for ${genderPrefix}'s clothing.${sizeNote} ALWAYS include "${genderPrefix}" in the searchQuery (e.g. "${genderPrefix} linen shirt"). Never ask for gender or size — you already know. When relevant, use their sizes to give specific fit advice.`)
+      personalLines.push(`- GENDER + SIZE DEFAULT: This shopper shops for ${genderPrefix}'s clothing.${sizeNote} Include "${genderPrefix}" in the searchQuery by default (e.g. "${genderPrefix} linen shirt"). Exception: if the message clearly refers to someone else (wife, girlfriend, sister, daughter, him, her, etc.), search for the appropriate gender instead. Never ask for gender or size — you already know. When relevant, use their sizes to give specific fit advice.`)
     }
 
     if (personalLines.length > 0) {

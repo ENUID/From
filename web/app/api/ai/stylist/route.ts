@@ -6,6 +6,8 @@ import { buildMandatoryConcepts } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
 
+export const maxDuration = 60
+
 // Resolve a registry domain to its display name for brand-fallback messaging.
 function brandNameOf(domain: string): string {
   const p = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain.toLowerCase().trim())
