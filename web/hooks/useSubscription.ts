@@ -13,12 +13,19 @@ export function useSubscription() {
     userEmail ? { userEmail } : 'skip'
   )
 
+  const onAllowlist = useQuery(
+    api.subscriptions.isOnAllowlist,
+    userEmail ? { email: userEmail } : 'skip'
+  )
+
   const plan = subscription?.plan ?? 'free'
   const periodEnd = subscription?.currentPeriodEnd
 
-  const isPremium =
+  const hasStripePremium =
     plan === 'premium' &&
     (periodEnd === undefined || periodEnd === null || periodEnd > Date.now())
+
+  const isPremium = hasStripePremium || onAllowlist === true
 
   return {
     subscription,

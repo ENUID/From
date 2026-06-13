@@ -125,6 +125,53 @@ export const cancelSubscriptionByStripeCustomer = mutation({
   },
 });
 
+// ── Community allowlist (admin-managed free Community access) ─────────────────
+
+export const isOnAllowlist = query({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const entry = await ctx.db
+      .query("community_allowlist")
+      .withIndex("by_email", (q: any) => q.eq("email", args.email.toLowerCase().trim()))
+      .first()
+    return entry !== null
+  },
+})
+
+export const listAllowlist = query({
+  args: {},
+  handler: async (ctx) => {
+    return ctx.db.query("community_allowlist").order("desc").collect()
+  },
+})
+
+export const grantAllowlistAccess = mutation({
+  args: { email: v.string(), note: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim()
+    const existing = await ctx.db
+      .query("community_allowlist")
+      .withIndex("by_email", (q: any) => q.eq("email", email))
+      .first()
+    if (existing) return existing._id
+    return ctx.db.insert("community_allowlist", { email, note: args.note, grantedAt: Date.now() })
+  },
+})
+
+export const revokeAllowlistAccess = mutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim()
+    const entry = await ctx.db
+      .query("community_allowlist")
+      .withIndex("by_email", (q: any) => q.eq("email", email))
+      .first()
+    if (!entry) return null
+    await ctx.db.delete(entry._id)
+    return entry._id
+  },
+})
+
 export const setStripeCustomerId = mutation({
   args: { userEmail: v.string(), stripeCustomerId: v.string() },
   handler: async (ctx, args) => {

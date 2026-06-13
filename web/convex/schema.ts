@@ -105,6 +105,14 @@ export default defineSchema({
     .index("by_event", ["event"])
     .index("by_created", ["createdAt"]),
 
+  // Admin-managed allowlist: emails granted Community access without a Stripe sub.
+  // Managed via the private /api/admin/community-access route (ADMIN_SECRET protected).
+  community_allowlist: defineTable({
+    email: v.string(),
+    note: v.optional(v.string()),       // who/why — for the admin's own reference
+    grantedAt: v.number(),
+  }).index("by_email", ["email"]),
+
   // Learning loop: explicit relevance feedback. A shopper flagging a result as
   // a bad match is the highest-signal training data the search can get — these
   // accumulate for periodic review and rerank/threshold tuning.
