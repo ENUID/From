@@ -4042,6 +4042,39 @@ export default function FromApp({
                   )}
                 </div>
 
+                {/* Wardrobe scan result card */}
+                {(wardrobeScanLoading || wardrobeScanResult) && (
+                  <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}`, padding: '12px 14px', background: BG2 }}>
+                    {wardrobeScanLoading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK, display: 'inline-block', animation: 'fr-bounce 1.1s 0s infinite' }} />
+                        <span style={{ fontFamily: SANS, fontSize: 13, color: INK2 }}>Scanning your wardrobe…</span>
+                      </div>
+                    ) : wardrobeScanResult && (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3 }}>Wardrobe scan</span>
+                          <button onClick={() => setWardrobeScanResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: INK3, fontSize: 18, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                        </div>
+                        <p style={{ fontFamily: SANS, fontSize: 13, color: INK, margin: '0 0 10px', lineHeight: 1.55 }}>{wardrobeScanResult.summary}</p>
+                        {wardrobeScanResult.gaps.length > 0 && (
+                          <>
+                            <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 5 }}>Gaps to fill</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {wardrobeScanResult.gaps.map((g, i) => (
+                                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: INK3, marginTop: 5, flexShrink: 0 }} />
+                                  <span style={{ fontFamily: SANS, fontSize: 12, color: INK2, lineHeight: 1.5 }}>{g}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Input */}
                 <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}`, padding: '10px 14px calc(10px + env(safe-area-inset-bottom, 0px))' }}>
                   <input ref={stylistFileRef} type="file" accept="image/*,*/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
@@ -4099,8 +4132,8 @@ export default function FromApp({
                     {/* Row 2: actions */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={stylistImages.length >= 8}
-                          onClick={() => { stylistFileRef.current?.click() }} title="Add clothing photos">
+                        <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={wardrobeScanLoading}
+                          onClick={() => { wardrobeFileRef.current?.click() }} title="Scan wardrobe">
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="8" cy="9" r="2"/><path d="M21 15l-5-5-4 4-3-3-3 3"/>
                           </svg>
