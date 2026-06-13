@@ -222,7 +222,13 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   let brandFallback: string[] | undefined
   if (brandDomains.length > 0 && products.length === 0 && !options.loadMore) {
     const debranded = stripBrandNames(args.searchQuery, brandDomains)
-    const retryQuery = debranded || args.searchQuery
+    // When the original query was empty (brand-only browse) AND the brand fails,
+    // fall back to a vibe/category search using the brand's style tags from the
+    // registry so we can still offer similar pieces. "shirt" is the broadest
+    // safe fallback when no tag is available.
+    const registryEntry = UCP_REGISTRY.find(s => brandDomains.includes(s.domain.toLowerCase()))
+    const vibeHint = registryEntry?.vibe?.[0] ?? registryEntry?.categories?.[0] ?? ''
+    const retryQuery = debranded || args.searchQuery || vibeHint || 'clothing'
     const retry = await GlobalCatalogService.search(
       retryQuery, args.budgetMax, options.excludeIds || [], options.countryCode,
       args.isClothing, args.mandatoryConcepts || [], sort, budgetCurrency,
@@ -548,10 +554,18 @@ export async function POST(req: NextRequest) {
     // can restrict to just those store(s) rather than scanning the whole registry.
     const detectedBrandDomains = detectBrandsInQuery(message)
 
-    // Brand-only fast path: message is just a brand name, no product type.
+    // Brand-only fast path: message names a brand with no specific product query.
     // Bypass LLM entirely and browse the brand's full catalog with an empty query.
     if (detectedBrandDomains.length > 0 && !/\b(more|others?|another|different ones?)\b/i.test(message)) {
-      const stripped = stripBrandNames(message, detectedBrandDomains).replace(/\b(show|find|see|get|browse|from|at|by|in|the|all|products?)\b/gi, ' ').replace(/\s+/g, ' ').trim()
+      // Strip the brand name(s) and common "browse" filler words from the message.
+      // A broad set of filler is intentional — we want "What does Our Legacy have?",
+      // "show me everything from Taylor Stitch", "any new items at Aime Leon Dore?" etc.
+      // to all resolve to a full-catalog browse rather than falling through to the LLM.
+      const stripped = stripBrandNames(message, detectedBrandDomains)
+        .replace(/\b(show|find|see|get|browse|from|at|by|in|the|all|products?|what|does|do|have|has|everything|items?|collection|anything|new|stuff|things?|clothing|clothes|me|us|their|any|your|latest|recent)\b/gi, ' ')
+        .replace(/[''?!.,]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
       const isBrandOnly = !stripped || stripped.length < 3
       if (isBrandOnly) {
         const brandNames = detectedBrandDomains.map(brandDisplayNameByDomain).join(' & ')
@@ -575,7 +589,10 @@ export async function POST(req: NextRequest) {
             : brandUnavailableText([brandNames], lang, false)
         return NextResponse.json({
           text,
+          // Store the original message as searchQuery so load-more can re-detect
+          // the brand and paginate correctly (empty string is falsy → breaks load-more).
           ...brandResult,
+          searchQuery: message,
           suggestions: [`What are the bestsellers from ${brandNames}?`, `Show me ${brandNames} under $100`, `Do you have ${brandNames} in my size?`],
           meta: { brandOnly: true },
         })
