@@ -3097,19 +3097,15 @@ export default function FromApp({
               })()}
               <p style={{
                 fontFamily: SANS,
-                // Grows from 10px on phones to 13px on iPad/laptop — stays readable
-                // and fits on one line at typical tagline lengths on larger screens.
                 fontSize: "clamp(10px,1.4vw,13px)",
                 letterSpacing: ".16em",
                 textTransform: "uppercase", color: INK3, lineHeight: 1.7,
-                // Expands with viewport so the tagline fits on a single line.
                 maxWidth: "min(900px,80vw)",
                 minHeight: "1.7em",
+                textWrap: "balance",
                 opacity: tagVis ? .5 : 0,
-                // Fade-out uses linear so opacity reaches exactly 0 at 300ms,
-                // ensuring no old-text ghost when the new line appears at 350ms.
                 transition: tagVis ? "opacity .42s ease" : "opacity .3s linear",
-              }}>
+              } as React.CSSProperties}>
                 {tagText}
               </p>
             </div>
