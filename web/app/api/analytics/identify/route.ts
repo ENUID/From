@@ -4,7 +4,14 @@ import { authOptions } from '@/lib/auth'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
+// Lazily construct at request time — never at module load. A module-level
+// `new ConvexHttpClient(undefined)` throws during `next build` when
+// NEXT_PUBLIC_CONVEX_URL isn't set for that environment (e.g. Vercel Preview).
+function getConvex(): ConvexHttpClient {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL
+  if (!url) throw new Error('NEXT_PUBLIC_CONVEX_URL is not set')
+  return new ConvexHttpClient(url.trim().replace(/\/+$/, ''))
+}
 
 function parseDevice(ua: string): { deviceType: string; browser: string; os: string } {
   const deviceType = /Mobile|Android|iPhone|iPad/i.test(ua)
@@ -63,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Save consent flags first
-    await convex.mutation(anyApi.users.recordConsent, {
+    await getConvex().mutation(anyApi.users.recordConsent, {
       email,
       consentAnalytics: consentAnalytics ?? false,
       consentLocation: consentLocation ?? false,
@@ -71,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     // Save identity data if analytics consent given
     if (consentAnalytics) {
-      await convex.mutation(anyApi.users.recordIdentity, {
+      await getConvex().mutation(anyApi.users.recordIdentity, {
         email,
         country,
         countryCode,

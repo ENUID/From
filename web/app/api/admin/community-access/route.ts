@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
+// Lazily construct the Convex client at request time — never at module load.
+// Building this at import time with a missing NEXT_PUBLIC_CONVEX_URL throws
+// "not an absolute URL" during `next build` (Vercel Preview), failing the deploy.
+function getConvex(): ConvexHttpClient {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL
+  if (!url) throw new Error('NEXT_PUBLIC_CONVEX_URL is not set')
+  return new ConvexHttpClient(url.trim().replace(/\/+$/, ''))
+}
 
 function authorized(req: NextRequest): { ok: boolean; reason?: string } {
   const secret = process.env.ADMIN_SECRET
@@ -21,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'email required' }, { status: 400 })
   }
   try {
-    const id = await convex.mutation(anyApi.subscriptions.grantAllowlistAccess, {
+    const id = await getConvex().mutation(anyApi.subscriptions.grantAllowlistAccess, {
       email: email.toLowerCase().trim(),
       note: typeof note === 'string' && note ? note : undefined,
     })
@@ -41,7 +48,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'email required' }, { status: 400 })
   }
   try {
-    const id = await convex.mutation(anyApi.subscriptions.revokeAllowlistAccess, {
+    const id = await getConvex().mutation(anyApi.subscriptions.revokeAllowlistAccess, {
       email: email.toLowerCase().trim(),
     })
     return NextResponse.json({ ok: true, removed: !!id })
@@ -59,7 +66,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, authed: true })
   }
   try {
-    const list = await convex.query(anyApi.subscriptions.listAllowlist, {})
+    const list = await getConvex().query(anyApi.subscriptions.listAllowlist, {})
     return NextResponse.json({ ok: true, count: list.length, list })
   } catch (e: any) {
     return NextResponse.json({ error: 'Convex error', detail: e?.message ?? String(e) }, { status: 500 })
