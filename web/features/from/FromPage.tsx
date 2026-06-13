@@ -2272,6 +2272,18 @@ export default function FromApp({
         @keyframes toastOut{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.88);}}
         @keyframes sheetUp{0%{transform:translateY(100%);}100%{transform:translateY(0);}}
         @keyframes fadeScale{0%{opacity:0;transform:scale(0.94);}100%{opacity:1;transform:scale(1);}}
+
+        /* Auth/consent gate — CSS-only responsive so correct layout is applied
+           before JS hydrates, eliminating the bottom-sheet flash on tablet/desktop. */
+        .fr-gate-outer{position:fixed;inset:0;z-index:4000;display:flex;align-items:flex-end;justify-content:center;background:rgba(28,12,4,0.52);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+        .fr-gate-card{width:100%;background:#fff;border-radius:24px 24px 0 0;padding:28px 24px 36px;box-shadow:0 -12px 60px rgba(28,12,4,.28);animation:sheetUp .34s cubic-bezier(.32,.72,0,1);max-height:94vh;overflow-y:auto;}
+        .fr-gate-handle{width:40px;height:4px;border-radius:4px;background:rgba(44,18,6,.15);margin:-8px auto 20px;}
+        @media(min-width:768px){
+          .fr-gate-outer{align-items:center;padding:18px;}
+          .fr-gate-card{max-width:420px;border-radius:22px;padding:36px 32px 28px;box-shadow:0 28px 80px rgba(28,12,4,.38);animation:fadeScale .28s cubic-bezier(.32,.72,0,1);}
+          .fr-gate-handle{display:none;}
+        }
+
         @keyframes glassSpring{0%{opacity:0;transform:scale(0.82) translateY(28px);}45%{opacity:1;transform:scale(1.035) translateY(-7px);}65%{transform:scale(0.978) translateY(4px);}80%{transform:scale(1.012) translateY(-2px);}91%{transform:scale(0.994) translateY(1px);}100%{opacity:1;transform:scale(1) translateY(0);}}
         @keyframes glassSweep{0%{transform:translateX(-120%) skewX(-20deg);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateX(350%) skewX(-20deg);opacity:0;}}
         @keyframes glassFloat{0%,100%{transform:translateY(0px);}50%{transform:translateY(-4px);}}
@@ -2288,32 +2300,16 @@ export default function FromApp({
           to a new email creates the account; to an existing one, signs in), and
           Google does the same — so there is no separate login screen to add. */}
       {authStatus === 'unauthenticated' && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 4000,
-          display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center',
-          background: 'rgba(28,12,4,0.52)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: isMedium ? 420 : '100%',
-            background: BG,
-            borderRadius: isMedium ? 22 : '24px 24px 0 0',
-            padding: isMedium ? '36px 32px 28px' : '28px 24px 36px',
-            boxShadow: isMedium ? '0 28px 80px rgba(28,12,4,.38)' : '0 -12px 60px rgba(28,12,4,.28)',
-            animation: isMedium ? 'fadeScale .28s cubic-bezier(.32,.72,0,1)' : 'sheetUp .34s cubic-bezier(.32,.72,0,1)',
-            maxHeight: '94vh', overflowY: 'auto',
-          }}>
-            {/* Drag handle on phone */}
-            {!isMedium && (
-              <div style={{ width: 40, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.15)', margin: '-8px auto 20px' }} />
-            )}
+        <div className="fr-gate-outer">
+          <div className="fr-gate-card">
+            <div className="fr-gate-handle" />
 
             {/* Logo */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: isMedium ? 24 : 20 }}>
-              <FromLogo size={isMedium ? 30 : 26} color="#000000" />
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
+              <FromLogo size={28} color="#000000" />
             </div>
 
-            <div style={{ fontFamily: SERIF, fontSize: isMedium ? 32 : 22, fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.2, letterSpacing: '-.01em', whiteSpace: 'nowrap' }}>
+            <div style={{ fontFamily: SERIF, fontSize: 'clamp(22px,4vw,32px)', fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.2, letterSpacing: '-.01em', whiteSpace: 'nowrap' }}>
               {otpStep === 'code' ? 'Check your email' : 'Dress like you mean it.'}
             </div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 8, marginBottom: 24, lineHeight: 1.65, whiteSpace: 'pre-line' }}>
@@ -2422,10 +2418,10 @@ export default function FromApp({
 
       {/* ── User consent sheet (shown once after first sign-in) ── */}
       {showConsent && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 4100, display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', background: 'rgba(28,12,4,0.52)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
-          <div style={{ width: '100%', maxWidth: isMedium ? 440 : '100%', background: BG, borderRadius: isMedium ? 22 : '24px 24px 0 0', padding: isMedium ? '36px 32px 32px' : '28px 24px 40px', boxShadow: isMedium ? '0 28px 80px rgba(28,12,4,.38)' : '0 -12px 60px rgba(28,12,4,.28)', animation: isMedium ? 'fadeScale .28s cubic-bezier(.32,.72,0,1)' : 'sheetUp .34s cubic-bezier(.32,.72,0,1)' }}>
-            {!isMedium && <div style={{ width: 40, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.15)', margin: '-8px auto 22px' }} />}
-            <div style={{ fontFamily: SERIF, fontSize: isMedium ? 26 : 22, fontWeight: 500, color: INK, marginBottom: 6 }}>A quick word on data</div>
+        <div className="fr-gate-outer" style={{ zIndex: 4100 }}>
+          <div className="fr-gate-card">
+            <div className="fr-gate-handle" />
+            <div style={{ fontFamily: SERIF, fontSize: 'clamp(22px,3.5vw,26px)', fontWeight: 500, color: INK, marginBottom: 6 }}>A quick word on data</div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, lineHeight: 1.65, marginBottom: 26 }}>
               FROM uses data only to make your experience better — smarter searches, better recommendations. We never sell it or share it. Choose what you're comfortable with.
             </div>
