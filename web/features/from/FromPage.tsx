@@ -1232,13 +1232,13 @@ export default function FromApp({
   const [isMedium, setIsMedium]         = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : false)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const attachBtnRef = useRef<HTMLButtonElement>(null)
-  const [attachRect, setAttachRect] = useState<{ left: number; top: number } | null>(null)
+  const [attachRect, setAttachRect] = useState<{ left: number; top: number; bottom: number } | null>(null)
   const openAttachMenu = () => {
     setAttachMenuOpen(o => {
       const next = !o
       if (next && attachBtnRef.current) {
         const r = attachBtnRef.current.getBoundingClientRect()
-        setAttachRect({ left: r.left, top: r.top })
+        setAttachRect({ left: r.left, top: r.top, bottom: r.bottom })
       }
       return next
     })
@@ -2485,7 +2485,8 @@ export default function FromApp({
           <div style={{ position: 'fixed', inset: 0, zIndex: 9600 }} onClick={() => setAttachMenuOpen(false)} />
           <div style={{ position: 'fixed',
             left: attachRect ? Math.max(12, attachRect.left) : 16,
-            bottom: attachRect ? (window.innerHeight - attachRect.top + 10) : 86,
+            top: attachRect ? Math.max(8, attachRect.top - 162) : undefined,
+            bottom: attachRect ? undefined : 86,
             zIndex: 9601,
             background: '#fff', borderRadius: 14, overflow: 'hidden', minWidth: 210,
             boxShadow: '0 8px 28px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.07)' }}>
