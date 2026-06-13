@@ -9,6 +9,23 @@ export default defineSchema({
     role: v.optional(v.literal("buyer")),
     passwordHash: v.optional(v.string()),
     createdAt: v.optional(v.number()),
+    // Consent
+    consentAnalytics: v.optional(v.boolean()),
+    consentLocation: v.optional(v.boolean()),
+    consentGivenAt: v.optional(v.number()),
+    // Geo + device (collected after consent)
+    country: v.optional(v.string()),
+    countryCode: v.optional(v.string()),
+    city: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    lat: v.optional(v.number()),
+    lng: v.optional(v.number()),
+    deviceType: v.optional(v.string()),   // "mobile" | "tablet" | "desktop"
+    browser: v.optional(v.string()),
+    os: v.optional(v.string()),
+    language: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
+    lastSeenAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
 
   saved_products: defineTable({
@@ -73,6 +90,20 @@ export default defineSchema({
     used: v.boolean(),
     attempts: v.optional(v.number()),
   }).index("by_email", ["email"]),
+
+  // Event stream — one row per meaningful user action (search, save, flag, outfit_view…).
+  // Queried by the style-signals cron and the admin dashboard.
+  user_events: defineTable({
+    userId: v.optional(v.id("users")),
+    event: v.string(),              // "search" | "save" | "flag" | "outfit_view" | "page_view" …
+    properties: v.optional(v.any()),
+    country: v.optional(v.string()),
+    city: v.optional(v.string()),
+    deviceType: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_event", ["event"])
+    .index("by_created", ["createdAt"]),
 
   // Learning loop: explicit relevance feedback. A shopper flagging a result as
   // a bad match is the highest-signal training data the search can get — these

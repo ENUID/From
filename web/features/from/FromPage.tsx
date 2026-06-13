@@ -1068,17 +1068,53 @@ export default function FromApp({
   )
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
+  const [showConsent, setShowConsent]           = useState(false)
+  const [consentAnalytics, setConsentAnalytics] = useState(true)
+  const [consentLocation, setConsentLocation]   = useState(false)
+  const [consentSaving, setConsentSaving]       = useState(false)
   const [showOnboarding, setShowOnboarding]     = useState(false)
   const [onboardingStep, setOnboardingStep]     = useState(0)
   const [selectedStyles, setSelectedStyles]     = useState<string[]>([])
   const [onboardSizes, setOnboardSizes]         = useState({ tops: '', bottoms: '', shoes: '' })
   const [selectedBudget, setSelectedBudget]     = useState<number | null>(null)
 
+  // Show consent sheet first (once, on first sign-in), then onboarding
+  const userRecord = useQuery(api.users.getUserByEmail, onboardEmail ? { email: onboardEmail } : 'skip')
   useEffect(() => {
-    if (authStatus === 'authenticated' && tasteProfileData === null) {
+    if (authStatus !== 'authenticated') return
+    if (userRecord === undefined) return // still loading
+    if (userRecord && userRecord.consentGivenAt == null) {
+      setShowConsent(true)
+    } else if (tasteProfileData === null) {
       setShowOnboarding(true)
     }
-  }, [authStatus, tasteProfileData])
+  }, [authStatus, tasteProfileData, userRecord])
+
+  async function saveConsent() {
+    if (!onboardEmail || consentSaving) return
+    setConsentSaving(true)
+    try {
+      const body: Record<string, any> = { consentAnalytics, consentLocation }
+      // If location consented, request GPS now
+      if (consentLocation && 'geolocation' in navigator) {
+        await new Promise<void>(resolve => {
+          navigator.geolocation.getCurrentPosition(
+            pos => { body.lat = pos.coords.latitude; body.lng = pos.coords.longitude; resolve() },
+            () => resolve(),
+            { timeout: 5000 }
+          )
+        })
+      }
+      await fetch('/api/analytics/identify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    } catch { /* best-effort */ } finally {
+      setConsentSaving(false)
+      setShowConsent(false)
+      if (tasteProfileData === null) setShowOnboarding(true)
+    }
+  }
 
   async function finishOnboarding(skip = false) {
     if (!onboardEmail) { setShowOnboarding(false); return }
@@ -2396,6 +2432,49 @@ export default function FromApp({
               <a href="/privacy" target="_blank" rel="noopener" style={{ color: INK3, textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</a>.
               <br />We never sell your data or spam your inbox.
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── User consent sheet (shown once after first sign-in) ── */}
+      {showConsent && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 4100, display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', background: 'rgba(28,12,4,0.52)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+          <div style={{ width: '100%', maxWidth: isMedium ? 440 : '100%', background: BG, borderRadius: isMedium ? 22 : '24px 24px 0 0', padding: isMedium ? '36px 32px 32px' : '28px 24px 40px', boxShadow: isMedium ? '0 28px 80px rgba(28,12,4,.38)' : '0 -12px 60px rgba(28,12,4,.28)', animation: isMedium ? 'fadeScale .28s cubic-bezier(.32,.72,0,1)' : 'sheetUp .34s cubic-bezier(.32,.72,0,1)' }}>
+            {!isMedium && <div style={{ width: 40, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.15)', margin: '-8px auto 22px' }} />}
+            <div style={{ fontFamily: SERIF, fontSize: isMedium ? 26 : 22, fontWeight: 500, color: INK, marginBottom: 6 }}>A quick word on data</div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, lineHeight: 1.65, marginBottom: 26 }}>
+              FROM uses data only to make your experience better — smarter searches, better recommendations. We never sell it or share it. Choose what you're comfortable with.
+            </div>
+
+            {/* Toggle rows */}
+            {[
+              { key: 'analytics' as const, label: 'Usage analytics', desc: "Helps us improve search quality and understand what's working. Country, device type, and session data — no browsing history." },
+              { key: 'location' as const, label: 'Precise location', desc: "Show prices in your local currency and surface brands that ship to you. Your coordinates are never shared." },
+            ].map(({ key, label, desc }) => {
+              const on = key === 'analytics' ? consentAnalytics : consentLocation
+              const setOn = key === 'analytics' ? setConsentAnalytics : setConsentLocation
+              return (
+                <div key={key} onClick={() => setOn(!on)} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 0', borderTop: `1px solid ${BRD}`, cursor: 'pointer' }}>
+                  {/* Toggle pill */}
+                  <div style={{ flexShrink: 0, marginTop: 2, width: 44, height: 26, borderRadius: 13, background: on ? INK : 'rgba(44,18,6,.12)', transition: 'background .18s', position: 'relative' }}>
+                    <div style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.18)', transition: 'left .18s' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: INK, marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, lineHeight: 1.55 }}>{desc}</div>
+                  </div>
+                </div>
+              )
+            })}
+
+            <button onClick={saveConsent} disabled={consentSaving}
+              style={{ width: '100%', marginTop: 24, padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none', fontFamily: SANS, fontSize: 13, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', opacity: consentSaving ? 0.55 : 1, cursor: consentSaving ? 'default' : 'pointer' }}>
+              {consentSaving ? 'Saving…' : 'Save & continue'}
+            </button>
+            <button onClick={() => { setShowConsent(false); if (tasteProfileData === null) setShowOnboarding(true) }}
+              style={{ width: '100%', marginTop: 10, padding: '10px', borderRadius: 30, background: 'none', border: 'none', fontFamily: SANS, fontSize: 12, color: INK3, cursor: 'pointer' }}>
+              Decline all & continue
+            </button>
           </div>
         </div>
       )}

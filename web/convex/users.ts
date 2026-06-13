@@ -79,3 +79,81 @@ export const getUserByEmail = query({
       .first();
   },
 });
+
+export const recordConsent = mutation({
+  args: {
+    email: v.string(),
+    consentAnalytics: v.boolean(),
+    consentLocation: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase().trim()))
+      .first();
+    if (!user) return null;
+    await ctx.db.patch(user._id, {
+      consentAnalytics: args.consentAnalytics,
+      consentLocation: args.consentLocation,
+      consentGivenAt: Date.now(),
+    });
+    return user._id;
+  },
+});
+
+export const recordIdentity = mutation({
+  args: {
+    email: v.string(),
+    country: v.optional(v.string()),
+    countryCode: v.optional(v.string()),
+    city: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    lat: v.optional(v.number()),
+    lng: v.optional(v.number()),
+    deviceType: v.optional(v.string()),
+    browser: v.optional(v.string()),
+    os: v.optional(v.string()),
+    language: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { email, ...rest } = args;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email.toLowerCase().trim()))
+      .first();
+    if (!user) return null;
+    await ctx.db.patch(user._id, { ...rest, lastSeenAt: Date.now() });
+    return user._id;
+  },
+});
+
+export const trackEvent = mutation({
+  args: {
+    email: v.optional(v.string()),
+    event: v.string(),
+    properties: v.optional(v.any()),
+    country: v.optional(v.string()),
+    city: v.optional(v.string()),
+    deviceType: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let userId: any = undefined;
+    if (args.email) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email!.toLowerCase().trim()))
+        .first();
+      userId = user?._id;
+    }
+    await ctx.db.insert("user_events", {
+      userId,
+      event: args.event,
+      properties: args.properties,
+      country: args.country,
+      city: args.city,
+      deviceType: args.deviceType,
+      createdAt: Date.now(),
+    });
+  },
+});
