@@ -1070,8 +1070,9 @@ export default function FromApp({
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [showConsent, setShowConsent]           = useState(false)
+  const [consentFromSettings, setConsentFromSettings] = useState(false)
   const [consentAnalytics, setConsentAnalytics] = useState(true)
-  const [consentLocation, setConsentLocation]   = useState(false)
+  const [consentLocation, setConsentLocation]   = useState(true)
   const [consentSaving, setConsentSaving]       = useState(false)
   const [showOnboarding, setShowOnboarding]     = useState(false)
   const [onboardingStep, setOnboardingStep]     = useState(0)
@@ -1113,7 +1114,12 @@ export default function FromApp({
     } catch { /* best-effort */ } finally {
       setConsentSaving(false)
       setShowConsent(false)
-      if (tasteProfileData === null) setShowOnboarding(true)
+      if (consentFromSettings) {
+        setConsentFromSettings(false)
+        setSettingsOpen(true)
+      } else if (tasteProfileData === null) {
+        setShowOnboarding(true)
+      }
     }
   }
 
@@ -2284,20 +2290,51 @@ export default function FromApp({
 
         /* Auth/consent gate — CSS-only responsive so correct layout is applied
            before JS hydrates, eliminating the bottom-sheet flash on tablet/desktop. */
-        .fr-gate-outer{position:fixed;inset:0;z-index:4000;display:flex;align-items:flex-end;justify-content:center;background:rgba(28,12,4,0.52);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
-        .fr-gate-card{width:100%;background:#fff;border-radius:24px 24px 0 0;padding:28px 24px 36px;box-shadow:0 -12px 60px rgba(28,12,4,.28);animation:sheetUp .34s cubic-bezier(.32,.72,0,1);max-height:94vh;overflow-y:auto;}
-        .fr-gate-handle{width:40px;height:4px;border-radius:4px;background:rgba(44,18,6,.15);margin:-8px auto 20px;}
+        .fr-gate-outer{position:fixed;inset:0;z-index:4000;display:flex;align-items:flex-end;justify-content:center;background:rgba(28,12,4,0.44);backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);}
+        .fr-gate-card{
+          width:100%;
+          background:rgba(255,255,255,0.74);
+          backdrop-filter:saturate(200%) blur(28px);
+          -webkit-backdrop-filter:saturate(200%) blur(28px);
+          border-radius:28px 28px 0 0;
+          padding:28px 24px 36px;
+          border-top:0.5px solid rgba(255,255,255,0.72);
+          border-left:0.5px solid rgba(255,255,255,0.52);
+          border-right:0.5px solid rgba(255,255,255,0.52);
+          box-shadow:
+            0 -12px 60px rgba(28,12,4,.22),
+            0 -1px 0 rgba(255,255,255,0.55),
+            inset 0 1.5px 0 rgba(255,255,255,0.92);
+          animation:sheetUp .34s cubic-bezier(.32,.72,0,1);
+          max-height:94vh;
+          overflow-y:auto;
+        }
+        .fr-gate-handle{width:40px;height:4px;border-radius:4px;background:rgba(44,18,6,.18);margin:-8px auto 20px;}
         @media(min-width:768px){
           .fr-gate-outer{align-items:center;padding:18px;}
-          .fr-gate-card{max-width:420px;border-radius:22px;padding:36px 32px 28px;box-shadow:0 28px 80px rgba(28,12,4,.38);animation:fadeScale .28s cubic-bezier(.32,.72,0,1);}
+          .fr-gate-card{max-width:420px;border-radius:26px;padding:36px 32px 28px;box-shadow:0 28px 80px rgba(28,12,4,.28),inset 0 1.5px 0 rgba(255,255,255,0.92);animation:fadeScale .28s cubic-bezier(.32,.72,0,1);}
           .fr-gate-handle{display:none;}
         }
         /* Settings sheet */
-        .fr-settings-outer{position:fixed;inset:0;z-index:3800;display:flex;align-items:flex-end;justify-content:center;background:rgba(28,12,4,0.42);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
-        .fr-settings-card{width:100%;background:#fff;border-radius:22px 22px 0 0;display:flex;flex-direction:column;max-height:88vh;animation:sheetUp .32s cubic-bezier(.32,.72,0,1);box-shadow:0 -8px 48px rgba(28,12,4,.22);}
+        .fr-settings-outer{position:fixed;inset:0;z-index:3800;display:flex;align-items:flex-end;justify-content:center;background:rgba(28,12,4,0.38);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
+        .fr-settings-card{
+          width:100%;
+          background:rgba(255,255,255,0.74);
+          backdrop-filter:saturate(200%) blur(28px);
+          -webkit-backdrop-filter:saturate(200%) blur(28px);
+          border-radius:26px 26px 0 0;
+          display:flex;flex-direction:column;max-height:88vh;
+          border-top:0.5px solid rgba(255,255,255,0.72);
+          border-left:0.5px solid rgba(255,255,255,0.52);
+          border-right:0.5px solid rgba(255,255,255,0.52);
+          box-shadow:
+            0 -8px 48px rgba(28,12,4,.18),
+            inset 0 1.5px 0 rgba(255,255,255,0.92);
+          animation:sheetUp .32s cubic-bezier(.32,.72,0,1);
+        }
         @media(min-width:768px){
           .fr-settings-outer{align-items:center;padding:18px;}
-          .fr-settings-card{max-width:440px;border-radius:22px;max-height:85vh;animation:fadeScale .26s cubic-bezier(.32,.72,0,1);}
+          .fr-settings-card{max-width:440px;border-radius:24px;max-height:85vh;animation:fadeScale .26s cubic-bezier(.32,.72,0,1);}
         }
 
         @keyframes glassSpring{0%{opacity:0;transform:scale(0.82) translateY(28px);}45%{opacity:1;transform:scale(1.035) translateY(-7px);}65%{transform:scale(0.978) translateY(4px);}80%{transform:scale(1.012) translateY(-2px);}91%{transform:scale(0.994) translateY(1px);}100%{opacity:1;transform:scale(1) translateY(0);}}
@@ -2442,6 +2479,13 @@ export default function FromApp({
         <div className="fr-gate-outer" style={{ zIndex: 4100 }}>
           <div className="fr-gate-card">
             <div className="fr-gate-handle" />
+            {consentFromSettings && (
+              <button onClick={() => { setShowConsent(false); setConsentFromSettings(false); setSettingsOpen(true) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 16px', fontFamily: SANS, fontSize: 13, color: INK3 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+              </button>
+            )}
             <div style={{ fontFamily: SERIF, fontSize: 'clamp(22px,3.5vw,26px)', fontWeight: 500, color: INK, marginBottom: 6 }}>A quick word on data</div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, lineHeight: 1.65, marginBottom: 26 }}>
               FROM uses data only to make your experience better — smarter searches, better recommendations. We never sell it or share it. Choose what you're comfortable with.
@@ -2472,9 +2516,13 @@ export default function FromApp({
               style={{ width: '100%', marginTop: 24, padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none', fontFamily: SANS, fontSize: 13, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', opacity: consentSaving ? 0.55 : 1, cursor: consentSaving ? 'default' : 'pointer' }}>
               {consentSaving ? 'Saving…' : 'Save & continue'}
             </button>
-            <button onClick={() => { setShowConsent(false); if (tasteProfileData === null) setShowOnboarding(true) }}
+            <button onClick={() => {
+              setShowConsent(false)
+              if (consentFromSettings) { setConsentFromSettings(false); setSettingsOpen(true) }
+              else if (tasteProfileData === null) setShowOnboarding(true)
+            }}
               style={{ width: '100%', marginTop: 10, padding: '10px', borderRadius: 30, background: 'none', border: 'none', fontFamily: SANS, fontSize: 12, color: INK3, cursor: 'pointer' }}>
-              Decline all & continue
+              {consentFromSettings ? 'Cancel' : 'Decline all & continue'}
             </button>
           </div>
         </div>
@@ -2507,12 +2555,6 @@ export default function FromApp({
               <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, opacity: 0.6, marginBottom: 8 }}>Account</div>
               <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
                 {[
-                  {
-                    label: 'My Style',
-                    sub: 'Update your taste profile',
-                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><path d="M12 2L9.5 9.5H2l6 4.5-2.5 7.5L12 17l6.5 4.5L16 14l6-4.5h-7.5z"/></svg>,
-                    action: () => { setSettingsOpen(false); setShowOnboarding(true) },
-                  },
                   {
                     label: isPremium ? 'Community Member' : 'Free plan',
                     sub: isPremium ? 'Your plan is active' : `${dailySearchesRemaining} searches left today`,
@@ -2548,7 +2590,7 @@ export default function FromApp({
                     label: 'Data & Consent',
                     sub: 'Manage what FROM can collect',
                     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-                    action: () => { setSettingsOpen(false); setShowConsent(true) },
+                    action: () => { setSettingsOpen(false); setConsentFromSettings(true); setShowConsent(true) },
                   },
                   {
                     label: 'Privacy Policy',
