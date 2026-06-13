@@ -2270,20 +2270,36 @@ export default function FromApp({
       {authStatus === 'unauthenticated' && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 4000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 18, background: 'rgba(28,12,4,0.46)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center',
+          background: 'rgba(28,12,4,0.52)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
         }}>
           <div style={{
-            width: '100%', maxWidth: 392, background: BG, borderRadius: 22,
-            padding: '30px 26px 22px', boxShadow: '0 24px 70px rgba(28,12,4,.34)',
-            animation: 'fadeScale .26s ease', maxHeight: '94vh', overflowY: 'auto',
+            width: '100%',
+            maxWidth: isMedium ? 420 : '100%',
+            background: BG,
+            borderRadius: isMedium ? 22 : '24px 24px 0 0',
+            padding: isMedium ? '36px 32px 28px' : '28px 24px 36px',
+            boxShadow: isMedium ? '0 28px 80px rgba(28,12,4,.38)' : '0 -12px 60px rgba(28,12,4,.28)',
+            animation: isMedium ? 'fadeScale .28s cubic-bezier(.32,.72,0,1)' : 'sheetUp .34s cubic-bezier(.32,.72,0,1)',
+            maxHeight: '94vh', overflowY: 'auto',
           }}>
-            <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 600, letterSpacing: '.04em', color: INK, marginBottom: 18 }}>FROM</div>
-            <div style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.1 }}>
-              {otpStep === 'code' ? 'Check your email' : 'Create account'}
+            {/* Drag handle on phone */}
+            {!isMedium && (
+              <div style={{ width: 40, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.15)', margin: '-8px auto 20px' }} />
+            )}
+
+            {/* Logo */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: isMedium ? 24 : 20 }}>
+              <FromLogo size={isMedium ? 30 : 26} color="#000000" />
             </div>
-            <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 6, marginBottom: 22, lineHeight: 1.5 }}>
-              {otpStep === 'code' ? `We sent a 6-digit code to ${otpEmail}` : 'Join From to start exploring'}
+
+            <div style={{ fontFamily: SERIF, fontSize: isMedium ? 32 : 28, fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.2, letterSpacing: '-.01em' }}>
+              {otpStep === 'code' ? 'Check your email' : <>Independent fashion,<br />personally curated</>}
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 8, marginBottom: 24, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+              {otpStep === 'code'
+                ? `We sent a 6-digit code to\n${otpEmail}`
+                : "Discover the brands the algorithm hasn't found yet.\nYour taste profile. Your wardrobe. No noise."}
             </div>
 
             {authUrlError && (
@@ -2327,7 +2343,7 @@ export default function FromApp({
                     style={{ width: '100%', padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none',
                       cursor: otpSending ? 'default' : 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, letterSpacing: '.08em',
                       textTransform: 'uppercase', opacity: otpSending || !otpEmail.trim() ? 0.5 : 1 }}>
-                    {otpSending ? 'Sending…' : 'Create account'}
+                    {otpSending ? 'Sending…' : 'Continue with email'}
                   </button>
                 </form>
               </>
@@ -2373,8 +2389,12 @@ export default function FromApp({
               </form>
             )}
 
-            <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 20, lineHeight: 1.6, opacity: 0.8 }}>
-              By continuing you agree to From's Terms &amp; Privacy Policy.
+            <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 22, lineHeight: 1.7, opacity: 0.75 }}>
+              By continuing you agree to FROM's{' '}
+              <a href="/terms" target="_blank" rel="noopener" style={{ color: INK3, textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</a>
+              {' '}and{' '}
+              <a href="/privacy" target="_blank" rel="noopener" style={{ color: INK3, textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</a>.
+              <br />We never sell your data or spam your inbox.
             </div>
           </div>
         </div>
