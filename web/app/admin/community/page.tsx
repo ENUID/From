@@ -66,10 +66,9 @@ export default function AdminCommunityPage() {
         setWorking(false)
         return
       }
-      const d = await r.json()
-      setList(d.list ?? [])
+      await r.json()
       sessionStorage.setItem(STORAGE_KEY, secret.trim())
-      setView('admin')
+      window.location.reload()
     } catch (e: any) {
       setLoginErr('Network error: ' + (e?.message ?? 'unknown'))
     }
