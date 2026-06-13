@@ -450,13 +450,6 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
     } else if (store_url && !store_url.startsWith('http')) {
       store_url = `https://${store_url}`
     }
-    try {
-      if (store_url) {
-        const u = new URL(store_url)
-        u.searchParams.set('ref', 'from_ai_affiliate')
-        store_url = u.toString()
-      }
-    } catch {}
 
     const descCandidates = [
       raw.description?.plain,

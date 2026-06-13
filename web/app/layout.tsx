@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider'
@@ -35,10 +34,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ConvexClientProvider>
           <AuthProvider session={session}>{children}</AuthProvider>
         </ConvexClientProvider>
-        <Script
-          src="https://s.skimresources.com/js/303928X1792065.skimlinks.js"
-          strategy="afterInteractive"
-        />
         <Analytics />
       </body>
     </html>
