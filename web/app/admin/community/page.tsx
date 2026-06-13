@@ -24,17 +24,20 @@ export default function AdminCommunityPage() {
       const r = await fetch('/api/admin/community-access', {
         headers: { 'x-admin-secret': s },
       })
+      const text = await r.text()
+      const d = JSON.parse(text)
       if (r.status === 401) {
-        const d = await r.json().catch(() => ({}))
         setErr(d.reason === 'not_configured' ? 'ADMIN_SECRET not set in Vercel' : 'Wrong password')
         return false
       }
-      const text = await r.text()
-      const data = JSON.parse(text)
-      setList(data.list ?? [])
+      if (!r.ok) {
+        setErr(d.detail ?? d.error ?? `Server error ${r.status}`)
+        return false
+      }
+      setList(d.list ?? [])
       return true
-    } catch (e) {
-      setErr('Connection error — try again')
+    } catch (e: any) {
+      setErr('Network error: ' + (e?.message ?? 'unknown'))
       return false
     }
   }

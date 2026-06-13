@@ -46,6 +46,10 @@ export async function DELETE(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const auth = authorized(req)
   if (!auth.ok) return NextResponse.json({ error: 'Unauthorized', reason: auth.reason }, { status: 401 })
-  const list = await convex.query(anyApi.subscriptions.listAllowlist, {})
-  return NextResponse.json({ ok: true, count: list.length, list })
+  try {
+    const list = await convex.query(anyApi.subscriptions.listAllowlist, {})
+    return NextResponse.json({ ok: true, count: list.length, list })
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Convex error', detail: e?.message ?? String(e) }, { status: 500 })
+  }
 }
