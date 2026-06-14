@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider'
@@ -9,6 +9,12 @@ import { authOptions } from '@/lib/auth'
 export const metadata: Metadata = {
   title: 'From - Be Different',
   description: 'Search across independent stores through natural language. Describe what you need and discover unique finds from verified shops.',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

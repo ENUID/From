@@ -2210,10 +2210,15 @@ export default function FromApp({
         /* ── Outer wrapper & shell ──
            The app fills the whole device — phone, tablet or laptop — rather than a
            fixed phone-width strip. Only on very large monitors do we cap the width
-           and centre it so the layout never stretches absurdly wide. */
-        .fr-wrap{display:flex;align-items:stretch;justify-content:center;height:100dvh;width:100%;
+           and centre it so the layout never stretches absurdly wide.
+           height:100% on html/body + position:fixed on the shell prevents the iOS
+           Safari address-bar resize from triggering background repaints that look
+           like zoom-in/zoom-out flicker on every device. */
+        html,body{height:100%;overflow:hidden;}
+        .fr-wrap{display:flex;align-items:stretch;justify-content:center;
+          position:fixed;inset:0;
           background:#ffffff;}
-        .fr-shell{width:100%;max-width:1600px;height:100dvh;position:relative;display:flex;flex-direction:column;
+        .fr-shell{width:100%;max-width:1600px;position:relative;display:flex;flex-direction:column;
           overflow:hidden;overscroll-behavior:none;
           background:#ffffff;}
         @media(min-width:1601px){
