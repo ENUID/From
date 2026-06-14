@@ -88,6 +88,29 @@ export const saveSearchHistory = mutation({
   },
 });
 
+export const deleteSearchHistory = mutation({
+  args: { userEmail: v.string(), id: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.userEmail))
+      .first();
+
+    if (!user) return;
+
+    // The client sends a string id — normalize it; bail if it isn't a real
+    // search_history document id (e.g. a locally generated entry).
+    const docId = ctx.db.normalizeId("search_history", args.id);
+    if (!docId) return;
+
+    const entry = await ctx.db.get(docId);
+    // Only delete the user's own entry.
+    if (entry && entry.userId === user._id) {
+      await ctx.db.delete(docId);
+    }
+  },
+});
+
 export const getSearchHistory = query({
   args: { userEmail: v.string() },
   handler: async (ctx, args) => {

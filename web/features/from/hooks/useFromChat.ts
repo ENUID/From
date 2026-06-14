@@ -81,6 +81,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
   const tasteProfileData = useQuery(api.tasteProfile.getTasteProfile, userEmail ? { userEmail } : "skip")
   const toggleConvexSaved = useMutation(api.shop.toggleSavedProduct)
   const saveConvexHistory = useMutation(api.shop.saveSearchHistory)
+  const deleteConvexHistory = useMutation(api.shop.deleteSearchHistory)
 
   // Track locally-deleted IDs so any Convex re-sync cannot resurrect them this session.
   const deletedHistoryIds = useRef<Set<string>>(new Set())
@@ -224,6 +225,9 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
   function deleteHistoryEntry(id: string) {
     deletedHistoryIds.current.add(id)
     setSearchHistory(prev => prev.filter(item => item.id !== id))
+    // Persist the deletion server-side so it survives reload for signed-in users.
+    // The mutation ignores ids that aren't real Convex documents (local entries).
+    if (userEmail) deleteConvexHistory({ userEmail, id }).catch(() => {})
   }
 
   function renameHistoryEntry(id: string, newQuery: string) {
