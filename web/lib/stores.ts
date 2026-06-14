@@ -3285,6 +3285,836 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "items": ["co-ord set", "dress", "blouse", "shorts", "skirt", "kaftan", "jumpsuit", "top"],
     "about": "Indian resort and vacation wear — vibrant prints, easy silhouettes, and co-ord sets for warm-weather dressing"
   },
+
+  // ── Indian Streetwear & Casual ────────────────────────────────────────────
+  {
+    "domain": "snitch.co.in",
+    "name": "SNITCH",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["streetwear", "casual", "urban", "graphic", "oversized", "y2k"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shirt", "jogger", "shorts", "hoodie", "jacket", "cargo"],
+    "about": "Indian streetwear brand with bold graphics, oversized fits, and urban casual styles at accessible prices"
+  },
+  {
+    "domain": "thehouseofrare.com",
+    "name": "The House of Rare",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["casual", "urban", "everyday", "relaxed"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shirt", "trouser", "shorts", "hoodie", "sweatshirt"],
+    "about": "Popular Indian menswear brand with casual everyday styles — shirts, tees, and trousers at everyday prices"
+  },
+  {
+    "domain": "bonkerscorner.com",
+    "name": "Bonkers Corner",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["streetwear", "casual", "graphic", "quirky", "pop-culture"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "hoodie", "sweatshirt", "shorts", "jogger"],
+    "about": "Quirky Indian streetwear with pop-culture graphics, memes, and bold designs for the internet generation"
+  },
+  {
+    "domain": "redwolf.in",
+    "name": "Redwolf",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["graphic", "streetwear", "pop-culture", "bold", "alternative", "fandom"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "hoodie", "sweatshirt", "phone case"],
+    "about": "Indian graphic tee and pop-culture apparel brand — licensed prints, fandom designs, and bold graphic fashion"
+  },
+  {
+    "domain": "theindiangarageco.com",
+    "name": "The Indian Garage Co.",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["casual", "urban", "everyday", "contemporary"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shirt", "trouser", "shorts", "jacket", "sweatshirt"],
+    "about": "Indian casual menswear with contemporary silhouettes — relaxed shirts, tees, and bottoms for everyday"
+  },
+  {
+    "domain": "beyoung.in",
+    "name": "Beyoung",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["casual", "streetwear", "urban", "graphic", "youthful"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shirt", "trouser", "shorts", "hoodie", "sweatshirt"],
+    "about": "Indian casual fashion for young adults — graphic tees, relaxed fits, and affordable streetwear"
+  },
+  {
+    "domain": "bombaytrooper.com",
+    "name": "Bombay Trooper",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["casual", "everyday", "relaxed", "urban", "Mumbai"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shirt", "trouser", "shorts", "jacket"],
+    "about": "Mumbai-based menswear brand with relaxed, everyday styles inspired by the city's easy urban culture"
+  },
+  {
+    "domain": "powerlook.in",
+    "name": "Powerlook",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["casual", "streetwear", "bold", "urban"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shirt", "trouser", "jogger", "hoodie", "sweatshirt"],
+    "about": "Indian menswear brand with bold, street-influenced casual styles for young men"
+  },
+  {
+    "domain": "franklywearing.com",
+    "name": "Frankly Wearing",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "relaxed", "everyday", "comfortable"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "sweatshirt", "hoodie", "jogger", "shorts"],
+    "about": "Indian casual basics brand — honest, comfortable everyday essentials in relaxed silhouettes"
+  },
+  {
+    "domain": "mydesignation.in",
+    "name": "Mydesignation",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["graphic", "casual", "fun", "office-humour", "pop-culture"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "hoodie", "mug", "poster"],
+    "about": "Indian pop-culture and humour apparel — office jokes, relatable graphics, and fun casual wear"
+  },
+  {
+    "domain": "styched.com",
+    "name": "Styched",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "everyday", "comfortable", "relaxed"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "hoodie", "sweatshirt", "shorts", "jogger"],
+    "about": "Indian casual wear with simple, comfortable everyday basics in relaxed fits"
+  },
+  {
+    "domain": "whatwhenwear.com",
+    "name": "What When Wear",
+    "categories": ["top", "bottom", "dress", "accessory"],
+    "vibe": ["casual", "everyday", "contemporary", "wearable"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top", "dress", "skirt", "co-ord", "trouser"],
+    "about": "Indian womenswear with practical everyday styles — easy pieces for real life, every occasion"
+  },
+  {
+    "domain": "marchtee.in",
+    "name": "March Tee",
+    "categories": ["top", "accessory"],
+    "vibe": ["graphic", "casual", "minimal", "clean", "everyday"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "polo", "sweatshirt"],
+    "about": "Indian tee-first casual brand with clean graphic prints and minimal everyday essentials"
+  },
+  {
+    "domain": "fullyfilmy.in",
+    "name": "Fully Filmy",
+    "categories": ["top", "accessory"],
+    "vibe": ["graphic", "Bollywood", "pop-culture", "fun", "casual"],
+    "gender": ["men", "women", "unisex"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "hoodie", "sweatshirt"],
+    "about": "Bollywood and Indian pop-culture apparel — film dialogue prints, retro film graphics, and desi nostalgia on tees"
+  },
+  {
+    "domain": "wyoindia.com",
+    "name": "WYO",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear", "urban", "graphic", "casual", "bold"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "hoodie", "cargo", "shorts"],
+    "about": "Indian streetwear label with bold graphic expressions and urban casual silhouettes"
+  },
+  {
+    "domain": "burgerbae.com",
+    "name": "BurgerBae",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["casual", "fun", "quirky", "graphic", "pop-culture"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shorts", "sweatshirt"],
+    "about": "Playful Indian casual brand with fun food-inspired graphics and quirky pop-culture designs"
+  },
+
+  // ── Indian Ethnic, Fusion & Heritage ─────────────────────────────────────
+  {
+    "domain": "suta.in",
+    "name": "Suta",
+    "categories": ["dress", "top", "accessory"],
+    "vibe": ["ethnic", "handloom", "artisanal", "natural", "sari", "traditional", "sustainable"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["saree", "blouse", "kurta", "dupatta", "co-ord"],
+    "about": "Suta revives handwoven Indian sarees and ethnic wear — natural fabrics, artisanal craft, and modern takes on tradition"
+  },
+  {
+    "domain": "aachho.com",
+    "name": "Aachho",
+    "categories": ["dress", "top", "accessory"],
+    "vibe": ["ethnic", "fusion", "handcraft", "traditional", "festive", "printed"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "dress", "co-ord set", "top", "skirt"],
+    "about": "Indian ethnic and fusion wear with handcrafted details, block prints, and festive occasion styling"
+  },
+  {
+    "domain": "jaypore.com",
+    "name": "Jaypore",
+    "categories": ["top", "dress", "bottom", "accessory"],
+    "vibe": ["ethnic", "artisanal", "handcraft", "heritage", "craft", "Indian", "curated"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "dress", "saree", "dupatta", "jewellery", "scarf"],
+    "about": "Curated Indian craft marketplace — handwoven textiles, block prints, embroidery, and artisan jewellery from across India"
+  },
+  {
+    "domain": "koskii.com",
+    "name": "Koskii",
+    "categories": ["dress", "top", "bottom", "accessory"],
+    "vibe": ["ethnic", "festive", "embellished", "party", "wedding", "traditional"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["lehenga", "saree", "salwar suit", "kurta", "gown"],
+    "about": "Indian festive and wedding wear — embellished lehengas, designer sarees, and party-ready occasion outfits"
+  },
+  {
+    "domain": "houseofchikankari.com",
+    "name": "House of Chikankari",
+    "categories": ["top", "dress", "accessory"],
+    "vibe": ["ethnic", "handcraft", "chikankari", "traditional", "Lucknow", "embroidered"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "co-ord set", "dress", "palazzo", "dupatta"],
+    "about": "Authentic Lucknow chikankari — hand-embroidered ethnic wear in breathable fabrics with intricate traditional motifs"
+  },
+  {
+    "domain": "karagiri.com",
+    "name": "Karagiri",
+    "categories": ["dress", "top", "accessory"],
+    "vibe": ["ethnic", "saree", "traditional", "silk", "festive", "handwoven"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["saree", "blouse", "kurta", "dupatta"],
+    "about": "Curated Indian sarees and ethnic wear — silks, handlooms, and festive occasion dressing from across India"
+  },
+  {
+    "domain": "itokri.com",
+    "name": "iTokri",
+    "categories": ["top", "dress", "accessory"],
+    "vibe": ["ethnic", "handcraft", "artisanal", "handloom", "heritage", "craft"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["saree", "kurta", "stole", "dupatta", "jewellery", "scarf"],
+    "about": "Online platform for authentic Indian handcrafted textiles — handlooms, block prints, natural dyes, and artisan work"
+  },
+  {
+    "domain": "gulaalclothes.com",
+    "name": "Gulaal",
+    "categories": ["dress", "top", "bottom", "accessory"],
+    "vibe": ["ethnic", "festive", "embroidered", "traditional", "wedding", "vibrant"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["lehenga", "salwar suit", "kurta set", "gown", "dupatta"],
+    "about": "Indian festive and bridal wear with rich embroidery, vibrant colours, and occasion dressing for celebrations"
+  },
+  {
+    "domain": "ambraee.com",
+    "name": "Ambraee",
+    "categories": ["dress", "top", "accessory"],
+    "vibe": ["ethnic", "artisanal", "natural", "handcraft", "sustainable", "earthy"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "dress", "co-ord set", "dupatta"],
+    "about": "Artisanal Indian womenswear with handcrafted techniques, natural dyes, and ethical slow-fashion production"
+  },
+  {
+    "domain": "bunaai.com",
+    "name": "Bunaai",
+    "categories": ["top", "dress", "accessory"],
+    "vibe": ["ethnic", "handwoven", "Rajasthan", "artisanal", "block-print", "fusion", "Jaipur"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "co-ord set", "dress", "dupatta", "skirt"],
+    "about": "Jaipur-based label with block-printed and hand-dyed ethnic wear — traditional Rajasthani craft in contemporary silhouettes"
+  },
+  {
+    "domain": "roopkala.com",
+    "name": "Roopkala",
+    "categories": ["dress", "top", "accessory"],
+    "vibe": ["ethnic", "traditional", "embroidered", "festive", "Indian"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["salwar suit", "kurta", "dupatta", "lehenga"],
+    "about": "Indian ethnic wear with traditional embroidery and festive occasion styling across salwar suits and kurta sets"
+  },
+  {
+    "domain": "janasya.com",
+    "name": "Janasya",
+    "categories": ["top", "dress", "bottom"],
+    "vibe": ["ethnic", "casual", "everyday", "traditional", "comfortable"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["kurta", "kurti", "palazzo", "salwar", "co-ord"],
+    "about": "Everyday Indian ethnic and kurta wear for women — comfortable, affordable, and occasion-ready everyday looks"
+  },
+  {
+    "domain": "truebrowns.com",
+    "name": "TrueBrowns",
+    "categories": ["top", "dress", "bottom", "accessory"],
+    "vibe": ["ethnic", "fusion", "contemporary", "minimal", "earthy", "festive", "premium"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["kurta", "co-ord set", "dress", "trouser", "blazer"],
+    "about": "Contemporary Indian womenswear bridging ethnic and modern — minimal palettes, quality fabrics, and elevated festive dressing"
+  },
+  {
+    "domain": "theloom.in",
+    "name": "The Loom",
+    "categories": ["top", "dress", "accessory"],
+    "vibe": ["ethnic", "handloom", "artisanal", "traditional", "natural", "sustainable"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["saree", "kurta", "dupatta", "stole"],
+    "about": "Handloom-forward Indian ethnic wear — woven traditions, natural fibres, and sustainable production"
+  },
+  {
+    "domain": "labelkanupriya.com",
+    "name": "Label Kanupriya",
+    "categories": ["top", "dress", "accessory"],
+    "vibe": ["ethnic", "fusion", "contemporary", "festive", "minimal"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "co-ord set", "dress", "jacket"],
+    "about": "Indian fusion wear label blending ethnic heritage with modern silhouettes for the contemporary woman"
+  },
+  {
+    "domain": "chidiyaa.com",
+    "name": "Chidiyaa",
+    "categories": ["top", "dress", "accessory"],
+    "vibe": ["ethnic", "block-print", "handcraft", "traditional", "artisanal", "nature"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "dress", "co-ord set", "scarf", "dupatta"],
+    "about": "Hand block-printed Indian womenswear — nature-inspired motifs, natural dyes, and artisan craft from Jaipur"
+  },
+  {
+    "domain": "okhai.com",
+    "name": "Okhai",
+    "categories": ["top", "dress", "bottom", "accessory"],
+    "vibe": ["ethnic", "handcraft", "artisanal", "sustainable", "tribal", "embroidered"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "dress", "dupatta", "tote", "scarf"],
+    "about": "Artisan-made Indian ethnic wear — tribal embroidery and handwork by rural craftswomen, sustainably produced"
+  },
+  {
+    "domain": "bunai.com",
+    "name": "Bunai",
+    "categories": ["top", "outerwear", "accessory"],
+    "vibe": ["handknit", "artisanal", "natural", "Himalayan", "knitwear"],
+    "gender": ["women", "men"],
+    "priceRange": "premium",
+    "items": ["sweater", "cardigan", "shawl", "scarf", "poncho"],
+    "about": "Himalayan hand-knitted knitwear — traditional craft in natural wools and earthy colours, slow-made with care"
+  },
+  {
+    "domain": "faridagupta.com",
+    "name": "Farida Gupta",
+    "categories": ["top", "dress", "accessory"],
+    "vibe": ["ethnic", "fusion", "chikankari", "embroidered", "relaxed", "contemporary"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "co-ord set", "dress", "top", "dupatta"],
+    "about": "Relaxed Indian ethnic wear with chikankari and embroidery — easy fusion silhouettes for everyday and occasion"
+  },
+  {
+    "domain": "suvasa.com",
+    "name": "Suvasa",
+    "categories": ["dress", "top", "accessory"],
+    "vibe": ["ethnic", "fusion", "contemporary", "natural", "Indian"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "co-ord set", "dress", "dupatta"],
+    "about": "Contemporary Indian ethnic wear with a clean, natural sensibility — quality fabrics and refined fusion silhouettes"
+  },
+  {
+    "domain": "mulmul.com",
+    "name": "Mulmul",
+    "categories": ["dress", "top", "accessory"],
+    "vibe": ["ethnic", "cotton", "handloom", "relaxed", "natural", "everyday", "traditional"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta", "saree", "dress", "co-ord", "dupatta"],
+    "about": "Mulmul cotton and handloom Indian ethnic wear — breathable, natural fabrics in relaxed traditional silhouettes"
+  },
+
+  // ── Indian Western & Contemporary Womenswear ──────────────────────────────
+  {
+    "domain": "fablestreet.com",
+    "name": "FableStreet",
+    "categories": ["top", "bottom", "dress", "outerwear"],
+    "vibe": ["workwear", "smart casual", "contemporary", "minimal", "professional", "polished"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["blouse", "shirt", "trouser", "blazer", "dress", "skirt", "co-ord"],
+    "about": "Indian womenswear for the working woman — professional, polished styles in quality fabrics for office and beyond"
+  },
+  {
+    "domain": "femella.in",
+    "name": "Femella",
+    "categories": ["top", "dress", "bottom", "accessory"],
+    "vibe": ["casual", "contemporary", "fun", "everyday", "youthful"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top", "dress", "skirt", "shorts", "co-ord set"],
+    "about": "Indian women's casual and contemporary fashion — fun prints, easy silhouettes, and affordable everyday wearables"
+  },
+  {
+    "domain": "twentydresses.com",
+    "name": "Twenty Dresses",
+    "categories": ["dress", "top", "bottom", "accessory"],
+    "vibe": ["casual", "feminine", "contemporary", "everyday", "affordable"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["dress", "top", "jumpsuit", "skirt", "co-ord"],
+    "about": "Indian contemporary womenswear with feminine designs — dresses, tops, and co-ords for everyday and occasions"
+  },
+  {
+    "domain": "letsdressup.com",
+    "name": "LetsDressUp",
+    "categories": ["dress", "top", "bottom", "accessory"],
+    "vibe": ["party", "festive", "contemporary", "feminine", "glamour"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["dress", "top", "co-ord", "jumpsuit", "skirt"],
+    "about": "Indian womenswear for parties and occasions — glam co-ords, embellished dresses, and festive-ready outfits"
+  },
+  {
+    "domain": "newme.in",
+    "name": "NEWME",
+    "categories": ["top", "bottom", "dress", "accessory"],
+    "vibe": ["fast-fashion", "trendy", "y2k", "casual", "bold", "Gen-Z"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top", "dress", "skirt", "jeans", "co-ord"],
+    "about": "Indian fast fashion for Gen-Z women — trend-driven styles, bold prints, and Y2K-inspired casual looks at low prices"
+  },
+  {
+    "domain": "slikk.in",
+    "name": "Slikk",
+    "categories": ["top", "dress", "bottom", "accessory"],
+    "vibe": ["contemporary", "casual", "everyday", "youthful"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top", "dress", "co-ord", "skirt", "trouser"],
+    "about": "Indian contemporary womenswear with easy, everyday styles for the young modern woman"
+  },
+  {
+    "domain": "freakins.com",
+    "name": "Freakins",
+    "categories": ["bottom", "top", "dress", "outerwear"],
+    "vibe": ["denim", "casual", "streetwear", "y2k", "urban", "contemporary"],
+    "gender": ["women", "men"],
+    "priceRange": "mid",
+    "items": ["jeans", "denim jacket", "shorts", "co-ord", "top"],
+    "about": "Indian denim-first brand with contemporary washes and fits — jeans, denim co-ords, and casual streetwear"
+  },
+  {
+    "domain": "tokyotalkies.in",
+    "name": "Tokyo Talkies",
+    "categories": ["top", "dress", "bottom", "outerwear"],
+    "vibe": ["casual", "contemporary", "everyday", "Korean", "Asian-inspired"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top", "dress", "co-ord", "skirt", "jacket"],
+    "about": "Indian womenswear with East Asian fashion influences — contemporary casual styles with Korean-inspired silhouettes"
+  },
+  {
+    "domain": "berrylush.com",
+    "name": "Berrylush",
+    "categories": ["top", "dress", "bottom", "accessory"],
+    "vibe": ["feminine", "floral", "casual", "romantic", "contemporary", "printed"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top", "dress", "skirt", "co-ord", "jumpsuit"],
+    "about": "Indian womenswear with feminine prints, florals, and easy silhouettes for everyday and casual occasions"
+  },
+  {
+    "domain": "madglame.com",
+    "name": "MadGlame",
+    "categories": ["dress", "top", "accessory"],
+    "vibe": ["party", "glam", "bold", "festive", "occasion"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["dress", "top", "co-ord", "jumpsuit"],
+    "about": "Indian party and glam womenswear — embellished, bold, and occasion-ready styles for celebrations"
+  },
+  {
+    "domain": "luluandsky.com",
+    "name": "Lulu & Sky",
+    "categories": ["top", "dress", "bottom", "accessory"],
+    "vibe": ["bohemian", "casual", "romantic", "festival", "relaxed", "printed"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["top", "dress", "skirt", "co-ord", "jumpsuit"],
+    "about": "Indian boho-influenced women's fashion — flowy fabrics, eclectic prints, and festival-ready romantic styling"
+  },
+  {
+    "domain": "coverstory.in",
+    "name": "Cover Story",
+    "categories": ["top", "dress", "bottom", "outerwear"],
+    "vibe": ["contemporary", "minimal", "professional", "casual", "everyday", "polished"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["blazer", "shirt", "dress", "trouser", "skirt", "co-ord"],
+    "about": "Indian contemporary womenswear with a clean, polished sensibility — from workwear to weekend in refined fabrics"
+  },
+  {
+    "domain": "saltattire.com",
+    "name": "Salt Attire",
+    "categories": ["top", "dress", "bottom"],
+    "vibe": ["minimalist", "contemporary", "casual", "clean", "everyday", "quiet"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top", "dress", "skirt", "trouser", "co-ord"],
+    "about": "Indian minimalist womenswear in clean, quiet palettes — understated everyday pieces with simple elegance"
+  },
+  {
+    "domain": "quaclothing.com",
+    "name": "Qua Clothing",
+    "categories": ["top", "dress", "bottom", "accessory"],
+    "vibe": ["contemporary", "feminine", "casual", "everyday"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top", "dress", "co-ord", "skirt", "trouser"],
+    "about": "Indian womenswear with contemporary everyday styles — feminine pieces for the modern Indian woman"
+  },
+  {
+    "domain": "summersomewhere.com",
+    "name": "Summer Somewhere",
+    "categories": ["dress", "top", "bottom", "swimwear", "accessory"],
+    "vibe": ["resort", "vacation", "tropical", "coastal", "relaxed", "summer"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress", "swimsuit", "co-ord", "top", "skirt"],
+    "about": "Indian resort and vacation womenswear — tropical prints, beach-ready styles, and easy holiday dressing"
+  },
+  {
+    "domain": "thelabellife.com",
+    "name": "The Label Life",
+    "categories": ["top", "dress", "bottom", "outerwear", "accessory"],
+    "vibe": ["contemporary", "curated", "celebrity", "minimal", "chic", "polished"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress", "top", "blazer", "skirt", "co-ord", "trouser"],
+    "about": "Indian curated womenswear with a celebrity-approved aesthetic — polished, contemporary pieces for the modern woman"
+  },
+
+  // ── Indian Menswear & Premium Essentials ──────────────────────────────────
+  {
+    "domain": "bombaishirtcompany.com",
+    "name": "Bombay Shirt Company",
+    "categories": ["top"],
+    "vibe": ["tailored", "custom", "smart casual", "classic", "workwear", "professional"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt", "trousers", "suit", "kurta"],
+    "about": "Mumbai's custom shirt brand — made-to-measure shirts in quality fabrics with personalised fit and styling"
+  },
+  {
+    "domain": "creaturesofhabit.in",
+    "name": "Creatures of Habit",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["minimal", "classic", "everyday", "relaxed", "quality basics"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["t-shirt", "sweatshirt", "trouser", "shorts", "hoodie"],
+    "about": "Indian basics brand focused on quality everyday essentials — clean cuts, premium materials, and timeless design"
+  },
+  {
+    "domain": "thepantproject.com",
+    "name": "The Pant Project",
+    "categories": ["bottom"],
+    "vibe": ["tailored", "custom", "smart casual", "workwear", "formal", "contemporary"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["trouser", "chino", "shorts", "cargo", "jeans"],
+    "about": "Indian custom trouser brand — made-to-measure pants in varied fabrics and fits for work and weekend"
+  },
+  {
+    "domain": "andamen.com",
+    "name": "Andamen",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["smart casual", "premium", "workwear", "classic", "contemporary", "polished"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["shirt", "trouser", "blazer", "t-shirt", "chino"],
+    "about": "Indian premium menswear with a smart-casual and professional aesthetic — quality fabrics and refined tailoring"
+  },
+  {
+    "domain": "damensch.com",
+    "name": "DaMensch",
+    "categories": ["top", "bottom", "innerwear"],
+    "vibe": ["basics", "premium", "everyday", "quality", "minimal", "comfortable"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["t-shirt", "underwear", "shorts", "loungewear", "sweatshirt"],
+    "about": "Indian premium basics and innerwear for men — super-combed cotton, breathable fabrics, and timeless everyday fit"
+  },
+  {
+    "domain": "bummer.store",
+    "name": "Bummer",
+    "categories": ["innerwear", "bottom", "top"],
+    "vibe": ["casual", "fun", "premium", "everyday", "comfortable", "playful"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["underwear", "boxers", "socks", "loungewear"],
+    "about": "Indian premium underwear and loungewear — fun prints, super-soft fabrics, and exceptional everyday comfort"
+  },
+  {
+    "domain": "frenchcrown.in",
+    "name": "French Crown",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "everyday", "smart casual", "European", "relaxed", "accessible"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["shirt", "t-shirt", "trouser", "chino", "jacket"],
+    "about": "Indian menswear with European-inspired casual styles — shirts, chinos, and smart casual pieces at accessible prices"
+  },
+  {
+    "domain": "thequirkbox.com",
+    "name": "The Quirk Box",
+    "categories": ["top", "bottom", "accessory"],
+    "vibe": ["quirky", "graphic", "casual", "bold", "fun", "printed"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt", "t-shirt", "trouser", "shorts"],
+    "about": "Indian menswear with personality — bold prints, quirky graphics, and fun silhouettes for the expressive dresser"
+  },
+  {
+    "domain": "nicobar.com",
+    "name": "Nicobar",
+    "categories": ["top", "bottom", "dress", "accessory", "home"],
+    "vibe": ["resort", "minimal", "clean", "tropical", "contemporary", "Indian luxury"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["shirt", "dress", "trouser", "kurta", "tote"],
+    "about": "Indian lifestyle and fashion brand with a clean, resort-inspired aesthetic — quality fabrics and contemporary island sensibility"
+  },
+  {
+    "domain": "aristobrat.com",
+    "name": "Aristobrat",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["streetwear", "urban", "premium", "graphic", "contemporary"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["t-shirt", "hoodie", "jacket", "shorts", "cargo"],
+    "about": "Indian premium streetwear with quality-first construction and urban graphics for the discerning young man"
+  },
+  {
+    "domain": "perona.in",
+    "name": "Perona",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["smart casual", "contemporary", "minimal", "everyday", "relaxed"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt", "t-shirt", "trouser", "shorts", "jacket"],
+    "about": "Indian contemporary menswear with clean, minimal aesthetics and relaxed smart-casual silhouettes"
+  },
+  {
+    "domain": "kardo.in",
+    "name": "Kardo",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["minimal", "contemporary", "handloom", "natural", "Indian", "artisanal"],
+    "gender": ["men", "women"],
+    "priceRange": "premium",
+    "items": ["shirt", "trouser", "jacket", "kurta", "co-ord"],
+    "about": "Indian handloom and contemporary clothing — natural fabrics, minimal construction, and quiet artisan craftsmanship"
+  },
+  {
+    "domain": "korra.in",
+    "name": "Korra",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["workwear", "professional", "smart casual", "minimal", "tailored"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt", "trouser", "blazer", "t-shirt", "chino"],
+    "about": "Indian professional and smart-casual menswear — tailored pieces for the modern office and beyond"
+  },
+  {
+    "domain": "rarerabbit.in",
+    "name": "Rare Rabbit",
+    "categories": ["top", "bottom", "outerwear", "accessory"],
+    "vibe": ["smart casual", "premium", "contemporary", "European", "minimal", "polished"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt", "t-shirt", "trouser", "jacket", "blazer", "shorts"],
+    "about": "Indian premium smart-casual brand with a European sensibility — quality fabrics, refined fits, and polished everyday style"
+  },
+  {
+    "domain": "powerplayapparel.com",
+    "name": "Power Play Apparel",
+    "categories": ["top", "bottom", "outerwear"],
+    "vibe": ["casual", "streetwear", "bold", "urban", "menswear"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shirt", "shorts", "cargo", "hoodie"],
+    "about": "Indian menswear brand with bold casual and street-influenced styles for the young urban man"
+  },
+
+  // ── Indian Activewear, Athleisure & Loungewear ────────────────────────────
+  {
+    "domain": "blissclub.com",
+    "name": "BlissClub",
+    "categories": ["activewear", "bottom", "top"],
+    "vibe": ["athletic", "minimal", "premium", "comfortable", "movement", "women's sport"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["leggings", "shorts", "sports bra", "hoodie", "t-shirt"],
+    "about": "India's premium women's activewear — high-performance fabrics, inclusive sizing, and movement-first design"
+  },
+  {
+    "domain": "zymrat.com",
+    "name": "Zymrat",
+    "categories": ["activewear", "top", "bottom"],
+    "vibe": ["athletic", "performance", "urban", "sport", "minimal", "technical"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["leggings", "shorts", "t-shirt", "jacket", "sports bra", "jogger"],
+    "about": "Indian performance activewear with technical fabrics — gym-ready athletic-urban crossover for serious training"
+  },
+  {
+    "domain": "cavaathleisure.com",
+    "name": "Cava Athleisure",
+    "categories": ["activewear", "bottom", "top"],
+    "vibe": ["athleisure", "casual", "comfortable", "everyday", "sport", "relaxed"],
+    "gender": ["women", "men"],
+    "priceRange": "mid",
+    "items": ["leggings", "shorts", "top", "hoodie", "sweatshirt"],
+    "about": "Indian athleisure brand blending sport and comfort for the everyday active lifestyle"
+  },
+  {
+    "domain": "aastey.com",
+    "name": "Aastey",
+    "categories": ["activewear", "bottom", "top"],
+    "vibe": ["sustainable", "athleisure", "minimal", "eco", "comfortable", "inclusive"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["leggings", "shorts", "sports bra", "t-shirt", "dress"],
+    "about": "Indian sustainable activewear for women — recycled fabrics, inclusive sizing, and design for all bodies"
+  },
+  {
+    "domain": "nobero.com",
+    "name": "Nobero",
+    "categories": ["activewear", "bottom", "top"],
+    "vibe": ["athletic", "urban", "streetwear", "sport", "modern", "functional"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["shorts", "t-shirt", "jogger", "jacket", "leggings"],
+    "about": "Indian sport and athleisure brand combining athletic function with street-ready design for active urban lifestyles"
+  },
+  {
+    "domain": "kicaactive.com",
+    "name": "Kica Active",
+    "categories": ["activewear", "bottom", "top"],
+    "vibe": ["athletic", "feminine", "performance", "comfortable", "sport", "yoga"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["leggings", "shorts", "sports bra", "tank", "jacket"],
+    "about": "Indian women's activewear with feminine aesthetics and performance materials for yoga, gym, and active life"
+  },
+  {
+    "domain": "aestheticbodies.com",
+    "name": "Aesthetic Bodies",
+    "categories": ["activewear", "top", "bottom"],
+    "vibe": ["athletic", "aesthetic", "gym", "performance", "fitted"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["t-shirt", "shorts", "leggings", "sports bra", "jogger"],
+    "about": "Indian fitness apparel brand with an aesthetic-first approach — form-fitting, performance-driven activewear for the gym"
+  },
+  {
+    "domain": "silvertraq.com",
+    "name": "Silvertraq",
+    "categories": ["activewear", "top", "bottom", "footwear"],
+    "vibe": ["athletic", "performance", "sport", "technical", "running"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["t-shirt", "shorts", "leggings", "jacket", "sneaker"],
+    "about": "Indian performance activewear and footwear for serious athletes — technical fabrics and sport-first design"
+  },
+  {
+    "domain": "prakritifashion.com",
+    "name": "Prakriti",
+    "categories": ["activewear", "top", "bottom"],
+    "vibe": ["yoga", "wellness", "sustainable", "comfortable", "natural", "mindful"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["leggings", "top", "shorts", "yoga wear"],
+    "about": "Indian yoga and wellness activewear with a mindful, natural approach — sustainable fabrics for movement and wellbeing"
+  },
+  {
+    "domain": "hummel.in",
+    "name": "Hummel India",
+    "categories": ["activewear", "top", "bottom", "footwear", "accessory"],
+    "vibe": ["sport", "athletic", "retro", "Scandinavian", "team sport"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["t-shirt", "shorts", "track jacket", "sneaker", "football kit"],
+    "about": "Danish sportswear brand's Indian presence — Scandinavian athletic heritage with team sport and lifestyle collections"
+  },
+  {
+    "domain": "cultsport.com",
+    "name": "Cultsport",
+    "categories": ["activewear", "footwear", "top", "bottom"],
+    "vibe": ["athletic", "sport", "performance", "Indian", "everyday", "affordable"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shorts", "jogger", "sneaker", "leggings"],
+    "about": "Indian fitness apparel and footwear by Cult.fit — performance-ready activewear for everyday training at accessible prices"
+  },
+  {
+    "domain": "versatyl.com",
+    "name": "Versatyl",
+    "categories": ["activewear", "top", "bottom", "outerwear"],
+    "vibe": ["technical", "outdoor", "adventure", "functional", "gorpcore", "utility"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["jacket", "shorts", "t-shirt", "cargo", "base layer"],
+    "about": "Indian technical outdoor and adventure apparel — functional, durable gear for trails, travel, and active exploration"
+  },
+  {
+    "domain": "prolinefitnessworld.com",
+    "name": "Proline",
+    "categories": ["activewear", "top", "bottom"],
+    "vibe": ["athletic", "sport", "retro", "classic", "everyday"],
+    "gender": ["men", "women"],
+    "priceRange": "budget",
+    "items": ["t-shirt", "shorts", "track pant", "jacket"],
+    "about": "Classic Indian sportswear brand with athletic staples — reliable performance wear at accessible everyday prices"
+  },
+  {
+    "domain": "unstoppableapparel.com",
+    "name": "Unstoppable Apparel",
+    "categories": ["activewear", "top", "bottom"],
+    "vibe": ["gym", "athletic", "performance", "bold", "motivational"],
+    "gender": ["men", "women"],
+    "priceRange": "mid",
+    "items": ["t-shirt", "shorts", "jogger", "tank", "hoodie"],
+    "about": "Indian gym and training apparel with performance fabrics and bold athletic design for motivated movers"
+  },
 ];
 
 // ── Brand directory ───────────────────────────────────────────────────────────
@@ -3466,6 +4296,93 @@ export const BRAND_NAMES: Record<string, string> = {
   "ourlegacy.com": "Our Legacy",
   "harah.in": "Harah",
   "houseofmasaba.com": "House of Masaba",
+  // Indian Streetwear & Casual
+  "snitch.co.in": "SNITCH",
+  "thehouseofrare.com": "The House of Rare",
+  "bonkerscorner.com": "Bonkers Corner",
+  "redwolf.in": "Redwolf",
+  "theindiangarageco.com": "The Indian Garage Co.",
+  "beyoung.in": "Beyoung",
+  "bombaytrooper.com": "Bombay Trooper",
+  "powerlook.in": "Powerlook",
+  "franklywearing.com": "Frankly Wearing",
+  "mydesignation.in": "Mydesignation",
+  "styched.com": "Styched",
+  "whatwhenwear.com": "What When Wear",
+  "marchtee.in": "March Tee",
+  "fullyfilmy.in": "Fully Filmy",
+  "wyoindia.com": "WYO",
+  "burgerbae.com": "BurgerBae",
+  // Indian Ethnic, Fusion & Heritage
+  "suta.in": "Suta",
+  "aachho.com": "Aachho",
+  "jaypore.com": "Jaypore",
+  "koskii.com": "Koskii",
+  "houseofchikankari.com": "House of Chikankari",
+  "karagiri.com": "Karagiri",
+  "itokri.com": "iTokri",
+  "gulaalclothes.com": "Gulaal",
+  "ambraee.com": "Ambraee",
+  "bunaai.com": "Bunaai",
+  "roopkala.com": "Roopkala",
+  "janasya.com": "Janasya",
+  "truebrowns.com": "TrueBrowns",
+  "theloom.in": "The Loom",
+  "labelkanupriya.com": "Label Kanupriya",
+  "chidiyaa.com": "Chidiyaa",
+  "okhai.com": "Okhai",
+  "bunai.com": "Bunai",
+  "faridagupta.com": "Farida Gupta",
+  "suvasa.com": "Suvasa",
+  "mulmul.com": "Mulmul",
+  // Indian Western & Contemporary Womenswear
+  "fablestreet.com": "FableStreet",
+  "femella.in": "Femella",
+  "twentydresses.com": "Twenty Dresses",
+  "letsdressup.com": "LetsDressUp",
+  "newme.in": "NEWME",
+  "slikk.in": "Slikk",
+  "freakins.com": "Freakins",
+  "tokyotalkies.in": "Tokyo Talkies",
+  "berrylush.com": "Berrylush",
+  "madglame.com": "MadGlame",
+  "luluandsky.com": "Lulu & Sky",
+  "coverstory.in": "Cover Story",
+  "saltattire.com": "Salt Attire",
+  "quaclothing.com": "Qua Clothing",
+  "summersomewhere.com": "Summer Somewhere",
+  "thelabellife.com": "The Label Life",
+  // Indian Menswear & Premium Essentials
+  "bombaishirtcompany.com": "Bombay Shirt Company",
+  "creaturesofhabit.in": "Creatures of Habit",
+  "thepantproject.com": "The Pant Project",
+  "andamen.com": "Andamen",
+  "damensch.com": "DaMensch",
+  "bummer.store": "Bummer",
+  "frenchcrown.in": "French Crown",
+  "thequirkbox.com": "The Quirk Box",
+  "nicobar.com": "Nicobar",
+  "aristobrat.com": "Aristobrat",
+  "perona.in": "Perona",
+  "kardo.in": "Kardo",
+  "korra.in": "Korra",
+  "rarerabbit.in": "Rare Rabbit",
+  "powerplayapparel.com": "Power Play Apparel",
+  // Indian Activewear, Athleisure & Loungewear
+  "blissclub.com": "BlissClub",
+  "zymrat.com": "Zymrat",
+  "cavaathleisure.com": "Cava Athleisure",
+  "aastey.com": "Aastey",
+  "nobero.com": "Nobero",
+  "kicaactive.com": "Kica Active",
+  "aestheticbodies.com": "Aesthetic Bodies",
+  "silvertraq.com": "Silvertraq",
+  "prakritifashion.com": "Prakriti",
+  "hummel.in": "Hummel India",
+  "cultsport.com": "Cultsport",
+  "versatyl.com": "Versatyl",
+  "prolinefitnessworld.com": "Proline",
+  "unstoppableapparel.com": "Unstoppable Apparel",
 };
 
 // Reduce a domain to a comparable brand token, e.g.
