@@ -4620,14 +4620,38 @@ export const ICON_BRANDS = new Set<string>([
   'corridornyc.com', 'merzbschwanen.com', 'portugueseflannel.com', 'cdlp.com',
 ])
 
+// Verified-good brands: well-regarded for quality, design, or craft but tagged
+// mid/budget on price (priceRange drives budget filtering, so we don't retag it).
+// This is a manual audit of the roster's reputable names — sustainable basics,
+// respected denim/menswear, and India's leading handloom/artisanal labels — so
+// they surface in the featured rails and get the same gentle search lift as
+// premium brands. Re-audit whenever new brands are added.
+export const VERIFIED_GOOD_BRANDS = new Set<string>([
+  // International — quality basics, sustainable, respected craft
+  'everlane.com', 'buckmason.com', 'waxlondon.com', 'nakedandfamousdenim.com',
+  'wonderlooper.com', 'kotn.com', 'colorfulstandard.com', 'girlfriend.com',
+  'outdoorvoices.com', 'allbirds.com', 'marinelayer.com', 'tentree.com',
+  'camper.com', 'rothys.com', 'thursdayboots.com', 'saxxunderwear.com',
+  'michaelstars.com', 'bombas.myshopify.com', 'patta.nl', 'coverchord.com',
+  'bather.com', 'outclass.ca', 'assemblylabel.com', 'alphaindustries.com',
+  'tenthousand.cc', 'knix.com', 'vessi.com', 'intentionallyblank.us',
+  'whimsyandrow.com', 'deadstock.ca',
+  // India — leading handloom, artisanal and respected contemporary labels
+  'nicobar.com', 'jaypore.com', 'okhai.com', 'itokri.com', 'suta.in',
+  'mulmul.com', 'fablestreet.com', 'bombaishirtcompany.com', 'korra.in',
+  'rarerabbit.in', 'thehouseofrare.com', 'chidiyaa.com', 'thepantproject.com',
+  'damensch.com', 'theloom.in', 'aachho.com', 'perona.in', 'coverstory.in',
+])
+
 // Quality tier for a brand, used for the featured rails and the search quality bias.
-// 3 = hand-picked icon, 2 = luxury, 1 = premium, 0 = everything else.
+// 3 = hand-picked icon, 2 = luxury, 1 = premium or verified-good, 0 = everything else.
 export function brandQualityScore(domain: string): number {
   const d = domain.toLowerCase().replace(/^www\./, '')
   if (ICON_BRANDS.has(d)) return 3
   const profile = UCP_REGISTRY.find(s => s.domain.toLowerCase().replace(/^www\./, '') === d)
   if (profile?.priceRange === 'luxury') return 2
   if (profile?.priceRange === 'premium') return 1
+  if (VERIFIED_GOOD_BRANDS.has(d)) return 1
   return 0
 }
 
@@ -4637,13 +4661,15 @@ export function bestBrandDomains(): string[] {
   const icons: string[] = []
   const luxury: string[] = []
   const premium: string[] = []
+  const good: string[] = []
   for (const s of UCP_REGISTRY) {
     const d = s.domain.toLowerCase().replace(/^www\./, '')
     if (ICON_BRANDS.has(d)) icons.push(s.domain)
     else if (s.priceRange === 'luxury') luxury.push(s.domain)
     else if (s.priceRange === 'premium') premium.push(s.domain)
+    else if (VERIFIED_GOOD_BRANDS.has(d)) good.push(s.domain)
   }
-  return [...icons, ...luxury, ...premium]
+  return [...icons, ...luxury, ...premium, ...good]
 }
 
 // ── Vibe glossary ───────────────────────────────────────────────────────────────
