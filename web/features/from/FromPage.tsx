@@ -1409,7 +1409,6 @@ export default function FromApp({
     setStylistProducts(prev => prev.filter(p => p.id !== id))
   }
   const addStylistProduct = (p: Product) => {
-    if (!isPremium) { setShowUpgradeSheet(true); return }
     setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 8) ? prev : [...prev, p])
     setStylistOpen(true)
   }
@@ -1553,7 +1552,6 @@ export default function FromApp({
   }
   // Open the stylist page with attached products and immediately ask the query.
   const openStylistWith = (products: Product[], query: string) => {
-    if (!isPremium) { setShowUpgradeSheet(true); return }
     stylistSessionId.current = null
     setStylistProducts(products)
     setStylistMsgs([])
@@ -2783,10 +2781,10 @@ export default function FromApp({
                   },
                   {
                     label: isPremium ? 'Community Member' : 'Free plan',
-                    sub: isPremium ? 'Your plan is active' : 'Upgrade to unlock Fabrics AI',
+                    sub: isPremium ? 'Your plan is active' : 'All features included',
                     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
-                    action: isPremium ? undefined : () => { setSettingsOpen(false); setShowUpgradeSheet(true) },
-                    badge: isPremium ? null : 'Upgrade',
+                    action: undefined,
+                    badge: null,
                   },
                 ].map(({ label, sub, icon, action, badge }, i, arr) => (
                   <div key={label}>
@@ -2981,18 +2979,15 @@ export default function FromApp({
                 )}
               </div>
 
-              {/* Fabrics (AI stylist — Community only) */}
+              {/* Fabrics (AI stylist) */}
               <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`}
-                onClick={() => isPremium ? setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics') : setShowUpgradeSheet(true)}>
+                onClick={() => setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics')}>
                 <FabricsIcon size={17} stroke={INK3} strokeWidth={1.05}/>
                 Fabrics
-                {isPremium && stylistHistory.length > 0 && (
+                {stylistHistory.length > 0 && (
                   <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
                     {stylistHistory.length}
                   </span>
-                )}
-                {!isPremium && (
-                  <svg style={{ marginLeft: 'auto' }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 )}
               </div>
 
@@ -3047,8 +3042,8 @@ export default function FromApp({
                       </div>
                     )}
 
-                    {/* Upgrade button for free users */}
-                    {!isPremium && (
+                    {/* Upgrade button — kept for future re-enable */}
+                    {false && !isPremium && (
                       <button
                         type="button"
                         onClick={() => { setSidebarView('nav'); setSidebar(false); setShowUpgradeSheet(true) }}
@@ -3255,16 +3250,7 @@ export default function FromApp({
               ) : sidebarView === 'fabrics' ? (
                 <>
                   <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
-                  {!isPremium ? (
-                    <div style={{ padding: '12px 8px 4px' }}>
-                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK, fontWeight: 500, marginBottom: 6 }}>Fabrics is FROM Community only.</p>
-                      <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, lineHeight: 1.5, marginBottom: 14 }}>Your personal AI stylist — knows your taste, remembers your wardrobe, and builds complete outfits.</p>
-                      <button onClick={() => { setSidebarView('nav'); setShowUpgradeSheet(true) }}
-                        style={{ padding: '10px 20px', borderRadius: 30, background: INK, color: '#fff', border: 'none', fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                        Join Community
-                      </button>
-                    </div>
-                  ) : stylistHistory.length === 0 ? (
+                  {stylistHistory.length === 0 ? (
                     <div style={{ padding: '12px 8px 4px' }}>
                       <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, opacity: .45, marginBottom: 8 }}>No conversations with Fabrics yet!</p>
                       <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, opacity: .35, lineHeight: 1.5 }}>Pin a product from your search results and ask Fabrics to style it, compare it, or find what pairs with it.</p>
@@ -3760,16 +3746,15 @@ export default function FromApp({
                       </svg>
                     </button>
                     </div>
-                    {/* Fabrics pill — Community only */}
-                    <button type="button" onClick={() => isPremium ? setStylistOpen(true) : setShowUpgradeSheet(true)}
+                    {/* Fabrics pill */}
+                    <button type="button" onClick={() => setStylistOpen(true)}
                       style={{ display: 'flex', alignItems: 'center', gap: 5,
                         padding: '4px 9px 4px 7px', borderRadius: 20,
                         border: `1px solid rgba(44,18,6,.18)`, background: 'transparent',
-                        cursor: 'pointer', flexShrink: 0, opacity: isPremium ? 1 : 0.55 }}>
+                        cursor: 'pointer', flexShrink: 0 }}>
                       <FabricsIcon size={13} stroke={INK2} strokeWidth={1.05}/>
                       <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 400,
                         color: INK, letterSpacing: '.01em', lineHeight: 1 }}>Fabrics</span>
-                      {!isPremium && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
                     </button>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
