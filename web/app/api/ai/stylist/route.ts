@@ -48,12 +48,13 @@ function isHeavyQuery(question: string): boolean {
 
 // Gemini for queries that need fashion depth; Groq for conversational replies.
 // Gemini also falls back to Groq if it returns null content (safety filter etc.).
-// Known-good Groq text models, tried in order if the configured one fails.
-// Guards against a decommissioned/misconfigured GROQ_CHAT_MODEL in env.
+// Groq text models for Fabrics, tried in order until one returns content.
+// Fabrics prioritises the 70b for styling quality (search keeps the fast 8b
+// via CHAT_MODEL). Falls through if a model is decommissioned/misconfigured.
 const GROQ_FALLBACK_MODELS = [
-  process.env.GROQ_CHAT_MODEL,
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
+  process.env.GROQ_STYLIST_MODEL,   // explicit stylist override, if set
+  'llama-3.3-70b-versatile',        // 70b — best quality for styling advice
+  'llama-3.1-8b-instant',           // fast last-resort fallback
 ].filter((m, i, a): m is string => !!m && a.indexOf(m) === i)
 
 async function stylistChat(
