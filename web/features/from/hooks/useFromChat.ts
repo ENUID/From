@@ -46,16 +46,11 @@ const INITIAL_MESSAGE: Message = {
   content: 'Search across connected independent stores in plain language. Describe the item, budget, material, or intended use to get started.',
 }
 
-function normalizeProductForCurrency(product: Product, buyerCurrency: string): Product {
-  // Keep the product's native currency as the display currency so users can
-  // see at a glance which country the brand is from (₹ = India, $ = US, £ = UK…).
-  // base_currency stores the buyer's preferred currency so the drawer can show
-  // an approximate conversion as a secondary reference.
-  const nativeCurrency = product.currency ?? buyerCurrency
+function normalizeProductForCurrency(product: Product, currency: string): Product {
   return {
     ...product,
-    currency: nativeCurrency,
-    base_currency: buyerCurrency,
+    base_currency: product.base_currency ?? product.currency ?? 'USD',
+    currency,
   }
 }
 
