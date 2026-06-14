@@ -1794,7 +1794,10 @@ export default function FromApp({
     }
   }, [input])
 
-  // Infinite scroll: re-create the observer whenever the result message changes
+  // Infinite scroll: trigger load-more when approaching the bottom.
+  // rootMargin 2000px fires well before the user reaches the sentinel, so
+  // batches chain seamlessly. Re-creating when loadingMore flips false ensures
+  // a fresh observer fires immediately if the sentinel is still in range.
   useEffect(() => {
     const sentinel = sentinelRef.current
     if (!sentinel || lastProductMsgIndex < 0) return
@@ -1804,13 +1807,10 @@ export default function FromApp({
           loadMoreRef.current(lastProductMsgIndex)
         }
       },
-      { rootMargin: '600px', threshold: 0 }
+      { rootMargin: '2000px', threshold: 0 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-    // Re-create when loadingMore flips false: the sentinel is often still inside
-    // the rootMargin after a batch loads, so the observer won't re-fire unless
-    // we create a fresh one — this chains loads with no visible gap.
   }, [lastProductMsgIndex, lastProductMsg?.loadingMore])
 
   const onHandleDown = (e: React.PointerEvent) => {
@@ -3559,7 +3559,7 @@ export default function FromApp({
                               background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
                               animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
                           </div>
-                          <img src={p.image_url} alt="" loading="lazy" draggable={false}
+                          <img src={p.image_url} alt="" draggable={false} decoding="async"
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />
@@ -3620,8 +3620,7 @@ export default function FromApp({
                               background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
                               animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
                           </div>
-                          <img src={p.image_url} alt="" draggable={false}
-                            loading="lazy" decoding="async"
+                          <img src={p.image_url} alt="" draggable={false} decoding="async"
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />
@@ -3637,7 +3636,6 @@ export default function FromApp({
                     </div>
                   ))}
                 </div>
-                <div ref={sentinelRef} style={{ height: 1 }} />
                 {lastProductMsg?.loadingMore && (
                   <div className="fr-grid" style={{ paddingTop: 0 }}>
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -3649,6 +3647,7 @@ export default function FromApp({
                     ))}
                   </div>
                 )}
+                <div ref={sentinelRef} style={{ height: 1 }} />
               </>
             )}
 
