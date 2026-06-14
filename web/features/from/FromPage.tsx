@@ -4912,11 +4912,11 @@ export default function FromApp({
                           </button>
                         </div>
                         <p style={{ fontFamily: SANS, fontSize: 18, color: INK, fontWeight: 700, marginTop: 10 }}>
-                          {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, liveRates)}
+                          {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.currency, liveRates)}
                         </p>
-                        {selectedProduct.currency !== selectedProduct.base_currency ? (
+                        {selectedProduct.base_currency && selectedProduct.base_currency !== selectedProduct.currency ? (
                           <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>
-                            {formatMoney(selectedProduct.price, selectedProduct.base_currency, selectedProduct.base_currency, liveRates)} · Live rate
+                            ≈ {formatMoney(selectedProduct.price, selectedProduct.base_currency, selectedProduct.currency, liveRates)}
                           </p>
                         ) : (
                           <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Prices at checkout may vary</p>
@@ -5146,11 +5146,11 @@ export default function FromApp({
                         </button>
                       </div>
                       <p style={{ fontFamily: SANS, fontSize: "clamp(15px,4vw,17px)", color: INK, fontWeight: 700, marginTop: 8 }}>
-                        {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.base_currency, liveRates)}
+                        {formatMoney(selectedProduct.price, selectedProduct.currency, selectedProduct.currency, liveRates)}
                       </p>
-                      {selectedProduct.currency !== selectedProduct.base_currency ? (
+                      {selectedProduct.base_currency && selectedProduct.base_currency !== selectedProduct.currency ? (
                         <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>
-                          {formatMoney(selectedProduct.price, selectedProduct.base_currency, selectedProduct.base_currency, liveRates)} · Live rate
+                          ≈ {formatMoney(selectedProduct.price, selectedProduct.base_currency, selectedProduct.currency, liveRates)}
                         </p>
                       ) : (
                         <p style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 3, fontWeight: 300 }}>Prices at checkout may vary</p>
