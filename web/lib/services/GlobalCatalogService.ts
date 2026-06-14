@@ -14,7 +14,7 @@
  *   4. Cache the fetched product pool per query so "load more" paginates cleanly.
  */
 
-import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES } from '../stores'
+import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, getStoreCountry, GEO_REGIONS } from '../stores'
 import { getExchangeRates } from '../exchangeRates'
 import { rerankByRelevance } from './relevanceRerank'
 import { matchStyles } from '../styleVocabulary'
@@ -755,6 +755,24 @@ export class GlobalCatalogService {
       } catch (err) {
         console.warn('[Catalog] rerank skipped:', err instanceof Error ? err.message : String(err))
       }
+    }
+
+    // Geo-boost: for generic (non-brand) searches, surface same-country products
+    // first, then same-region, then rest-of-world. Relevance order is preserved
+    // within each tier — a highly relevant foreign product still beats a weak
+    // local one because the sort is stable and we only re-order across tiers.
+    // Brand searches are skipped (user already chose the brand explicitly).
+    if (cc && !isBrandSearch && sort === 'relevance') {
+      const userRegion = GEO_REGIONS[cc] ?? ''
+      result = result.slice().sort((a, b) => {
+        const aDomain = (() => { try { return new URL(a.store_url).hostname.replace(/^www\./, '') } catch { return '' } })()
+        const bDomain = (() => { try { return new URL(b.store_url).hostname.replace(/^www\./, '') } catch { return '' } })()
+        const aCtry = getStoreCountry(aDomain)
+        const bCtry = getStoreCountry(bDomain)
+        const aScore = aCtry === cc ? 2 : GEO_REGIONS[aCtry] === userRegion ? 1 : 0
+        const bScore = bCtry === cc ? 2 : GEO_REGIONS[bCtry] === userRegion ? 1 : 0
+        return bScore - aScore
+      })
     }
 
     return result

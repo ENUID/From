@@ -4508,6 +4508,105 @@ export const CATEGORY_TAXONOMY: Record<string, { label: string; subcategories: R
   },
 };
 
+// ── Geo-ranking ─────────────────────────────────────────────────────────────────
+// Maps country codes to broad regions for tiered proximity boost.
+
+export const GEO_REGIONS: Record<string, string> = {
+  // South Asia
+  IN: 'SA', PK: 'SA', BD: 'SA', LK: 'SA', NP: 'SA',
+  // North America
+  US: 'NA', CA: 'NA', MX: 'NA',
+  // Europe
+  GB: 'EU', FR: 'EU', IT: 'EU', DE: 'EU', NL: 'EU', BE: 'EU', SE: 'EU',
+  DK: 'EU', ES: 'EU', PT: 'EU', CH: 'EU', NO: 'EU', FI: 'EU', PL: 'EU',
+  AT: 'EU', GR: 'EU', RU: 'EU', IE: 'EU',
+  // Oceania
+  AU: 'OC', NZ: 'OC',
+  // Southeast Asia
+  ID: 'SEA', MY: 'SEA', PH: 'SEA', SG: 'SEA', TH: 'SEA', VN: 'SEA',
+  // East Asia
+  CN: 'EA', JP: 'EA', KR: 'EA', TW: 'EA', HK: 'EA',
+  // Middle East
+  AE: 'ME', SA: 'ME', QA: 'ME', KW: 'ME', TR: 'ME',
+}
+
+// Country overrides for brands whose TLD doesn't reveal their origin.
+// Covers Indian brands on .com, Australian labels, European brands, etc.
+const STORE_COUNTRIES: Record<string, string> = {
+  // ── Indian brands on .com ──
+  'houseofmasaba.com': 'IN', 'payalkhandwala.com': 'IN', 'jaypore.com': 'IN',
+  'koskii.com': 'IN', 'gulaalclothes.com': 'IN', 'ambraee.com': 'IN',
+  'bunaai.com': 'IN', 'truebrowns.com': 'IN', 'chidiyaa.com': 'IN',
+  'okhai.com': 'IN', 'faridagupta.com': 'IN', 'mulmul.com': 'IN',
+  'fablestreet.com': 'IN', 'berrylush.com': 'IN', 'twentydresses.com': 'IN',
+  'thelabellife.com': 'IN', 'letsdressup.com': 'IN', 'madglame.com': 'IN',
+  'luluandsky.com': 'IN', 'nicobar.com': 'IN', 'andamen.com': 'IN',
+  'damensch.com': 'IN', 'thequirkbox.com': 'IN', 'aristobrat.com': 'IN',
+  'blissclub.com': 'IN', 'zymrat.com': 'IN', 'aastey.com': 'IN',
+  'nobero.com': 'IN', 'kicaactive.com': 'IN', 'aestheticbodies.com': 'IN',
+  'silvertraq.com': 'IN', 'cultsport.com': 'IN', 'versatyl.com': 'IN',
+  'unstoppableapparel.com': 'IN', 'prolinefitnessworld.com': 'IN',
+  'bonkerscorner.com': 'IN', 'thehouseofrare.com': 'IN',
+  'theindiangarageco.com': 'IN', 'franklywearing.com': 'IN',
+  'whatwhenwear.com': 'IN', 'styched.com': 'IN', 'burgerbae.com': 'IN',
+  'freakins.com': 'IN', 'summersomewhere.com': 'IN', 'saltattire.com': 'IN',
+  'quaclothing.com': 'IN', 'bombaishirtcompany.com': 'IN',
+  'thepantproject.com': 'IN', 'powerplayapparel.com': 'IN',
+  'desiminimals.com': 'IN', 'coverchord.com': 'IN', 'haruhar.com': 'IN',
+  'kissagoi.com': 'IN', 'gangafashions.com': 'IN', 'shopnirvanaa.com': 'IN',
+  'biasedblack.com': 'IN', 'chapter2drip.com': 'IN', 'monkstory.com': 'IN',
+  'ikaibyraginiahuja.com': 'IN', 'lovepangolin.com': 'IN',
+  'wearloqo.com': 'IN', 'wearbrun.com': 'IN', 'kartikresearch.com': 'IN',
+  'wearcomet.com': 'IN', 'surmaye.com': 'IN', 'dushaamai.com': 'IN',
+  'oldlilenmill.com': 'IN', 'almostgods.com': 'IN', 'femella.in': 'IN',
+  '11-11.in': 'IN', 'shopunrush.com': 'IN', 'biancajeswant.com': 'IN',
+  'suvasa.com': 'IN', 'roopkala.com': 'IN', 'janasya.com': 'IN',
+  'theloom.in': 'IN', 'bunai.com': 'IN', 'labelkanupriya.com': 'IN',
+  'prakritifashion.com': 'IN', 'itokri.com': 'IN', 'aachho.com': 'IN',
+  'themusk.in': 'IN', 'lininworld.com': 'IN', 'themisnomer.com': 'IN',
+  // ── Australian brands on .com ──
+  'assemblylabel.com': 'AU', 'friendswithfrank.com': 'AU', 'morrisonshop.com': 'AU',
+  'commas.cc': 'AU', 'lionessfashion.com': 'AU', 'elkacollective.com': 'AU',
+  'hommeyusa.myshopify.com': 'AU', 'theruesociety.com': 'AU',
+  'myfriendjoni.com': 'AU', 'porterjames.com': 'AU', 'commonleisureweb.com': 'AU',
+  'solacetheory.com': 'AU',
+  // ── European brands on .com ──
+  'ourlegacy.com': 'SE', 'studionicholson.com': 'GB', 'toa.st': 'GB',
+  'and-daughter.com': 'GB', 'pangaia.com': 'GB', 'luroq.com': 'GB',
+  'limited-clothing.co.uk': 'GB', 'asslcollectionparis.com': 'FR',
+  'coteleparis.com': 'FR', 'mariniclothing.com': 'IT',
+  // ── US brands (explicitly tagged to avoid any TLD ambiguity) ──
+  'aimeleondore.com': 'US', 'ladywhiteco.com': 'US', 'laurenmanoogian.com': 'US',
+  'taylorstitch.com': 'US', 'marinelayer.com': 'US', 'outdoorvoices.com': 'US',
+  'allbirds.com': 'US', 'fashionnova.com': 'US', 'kith.com': 'US',
+  'aloyoga.com': 'US', 'goodamerican.com': 'US',
+}
+
+/** Return the ISO-3166-1 alpha-2 country code for a store domain. */
+export function getStoreCountry(domain: string): string {
+  const d = domain.toLowerCase().replace(/^www\./, '')
+  if (STORE_COUNTRIES[d]) return STORE_COUNTRIES[d]
+  if (d.endsWith('.in') || d.endsWith('.co.in')) return 'IN'
+  if (d.endsWith('.co.uk') || d.endsWith('.org.uk') || d.endsWith('.uk')) return 'GB'
+  if (d.endsWith('.com.au') || d.endsWith('.net.au')) return 'AU'
+  if (d.endsWith('.ca')) return 'CA'
+  if (d.endsWith('.fr')) return 'FR'
+  if (d.endsWith('.it')) return 'IT'
+  if (d.endsWith('.de')) return 'DE'
+  if (d.endsWith('.nl')) return 'NL'
+  if (d.endsWith('.be')) return 'BE'
+  if (d.endsWith('.gr')) return 'GR'
+  if (d.endsWith('.ru')) return 'RU'
+  if (d.endsWith('.pk')) return 'PK'
+  if (d.endsWith('.id')) return 'ID'
+  if (d.endsWith('.ph')) return 'PH'
+  if (d.endsWith('.com.my') || d.endsWith('.my')) return 'MY'
+  if (d.endsWith('.com.tr') || d.endsWith('.tr')) return 'TR'
+  if (d.endsWith('.ae') || d.endsWith('.com.ae')) return 'AE'
+  if (d.endsWith('.zid.store')) return 'AE'  // Zid is a Saudi/Gulf e-commerce platform
+  return 'US'  // default for .com / .myshopify.com
+}
+
 // ── Vibe glossary ───────────────────────────────────────────────────────────────
 // Each brand carries one or more vibe tags. This explains what each tag signals so
 // the AI can match a shopper's described mood/style/use-case to the right brands.
