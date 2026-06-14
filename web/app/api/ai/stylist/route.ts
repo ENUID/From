@@ -600,8 +600,13 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         ...history,
         { role: 'user' as const, content: question },
       ]
-      const msg = await stylistChat(messages, combinedSystem, { max_tokens: 700, temperature: 0.4 }, isHeavyQuery(question))
-      raw = (msg?.content ?? '').trim()
+      try {
+        const msg = await stylistChat(messages, combinedSystem, { max_tokens: 700, temperature: 0.4 }, isHeavyQuery(question))
+        raw = (msg?.content ?? '').trim()
+      } catch (err) {
+        console.error('[stylist] model call failed:', err)
+        return NextResponse.json({ reply: "Hey, I'm here! Something went wrong on my end just now. Try again?", comparison: null })
+      }
     }
 
     if (!raw) return NextResponse.json({ reply: "I missed that one, sorry. Try again?", comparison: null })
@@ -678,6 +683,6 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, outfitSlots })
   } catch (e) {
     console.error('[stylist] error:', e)
-    return NextResponse.json({ reply: null, comparison: null })
+    return NextResponse.json({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
   }
 }

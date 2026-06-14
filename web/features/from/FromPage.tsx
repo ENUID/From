@@ -1540,7 +1540,7 @@ export default function FromApp({
           }).catch(() => {})
         }
       } else {
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I missed that one. Could you say it a different way?" }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: "Something went wrong. Try again?" }])
       }
     } catch {
       setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching Fabrics. Give it another go in a moment.' }])
