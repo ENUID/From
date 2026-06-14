@@ -645,8 +645,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         raw = (msg?.content ?? '').trim()
       } catch (err) {
         console.error('[stylist] model call failed:', err)
-        // TEMP DIAGNOSTIC: surface the real error so we can identify the root cause.
-        return NextResponse.json({ reply: `⚠️ DEBUG: ${(err as Error).message}`.slice(0, 600), comparison: null })
+        return NextResponse.json({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
       }
     }
 
