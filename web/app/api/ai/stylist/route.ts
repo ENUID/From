@@ -29,7 +29,8 @@ function stripBrandNames(query: string, domains: string[]): string {
   return q.replace(/\s+/g, ' ').trim()
 }
 
-// Use Gemini if configured; fall back to Groq 70b
+// Use Gemini if configured; fall back to Groq 70b.
+// Also falls back if Gemini returns null content (safety filter, empty response, etc.)
 async function stylistChat(
   messages: any[],
   system: string,
@@ -37,7 +38,9 @@ async function stylistChat(
 ): Promise<{ role: string; content: string | null }> {
   if (process.env.GOOGLE_AI_API_KEY) {
     try {
-      return await geminiChat(messages, system, opts)
+      const result = await geminiChat(messages, system, opts)
+      if (result?.content) return result
+      console.warn('[stylist] Gemini returned no content, falling back to Groq')
     } catch (err) {
       console.warn('[stylist] Gemini failed, falling back to Groq:', (err as Error).message)
     }
@@ -583,7 +586,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       raw = (msg?.content ?? '').trim()
     }
 
-    if (!raw) return NextResponse.json({ reply: null, comparison: null })
+    if (!raw) return NextResponse.json({ reply: "I missed that one, sorry. Try again?", comparison: null })
 
     const { reply: replyWithSearch, comparison } = parseReply(raw)
     const { reply: replyWithOutfit, searchQuery } = parseSearchToken(replyWithSearch)
