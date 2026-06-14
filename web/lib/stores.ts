@@ -3884,16 +3884,6 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "about": "Indian premium underwear and loungewear — fun prints, super-soft fabrics, and exceptional everyday comfort"
   },
   {
-    "domain": "frenchcrown.in",
-    "name": "French Crown",
-    "categories": ["top", "bottom", "outerwear"],
-    "vibe": ["casual", "everyday", "smart casual", "European", "relaxed", "accessible"],
-    "gender": ["men"],
-    "priceRange": "budget",
-    "items": ["shirt", "t-shirt", "trouser", "chino", "jacket"],
-    "about": "Indian menswear with European-inspired casual styles — shirts, chinos, and smart casual pieces at accessible prices"
-  },
-  {
     "domain": "thequirkbox.com",
     "name": "The Quirk Box",
     "categories": ["top", "bottom", "accessory"],
@@ -4359,7 +4349,6 @@ export const BRAND_NAMES: Record<string, string> = {
   "andamen.com": "Andamen",
   "damensch.com": "DaMensch",
   "bummer.store": "Bummer",
-  "frenchcrown.in": "French Crown",
   "thequirkbox.com": "The Quirk Box",
   "nicobar.com": "Nicobar",
   "aristobrat.com": "Aristobrat",
