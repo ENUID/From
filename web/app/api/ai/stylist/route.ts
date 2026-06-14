@@ -93,6 +93,15 @@ async function stylistChat(
   throw new Error(errors.join(' | ') || 'all model calls failed')
 }
 
+// True when a failure was caused by every model being rate-limited, so the UI
+// can show a warm "we're busy" message instead of a generic error.
+function isRateLimited(err: unknown): boolean {
+  const msg = (err as Error)?.message || ''
+  return /\b429\b|rate limit|too many requests|quota/i.test(msg)
+}
+
+const BUSY_REPLY = "A lot of people are styling with me right now. Give me a few seconds and try again."
+
 // ── Types ───────────────────────────────────────────────────────────────────
 type StylistProduct = {
   id: string
@@ -647,6 +656,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         raw = (msg?.content ?? '').trim()
       } catch (err) {
         console.error('[stylist] model call failed:', err)
+        if (isRateLimited(err)) {
+          return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
+        }
         return NextResponse.json({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
       }
     }
@@ -725,6 +737,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, outfitSlots })
   } catch (e) {
     console.error('[stylist] error:', e)
+    if (isRateLimited(e)) {
+      return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
+    }
     return NextResponse.json({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
   }
 }

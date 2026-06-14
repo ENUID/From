@@ -1365,7 +1365,7 @@ export default function FromApp({
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
   type OutfitSlot = { query: string; products: Product[] }
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; outfitSlots?: OutfitSlot[] }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; outfitSlots?: OutfitSlot[]; busy?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistOpen, setStylistOpen]       = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
@@ -1531,7 +1531,7 @@ export default function FromApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, outfitSlots }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, outfitSlots, busy: data.busy === true }])
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
           fetch('/api/ai/stylist-memory', {
@@ -2473,6 +2473,8 @@ export default function FromApp({
         @keyframes glassSweep{0%{transform:translateX(-120%) skewX(-20deg);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateX(350%) skewX(-20deg);opacity:0;}}
         @keyframes glassFloat{0%,100%{transform:translateY(0px);}50%{transform:translateY(-4px);}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
+        .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(44,18,6,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
@@ -4053,7 +4055,11 @@ export default function FromApp({
                         color: m.role === 'user' ? '#fff' : INK2,
                         borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
                         whiteSpace: 'pre-wrap' }}>
-                        {m.role === 'assistant' ? renderStylistText(m.content, stylistProducts, liveRates, (p) => { setStylistOpen(false); setSelected(p) }) : m.content}
+                        {m.role === 'assistant'
+                          ? (m.busy
+                              ? <span className="fr-shine">{m.content}</span>
+                              : renderStylistText(m.content, stylistProducts, liveRates, (p) => { setStylistOpen(false); setSelected(p) }))
+                          : m.content}
                       </div>
                       {m.comparison && m.comparison.rows.length > 0 && (
                         <div style={{ marginTop: 10, width: '100%', border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>
