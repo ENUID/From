@@ -346,6 +346,86 @@ function getProductImages(p: Product): string[] {
 function heroImage(p: Product): string {
   return getProductImages(p)[0] || p.image_url || ''
 }
+
+// ── Grid card image carousel ──────────────────────────────────────────────────
+// Horizontal-swipe image browser for product grid cells. Pointer events handle
+// swipe detection so they don't conflict with the parent cell's touch-based
+// long-press handlers (which use touch events on a different event track).
+function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void }) {
+  const [idx, setIdx] = useState(0)
+  const startX = useRef(0)
+  const startY = useRef(0)
+  const active = useRef(false)
+  const swiped = useRef(false)
+
+  const imgs = images.slice(0, 8)
+
+  if (imgs.length === 0) {
+    return (
+      <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4">
+          <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
+        <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
+          background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
+          animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
+      </div>
+      <img key={imgs[idx]} src={imgs[idx]} alt="" draggable={false} decoding="async"
+        style={{ position:'relative',zIndex:2,opacity:0 }}
+        onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
+      />
+      {/* Interaction layer: swipe detection + tap-to-open, sits above the image */}
+      <div
+        style={{ position:'absolute',inset:0,zIndex:3,WebkitTouchCallout:'none',touchAction:'pan-y' } as React.CSSProperties}
+        onPointerDown={e => {
+          active.current = true; swiped.current = false
+          startX.current = e.clientX; startY.current = e.clientY
+          e.currentTarget.setPointerCapture(e.pointerId)
+          e.stopPropagation()
+        }}
+        onPointerMove={e => {
+          if (!active.current || imgs.length <= 1) return
+          const dx = Math.abs(e.clientX - startX.current)
+          const dy = Math.abs(e.clientY - startY.current)
+          if (dx > dy && dx > 8) swiped.current = true
+        }}
+        onPointerUp={e => {
+          if (!active.current) return
+          active.current = false
+          const dx = e.clientX - startX.current
+          const dy = e.clientY - startY.current
+          if (imgs.length > 1 && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) {
+            swiped.current = true
+            setIdx(i => dx < 0 ? Math.min(i + 1, imgs.length - 1) : Math.max(i - 1, 0))
+          }
+        }}
+        onPointerCancel={() => { active.current = false }}
+        onClick={e => {
+          e.stopPropagation()
+          if (!swiped.current) onOpen()
+          swiped.current = false
+        }}
+      />
+      {imgs.length > 1 && (
+        <div style={{ position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',display:'flex',gap:4,zIndex:4,pointerEvents:'none' }}>
+          {imgs.map((_, i) => (
+            <div key={i} style={{ width:5,height:5,borderRadius:'50%',
+              background: i === idx ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.35)',
+              transition:'background .15s' }} />
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 function getDescriptionText(p: Product): string {
   if (!p.description) return ''
   return p.description
@@ -3599,28 +3679,11 @@ export default function FromApp({
                         ctxMenuOpenAt.current = Date.now()
                         setProductCtxMenu({ product: p, x: mx, y: my, above })
                       })}
-                      onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                      {heroImage(p) ? (
-                        <>
-                          <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
-                            <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
-                              background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
-                              animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
-                          </div>
-                          <img src={heroImage(p)} alt="" draggable={false} decoding="async"
-                            style={{ position:'relative',zIndex:2,opacity:0 }}
-                            onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
-                          />
-                          {/* Transparent overlay — touch target is this div, not the <img>,
-                              so Chrome/Brave never fires its image long-press context menu */}
-                          <div style={{ position:'absolute',inset:0,zIndex:3,WebkitTouchCallout:'none' } as React.CSSProperties} />
-                        </>
-                      ) : (
-                        <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </div>
-                      )}
+                      <CardCarousel
+                        images={getProductImages(p)}
+                        onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                      />
                     </div>
                   ))}</div>
                 : <div style={{ padding: "60px 28px", textAlign: "center" }}>
@@ -3659,29 +3722,11 @@ export default function FromApp({
                         ctxMenuOpenAt.current = Date.now()
                         setProductCtxMenu({ product: p, x: mx, y: my, above })
                       })}
-                      onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                      {heroImage(p) ? (
-                        <>
-                          {/* Shimmer sits behind until image is opaque */}
-                          <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
-                            <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
-                              background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
-                              animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
-                          </div>
-                          <img src={heroImage(p)} alt="" draggable={false} decoding="async"
-                            style={{ position:'relative',zIndex:2,opacity:0 }}
-                            onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
-                          />
-                          {/* Transparent overlay — touch target is this div, not the <img>,
-                              so Chrome/Brave never fires its image long-press context menu */}
-                          <div style={{ position:'absolute',inset:0,zIndex:3,WebkitTouchCallout:'none' } as React.CSSProperties} />
-                        </>
-                      ) : (
-                        <div style={{ width:'100%',height:'100%',background:'#e4e4e4',display:'flex',alignItems:'center',justifyContent:'center' }}>
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.4" opacity=".4"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </div>
-                      )}
+                      <CardCarousel
+                        images={getProductImages(p)}
+                        onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                      />
                     </div>
                   ))}
                 </div>
