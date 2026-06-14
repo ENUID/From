@@ -47,15 +47,12 @@ function isHeavyQuery(question: string): boolean {
 }
 
 // Gemini for queries that need fashion depth; Groq for conversational replies.
-// Gemini also falls back to Groq if it returns null content (safety filter etc.).
-// Groq text models for Fabrics, tried in order until one returns content.
-// Fabrics prioritises the 70b for styling quality (search keeps the fast 8b
-// via CHAT_MODEL). Falls through if a model is decommissioned/misconfigured.
-const GROQ_FALLBACK_MODELS = [
-  process.env.GROQ_STYLIST_MODEL,   // explicit stylist override, if set
-  'llama-3.3-70b-versatile',        // 70b — best quality for styling advice
-  'llama-3.1-8b-instant',           // fast last-resort fallback
-].filter((m, i, a): m is string => !!m && a.indexOf(m) === i)
+// Both are tried as fallbacks for each other so a single provider/model
+// failure can never kill the reply.
+// Distinct Groq models in priority order: 8b first (fast, cheap, high TPM),
+// then 70b for depth. Deduped so CHAT_MODEL isn't tried twice.
+const GROQ_8B = 'llama-3.1-8b-instant'
+const GROQ_70B = 'llama-3.3-70b-versatile'
 
 async function stylistChat(
   messages: any[],
@@ -65,27 +62,40 @@ async function stylistChat(
 ): Promise<{ role: string; content: string | null }> {
   const errors: string[] = []
 
-  // Heavy queries prefer Gemini for depth; conversational skip straight to Groq.
-  if (useGemini && process.env.GOOGLE_AI_API_KEY) {
-    try {
-      const result = await geminiChat(messages, system, opts)
-      if (result?.content) return result
-      errors.push('gemini: empty content')
-    } catch (err) {
-      errors.push(`gemini: ${(err as Error).message}`)
-    }
+  // Build an ordered list of every provider/model to try. Whatever the routing
+  // preference, EVERY available model is a fallback — a single failure (bad
+  // model name, transient error, one provider down) can never kill the reply.
+  // Only when literally every provider fails do we surface an error.
+  const hasGemini = !!process.env.GOOGLE_AI_API_KEY
+  const groqOrder = useGemini
+    ? [process.env.GROQ_STYLIST_MODEL, GROQ_70B, GROQ_8B]   // heavy: depth first
+    : [CHAT_MODEL, GROQ_8B, GROQ_70B]                       // chitchat: fast first
+  const groqModels = groqOrder.filter((m, i, a): m is string => !!m && a.indexOf(m) === i)
+
+  type Attempt = { name: string; run: () => Promise<{ role: string; content: string | null }> }
+  const attempts: Attempt[] = []
+
+  const geminiAttempt: Attempt = { name: 'gemini', run: () => geminiChat(messages, system, opts) }
+  const groqAttempts: Attempt[] = groqModels.map(model => ({
+    name: `groq(${model})`,
+    run: () => groqChat(messages, system, undefined, { ...opts, model }),
+  }))
+
+  // Preferred provider leads; the other is the safety net behind it.
+  if (useGemini && hasGemini) {
+    attempts.push(geminiAttempt, ...groqAttempts)
+  } else {
+    attempts.push(...groqAttempts)
+    if (hasGemini) attempts.push(geminiAttempt)
   }
 
-  // Chitchat uses 8b only — no need for 70b on greetings, and 8b has far higher TPM limits.
-  // Heavy styling queries use the full fallback chain (70b → 8b).
-  const groqModels = useGemini ? GROQ_FALLBACK_MODELS : [CHAT_MODEL]
-  for (const model of groqModels) {
+  for (const a of attempts) {
     try {
-      const result = await groqChat(messages, system, undefined, { ...opts, model })
+      const result = await a.run()
       if (result?.content) return result
-      errors.push(`groq(${model}): empty content`)
+      errors.push(`${a.name}: empty content`)
     } catch (err) {
-      errors.push(`groq(${model}): ${(err as Error).message}`)
+      errors.push(`${a.name}: ${(err as Error).message}`)
     }
   }
 
@@ -659,7 +669,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         if (isRateLimited(err)) {
           return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
         }
-        return NextResponse.json({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
+        // TEMP DIAGNOSTIC: surface the real provider error trail so we can see
+        // exactly which models failed and why (remove once root cause is known).
+        return NextResponse.json({ reply: `DEBUG: ${(err as Error).message}`.slice(0, 900), comparison: null })
       }
     }
 
