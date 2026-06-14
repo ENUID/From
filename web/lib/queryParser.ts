@@ -300,3 +300,64 @@ export function augmentConcepts(llmConcepts: string[][], query: string): string[
 
   return merged
 }
+
+// ── Outfit slot classification ────────────────────────────────────────────────
+// Maps every garment key to a high-level wardrobe slot, so the outfit builder
+// can (a) know what category a slot query intends, (b) verify the product a
+// search returned actually IS that category, and (c) label it correctly.
+export type SlotCategory = 'top' | 'bottom' | 'outer' | 'dress' | 'shoes' | 'accessory'
+
+const GARMENT_CATEGORY: Record<string, SlotCategory> = {
+  shirt: 'top', tshirt: 'top', blouse: 'top', polo: 'top', tank: 'top',
+  sweater: 'top', hoodie: 'top', cardigan: 'top',
+  trouser: 'bottom', jean: 'bottom', chino: 'bottom', short: 'bottom',
+  skirt: 'bottom', legging: 'bottom',
+  jacket: 'outer', blazer: 'outer', coat: 'outer', vest: 'outer',
+  dress: 'dress', jumpsuit: 'dress', bodysuit: 'dress',
+  sneaker: 'shoes', boot: 'shoes', loafer: 'shoes', sandal: 'shoes',
+  heel: 'shoes', derby: 'shoes', espadrille: 'shoes', clog: 'shoes',
+  bag: 'accessory', tote: 'accessory', backpack: 'accessory', hat: 'accessory',
+  scarf: 'accessory', belt: 'accessory', sock: 'accessory', sunglasses: 'accessory',
+  watch: 'accessory', jewelry: 'accessory', wallet: 'accessory',
+}
+
+const SLOT_LABELS: Record<SlotCategory, string> = {
+  top: 'Top', bottom: 'Bottom', outer: 'Outer', dress: 'Dress',
+  shoes: 'Shoes', accessory: 'Accessory',
+}
+
+export function slotLabelFor(cat: SlotCategory): string {
+  return SLOT_LABELS[cat]
+}
+
+// What category does an outfit-slot QUERY intend? Reads the garment terms out of
+// the user-facing query ("men's tan leather loafers" → 'shoes'). Returns null
+// when the query names no recognizable garment.
+export function classifyQuerySlot(query: string): SlotCategory | null {
+  const { garmentKeys } = decomposeQuery(query)
+  for (const key of garmentKeys) {
+    const cat = GARMENT_CATEGORY[key]
+    if (cat) return cat
+  }
+  return null
+}
+
+// Which categories does an actual PRODUCT belong to? Matches the product-side
+// vocabulary against the product's own text (title + tags + description). A
+// product can legitimately hit more than one (e.g. an overshirt reads as a top),
+// so we return the full set and let the caller test membership.
+export function productSlotCategories(p: { title?: string; tags?: string[]; description?: string }): Set<SlotCategory> {
+  const text = `${p.title || ''} ${(p.tags || []).join(' ')} ${p.description || ''}`.toLowerCase()
+  const cats = new Set<SlotCategory>()
+  for (const [key, entry] of Object.entries(GARMENT_VOCAB)) {
+    const cat = GARMENT_CATEGORY[key]
+    if (!cat) continue
+    if (entry.product.some(term => hasWord(text, term))) cats.add(cat)
+  }
+  return cats
+}
+
+// Does this product actually satisfy the slot the query asked for?
+export function productMatchesSlot(p: { title?: string; tags?: string[]; description?: string }, cat: SlotCategory): boolean {
+  return productSlotCategories(p).has(cat)
+}

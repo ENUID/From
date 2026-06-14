@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, wardrobeVisionChat, CHAT_MODEL } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
-import { buildMandatoryConcepts } from '@/lib/queryParser'
+import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
 
@@ -320,9 +320,11 @@ When the shopper asks for a COMPLETE OUTFIT ("build me a look for X", "what woul
 [OUTFIT: query1 | query2 | query3 | query4]
 
 Rules:
-• Use 2–4 slot queries separated by |. Each query is a precise product search.
-• Each query should be: gender + garment type + key descriptors. Example: "men navy slim trousers | men white linen shirt | men tan leather loafer | men camel unstructured blazer"
-• If the shopper anchors the look to a brand ("build a look around Our Legacy"), you may lead one or more slot queries with that brand name to source those slots from it.
+• Use 3–4 slot queries separated by |. Each query is a precise product search for ONE distinct garment category.
+• EVERY slot must be a DIFFERENT garment category — never put two slots that search for the same type (e.g. two shirts, two shoes, two trousers). A full look for a man typically covers: trousers/jeans + shirt/top + shoes + optional outer layer or accessory. A full look for a woman: bottom or dress + top (if not a dress) + shoes + optional outer or accessory.
+• Each query must name the garment TYPE explicitly: "men navy slim trousers" not "men navy", "men white linen shirt" not "men white top". This is critical — the search engine uses the garment word to filter results.
+• Format: gender + garment type + key descriptors. Example: "men dark navy slim trousers | men white linen shirt | men tan leather loafers | men camel unstructured blazer"
+• If the shopper anchors the look to a brand, you may lead one or more slot queries with that brand name.
 • NEVER use [OUTFIT:] and [SEARCH:] in the same reply.
 • NEVER use [OUTFIT:] for a single item. Use [SEARCH:] for single items.
 • Lead with a one-sentence outfit concept before the token. Example: "A relaxed summer wedding guest look that reads polished without trying too hard."
@@ -443,9 +445,9 @@ After analyzing, give the shopper one of:
 The shopper often shares pieces they already own (their wardrobe) and asks you to style or build a complete outfit around them. When they want a full look or several complementary pieces:
 1. Identify what's in the photo(s) garment type, colour + undertone, fabric, formality.
 2. Work out which categories are MISSING to finish the outfit. A shirt needs bottoms, shoes, and usually a layer (overshirt / blazer / coat). A dress may just need shoes and outerwear.
-3. End your reply with an [OUTFIT: ...] token one precise shopping query per missing piece, separated by " | ", up to 4. Be specific (gender, colour, material, cut):
-   [OUTFIT: men's dark navy slim trousers | men's tan leather loafers | men's camel unstructured wool blazer]
-4. In the sentences before the token, name WHY each piece works with what they own colour temperature, formality match, proportion. The pieces must combine into ONE cohesive look that genuinely goes together, not a random list.
+3. End your reply with an [OUTFIT: ...] token — one precise shopping query per MISSING category, separated by " | ", up to 4. Each query must name the garment TYPE explicitly and cover a DIFFERENT category (never two trousers, never two shoes). Be specific (gender, garment type, colour, material, cut):
+   [OUTFIT: men dark navy slim trousers | men tan leather loafers | men camel unstructured wool blazer]
+4. In the sentences before the token, name WHY each piece works colour temperature, formality match, proportion. The pieces must combine into ONE cohesive look, not a random list.
 Use [OUTFIT: ...] (not [SEARCH: ...]) whenever they want a complete outfit or multiple complementary pieces; use [SEARCH: ...] only for a single item. Never output both tokens.`
 
 // ── Parse reply ─────────────────────────────────────────────────────────────
@@ -731,18 +733,30 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       }
     }
 
-    let outfitSlots: { query: string; products: any[] }[] | null = null
+    let outfitSlots: { query: string; slotCategory: string | null; products: any[] }[] | null = null
     if (outfitQueries && outfitQueries.length > 0) {
       try {
+        const usedProductIds = new Set<string>()
         const slotResults = await Promise.all(
           outfitQueries.map(async (q) => {
+            const slotCat = classifyQuerySlot(q)
             const concepts = buildMandatoryConcepts(q)
             const results = await GlobalCatalogService.search(
               q, undefined, [], countryCode, true, concepts,
               'relevance', buyerCurrency, { fastFirstPage: true }, [],
               memorySummary,
             )
-            return { query: q, products: results.slice(0, 6) }
+            // Pick the best product that (a) actually belongs to the intended slot
+            // category and (b) hasn't been used in a prior slot. Fall back to the
+            // raw top result only when no category-verified product is found.
+            let filtered = slotCat
+              ? results.filter(p => productMatchesSlot(p, slotCat))
+              : results
+            const deduped = filtered.filter(p => !usedProductIds.has(p.id))
+            const best = deduped.length > 0 ? deduped : filtered.filter(p => !usedProductIds.has(p.id))
+            const chosen = (best.length > 0 ? best : results).slice(0, 6)
+            if (chosen[0]) usedProductIds.add(chosen[0].id)
+            return { query: q, slotCategory: slotCat ? slotLabelFor(slotCat) : null, products: chosen }
           })
         )
         outfitSlots = slotResults

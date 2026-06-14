@@ -1489,7 +1489,7 @@ export default function FromApp({
 
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
-  type OutfitSlot = { query: string; products: Product[] }
+  type OutfitSlot = { query: string; slotCategory?: string | null; products: Product[] }
   type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; outfitSlots?: OutfitSlot[]; busy?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistOpen, setStylistOpen]       = useState(false)
@@ -4205,17 +4205,20 @@ export default function FromApp({
                       {m.role === 'assistant' && m.outfitSlots && m.outfitSlots.length > 0 && (
                         <div style={{ marginTop: 12, width: '100%' }}>
                           <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Complete outfit</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                            {m.outfitSlots.map((slot, si) => {
-                              const best = slot.products[0]
+                          {(() => {
+                            // Dedup and label every slot, then render the 2-col grid.
+                            const seenIds = new Set<string>()
+                            const slots = m.outfitSlots!.map((slot, si) => {
+                              const best = slot.products.find(p => !seenIds.has(p.id)) ?? slot.products[0]
                               if (!best) return null
-                              const slotText = `${slot.query} ${best.title} ${(best.tags || []).join(' ')}`.toLowerCase()
-                              const slotLabel = (() => {
-                                if (/shoe|sneaker|loafer|boot|sandal|trainer|oxford|derby|moccasin|footwear|slipper|slip.on|espadrille|pump|heel|flat\b|clog/.test(slotText)) return 'Shoes'
-                                if (/\bjacket\b|blazer|\bcoat\b|overcoat|parka|windbreaker|trench|bomber|outerwear/.test(slotText)) return 'Outer'
-                                if (/trouser|pant|\bjean\b|denim|chino|\bshort\b|skirt|jogger|cargo|legging|track.pant|\bbottom\b/.test(slotText)) return 'Bottom'
-                                if (/dress|jumpsuit|romper|one.piece|overall|dungaree/.test(slotText)) return 'Dress'
-                                if (/belt|watch|\bbag\b|tote|\bhat\b|\bcap\b|scarf|\btie\b|sock|bracelet|necklace|sunglasses|accessory/.test(slotText)) return 'Accessory'
+                              seenIds.add(best.id)
+                              const slotLabel = slot.slotCategory ?? (() => {
+                                const t = `${slot.query} ${best.title} ${(best.tags || []).join(' ')}`.toLowerCase()
+                                if (/shoe|sneaker|loafer|boot|sandal|trainer|oxford|derby|moccasin|footwear|slip.on|espadrille|pump|heel|clog/.test(t)) return 'Shoes'
+                                if (/\bjacket\b|blazer|\bcoat\b|overcoat|parka|windbreaker|trench|bomber/.test(t)) return 'Outer'
+                                if (/trouser|pant|\bjean\b|denim|chino|\bshort\b|skirt|legging/.test(t)) return 'Bottom'
+                                if (/dress|jumpsuit|romper|overall|dungaree/.test(t)) return 'Dress'
+                                if (/belt|watch|\bbag\b|tote|\bhat\b|\bcap\b|scarf|\btie\b|sock|bracelet|necklace|sunglasses/.test(t)) return 'Accessory'
                                 return 'Top'
                               })()
                               return (
@@ -4233,15 +4236,17 @@ export default function FromApp({
                                   </div>
                                 </div>
                               )
-                            })}
-                          </div>
-                          {(() => {
-                            const total = m.outfitSlots.reduce((sum, s) => sum + (s.products[0]?.price ?? 0), 0)
-                            if (total <= 0) return null
+                            })
+                            const total = m.outfitSlots!.reduce((sum, s) => sum + (s.products[0]?.price ?? 0), 0)
                             return (
-                              <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: INK2, textAlign: 'right' }}>
-                                Total outfit: {formatMoney(total, m.outfitSlots[0]?.products[0]?.currency, m.outfitSlots[0]?.products[0]?.base_currency, liveRates)}
-                              </div>
+                              <>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>{slots}</div>
+                                {total > 0 && (
+                                  <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: INK2, textAlign: 'right' }}>
+                                    Total outfit: {formatMoney(total, m.outfitSlots![0]?.products[0]?.currency, m.outfitSlots![0]?.products[0]?.base_currency, liveRates)}
+                                  </div>
+                                )}
+                              </>
                             )
                           })()}
                         </div>
