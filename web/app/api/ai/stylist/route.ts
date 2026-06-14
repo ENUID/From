@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat, wardrobeVisionChat } from '@/lib/groq'
+import { groqChat, wardrobeVisionChat, CHAT_MODEL } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts } from '@/lib/queryParser'
@@ -76,8 +76,10 @@ async function stylistChat(
     }
   }
 
-  // Groq, trying each known-good model until one returns content.
-  for (const model of GROQ_FALLBACK_MODELS) {
+  // Chitchat uses 8b only — no need for 70b on greetings, and 8b has far higher TPM limits.
+  // Heavy styling queries use the full fallback chain (70b → 8b).
+  const groqModels = useGemini ? GROQ_FALLBACK_MODELS : [CHAT_MODEL]
+  for (const model of groqModels) {
     try {
       const result = await groqChat(messages, system, undefined, { ...opts, model })
       if (result?.content) return result
