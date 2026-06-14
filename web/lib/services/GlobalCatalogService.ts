@@ -14,7 +14,7 @@
  *   4. Cache the fetched product pool per query so "load more" paginates cleanly.
  */
 
-import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, getStoreCountry, GEO_REGIONS } from '../stores'
+import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, getStoreCountry, GEO_REGIONS, brandQualityScore } from '../stores'
 import { getExchangeRates } from '../exchangeRates'
 import { rerankByRelevance } from './relevanceRerank'
 import { matchStyles } from '../styleVocabulary'
@@ -757,22 +757,22 @@ export class GlobalCatalogService {
       }
     }
 
-    // Geo-boost: for generic (non-brand) searches, surface same-country products
-    // first, then same-region, then rest-of-world. Relevance order is preserved
-    // within each tier — a highly relevant foreign product still beats a weak
-    // local one because the sort is stable and we only re-order across tiers.
-    // Brand searches are skipped (user already chose the brand explicitly).
-    if (cc && !isBrandSearch && sort === 'relevance') {
-      const userRegion = GEO_REGIONS[cc] ?? ''
-      result = result.slice().sort((a, b) => {
-        const aDomain = (() => { try { return new URL(a.store_url).hostname.replace(/^www\./, '') } catch { return '' } })()
-        const bDomain = (() => { try { return new URL(b.store_url).hostname.replace(/^www\./, '') } catch { return '' } })()
-        const aCtry = getStoreCountry(aDomain)
-        const bCtry = getStoreCountry(bDomain)
-        const aScore = aCtry === cc ? 2 : GEO_REGIONS[aCtry] === userRegion ? 1 : 0
-        const bScore = bCtry === cc ? 2 : GEO_REGIONS[bCtry] === userRegion ? 1 : 0
-        return bScore - aScore
-      })
+    // Geo + quality boost for generic (non-brand) relevance searches. Within the
+    // relevance order we nudge results up by a composite score: location dominates
+    // (same-country, then same-region), and brand quality (icon > luxury > premium)
+    // gives a gentle lift on top. The sort is stable, so a highly relevant product
+    // still beats a weakly relevant one of the same composite tier. Brand searches
+    // are skipped (the user already chose the brand explicitly).
+    if (!isBrandSearch && sort === 'relevance') {
+      const userRegion = cc ? (GEO_REGIONS[cc] ?? '') : ''
+      const domainOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' } }
+      const composite = (url: string) => {
+        const dom = domainOf(url)
+        const ctry = getStoreCountry(dom)
+        const geo = cc ? (ctry === cc ? 2 : GEO_REGIONS[ctry] === userRegion ? 1 : 0) : 0
+        return geo * 4 + brandQualityScore(dom)   // geo dominates; quality refines
+      }
+      result = result.slice().sort((a, b) => composite(b.store_url) - composite(a.store_url))
     }
 
     return result

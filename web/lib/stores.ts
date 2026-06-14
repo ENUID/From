@@ -4607,6 +4607,45 @@ export function getStoreCountry(domain: string): string {
   return 'US'  // default for .com / .myshopify.com
 }
 
+// ── Best / featured brands ──────────────────────────────────────────────────────
+// Hand-picked icons: the most respected, design-forward names in the roster. These
+// lead the featured rails and get the strongest quality bias in search ranking.
+export const ICON_BRANDS = new Set<string>([
+  'ourlegacy.com', 'studionicholson.com', 'aimeleondore.com', 'fearofgod.com',
+  'elder-statesman.com', 'toteme-studio.com', 'casablancaparis.com', 'norseprojects.com',
+  'johnelliott.com', 'ganni.com', 'veja-store.com', 'kith.com', 'taylorstitch.com',
+  'pangaia.com', '3sixteen.com', 'momotaro-jeans.com', 'purebluejapan.jp', 'nudiejeans.com',
+  'citizensofhumanity.com', 'agolde.com', 'thefrankieshop.com', 'mejuri.com',
+  'laurenmanoogian.com', 'oscardelarenta.com', 'reigningchamp.com', 'caseycasey.eu',
+  'corridornyc.com', 'merzbschwanen.com', 'portugueseflannel.com', 'cdlp.com',
+])
+
+// Quality tier for a brand, used for the featured rails and the search quality bias.
+// 3 = hand-picked icon, 2 = luxury, 1 = premium, 0 = everything else.
+export function brandQualityScore(domain: string): number {
+  const d = domain.toLowerCase().replace(/^www\./, '')
+  if (ICON_BRANDS.has(d)) return 3
+  const profile = UCP_REGISTRY.find(s => s.domain.toLowerCase().replace(/^www\./, '') === d)
+  if (profile?.priceRange === 'luxury') return 2
+  if (profile?.priceRange === 'premium') return 1
+  return 0
+}
+
+// All "best" brand domains (icons + luxury + premium), icons first, for featured
+// rails. The caller decides how many to fan out to.
+export function bestBrandDomains(): string[] {
+  const icons: string[] = []
+  const luxury: string[] = []
+  const premium: string[] = []
+  for (const s of UCP_REGISTRY) {
+    const d = s.domain.toLowerCase().replace(/^www\./, '')
+    if (ICON_BRANDS.has(d)) icons.push(s.domain)
+    else if (s.priceRange === 'luxury') luxury.push(s.domain)
+    else if (s.priceRange === 'premium') premium.push(s.domain)
+  }
+  return [...icons, ...luxury, ...premium]
+}
+
 // ── Vibe glossary ───────────────────────────────────────────────────────────────
 // Each brand carries one or more vibe tags. This explains what each tag signals so
 // the AI can match a shopper's described mood/style/use-case to the right brands.

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -1335,6 +1335,9 @@ export default function FromApp({
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
   })
+  // Featured rail — products from the best brands in the roster (icons first).
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
+  const [featuredLoading, setFeaturedLoading]   = useState(false)
   const [logoIdx, setLogoIdx] = useState(0)
   const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number; above: boolean } | null>(null)
   const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
@@ -1805,6 +1808,33 @@ export default function FromApp({
       try { localStorage.setItem('from:explore', JSON.stringify(toSave)) } catch {}
     }
   }, [showExplore, searchProducts])
+
+  // Open the Explore screen and load a featured rail of products from the best
+  // brands in the roster. Cached for the session so reopening is instant.
+  const openExplore = useCallback(async () => {
+    setSidebar(false)
+    setActiveBrand(null)
+    setShowExplore(true)
+    if (featuredProducts.length > 0 || featuredLoading) return
+    setFeaturedLoading(true)
+    try {
+      const res = await fetch('/api/featured', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country }),
+      })
+      const data = await res.json()
+      const normalized: Product[] = (Array.isArray(data?.products) ? data.products : []).map((p: Product) => ({
+        ...p,
+        base_currency: p.base_currency ?? p.currency ?? 'USD',
+        currency: shopperContext.currency,
+      }))
+      setFeaturedProducts(normalized)
+    } catch {
+      setFeaturedProducts([])
+    } finally {
+      setFeaturedLoading(false)
+    }
+  }, [featuredProducts.length, featuredLoading, shopperContext.currency, shopperContext.country])
 
   useEffect(() => {
     const id = setInterval(() => setLogoIdx(i => (i + 1) % SHUFFLED_PALETTE.length), 11000)
@@ -2983,14 +3013,8 @@ export default function FromApp({
             {/* Fixed nav items — Explore / Brand Collections / Bag */}
             <div style={{ padding: "4px 12px 4px", flexShrink: 0 }}>
 
-              {/* Explore — coming soon */}
-              <div className="fr-hi" onClick={() => {
-                setSidebar(false)
-                setExploreToastOut(false)
-                setExploreToast(true)
-                setTimeout(() => setExploreToastOut(true), 2200)
-                setTimeout(() => setExploreToast(false), 2650)
-              }}>
+              {/* Explore — featured products from the best brands */}
+              <div className={`fr-hi${showExplore ? ' on' : ''}`} onClick={openExplore}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
                   <path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8z"/>
@@ -3584,10 +3608,28 @@ export default function FromApp({
               </div>
             )}
 
-            {/* Explore — cached products while no live results, or "build history" nudge */}
+            {/* Featured heading — shown on the Explore screen */}
+            {showExplore && !loading && searchProducts.length === 0 && (featuredProducts.length > 0 || featuredLoading) && (
+              <div style={{ padding: '18px 20px 6px' }}>
+                <h2 style={{ fontFamily: SEASON, fontSize: 'clamp(22px,6vw,28px)', fontWeight: 400, color: INK, letterSpacing: '.01em', lineHeight: 1.1 }}>Featured</h2>
+                <p style={{ fontFamily: SANS, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: INK3, marginTop: 5 }}>From the best brands on FROM</p>
+              </div>
+            )}
+
+            {/* Explore — featured products from the best brands, else personalised cache */}
             {showExplore && !loading && searchProducts.length === 0 && (
-              exploreCache.length > 0
-                ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => (
+              featuredLoading
+                ? <div className="fr-grid">{Array.from({ length: 12 }).map((_, i) => (
+                    <div key={`sk${i}`} className="fr-cell">
+                      <div style={{ position:'absolute',inset:0,overflow:'hidden',background:'#e8e4de' }}>
+                        <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
+                          background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
+                          animation:`sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,willChange:'transform' }} />
+                      </div>
+                    </div>
+                  ))}</div>
+                : (featuredProducts.length > 0 ? featuredProducts : exploreCache).filter(p => p.in_stock).length > 0
+                ? <div className="fr-grid">{(featuredProducts.length > 0 ? featuredProducts : exploreCache).filter(p => p.in_stock).map(p => (
                     <div key={p.id} className="fr-cell"
                       role="button" tabIndex={0}
                       {...makePressHandlers((x, y) => {
