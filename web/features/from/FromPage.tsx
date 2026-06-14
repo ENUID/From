@@ -269,6 +269,50 @@ const MODEL_HINTS = /(model|wearing|worn|lifestyle|on[-_ ]?body|onbody|outfit|\b
 // Signals that an image is a product-only / flat / studio shot.
 const FLAT_HINTS  = /(flat[-_ ]?lay|flatlay|pack[-_ ]?shot|packshot|still[-_ ]?life|product[-_ ]?(shot|only)|ghost|mannequin|swatch|fabric|\bdetail\b|close[-_ ]?up|closeup|back[-_ ]?view|folded|hanger|cut[-_ ]?out|cutout|\blabel\b|white[-_ ]?bg|on[-_ ]?white)/i
 
+// Read the original pixel dimensions encoded in a Shopify CDN URL — either the
+// "_800x1067" path segment or width/height query params — and return height ÷
+// width. On-body / model shots are almost always portrait (ratio > 1); flat
+// packshots are square or landscape. Returns null when no dimensions are found.
+function imageAspect(url: string): number | null {
+  let w = 0
+  let h = 0
+  const path = url.match(/_(\d{2,5})x(\d{2,5})(?:_|\.|@|\?|$)/i)
+  if (path) { w = +path[1]; h = +path[2] }
+  if (!w || !h) {
+    const wm = url.match(/[?&](?:width|w)=(\d+)/i)
+    const hm = url.match(/[?&](?:height|h)=(\d+)/i)
+    if (wm && hm) { w = +wm[1]; h = +hm[2] }
+  }
+  if (!w || !h) return null
+  return h / w
+}
+
+// Score a single image for "shows a person wearing it". Aspect ratio is the
+// strongest signal (portrait = on-body shot, square/landscape = flat packshot);
+// alt/filename keywords refine it. Higher = more likely a model shot.
+function imageScore(url: string, alt = ''): number {
+  const hay = `${alt} ${url}`
+  let s = 0
+  const ratio = imageAspect(url)
+  if (ratio != null) {
+    if (ratio >= 1.15) s += 4        // clearly portrait — model shot
+    else if (ratio <= 0.95) s -= 3   // square or landscape — flat/packshot
+  }
+  if (MODEL_HINTS.test(hay)) s += 2
+  if (FLAT_HINTS.test(hay))  s -= 3
+  return s
+}
+
+// Reorder a flat list of image URLs model-first, keeping all of them (stable
+// within equal scores). Used for the detail gallery where every image stays
+// swipeable but on-body shots should lead.
+function rankImageUrls(urls: string[]): string[] {
+  return urls
+    .map((url, idx) => ({ url, idx, s: imageScore(url) }))
+    .sort((a, b) => b.s - a.s || a.idx - b.idx)
+    .map(x => x.url)
+}
+
 // Collect every product image (full gallery), drop video/3d media, and order
 // model/lifestyle shots first. Returns a de-duplicated list of image URLs.
 function getProductImages(p: Product): string[] {
@@ -287,11 +331,7 @@ function getProductImages(p: Product): string[] {
   if (p.image_url) push(p.image_url)
 
   const score = (im: Img) => {
-    const hay = `${im.alt} ${im.url}`
-    let s = 0
-    if (MODEL_HINTS.test(hay)) s += 2
-    if (FLAT_HINTS.test(hay))  s -= 2
-    return s
+    return imageScore(im.url, im.alt)
   }
   const ranked = imgs.map(im => ({ im, s: score(im) }))
   // Prefer model shots: drop the ones we can confidently tell are product-only,
@@ -300,6 +340,11 @@ function getProductImages(p: Product): string[] {
   const base = modelFirst.length > 0 ? modelFirst : ranked
   base.sort((a, b) => b.s - a.s || a.im.idx - b.im.idx)
   return base.map(r => r.im.url)
+}
+// The single image to show on a grid card: the top-ranked (model-first) image
+// from the gallery, falling back to the raw catalog thumbnail.
+function heroImage(p: Product): string {
+  return getProductImages(p)[0] || p.image_url || ''
 }
 function getDescriptionText(p: Product): string {
   if (!p.description) return ''
@@ -1971,7 +2016,8 @@ export default function FromApp({
     ? (() => {
         const fetchedSet = new Set(fetchedProductImages)
         const extra = _catalogImages.filter(u => !fetchedSet.has(u))
-        return [...fetchedProductImages, ...extra]
+        // Reorder the combined set model-first so on-body shots lead the gallery.
+        return rankImageUrls([...fetchedProductImages, ...extra])
       })()
     : _catalogImages
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
@@ -3555,14 +3601,14 @@ export default function FromApp({
                       })}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                      {p.image_url ? (
+                      {heroImage(p) ? (
                         <>
                           <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
                             <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
                               background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
                               animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
                           </div>
-                          <img src={p.image_url} alt="" draggable={false} decoding="async"
+                          <img src={heroImage(p)} alt="" draggable={false} decoding="async"
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />
@@ -3615,7 +3661,7 @@ export default function FromApp({
                       })}
                       onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                       onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                      {p.image_url ? (
+                      {heroImage(p) ? (
                         <>
                           {/* Shimmer sits behind until image is opaque */}
                           <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
@@ -3623,7 +3669,7 @@ export default function FromApp({
                               background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
                               animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
                           </div>
-                          <img src={p.image_url} alt="" draggable={false} decoding="async"
+                          <img src={heroImage(p)} alt="" draggable={false} decoding="async"
                             style={{ position:'relative',zIndex:2,opacity:0 }}
                             onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                           />
