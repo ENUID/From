@@ -4107,16 +4107,24 @@ export default function FromApp({
                           <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Complete outfit</div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
                             {m.outfitSlots.map((slot, si) => {
-                              const slotLabels = ['Top', 'Bottom', 'Shoes', 'Outer']
                               const best = slot.products[0]
                               if (!best) return null
+                              const slotText = `${slot.query} ${best.title} ${(best.tags || []).join(' ')}`.toLowerCase()
+                              const slotLabel = (() => {
+                                if (/shoe|sneaker|loafer|boot|sandal|trainer|oxford|derby|moccasin|footwear|slipper|slip.on|espadrille|pump|heel|flat\b|clog/.test(slotText)) return 'Shoes'
+                                if (/\bjacket\b|blazer|\bcoat\b|overcoat|parka|windbreaker|trench|bomber|outerwear/.test(slotText)) return 'Outer'
+                                if (/trouser|pant|\bjean\b|denim|chino|\bshort\b|skirt|jogger|cargo|legging|track.pant|\bbottom\b/.test(slotText)) return 'Bottom'
+                                if (/dress|jumpsuit|romper|one.piece|overall|dungaree/.test(slotText)) return 'Dress'
+                                if (/belt|watch|\bbag\b|tote|\bhat\b|\bcap\b|scarf|\btie\b|sock|bracelet|necklace|sunglasses|accessory/.test(slotText)) return 'Accessory'
+                                return 'Top'
+                              })()
                               return (
                                 <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}
                                   onClick={() => { setStylistOpen(false); setSelected(best) }}>
                                   <div style={{ height: 110, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                     {getProductImages(best)[0] && <img src={getProductImages(best)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                     <div style={{ position: 'absolute', top: 6, left: 6, background: INK, color: '#fff', fontFamily: SANS, fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 20, letterSpacing: '.05em' }}>
-                                      {slotLabels[si] ?? `Slot ${si + 1}`}
+                                      {slotLabel}
                                     </div>
                                   </div>
                                   <div style={{ padding: '7px 8px' }}>
