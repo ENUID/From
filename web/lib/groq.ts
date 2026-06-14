@@ -66,9 +66,13 @@ export async function groqChat(
         const errorJson = JSON.parse(errorText);
         const match = errorJson.error?.message?.match(/try again in ([\d\.]+)s/i);
         if (match) {
-          delay = Math.ceil(parseFloat(match[1]) * 1000) + 200; // Add a small buffer
+          delay = Math.ceil(parseFloat(match[1]) * 1000) + 200;
         }
       } catch (e) {}
+
+      // Cap at 8s so a long Groq-suggested wait doesn't timeout the Vercel function.
+      // If the wait would be too long, bail immediately and let the caller try a fallback model.
+      if (delay > 8000) throw new Error(`Groq rate limit: suggested wait ${delay}ms exceeds cap`)
 
       console.warn(`Groq Rate Limited (429). Retrying in ${delay}ms... (Attempt ${retryCount + 1})`);
       await new Promise(resolve => setTimeout(resolve, delay));
