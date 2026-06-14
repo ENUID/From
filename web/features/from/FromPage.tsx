@@ -1226,8 +1226,8 @@ export default function FromApp({
       console.error('[saveProfile] failed:', err)
       const timedOut = err instanceof Error && err.message === 'timeout'
       setProfileError(timedOut
-        ? "Couldn't reach the server — your changes weren't saved. Please try again."
-        : "Couldn't save — please try again.")
+        ? "Couldn't reach the server. Your changes weren't saved. Please try again."
+        : "Couldn't save. Please try again.")
       setProfileSaving(false)
     }
   }
@@ -1540,7 +1540,7 @@ export default function FromApp({
           }).catch(() => {})
         }
       } else {
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one — try asking another way." }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: "I couldn't read enough detail on that one. Try asking another way." }])
       }
     } catch {
       setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching Fabrics. Give it another go in a moment.' }])
@@ -2558,7 +2558,7 @@ export default function FromApp({
                 setOtpError(null); setOtpVerifying(true)
                 try {
                   const result = await signIn('email-otp', { email: otpEmail.trim(), code: otpCode.trim(), redirect: false })
-                  if (result?.error) throw new Error(result.error === 'CredentialsSignin' ? 'Invalid or expired code — try again' : `Sign-in failed: ${result.error}`)
+                  if (result?.error) throw new Error(result.error === 'CredentialsSignin' ? 'Invalid or expired code, try again' : `Sign-in failed: ${result.error}`)
                   setOtpStep('email'); setOtpCode('')
                 } catch (err: any) { setOtpError(err.message) } finally { setOtpVerifying(false) }
               }}>
@@ -2616,12 +2616,12 @@ export default function FromApp({
             )}
             <div style={{ fontFamily: SERIF, fontSize: 'clamp(22px,3.5vw,26px)', fontWeight: 500, color: INK, marginBottom: 6 }}>A quick word on data</div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, lineHeight: 1.65, marginBottom: 26 }}>
-              FROM uses data only to make your experience better — smarter searches, better recommendations. We never sell it or share it. Choose what you're comfortable with.
+              FROM uses data only to make your experience better: smarter searches, better recommendations. We never sell it or share it. Choose what you're comfortable with.
             </div>
 
             {/* Toggle rows */}
             {[
-              { key: 'analytics' as const, label: 'Usage analytics', desc: "Helps us improve search quality and understand what's working. Country, device type, and session data — no browsing history." },
+              { key: 'analytics' as const, label: 'Usage analytics', desc: "Helps us improve search quality and understand what's working. Country, device type, and session data. No browsing history." },
               { key: 'location' as const, label: 'Precise location', desc: "Show prices in your local currency and surface brands that ship to you. Your coordinates are never shared." },
             ].map(({ key, label, desc }) => {
               const on = key === 'analytics' ? consentAnalytics : consentLocation
@@ -3157,7 +3157,7 @@ export default function FromApp({
                             redirect: false,
                           })
                           if (result?.error) throw new Error(
-                            result.error === 'CredentialsSignin' ? 'Invalid or expired code — try again' : `Sign-in failed: ${result.error}`
+                            result.error === 'CredentialsSignin' ? 'Invalid or expired code, try again' : `Sign-in failed: ${result.error}`
                           )
                           setOtpStep('email')
                           setOtpCode('')
