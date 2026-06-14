@@ -539,6 +539,11 @@ export async function POST(req: NextRequest) {
     const buyerCurrency: string = typeof body?.buyerCurrency === 'string'
       ? body.buyerCurrency.toUpperCase()
       : 'USD'
+    // Shopper's country, so Fabrics product searches geo-boost local brands first
+    // (same as the main search). Prefer an explicit body value, else IP geolocation.
+    const countryCode: string | null = (typeof body?.buyerCountry === 'string' && body.buyerCountry.trim()
+      ? body.buyerCountry.trim().toUpperCase()
+      : req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null)
     const memorySummary: string | undefined = typeof body?.memorySummary === 'string' && body.memorySummary.trim()
       ? body.memorySummary.trim()
       : undefined
@@ -692,7 +697,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         // to catalog order silently if the reranker errs never blocks.
         const results = await GlobalCatalogService.search(
           searchQuery,
-          undefined, [], null, true, concepts,
+          undefined, [], countryCode, true, concepts,
           'relevance', buyerCurrency,
           { fastFirstPage: true }, [],
           memorySummary,
@@ -708,7 +713,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           if (brands.length > 0) {
             const debranded = stripBrandNames(searchQuery, brands) || searchQuery
             const broad = await GlobalCatalogService.search(
-              debranded, undefined, [], null, true, buildMandatoryConcepts(debranded),
+              debranded, undefined, [], countryCode, true, buildMandatoryConcepts(debranded),
               'relevance', buyerCurrency, { fastFirstPage: true }, [],
               memorySummary, question,
             )
@@ -733,7 +738,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           outfitQueries.map(async (q) => {
             const concepts = buildMandatoryConcepts(q)
             const results = await GlobalCatalogService.search(
-              q, undefined, [], null, true, concepts,
+              q, undefined, [], countryCode, true, concepts,
               'relevance', buyerCurrency, { fastFirstPage: true }, [],
               memorySummary,
             )

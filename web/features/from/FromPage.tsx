@@ -1518,6 +1518,7 @@ export default function FromApp({
           question,
           images: capturedImages,
           buyerCurrency: shopperContext.currency,
+          buyerCountry: shopperContext.country,
           memorySummary: stylistMemorySummary,
           shopperGender: shopperGenderFromProfile,
           shopperProfile: shopperProfileForStylist,

@@ -494,7 +494,7 @@ function extractSuggestions(text: string): { cleanText: string, suggestions: str
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile, shopperGender } = await req.json()
+    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, buyerCountry, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile, shopperGender } = await req.json()
     // 'Men' → 'men', 'Women' → 'women', 'Both'/'Non-binary'/unset → null (no prefix)
     const genderPrefix = shopperGender === 'Men' ? 'men' : shopperGender === 'Women' ? 'women' : null
     // Regex to detect if a query specifies a gender — or clearly refers to someone else
@@ -508,7 +508,11 @@ export async function POST(req: NextRequest) {
       return `${genderPrefix} ${q}`
     }
     if (!message) throw new Error('No message provided')
-    const countryCode = req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null;
+    // Prefer the frontend's resolved country (geo header → cookie → locale chain);
+    // fall back to the IP header so geo-boost still works if the body omits it.
+    const countryCode = (typeof buyerCountry === 'string' && buyerCountry.trim()
+      ? buyerCountry.trim().toUpperCase()
+      : req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null);
     const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
 
     if (message === 'more' && searchQuery) {
