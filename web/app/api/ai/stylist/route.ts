@@ -48,22 +48,46 @@ function isHeavyQuery(question: string): boolean {
 
 // Gemini for queries that need fashion depth; Groq for conversational replies.
 // Gemini also falls back to Groq if it returns null content (safety filter etc.).
+// Known-good Groq text models, tried in order if the configured one fails.
+// Guards against a decommissioned/misconfigured GROQ_CHAT_MODEL in env.
+const GROQ_FALLBACK_MODELS = [
+  process.env.GROQ_CHAT_MODEL,
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+].filter((m, i, a): m is string => !!m && a.indexOf(m) === i)
+
 async function stylistChat(
   messages: any[],
   system: string,
   opts?: { max_tokens?: number; temperature?: number },
   useGemini = false
 ): Promise<{ role: string; content: string | null }> {
+  const errors: string[] = []
+
+  // Heavy queries prefer Gemini for depth; conversational skip straight to Groq.
   if (useGemini && process.env.GOOGLE_AI_API_KEY) {
     try {
       const result = await geminiChat(messages, system, opts)
       if (result?.content) return result
-      console.warn('[stylist] Gemini returned no content, falling back to Groq')
+      errors.push('gemini: empty content')
     } catch (err) {
-      console.warn('[stylist] Gemini failed, falling back to Groq:', (err as Error).message)
+      errors.push(`gemini: ${(err as Error).message}`)
     }
   }
-  return groqChat(messages, system, undefined, opts)
+
+  // Groq, trying each known-good model until one returns content.
+  for (const model of GROQ_FALLBACK_MODELS) {
+    try {
+      const result = await groqChat(messages, system, undefined, { ...opts, model })
+      if (result?.content) return result
+      errors.push(`groq(${model}): empty content`)
+    } catch (err) {
+      errors.push(`groq(${model}): ${(err as Error).message}`)
+    }
+  }
+
+  // Everything failed — throw with the full diagnostic trail.
+  throw new Error(errors.join(' | ') || 'all model calls failed')
 }
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -620,7 +644,8 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         raw = (msg?.content ?? '').trim()
       } catch (err) {
         console.error('[stylist] model call failed:', err)
-        return NextResponse.json({ reply: "Hey, I'm here! Something went wrong on my end just now. Try again?", comparison: null })
+        // TEMP DIAGNOSTIC: surface the real error so we can identify the root cause.
+        return NextResponse.json({ reply: `⚠️ DEBUG: ${(err as Error).message}`.slice(0, 600), comparison: null })
       }
     }
 

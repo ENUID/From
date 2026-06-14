@@ -32,7 +32,7 @@ export async function groqChat(
   messages: ChatMessage[],
   system?: string,
   tools?: any[],
-  opts?: { max_tokens?: number; temperature?: number },
+  opts?: { max_tokens?: number; temperature?: number; model?: string },
   retryCount = 0
 ): Promise<any> {
   const allMessages = system
@@ -40,7 +40,7 @@ export async function groqChat(
     : messages
 
   const payload: any = {
-    model: CHAT_MODEL,
+    model: opts?.model ?? CHAT_MODEL,
     messages: allMessages,
     temperature: opts?.temperature ?? 0.1,
     max_tokens: opts?.max_tokens ?? 1200,
