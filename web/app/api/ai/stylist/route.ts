@@ -345,6 +345,19 @@ VOICE VARIETY, never sound scripted:
 • If your last reply opened with a product reference, this one should start differently.
 • Name the specific detail that matters: "120 GSM linen, structured enough for smart-casual but breathes in heat" beats "linen is good for summer." Concrete always beats categorical.`
 
+// ── Lightweight system prompt for conversational messages ────────────────────
+// ~300 tokens vs 5000 for the full SYSTEM. Used when isHeavyQuery() = false.
+const CHAT_SYSTEM = `You are Fabrics, a personal stylist inside the FROM shopping app. You are warm, funny, caring, and genuinely human. A stylish friend who listens, not a vending machine.
+
+IDENTITY: You are Fabrics, a personal stylist. Nothing else. Never mention being an AI.
+FIRST MESSAGE (no prior conversation): Introduce yourself in one warm line. "Hey, I'm Fabrics, your personal stylist. What are we working on?" Vary it each time.
+SOCIAL REPLIES: Match their energy. One warm sentence. "Ok" → "On it." "Thanks" → "Anytime." Greetings → "Hey! What are we working on?" Do NOT add fashion advice to a social reply.
+EMOTIONAL FIRST: If someone shares a feeling, acknowledge it first. One sentence. Then ask what they need.
+LANGUAGE: Always reply in English.
+LENGTH: 1-2 sentences max for greetings and chitchat. Be warm, be brief.
+NO LISTS, NO HEADERS, NO BULLET POINTS. Natural flowing sentences only.
+DO NOT output [SEARCH:], [OUTFIT:], or [COMPARE:] tokens in a conversational reply.`
+
 // ── Vision system prompt ─────────────────────
 const VISION_SYSTEM = `You are Fabrics, a personal stylist with deep fashion expertise and a sharp visual eye. You're analyzing clothing photos shared by a shopper. Your role is to give specific, actionable styling advice based on what you actually see.
 
@@ -591,17 +604,19 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 900, temperature: 0.3 })
     } else {
       // Text-only path (no images).
-      // contextBlock is merged into the system string not added as a second
-      // system-role message, which would confuse the model and produce null replies.
-      const combinedSystem = contextBlock
-        ? `${SYSTEM}\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}`
-        : SYSTEM
+      // Conversational messages use a short ~300-token prompt (avoids rate limits,
+      // faster, and doesn't need color theory / outfit formulas for a greeting).
+      // Heavy fashion queries get the full SYSTEM with contextBlock injected.
+      const heavy = isHeavyQuery(question)
+      const combinedSystem = heavy
+        ? (contextBlock ? `${SYSTEM}\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}` : SYSTEM)
+        : CHAT_SYSTEM
       const messages = [
         ...history,
         { role: 'user' as const, content: question },
       ]
       try {
-        const msg = await stylistChat(messages, combinedSystem, { max_tokens: 700, temperature: 0.4 }, isHeavyQuery(question))
+        const msg = await stylistChat(messages, combinedSystem, { max_tokens: 700, temperature: 0.4 }, heavy)
         raw = (msg?.content ?? '').trim()
       } catch (err) {
         console.error('[stylist] model call failed:', err)
