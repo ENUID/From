@@ -444,6 +444,25 @@ export function expandQuery(query: string, matched: StyleEntry[]): string {
   return `${query} ${unique.join(' ')}`
 }
 
+// Concrete catalog tokens for the styles a query references — materials first
+// (they reliably appear in product titles/tags, e.g. "cashmere", "gore-tex"),
+// then short single-word keywords. Used as ADDITIONAL union fetch queries to
+// recover products that a literal style term ("gorpcore") never matches in
+// Shopify search. Returns [] when no style is referenced, so callers no-op.
+export function styleRecallSignals(query: string, max = 4): string[] {
+  const matched = matchStyles(query)
+  if (matched.length === 0) return []
+  const out = new Set<string>()
+  for (const e of matched) for (const m of e.materials) out.add(m.toLowerCase())
+  for (const e of matched) {
+    for (const k of e.keywords) {
+      // Single concrete words only — multi-word phrases dilute keyword search.
+      if (!k.includes(' ') && k.length >= 4) out.add(k.toLowerCase())
+    }
+  }
+  return Array.from(out).slice(0, max)
+}
+
 export function vocabPromptBlock(matched: StyleEntry[]): string {
   if (matched.length === 0) return ''
   const blocks = matched.map(

@@ -17,7 +17,7 @@
 import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, getStoreCountry, GEO_REGIONS, brandQualityScore } from '../stores'
 import { getExchangeRates } from '../exchangeRates'
 import { rerankByRelevance } from './relevanceRerank'
-import { matchStyles } from '../styleVocabulary'
+import { matchStyles, styleRecallSignals } from '../styleVocabulary'
 import { recordBrandOutcome, deprioritizeDead } from './brandHealth'
 import { readPersistentCache, writePersistentCache } from './persistentSearchCache'
 
@@ -706,23 +706,48 @@ export class GlobalCatalogService {
       ingest(batchRaw)
     }
 
-    // Second-chance recall: a specific multi-word query ("oxford camp collar
-    // shirt") can miss on Shopify's literal search. If results are thin, retry
-    // the same stores once with just the garment term. Runs at most once per
-    // cached query — worst case it adds nothing and the page renders as before.
-    if (!isLoadMore && !entry.broadened && storeQuery.includes(' ')) {
+    // Second-chance recall: a literal query can miss on Shopify's keyword search
+    // two ways — a specific multi-word phrase ("oxford camp collar shirt") matches
+    // nothing, or an aesthetic term ("gorpcore") has no literal catalog presence.
+    // If results are thin, retry the queried stores with broader signals, UNIONing
+    // anything new into the pool (never replacing the clean primary results).
+    // Runs at most once per cached query — worst case it adds nothing.
+    if (!isLoadMore && !entry.broadened) {
       const current = applyFiltersAndSort(entry.products, {
         budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
         concepts: mandatoryConcepts,
       })
       if (current.length < 5) {
-        const garment = mandatoryConcepts[0]?.[0] || storeQuery.split(' ').pop() || ''
-        if (garment && garment.length >= 3 && garment.toLowerCase() !== storeQuery.toLowerCase()) {
-          entry.broadened = true
-          const retryDomains = Array.from(entry.queried).slice(0, 20)
-          const retryRaw = await Promise.all(retryDomains.map(d => fetchStore(d, garment, cc)))
+        entry.broadened = true
+        const recallQueries: string[] = []
+
+        // (a) Garment broadening — drop modifiers, keep the bare item type.
+        if (storeQuery.includes(' ')) {
+          const garment = mandatoryConcepts[0]?.[0] || storeQuery.split(' ').pop() || ''
+          if (garment && garment.length >= 3 && garment.toLowerCase() !== storeQuery.toLowerCase()) {
+            recallQueries.push(garment)
+          }
+        }
+
+        // (b) Style-vocabulary recall — when the request references an aesthetic,
+        // query its concrete material/keyword tokens (e.g. gorpcore → gore-tex,
+        // nylon, fleece) to surface pieces the literal style term never matches.
+        const styleQuery = (rerankQuery && rerankQuery.trim()) || rawQuery
+        for (const sig of styleRecallSignals(styleQuery)) {
+          if (!recallQueries.includes(sig)) recallQueries.push(sig)
+        }
+
+        const queries = recallQueries.slice(0, 3)   // bound fan-out cost
+        if (queries.length > 0) {
+          // Keep total fetches bounded: full store breadth for a single recall
+          // query, tighter when style signals multiply the fan-out.
+          const domainCap = queries.length <= 1 ? 20 : 16
+          const retryDomains = Array.from(entry.queried).slice(0, domainCap)
+          const retryRaw = await Promise.all(
+            retryDomains.flatMap(d => queries.map(q => fetchStore(d, q, cc))),
+          )
           ingest(retryRaw)
-          console.log(`[Catalog] broadened "${storeQuery}" → "${garment}" (+${entry.products.length} pool)`)
+          console.log(`[Catalog] recall "${storeQuery}" → [${queries.join(', ')}] (+${entry.products.length} pool)`)
         }
       }
     }
