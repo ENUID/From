@@ -863,13 +863,6 @@ type StylistLoadingPhase = { main: string; sub: string; subsub?: string }
 function buildStylistLoadingPhases(question: string, hasImages: boolean): StylistLoadingPhase[] {
   const q = question.toLowerCase()
 
-  // Short social exchanges don't need an elaborate loading animation — just a quiet wait indicator
-  const PLEASANTRY_RE = /^(ok|okay|got it|sounds good|perfect|great|awesome|cool|sure|noted|thanks|thank you|ty|cheers|done|yes|no|yep|nope|hi|hey|hello|sup|what'?s\s*up|good morning|good afternoon|good evening|nice|love it|makes sense|understood|agreed|fair enough|exactly|right|brilliant|fab|i see|that'?s?\s*(great|good|nice|perfect)|go on|tell me)\b/i
-  const wordCount = q.trim().split(/\s+/).filter(Boolean).length
-  if (!hasImages && wordCount <= 7 && PLEASANTRY_RE.test(q.trim())) {
-    return [{ main: '…', sub: '' }]
-  }
-
   // ── Extract meaningful terms from the query ─────────────────────────────────
   const GARMENT_WORDS: [RegExp, string][] = [
     [/\bt-?shirts?\b|\btees?\b/, 't-shirt'],
@@ -926,6 +919,11 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
   const isMaterial = /\bmaterial\b|\bfabric\b/.test(q) || !!foundMaterial
   const isOutfit   = /\boutfit\b|\blook\b|\bstyle\b|\bocasion\b|\boccasion\b|\bwear\b|\bcasual\b|\bformal\b/.test(q)
   const isValue    = /\bprice\b|\bcost\b|\bworth\b|\bvalue\b|\bexpensive\b|\bcheap\b|\bbudget\b/.test(q)
+
+  // No fashion signals → purely conversational message, use simple typing dots
+  const hasFashionSignal = hasImages || foundGarment || foundMaterial || foundOccasion || foundColor ||
+    isCompare || isSearch || isColor || isMaterial || isOutfit || isValue
+  if (!hasFashionSignal) return []
 
   // ── Phase sets ───────────────────────────────────────────────────────────────
   if (hasImages) {
@@ -4154,39 +4152,48 @@ export default function FromApp({
                     </div>
                   ))}
                   {stylistLoading && (
-                    <div style={{ padding: '6px 2px 14px' }}>
-                      {/* Main phase — key forces re-mount/fade on step change */}
-                      <div key={`main-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .22s ease' }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: INK, display: 'inline-block', flexShrink: 0, animation: 'fr-bounce 1.1s 0s infinite' }} />
-                        <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 500 }}>
-                          {stylistLoadingPhases[stylistLoadingStep]?.main ?? 'Thinking…'}
-                        </span>
+                    stylistLoadingPhases.length === 0 ? (
+                      // Conversational message — simple typing dots, no search animation
+                      <div style={{ padding: '10px 2px 14px', display: 'flex', gap: 5, alignItems: 'center' }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0s infinite' }} />
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0.22s infinite' }} />
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0.44s infinite' }} />
                       </div>
-                      {/* Sub */}
-                      {stylistSubVis && stylistLoadingPhases[stylistLoadingStep]?.sub && (
-                        <div key={`sub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, paddingLeft: 3, animation: 'fadeUp .2s ease' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                            <div style={{ width: 1, height: 7, background: 'rgba(44,18,6,0.15)' }} />
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: INK3, display: 'inline-block' }} />
-                          </div>
-                          <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
-                            {stylistLoadingPhases[stylistLoadingStep]?.sub}
+                    ) : (
+                      <div style={{ padding: '6px 2px 14px' }}>
+                        {/* Main phase — key forces re-mount/fade on step change */}
+                        <div key={`main-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .22s ease' }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: INK, display: 'inline-block', flexShrink: 0, animation: 'fr-bounce 1.1s 0s infinite' }} />
+                          <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 500 }}>
+                            {stylistLoadingPhases[stylistLoadingStep]?.main ?? 'Thinking…'}
                           </span>
                         </div>
-                      )}
-                      {/* Sub-sub */}
-                      {stylistSubSubVis && stylistLoadingPhases[stylistLoadingStep]?.subsub && (
-                        <div key={`subsub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 12, animation: 'fadeUp .2s ease' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                            <div style={{ width: 1, height: 6, background: 'rgba(44,18,6,0.10)' }} />
-                            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(44,18,6,0.25)', display: 'inline-block' }} />
+                        {/* Sub */}
+                        {stylistSubVis && stylistLoadingPhases[stylistLoadingStep]?.sub && (
+                          <div key={`sub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, paddingLeft: 3, animation: 'fadeUp .2s ease' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                              <div style={{ width: 1, height: 7, background: 'rgba(44,18,6,0.15)' }} />
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: INK3, display: 'inline-block' }} />
+                            </div>
+                            <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
+                              {stylistLoadingPhases[stylistLoadingStep]?.sub}
+                            </span>
                           </div>
-                          <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.7 }}>
-                            {stylistLoadingPhases[stylistLoadingStep]?.subsub}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                        {/* Sub-sub */}
+                        {stylistSubSubVis && stylistLoadingPhases[stylistLoadingStep]?.subsub && (
+                          <div key={`subsub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 12, animation: 'fadeUp .2s ease' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                              <div style={{ width: 1, height: 6, background: 'rgba(44,18,6,0.10)' }} />
+                              <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(44,18,6,0.25)', display: 'inline-block' }} />
+                            </div>
+                            <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.7 }}>
+                              {stylistLoadingPhases[stylistLoadingStep]?.subsub}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
                   )}
                 </div>
 
