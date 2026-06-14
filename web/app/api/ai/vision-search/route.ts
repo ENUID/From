@@ -6,6 +6,20 @@ export const maxDuration = 30
 const MAX_IMAGES = 3
 const MAX_DATA_URL_CHARS = 6_000_000 // ~4.5MB binary per image
 
+// IP-based rate limit: 10 vision requests per minute per IP
+const visionBuckets = new Map<string, { count: number; resetAt: number }>()
+function visionRateLimited(req: NextRequest): boolean {
+  const ip = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim()
+    ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? 'unknown'
+  const now = Date.now()
+  const b = visionBuckets.get(ip)
+  if (!b || now > b.resetAt) { visionBuckets.set(ip, { count: 1, resetAt: now + 60_000 }); return false }
+  if (b.count >= 10) return true
+  b.count++
+  return false
+}
+
 const SYSTEM = `You are FROM's visual search eye — a fashion buyer who can look at any photo and name exactly what it is in the language a catalog understands. Your output becomes a product search, so precision is everything.
 
 Look at the photo(s) and produce ONE concise catalog query for the single most prominent garment, shoe, bag, or accessory.
@@ -29,6 +43,7 @@ men navy linen camp collar shirt
 beige wide leg pleated wool trousers`
 
 export async function POST(req: NextRequest) {
+  if (visionRateLimited(req)) return NextResponse.json({ query: null }, { status: 429 })
   try {
     const body = await req.json()
     const images: string[] = Array.isArray(body?.images)

@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         }
       }
       console.error('[send-code] createCode failed:', detail)
-      return NextResponse.json({ error: `Sign-in error: ${detail}` }, { status: 500 })
+      return NextResponse.json({ error: 'Sign-in failed. Please try again.' }, { status: 500 })
     }
 
     const { error } = await resend.emails.send({

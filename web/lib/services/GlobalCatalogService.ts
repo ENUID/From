@@ -650,7 +650,7 @@ export class GlobalCatalogService {
     const cacheKey = makeCacheKey(storeQuery, cc, validBrands)
 
     // Reuse the fetched pool across pages; rebuild it on a cold cache.
-    let entry = options.refreshReserve ? cacheGet(cacheKey) : cacheGet(cacheKey)
+    let entry = options.refreshReserve ? null : cacheGet(cacheKey)
     let seededFromPersistent = false
     if (!entry) {
       const orderedDomains = isBrandSearch

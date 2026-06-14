@@ -37,11 +37,9 @@ function evictCache() {
   const cutoff = Date.now() - CACHE_TTL
   const keys = Array.from(cache.keys())
   for (const k of keys) {
-    const v = cache.get(k)!
-    if (v.ts < cutoff) cache.delete(k)
-    if (cache.size < CACHE_MAX) break
+    if ((cache.get(k)!).ts < cutoff) cache.delete(k)
   }
-  // If still too large, drop oldest entries
+  // If still too large after TTL pass, drop oldest entries
   if (cache.size >= CACHE_MAX) {
     const entries = Array.from(cache.entries()).sort((a, b) => a[1].ts - b[1].ts)
     for (const [k] of entries.slice(0, 50)) cache.delete(k)

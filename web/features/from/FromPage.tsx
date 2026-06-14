@@ -2224,7 +2224,7 @@ export default function FromApp({
     setFetchedSizeGuide(null)
     fetch(`/api/sizeguide?url=${encodeURIComponent(storeUrl)}`)
       .then(r => r.json())
-      .then(d => { if (!cancelled) setFetchedSizeGuide(d.html ?? null) })
+      .then(d => { if (!cancelled) setFetchedSizeGuide(d.html ? sanitizeHtml(d.html) : null) })
       .catch(() => { if (!cancelled) setFetchedSizeGuide(null) })
       .finally(() => { if (!cancelled) setSizeGuideLoading(false) })
     return () => { cancelled = true }

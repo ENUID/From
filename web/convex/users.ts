@@ -73,10 +73,14 @@ export const createUser = mutation({
 export const getUserByEmail = query({
   args: { email: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase().trim()))
       .first();
+    if (!user) return null;
+    // Strip fields that must not be exposed to the browser
+    const { passwordHash: _ph, ipAddress: _ip, lat: _lat, lng: _lng, ...safe } = user as any;
+    return safe;
   },
 });
 

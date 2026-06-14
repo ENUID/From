@@ -43,6 +43,9 @@ type RateEntry = {
 const rateBuckets = new Map<string, RateEntry>()
 
 function getClientKey(req: NextRequest) {
+  // Prefer Vercel's signed header over the spoofable x-forwarded-for
+  const vercel = req.headers.get('x-vercel-forwarded-for')
+  if (vercel) return vercel.split(',')[0]?.trim() || 'unknown'
   const forwarded = req.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0]?.trim() || 'unknown'
   return req.headers.get('x-real-ip') ?? 'unknown'
@@ -504,10 +507,16 @@ export async function POST(req: NextRequest) {
     const applyGenderPrefix = (q: string): string => {
       if (!genderPrefix) return q
       if (!q.trim()) return q  // empty query = full catalog browse — don't add gender prefix
-      if (GENDER_TERM_RE.test(q) || GENDER_TERM_RE.test(message)) return q
+      if (GENDER_TERM_RE.test(q) || GENDER_TERM_RE.test(safeMessage)) return q
       return `${genderPrefix} ${q}`
     }
     if (!message) throw new Error('No message provided')
+    // Rate-limit ALL paths including load-more so the check cannot be bypassed.
+    if (isRateLimited(req)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+    // Cap message length to prevent excessive token spend on crafted inputs.
+    const safeMessage: string = typeof message === 'string' ? message.slice(0, 500) : ''
     // Prefer the frontend's resolved country (geo header → cookie → locale chain);
     // fall back to the IP header so geo-boost still works if the body omits it.
     const countryCode = (typeof buyerCountry === 'string' && buyerCountry.trim()
@@ -515,7 +524,7 @@ export async function POST(req: NextRequest) {
       : req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null);
     const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
 
-    if (message === 'more' && searchQuery) {
+    if (safeMessage === 'more' && searchQuery) {
       const excludeIds = collectProductIds(history || [], currentExcludeIds)
       const moreArgs = SearchToolSchema.parse({
         searchQuery,
@@ -547,25 +556,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (isRateLimited(req)) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-    }
-
-    const cleanHistory = sanitizeHistory(history || [], message)
-    const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: message }]
+    const cleanHistory = sanitizeHistory(history || [], safeMessage)
+    const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: safeMessage }]
 
     // Detect explicit brand mentions in the user message so the catalog search
     // can restrict to just those store(s) rather than scanning the whole registry.
-    const detectedBrandDomains = detectBrandsInQuery(message)
+    const detectedBrandDomains = detectBrandsInQuery(safeMessage)
 
     // Brand-only fast path: message names a brand with no specific product query.
     // Bypass LLM entirely and browse the brand's full catalog with an empty query.
-    if (detectedBrandDomains.length > 0 && !/\b(more|others?|another|different ones?)\b/i.test(message)) {
+    if (detectedBrandDomains.length > 0 && !/\b(more|others?|another|different ones?)\b/i.test(safeMessage)) {
       // Strip the brand name(s) and common "browse" filler words from the message.
       // A broad set of filler is intentional — we want "What does Our Legacy have?",
       // "show me everything from Taylor Stitch", "any new items at Aime Leon Dore?" etc.
       // to all resolve to a full-catalog browse rather than falling through to the LLM.
-      const stripped = stripBrandNames(message, detectedBrandDomains)
+      const stripped = stripBrandNames(safeMessage, detectedBrandDomains)
         .replace(/\b(show|find|see|get|browse|from|at|by|in|the|all|products?|what|does|do|have|has|everything|items?|collection|anything|new|stuff|things?|clothing|clothes|me|us|their|any|your|latest|recent)\b/gi, ' ')
         .replace(/[''?!.,]/g, ' ')
         .replace(/\s+/g, ' ')
@@ -605,8 +610,8 @@ export async function POST(req: NextRequest) {
 
     // Fast path: deterministic compiler for clear product queries.
     // Skips the LLM entirely — instant response with no model latency.
-    const compiled = compileIntent(message, activeBuyerCurrency)
-    if (compiled && !/\b(more|others?|another|different ones?)\b/i.test(message)) {
+    const compiled = compileIntent(safeMessage, activeBuyerCurrency)
+    if (compiled && !/\b(more|others?|another|different ones?)\b/i.test(safeMessage)) {
       compiled.args.searchQuery = applyGenderPrefix(compiled.args.searchQuery)
       const compiledResult = await runCatalogSearch(compiled.args, {
         countryCode,
@@ -680,7 +685,7 @@ export async function POST(req: NextRequest) {
       dynamicSystemPrompt += `\n\nABOUT THIS SHOPPER (personalize for them — weave taste signals in subtly, let the current request lead):\n${personalLines.join('\n')}`;
     }
 
-    const matchedStyles = matchStyles(message)
+    const matchedStyles = matchStyles(safeMessage)
     const styleVocab = vocabPromptBlock(matchedStyles)
     if (styleVocab) {
       dynamicSystemPrompt += `\n\n${styleVocab}`

@@ -527,8 +527,28 @@ function parseWardrobeToken(text: string): { reply: string; wardrobeScan?: any }
   }
 }
 
+// ── Per-IP rate limit (shared in-process; Vercel may have multiple instances) ─
+const stylistBuckets = new Map<string, { count: number; resetAt: number }>()
+const STYLIST_MAX = 30   // requests per minute per IP
+const STYLIST_WIN = 60_000
+
+function stylistRateLimited(req: NextRequest): boolean {
+  const ip = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim()
+    ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? 'unknown'
+  const now = Date.now()
+  const b = stylistBuckets.get(ip)
+  if (!b || now > b.resetAt) { stylistBuckets.set(ip, { count: 1, resetAt: now + STYLIST_WIN }); return false }
+  if (b.count >= STYLIST_MAX) return true
+  b.count++
+  return false
+}
+
 // ── Route ───────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  if (stylistRateLimited(req)) {
+    return NextResponse.json({ reply: "Too many requests — please slow down.", busy: false }, { status: 429 })
+  }
   try {
     const body = await req.json()
     const mode: string = typeof body?.mode === 'string' ? body.mode : 'default'
@@ -536,7 +556,7 @@ export async function POST(req: NextRequest) {
     const rawHistory: StylistMessage[] = Array.isArray(body?.messages) ? body.messages.slice(-20) : []
     const question: string = typeof body?.question === 'string' ? body.question.trim().slice(0, 500) : ''
     const images: string[] = Array.isArray(body?.images)
-      ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:')).slice(0, 10)
+      ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:image/') && x.length <= 6_000_000).slice(0, 8)
       : []
     const buyerCurrency: string = typeof body?.buyerCurrency === 'string'
       ? body.buyerCurrency.toUpperCase()
@@ -676,9 +696,8 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         if (isRateLimited(err)) {
           return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
         }
-        // TEMP DIAGNOSTIC: surface the real provider error trail so we can see
-        // exactly which models failed and why (remove once root cause is known).
-        return NextResponse.json({ reply: `DEBUG: ${(err as Error).message}`.slice(0, 900), comparison: null })
+        console.error('[stylist] all models failed:', (err as Error).message)
+        return NextResponse.json({ reply: "Something went wrong. Please try again.", comparison: null })
       }
     }
 

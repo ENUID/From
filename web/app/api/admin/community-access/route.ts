@@ -22,7 +22,7 @@ function authorized(req: NextRequest): { ok: boolean; reason?: string } {
 // Body: { email: string, note?: string }
 export async function POST(req: NextRequest) {
   const auth = authorized(req)
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized', reason: auth.reason }, { status: 401 })
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { email, note } = await req.json().catch(() => ({}))
   if (!email || typeof email !== 'string') {
     return NextResponse.json({ error: 'email required' }, { status: 400 })
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 // Body: { email: string }
 export async function DELETE(req: NextRequest) {
   const auth = authorized(req)
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized', reason: auth.reason }, { status: 401 })
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { email } = await req.json().catch(() => ({}))
   if (!email || typeof email !== 'string') {
     return NextResponse.json({ error: 'email required' }, { status: 400 })
@@ -60,7 +60,7 @@ export async function DELETE(req: NextRequest) {
 // GET — auth check (?check=1) OR list everyone on the allowlist
 export async function GET(req: NextRequest) {
   const auth = authorized(req)
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized', reason: auth.reason }, { status: 401 })
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   // Fast auth-only path — never touches Convex, so login can't hang on it.
   if (req.nextUrl.searchParams.get('check') === '1') {
     return NextResponse.json({ ok: true, authed: true })
