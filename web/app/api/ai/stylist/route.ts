@@ -29,14 +29,32 @@ function stripBrandNames(query: string, domains: string[]): string {
   return q.replace(/\s+/g, ' ').trim()
 }
 
-// Use Gemini if configured; fall back to Groq 70b.
-// Also falls back if Gemini returns null content (safety filter, empty response, etc.)
+// True when a query justifies the heavier Gemini model.
+// Conversational messages (greetings, chitchat, emotional support) go straight to Groq.
+function isHeavyQuery(question: string): boolean {
+  const q = question.toLowerCase()
+  return (
+    /\bfind\b|\bshow\b|\blook for\b|\brecommend\b|\bsuggest\b|\bsearch\b|\bwhere can i\b/.test(q) ||
+    /\boutfit\b|\bbuild.{0,10}look|\bcomplete.{0,10}look|\bwhat.{0,10}wear\b/.test(q) ||
+    /\bshirt\b|\bjacket\b|\bblazer\b|\bcoat\b|\btrouser|\bpant\b|\bjean|\bdress\b|\bshoe|\bsneaker|\bboot|\bloafer|\bsandal/.test(q) ||
+    /\blinen\b|\bcotton\b|\bwool\b|\bcashmere\b|\bsilk\b|\bleather\b|\bsuede\b|\bfabric\b|\bmaterial\b/.test(q) ||
+    /\bwedding\b|\bwork\b|\boffice\b|\bdate night\b|\bformal\b|\bdinner\b|\bparty\b|\bevent\b|\boccasion\b/.test(q) ||
+    /\bcolou?r\b|\bmatch\b|\bpair\b|\bwear with\b|\bgo with\b/.test(q) ||
+    /\bcompar|\bvs\b|\bbetter\b|\bdifference\b|\bprefer\b/.test(q) ||
+    /\bprice\b|\bcost\b|\bbudget\b|\bworth\b/.test(q) ||
+    /\bstyle\b|\blook\b|\baesthetic\b|\bvibes?\b/.test(q)
+  )
+}
+
+// Gemini for queries that need fashion depth; Groq for conversational replies.
+// Gemini also falls back to Groq if it returns null content (safety filter etc.).
 async function stylistChat(
   messages: any[],
   system: string,
-  opts?: { max_tokens?: number; temperature?: number }
+  opts?: { max_tokens?: number; temperature?: number },
+  useGemini = false
 ): Promise<{ role: string; content: string | null }> {
-  if (process.env.GOOGLE_AI_API_KEY) {
+  if (useGemini && process.env.GOOGLE_AI_API_KEY) {
     try {
       const result = await geminiChat(messages, system, opts)
       if (result?.content) return result
@@ -582,7 +600,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         ...history,
         { role: 'user' as const, content: question },
       ]
-      const msg = await stylistChat(messages, combinedSystem, { max_tokens: 700, temperature: 0.4 })
+      const msg = await stylistChat(messages, combinedSystem, { max_tokens: 700, temperature: 0.4 }, isHeavyQuery(question))
       raw = (msg?.content ?? '').trim()
     }
 
