@@ -1494,8 +1494,22 @@ export default function FromApp({
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistOpen, setStylistOpen]       = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
-  const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>([])
-  const [stylistHistory, setStylistHistory] = useState<StylistHistoryEntry[]>([])
+  const STYLIST_HISTORY_LS = 'from:stylist-history'
+  const stylistSessionLS = (id: string) => `from:stylist-session:${id}`
+  const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>(() => {
+    // Restore most-recent session messages on first render
+    try {
+      const hist = JSON.parse(localStorage.getItem('from:stylist-history') || '[]') as StylistHistoryEntry[]
+      if (hist.length > 0) {
+        const raw = localStorage.getItem(`from:stylist-session:${hist[0].id}`)
+        if (raw) return JSON.parse(raw) as StylistMsg[]
+      }
+    } catch {}
+    return []
+  })
+  const [stylistHistory, setStylistHistory] = useState<StylistHistoryEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem('from:stylist-history') || '[]') } catch { return [] }
+  })
   const [stylistRenameId, setStylistRenameId]   = useState<string | null>(null)
   const [stylistRenameVal, setStylistRenameVal] = useState('')
   const [stylistCtxMenu, setStylistCtxMenu]     = useState<{ id: string; label: string; x: number; y: number; above: boolean } | null>(null)
@@ -1535,7 +1549,14 @@ export default function FromApp({
     setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 8) ? prev : [...prev, p])
     setStylistOpen(true)
   }
-  function deleteStylistEntry(id: string) { setStylistHistory(prev => prev.filter(e => e.id !== id)) }
+  function deleteStylistEntry(id: string) {
+    setStylistHistory(prev => prev.filter(e => e.id !== id))
+    try { localStorage.removeItem(stylistSessionLS(id)) } catch {}
+    if (stylistSessionId.current === id) {
+      setStylistMsgs([])
+      stylistSessionId.current = null
+    }
+  }
   function renameStylistEntry(id: string, newLabel: string) { setStylistHistory(prev => prev.map(e => e.id === id ? { ...e, label: newLabel } : e)) }
 
   const handleStylistFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1895,6 +1916,27 @@ export default function FromApp({
   useEffect(() => { if (stylistRenameId && stylistRenameRef.current) { stylistRenameRef.current.focus(); stylistRenameRef.current.select() } }, [stylistRenameId])
   // Keep the stylist conversation scrolled to the latest message
   useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading])
+
+  // Restore session ID from the most-recent history entry on mount
+  useEffect(() => {
+    if (stylistHistory.length > 0 && !stylistSessionId.current) {
+      stylistSessionId.current = stylistHistory[0].id
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Persist sidebar history list whenever it changes
+  useEffect(() => {
+    try { localStorage.setItem(STYLIST_HISTORY_LS, JSON.stringify(stylistHistory)) } catch {}
+  }, [stylistHistory])
+
+  // Persist current session messages (text only — strip large product arrays)
+  useEffect(() => {
+    const id = stylistSessionId.current
+    if (!id || stylistMsgs.length === 0) return
+    const slim = stylistMsgs.map(m => ({ role: m.role, content: m.content }))
+    try { localStorage.setItem(stylistSessionLS(id), JSON.stringify(slim)) } catch {}
+  }, [stylistMsgs])
 
   // Drive the loading phase animation — each step shows main text, then sub fades in,
   // then sub-sub, then advances to the next phase. Resets cleanly when loading ends.
@@ -3393,6 +3435,15 @@ export default function FromApp({
                       onContextMenu={e => e.preventDefault()}
                       onClick={() => {
                         if (wasLongPress.current) { wasLongPress.current = false; return }
+                        if (stylistSessionId.current !== h.id) {
+                          // Restore this session's messages from localStorage
+                          try {
+                            const raw = localStorage.getItem(stylistSessionLS(h.id))
+                            setStylistMsgs(raw ? JSON.parse(raw) as StylistMsg[] : [])
+                          } catch { setStylistMsgs([]) }
+                          stylistSessionId.current = h.id
+                          setStylistProducts([])
+                        }
                         setStylistOpen(true)
                       }}
                       onPointerDown={e => {
