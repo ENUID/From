@@ -202,6 +202,25 @@ copyBtn&&copyBtn.addEventListener("click",async()=>{
   }).catch(()=>{});
 })();
 
+/* ── live contributors ── */
+(function contributors(){
+  const el=document.getElementById("contributors"); if(!el) return;
+  const SEED=["d0four","AryanBhargavprojects"];
+  function add(login){
+    if(document.getElementById("av-"+login)) return;
+    const a=document.createElement("a");
+    a.id="av-"+login; a.href="https://github.com/"+login;
+    a.target="_blank"; a.rel="noopener noreferrer"; a.title="@"+login;
+    const img=document.createElement("img");
+    img.src="https://avatars.githubusercontent.com/"+login+"?s=80";
+    img.alt=login; img.className="av-img";
+    a.appendChild(img); el.appendChild(a);
+  }
+  SEED.forEach(add);
+  fetch("https://api.github.com/repos/Ratel-Factory/Ratel-Factory/contributors")
+    .then(r=>r.ok?r.json():[]).then(d=>{if(Array.isArray(d))d.forEach(c=>add(c.login));}).catch(()=>{});
+})();
+
 /* ── GSAP reveals, counters, anatomy ── */
 if(window.gsap){
   gsap.registerPlugin(ScrollTrigger);
