@@ -101,6 +101,10 @@ nav.scrolled{background:rgba(245,244,239,.82);backdrop-filter:blur(14px) saturat
 .icell svg{width:20px;height:20px;color:var(--ink)}
 .icell.big{padding:16px 22px;font-size:16.5px}
 .icell .tag{font-family:"JetBrains Mono";font-size:10px;color:var(--faint);font-weight:400;margin-left:2px}
+.brand-logo{width:20px;height:20px;border-radius:4px;object-fit:contain;flex-shrink:0}
+.brand-svg{width:20px;height:20px;flex-shrink:0;color:var(--ink)}
+.icell.cs{opacity:.45;pointer-events:none;cursor:default}
+.tag.soon{background:rgba(21,23,28,.07);color:var(--faint);padding:2px 6px;border-radius:4px;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase}
 
 .strip{border-bottom:1px solid var(--line);background:var(--paper)}
 .strip-in{display:grid;grid-template-columns:repeat(4,1fr)}
