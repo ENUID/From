@@ -196,7 +196,7 @@ copyBtn&&copyBtn.addEventListener("click",async()=>{
 /* ── live GitHub stars (wire REPO below) ── */
 (function stars(){
   const el=document.getElementById("stars"); if(!el) return;
-  const REPO="your-org/ratel"; // TODO: set to the real repo
+  const REPO="Ratel-Factory/Ratel-Factory";
   fetch("https://api.github.com/repos/"+REPO).then(r=>r.ok?r.json():null).then(d=>{
     if(d&&typeof d.stargazers_count==="number") el.textContent=d.stargazers_count.toLocaleString();
   }).catch(()=>{});
