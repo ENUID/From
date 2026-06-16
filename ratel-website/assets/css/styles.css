@@ -35,7 +35,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:50;transition:background .4s var
 nav.scrolled{background:rgba(245,244,239,.82);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line)}
 .nav-in{max-width:var(--maxw);margin:0 auto;padding:17px 32px;display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:11px;font-family:"Space Grotesk";font-weight:600;font-size:19px;letter-spacing:-.02em}
-.badger{width:27px;height:27px;flex:none}
+.badger{width:42px;height:42px;flex:none}
 .nav-links{display:flex;align-items:center;gap:30px}
 .nav-links a{font-size:14px;color:var(--gtext);transition:color .2s;position:relative}
 .nav-links a::after{content:"";position:absolute;left:0;bottom:-5px;width:0;height:1.5px;background:var(--honey);transition:width .25s var(--ease)}
