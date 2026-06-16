@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ratel — your coding agent finally has a boss</title>
+<meta name="description" content="Ratel runs a coding agent like a staff engineer runs a project. It writes your spec into a contract, splits the work across branches, reviews every line, and merges only what survives. You approve the plan once, then you leave." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+
+<div class="rail"><i id="rail-fill"></i></div>
+
+<nav id="nav">
+  <div class="nav-in">
+    <a class="brand" href="#top">
+      <svg class="badger" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" stroke="rgba(21,23,28,.22)"/>
+        <path d="M6 19c2-7 5-10 10-10s8 3 10 10c-3-3-6-4.5-10-4.5S9 16 6 19Z" fill="url(#g1)"/>
+        <path d="M16 9c-5 0-8 3-10 10" stroke="#15171c" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="12" cy="15.5" r="1.1" fill="#15171c"/><circle cx="20" cy="15.5" r="1.1" fill="#15171c"/>
+        <defs><linearGradient id="g1" x1="6" y1="9" x2="26" y2="19" gradientUnits="userSpaceOnUse"><stop stop-color="#f5a623"/><stop offset="1" stop-color="#c2650a"/></linearGradient></defs>
+      </svg>Ratel
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a><a href="#split">Architecture</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="#start">Start</a>
+    </div>
+    <div class="nav-cta">
+      <span class="star">★ 0</span>
+      <a class="btn btn-honey" href="#" id="gh-top">Star on GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<main id="top">
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <div class="kicker"><span class="no">00</span> Open source · Runs on Pi</div>
+      <h1 class="h1">
+        <span class="ln"><span>Your coding agent</span></span>
+        <span class="ln"><span>finally has a <em>boss</em>.</span></span>
+      </h1>
+      <p class="lede">Ratel runs the agent the way a staff engineer runs a project. It turns your spec into a contract, hands each feature to its own worker, reviews every line it gets back, and merges only what survives. <b>You approve the plan once. Then you go do something else.</b></p>
+      <div class="hero-cta">
+        <a class="btn btn-honey btn-lg" href="#start">Start a mission</a>
+        <a class="btn btn-ghost btn-lg" href="#" id="demo"><span class="play"></span> Watch the demo</a>
+      </div>
+      <div class="install" id="install">
+        <span class="pmt">$</span>
+        <code id="install-cmd">curl -fsSL https://ratel.dev/install.sh | sh</code>
+        <button class="copy" id="copy-btn"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2h7a1 1 0 011 1v1h1a1 1 0 011 1v8a1 1 0 01-1 1H6a1 1 0 01-1-1v-1H4a1 1 0 01-1-1V3a1 1 0 011-1Zm2 3v7h6V5H6Z"/></svg>copy</button>
+      </div>
+      <div class="microtrust"><b>Plugs into the agent you run</b><span class="sep">/</span><b>MIT</b><span class="sep">/</span><b>Your model, your keys</b></div>
+      <div class="scroll-cue"><span class="bar"></span><span>See how it works</span></div>
+    </div>
+
+    <div class="stage reveal" id="stage">
+      <div class="stage-top">
+        <span class="lab">intake · <b>live</b></span>
+        <span class="lab res"><span class="m">✓ merged <span id="merged">0</span></span><span class="r">✗ rejected <span id="rejected">0</span></span></span>
+      </div>
+      <canvas id="physics"></canvas>
+      <button class="drop" id="drop"><span class="plus">+</span> drop a feature</button>
+    </div>
+  </div>
+</section>
+
+<!-- INTEGRATIONS -->
+<section class="integ" id="integrations">
+  <div class="wrap">
+    <div class="integ-head">
+      <div class="kicker reveal"><span class="no">·</span> Integrations</div>
+      <h3 class="reveal">Works with the agent you already run.</h3>
+      <p class="reveal">Ratel installs into your coding agent and drives whatever model sits behind it. Nothing to migrate, nothing locked in.</p>
+    </div>
+    <div class="igroup reveal">
+      <span class="igl">Runs on</span>
+      <div class="icells">
+        <span class="icell big"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7v10M5 7c5 0 5 4 9 4s5-4 5-4M5 17c5 0 5-4 9-4"/></svg> Pi <span class="tag">extension</span></span>
+        <span class="icell big"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg> OpenCode <span class="tag">plugin</span></span>
+      </div>
+    </div>
+    <div class="igroup reveal">
+      <span class="igl">Drives any model</span>
+      <div class="icells">
+        <span class="icell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18"/></svg> Claude</span>
+        <span class="icell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg> GPT</span>
+        <span class="icell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg> Gemini</span>
+        <span class="icell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg> Your local model</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROOF STRIP -->
+<div class="strip">
+  <div class="wrap"><div class="strip-in">
+    <div class="cell"><div class="k"><span class="count" data-to="13" data-suffix="K">0</span></div><div class="v">lines of orchestration, not vibes</div></div>
+    <div class="cell"><div class="k"><span class="count" data-to="4">0</span></div><div class="v">agents that do not trust each other</div></div>
+    <div class="cell"><div class="k"><span class="count" data-to="8">0</span></div><div class="v">checkpoints between idea and merge</div></div>
+    <div class="cell"><div class="k">0</div><div class="v">lines that ship unreviewed</div></div>
+  </div></div>
+</div>
+
+<!-- DIFFERENCE -->
+<section class="sec nb" id="diff">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">01</span>
+      <div class="kicker reveal"><span class="no">01</span> The difference</div>
+      <p class="diff-line reveal"><span class="a">Copilots finish your line.</span><br/><span class="b">Ratel finishes the <span class="h">feature</span>.</span></p>
+    </div>
+    <p class="diff-note reveal">Every other tool lives inside the agent and makes it type faster. Ratel sits one level up. <b>The agent writes the code. Ratel owns the plan, the review, and the merge.</b> The part a senior engineer does while the junior types. That part now runs on its own.</p>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section class="sec" id="compare">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">02</span>
+      <div class="kicker reveal"><span class="no">02</span> Inside the agent vs above it</div>
+      <h2 class="sec-title reveal">Same agent. Different altitude.</h2>
+    </div>
+    <div class="cmp reveal">
+      <div class="cmp-row cmp-head"><div></div><div class="lbl-a">A coding agent alone</div><div class="lbl-r">The same agent, run by Ratel</div></div>
+      <div class="cmp-row"><div class="feat">Scope</div><div class="v-a">One file, one turn</div><div class="v-r">A full feature, start to merge</div></div>
+      <div class="cmp-row"><div class="feat">Memory</div><div class="v-a">Loses the thread mid-task</div><div class="v-r">Holds the contract the whole run</div></div>
+      <div class="cmp-row"><div class="feat">Review</div><div class="v-a">You read every diff</div><div class="v-r">A hostile agent reads it first</div></div>
+      <div class="cmp-row"><div class="feat">Merge</div><div class="v-a">You decide, every time</div><div class="v-r">A gate decides, every time</div></div>
+      <div class="cmp-row"><div class="feat">Your job</div><div class="v-a">Watching the cursor</div><div class="v-r">Doing something else</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ANATOMY -->
+<section class="sec" id="how">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">03</span>
+      <div class="kicker reveal"><span class="no">03</span> Anatomy of a mission</div>
+      <h2 class="sec-title reveal">One run, start to merge.</h2>
+    </div>
+    <div class="ana-grid">
+      <div class="ana-sticky">
+        <div class="viz-panel">
+          <div class="ph"><span>mission graph</span><b id="ph-stage">01 / plan</b></div>
+          <svg class="viz" id="viz" viewBox="0 0 400 380" fill="none" aria-hidden="true">
+            <path class="edge" id="e-w1" d="M200 86 C 130 112, 96 128, 78 152"/>
+            <path class="edge" id="e-w2" d="M200 86 C 200 112, 200 128, 200 152"/>
+            <path class="edge" id="e-w3" d="M200 86 C 270 112, 304 128, 322 152"/>
+            <path class="edge" id="e-v1" d="M78 186 C 110 218, 165 234, 200 246"/>
+            <path class="edge" id="e-v2" d="M200 186 C 200 214, 200 228, 200 246"/>
+            <path class="edge" id="e-v3" d="M322 186 C 290 218, 235 234, 200 246"/>
+            <path class="edge" id="e-gate" d="M200 282 C 200 300, 200 308, 200 320"/>
+            <g class="nodeG ink" id="n-brain"><rect class="nbox" x="148" y="58" width="104" height="30" rx="8"/><text class="nlabel" x="200" y="77" text-anchor="middle">ORCHESTRATOR</text></g>
+            <g class="nodeG" id="n-w1"><rect class="nbox" x="44" y="152" width="68" height="30" rx="7"/><text class="nlabel" x="78" y="171" text-anchor="middle">WORKER F1</text></g>
+            <g class="nodeG" id="n-w2"><rect class="nbox" x="166" y="152" width="68" height="30" rx="7"/><text class="nlabel" x="200" y="171" text-anchor="middle">WORKER F2</text></g>
+            <g class="nodeG" id="n-w3"><rect class="nbox" x="288" y="152" width="68" height="30" rx="7"/><text class="nlabel" x="322" y="171" text-anchor="middle">WORKER F3</text></g>
+            <g class="nodeG cool" id="n-val"><rect class="nbox" x="142" y="246" width="116" height="30" rx="7"/><text class="nlabel" x="200" y="265" text-anchor="middle">VALIDATORS</text></g>
+            <g class="nodeG ink" id="n-gate"><rect class="nbox" x="150" y="320" width="100" height="32" rx="7"/><text class="nlabel" x="200" y="340" text-anchor="middle" id="gate-label">GATE · LOCKED</text></g>
+          </svg>
+        </div>
+      </div>
+      <div class="ana-steps">
+        <div class="ana-step" data-stage="1" data-lit="n-brain" data-edge="" data-gate="GATE · LOCKED" data-ph="01 / plan">
+          <div class="stg">Stage 01 <b>/ plan</b></div>
+          <h3>It reads your repo, then argues with your spec.</h3>
+          <p>The orchestrator takes your goal and turns it into a contract: the exact, testable definition of done. Vague in, questions back. It will not start building against a spec it can already break.</p>
+          <div class="meta">→ goal becomes 9 acceptance criteria<br/>→ split into 3 Gherkin features<br/>→ you approve the plan, then step out</div>
+        </div>
+        <div class="ana-step" data-stage="2" data-lit="n-brain,n-w1,n-w2,n-w3" data-edge="e-w1,e-w2,e-w3" data-gate="GATE · LOCKED" data-ph="02 / dispatch">
+          <div class="stg">Stage 02 <b>/ dispatch</b></div>
+          <h3>One job each. No shared mess.</h3>
+          <p>Every feature gets its own worker, its own branch, and a fresh context with nothing else in it. Tests first, then code, then a handoff you can parse. Nothing steps on anything else.</p>
+          <div class="meta">→ feat/F1 · feat/F2 · feat/F3<br/>→ test-driven, integrated in order<br/>→ no shared state left to corrupt</div>
+        </div>
+        <div class="ana-step" data-stage="3" data-lit="n-w1,n-w2,n-w3,n-val" data-edge="e-v1,e-v2,e-v3" data-gate="GATE · LOCKED" data-ph="03 / judge">
+          <div class="stg">Stage 03 <b>/ judge</b></div>
+          <h3>A second agent tries to break the first.</h3>
+          <p>Read-only reviewers go hunting. Lint, types, a hostile code review, and a user-testing pass that drives the live app across parallel browser shards. They rank what they find by how much it hurts.</p>
+          <div class="meta">→ scrutiny + independent code review<br/>→ 3 user-test shards in parallel<br/>→ findings ranked by severity</div>
+        </div>
+        <div class="ana-step" data-stage="4" data-lit="n-val,n-gate" data-edge="e-gate" data-gate="GATE · CHECK" data-ph="04 / gate">
+          <div class="stg">Stage 04 <b>/ gate</b></div>
+          <h3>Plain code decides. Not a model.</h3>
+          <p>A deterministic gate reads the verdict. One high-severity issue, or a handoff that does not parse, and nothing merges. The agent that wrote the code gets no vote on whether it ships.</p>
+          <div class="meta">→ zero high-severity required<br/>→ handoff must parse clean<br/>→ integrated, then validated</div>
+        </div>
+        <div class="ana-step" data-stage="5" data-lit="n-gate" data-edge="" data-gate="GATE · OPEN" data-ph="05 / ship">
+          <div class="stg">Stage 05 <b>/ ship</b></div>
+          <h3>You come back to a branch, not a mess.</h3>
+          <p>Everything that passed is merged and reviewable. The mission stops only on a real blocker, and tells you exactly why. Stepping away cost you nothing but the time it took.</p>
+          <div class="meta">→ merged and ready to read<br/>→ full event log written to disk<br/>→ one review and you are done</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SPLIT -->
+<section class="sec" id="split">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">04</span>
+      <div class="kicker reveal"><span class="no">04</span> The split</div>
+      <h2 class="sec-title reveal">Four roles. None of them trust each other.</h2>
+      <p class="sec-sub reveal">A human used to plan the work and judge the result. Ratel keeps those two jobs in different hands, so no agent ever grades its own homework.</p>
+    </div>
+    <div class="split-grid">
+      <div class="scard reveal"><div class="num">01</div><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2a5 5 0 015 5c1.5.5 2 2 2 3.5 0 1-.5 2-1.5 2.5.5 1 .5 2.5-.5 3.5-1 1-2 1-3 .5-.5 1-1.5 1.5-2.5 1.5s-2-.5-2.5-1.5c-1 .5-2 .5-3-.5s-1-2.5-.5-3.5C4 14.5 3.5 13.5 3.5 12.5 3.5 11 4 9.5 5.5 9 5.5 5 8 2 12 2Z"/></svg><span class="role">Orchestrator</span><h3>The boss</h3><div class="sub">sits in your chair</div><p>Scopes the work, interrogates the spec, writes the contract, and calls every shot for the whole run.</p></div>
+      <div class="scard reveal"><div class="num">02</div><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg><span class="role">Workers</span><h3>The crew</h3><div class="sub">heads down, one job</div><p>One feature, one branch, one clean mind. Test-driven, isolated, and done when the handoff parses.</p></div>
+      <div class="scard cool reveal"><div class="num">03</div><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg><span class="role">Validators</span><h3>The skeptic</h3><div class="sub">read-only, out for blood</div><p>Reviews, scrutiny, and live user tests built to find what the crew missed. Hostile on purpose.</p></div>
+      <div class="scard reveal"><div class="num">04</div><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg><span class="role">Gates</span><h3>The bouncer</h3><div class="sub">deterministic, unmovable</div><p>Hand-written code, not a model. No green checks, no entry. Nothing talks its way past the door.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="sec" id="features">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">05</span>
+      <div class="kicker reveal"><span class="no">05</span> Under the hood</div>
+      <h2 class="sec-title reveal">Boring on purpose.</h2>
+      <p class="sec-sub reveal">The interesting part of an autonomous run is everything that does not go wrong. These are the parts that keep it that way.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="fcell reveal"><svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12l4 4L19 6"/></svg><h4>Gates that cannot be skipped</h4><p>A feature merges only on clean checks and a handoff that parses. No exceptions in the code.</p></div>
+      <div class="fcell reveal"><svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><h4>Budgets it respects</h4><p>Tokens, dollars, wall-clock, and run count checked every turn. It stops before it overspends.</p></div>
+      <div class="fcell reveal"><svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12a8 8 0 0114-5M20 12a8 8 0 01-14 5M17 4v3h-3M7 20v-3h3"/></svg><h4>Failover that holds</h4><p>A retryable error reroutes through a circuit breaker instead of killing the whole run.</p></div>
+      <div class="fcell reveal"><svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 21h8"/></svg><h4>A window into the run</h4><p>Every span, tool call, diff, and halt streams to a dashboard while it works.</p></div>
+      <div class="fcell reveal"><svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M8 7l8 4M8 17l8-4"/></svg><h4>Branches kept apart</h4><p>Each feature lands on its own branch and integrates in order, never on top of broken work.</p></div>
+      <div class="fcell reveal"><svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 3v5h5M5 3h9l5 5v13H5z"/><path d="M9 13h6M9 17h6"/></svg><h4>Handoffs you can read</h4><p>Workers report what they finished, what they skipped, and what they hit, as parsed JSON.</p></div>
+      <div class="fcell reveal"><svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><h4>Testing that fans out</h4><p>User flows split across parallel shards, so coverage scales instead of dragging.</p></div>
+      <div class="fcell reveal"><svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 109-9M3 12l3-3M3 12l3 3"/></svg><h4>Errors it fixes first</h4><p>Compile, lint, and runtime failures get a correction pass before anything reaches the gate.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CLI REFERENCE -->
+<section class="sec" id="cli">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">06</span>
+      <div class="kicker reveal"><span class="no">06</span> The CLI</div>
+      <h2 class="sec-title reveal">Everything you will type.</h2>
+      <p class="sec-sub reveal">A handful of commands, no learning curve. Install once, then drive whole missions from one line.</p>
+    </div>
+    <div class="cli-grid">
+      <div class="cli-col reveal">
+        <h4>Commands</h4>
+        <div class="cli-row"><code>ratel mission <b>start</b> "&lt;spec&gt;"</code><span>Plan, build, review, and gate a whole feature set from one prompt.</span></div>
+        <div class="cli-row"><code>ratel mission <b>status</b></code><span>See exactly where the current run is, phase by phase.</span></div>
+        <div class="cli-row"><code>ratel mission <b>resume</b> &lt;id&gt;</code><span>Pick a paused mission back up after you unblock it.</span></div>
+        <div class="cli-row"><code>ratel <b>observatory</b></code><span>Open the live dashboard for every agent, call, and gate.</span></div>
+      </div>
+      <div class="cli-col reveal">
+        <h4>Install</h4>
+        <div class="cli-row"><code>pi <b>install</b> @ratel/pi-extension</code><span>Wire Ratel into pi as an extension.</span></div>
+        <div class="cli-row"><code>ratel <b>plugin</b> opencode</code><span>Drop-in plugin for an opencode setup.</span></div>
+        <div class="cli-row"><code>ratel <b>run</b> --direct</code><span>Run a mission with no host agent at all.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OBSERVATORY -->
+<section class="sec" id="proof">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">07</span>
+      <div class="kicker reveal"><span class="no">07</span> Proof</div>
+      <h2 class="sec-title reveal">It runs for hours. You watch every second.</h2>
+      <p class="sec-sub reveal">Autonomy is only worth trusting if you can see it. The observatory shows each agent, each call, and each gate in real time, so stepping away never means flying blind.</p>
+    </div>
+    <div class="obs reveal">
+      <div class="obs-bar"><i class="tl r"></i><i class="tl y"></i><i class="tl g"></i><span class="lbl">localhost:8765 · mission mis_00000001</span><span class="live">running</span></div>
+      <div class="obs-body">
+        <div class="obs-side">
+          <div class="si"><span>Intake</span><span class="ok">✓</span></div>
+          <div class="si"><span>Contract</span><span class="ok">✓</span></div>
+          <div class="si"><span>F1 · auth</span><span class="ok">✓</span></div>
+          <div class="si on"><span>F2 · billing</span><span>···</span></div>
+          <div class="si"><span>F3 · webhooks</span><span class="q">queued</span></div>
+          <div class="si"><span>Gate</span><span class="q">locked</span></div>
+        </div>
+        <div class="obs-main">
+          <div class="span-row"><span class="who">orchestrator</span><div class="sbar" style="width:62%"></div><span class="t">4.2s</span></div>
+          <div class="span-row"><span class="who">worker · F1</span><div class="sbar" style="width:88%"></div><span class="t">71s</span></div>
+          <div class="span-row"><span class="who">scrutiny · F1</span><div class="sbar b2" style="width:54%"></div><span class="t">22s</span></div>
+          <div class="span-row"><span class="who">user-test · F1</span><div class="sbar b3" style="width:70%"></div><span class="t">38s</span></div>
+          <div class="span-row"><span class="who">worker · F2</span><div class="sbar run" id="ol1" style="width:46%"></div><span class="t" id="ot1">live</span></div>
+          <div class="span-row"><span class="who">code-review · F2</span><div class="sbar b2" id="ol2" style="width:12%"></div><span class="t" id="ot2">live</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUICKSTART -->
+<section class="sec" id="start">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">08</span>
+      <div class="kicker reveal"><span class="no">08</span> Start</div>
+      <h2 class="sec-title reveal">Three commands. Then go make coffee.</h2>
+    </div>
+    <div class="qs-grid">
+      <ol class="qs-list reveal">
+        <li><span class="n">1</span><div><b>Install it into your agent</b><p>One line wires Ratel into pi or opencode.</p></div></li>
+        <li><span class="n">2</span><div><b>Hand over the spec</b><p>Describe the build. Read the plan it gives back. Approve it.</p></div></li>
+        <li><span class="n">3</span><div><b>Leave</b><p>Workers build, the skeptic reviews, the gate merges. You return to a branch.</p></div></li>
+      </ol>
+      <div class="code-block reveal">
+        <div class="cb-bar">~/your-repo — bash</div>
+<pre><span style="color:var(--sdim)"># wire it into your coding agent</span>
+<span style="color:var(--honey-soft)">$</span> pi install @ratel/pi-extension
+
+<span style="color:var(--sdim)"># hand it the v1</span>
+<span style="color:var(--honey-soft)">$</span> ratel mission start \
+    <span style="color:#7fbfca">"auth, billing, and stripe</span>
+<span style="color:#7fbfca">     webhooks for the v1"</span>
+
+<span style="color:#7fd18c">→ contract drafted · 3 features</span>
+<span style="color:#7fd18c">→ observatory live on :8765</span>
+<span style="color:var(--bone)">→ waiting for your approval...</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PHILOSOPHY -->
+<section class="sec" id="phil">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">09</span>
+      <div class="kicker reveal"><span class="no">09</span> Where the line sits</div>
+      <h2 class="sec-title reveal">Rigid where it must be.<br/>Thinking where it has to.</h2>
+      <p class="sec-sub reveal">An agent left to manage itself drifts. Ratel draws a hard line between what a model is allowed to decide and what only code decides. Nothing lives in the gap.</p>
+    </div>
+    <div class="phil-grid">
+      <div class="pill reveal"><div class="pn">01 / STRUCTURE</div><h4>Code owns <em>the spine</em></h4><p>Schemas, branches, timeouts, routing, and merge logic are written by hand and never negotiable. No model gets to decide them mid-run.</p></div>
+      <div class="pill reveal"><div class="pn">02 / JUDGMENT</div><h4>Models own <em>the work</em></h4><p>Planning, building, testing, and review are where thinking belongs. The agents do the hard part inside walls that hold.</p></div>
+      <div class="pill reveal"><div class="pn">03 / TRUST</div><h4>Gates own <em>the merge</em></h4><p>Code ships only past checks no agent can move. The floor stays fixed, which is the only reason walking away is safe.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ + WHO FOR -->
+<section class="sec" id="faq">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="ghost">10</span>
+      <div class="kicker reveal"><span class="no">10</span> Straight answers</div>
+      <h2 class="sec-title reveal">No marketing. Just the honest version.</h2>
+    </div>
+    <div class="forgrid reveal">
+      <div class="forcard yes">
+        <h4><span class="mk">✓</span> Built for</h4>
+        <ul>
+          <li>Shipping a v1 from a spec you can actually write down.</li>
+          <li>Well-scoped features with clear acceptance criteria.</li>
+          <li>Migrations and refactors with a defined target.</li>
+        </ul>
+      </div>
+      <div class="forcard no">
+        <h4><span class="mk">—</span> Not for</h4>
+        <ul>
+          <li>Vague ideas with no definition of done.</li>
+          <li>One-line tweaks you would finish faster by hand.</li>
+          <li>Work you cannot describe to another engineer.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="faq reveal">
+      <details open>
+        <summary>Is it actually autonomous, or do I babysit it?<span class="ic"></span></summary>
+        <div class="ans">You approve the plan once, at the start. After that it runs on its own and stops only on a real blocker. <b>The one human checkpoint is the plan,</b> because a wrong plan wastes the whole run. Everything after is hands-off.</div>
+      </details>
+      <details>
+        <summary>What does a run cost?<span class="ic"></span></summary>
+        <div class="ans">Whatever your model charges, capped. You set token, dollar, and time limits up front, and it stops before it crosses them. <b>No surprise bill at the end of a long run.</b></div>
+      </details>
+      <details>
+        <summary>Is this a demo, or does it ship real code?<span class="ic"></span></summary>
+        <div class="ans">It works on real repos, in git, behind gates. Point it at narrow, well-tested work first. <b>The tighter your spec, the better the result.</b> Vague in, vague out.</div>
+      </details>
+      <details>
+        <summary>Which models can I use?<span class="ic"></span></summary>
+        <div class="ans">Yours. It runs on pi or opencode and uses your keys. <b>No model is bundled and nothing is locked in.</b> Swap whenever you want.</div>
+      </details>
+      <details>
+        <summary>Where does my code go?<span class="ic"></span></summary>
+        <div class="ans">Nowhere. It runs where you run it, on your machine, with your keys. <b>Your code never leaves your environment.</b></div>
+      </details>
+      <details>
+        <summary>What happens when it gets stuck?<span class="ic"></span></summary>
+        <div class="ans">It stops, writes why to the log, and waits. <b>You read a clear reason, not a wall of broken files.</b> Then you unblock it and it keeps going.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- GITHUB / COMMUNITY -->
+<section class="gh">
+  <div class="wrap">
+    <h2>Open source. MIT.<br/>Built in the open.</h2>
+    <p>The whole thing lives on GitHub. Read the code, file an issue, send a pull request. No hidden core.</p>
+    <div class="gh-badges">
+      <span class="gh-pill">★ <b id="stars">—</b> stars</span>
+      <span class="gh-pill">⑂ open to contributors</span>
+      <span class="gh-pill">MIT licensed</span>
+    </div>
+    <div class="builtby">
+      <div class="avatars"><span class="av">D</span><span class="av">·</span></div>
+      <span>made by two people who got tired of watching the cursor blink</span>
+    </div>
+    <div class="gh-cta">
+      <a class="btn btn-honey btn-lg" href="#" id="gh-mid"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8Z"/></svg>Star on GitHub</a>
+      <a class="btn btn-ghost btn-lg" href="#">Read the docs</a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="wrap">
+    <h2>Stop babysitting<br/>the cursor.</h2>
+    <p>Hand it the plan. Let it work. Read the diff when it is done.</p>
+    <div class="cta-btns">
+      <a class="btn btn-honey btn-lg" href="#start">Start a mission</a>
+      <a class="btn btn-ghost btn-lg" href="#" id="demo2"><span class="play"></span> Watch the demo</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-in">
+      <div class="foot-brand">
+        <a class="brand" href="#top"><svg class="badger" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="15" stroke="rgba(21,23,28,.22)"/><path d="M6 19c2-7 5-10 10-10s8 3 10 10c-3-3-6-4.5-10-4.5S9 16 6 19Z" fill="url(#g2)"/><path d="M16 9c-5 0-8 3-10 10" stroke="#15171c" stroke-width="1.4" stroke-linecap="round"/><defs><linearGradient id="g2" x1="6" y1="9" x2="26" y2="19" gradientUnits="userSpaceOnUse"><stop stop-color="#f5a623"/><stop offset="1" stop-color="#c2650a"/></linearGradient></defs></svg>Ratel</a>
+        <p>The operator seat for coding agents. Hand it a spec, get back a build, behind gates that hold while you step away.</p>
+      </div>
+      <div class="foot-cols">
+        <div class="fcol"><h5>Product</h5><a href="#how">How it works</a><a href="#split">Architecture</a><a href="#cli">CLI</a><a href="#proof">Observatory</a></div>
+        <div class="fcol"><h5>Build</h5><a href="#start">Quickstart</a><a href="#faq">FAQ</a><a href="#">Docs</a><a href="#">GitHub</a></div>
+        <div class="fcol"><h5>Adapters</h5><a href="#integrations">pi extension</a><a href="#integrations">opencode plugin</a><a href="#integrations">Direct mode</a></div>
+      </div>
+    </div>
+    <div class="foot-bottom"><span>© 2026 Ratel · MIT licensed</span><span>Built on Pi.</span></div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>

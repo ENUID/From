@@ -1,0 +1,13 @@
+# dependencies (none required, but just in case)
+node_modules/
+
+# os / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# local env
+.env
+.env.local

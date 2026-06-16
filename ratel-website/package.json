@@ -1,0 +1,11 @@
+{
+  "name": "ratel-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Landing page for Ratel — the operator seat for coding agents.",
+  "license": "MIT",
+  "scripts": {
+    "start": "serve .",
+    "dev": "serve ."
+  }
+}
