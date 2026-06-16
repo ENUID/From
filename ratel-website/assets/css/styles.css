@@ -165,7 +165,7 @@ nav.scrolled{background:rgba(245,244,239,.82);backdrop-filter:blur(14px) saturat
 .ana-step .stg b{color:var(--faint)}
 .ana-step h3{font-family:"Space Grotesk";font-weight:600;font-size:clamp(27px,3.2vw,40px);letter-spacing:-.028em;margin-top:16px;line-height:1.04}
 .ana-step p{margin-top:18px;font-size:17px;color:var(--gtext);max-width:31em;line-height:1.62}
-.ana-step .meta{margin-top:22px;font-family:"JetBrains Mono";font-size:12.5px;color:var(--gtext);border-left:2px solid var(--honey);padding-left:15px;line-height:1.8}
+.ana-step .meta{margin-top:22px;font-family:"JetBrains Mono";font-size:12.5px;color:var(--gtext);line-height:1.8}
 
 .split-grid{display:grid;grid-template-columns:repeat(4,1fr);margin-top:52px;border:1px solid var(--line);border-radius:16px;overflow:hidden}
 .scard{position:relative;padding:30px 26px 28px;border-right:1px solid var(--line);background:var(--paper);transition:background .3s}
@@ -308,8 +308,8 @@ footer{border-top:1px solid var(--line);padding:58px 0 42px;background:var(--pap
   .ana-grid{grid-template-columns:1fr;gap:0}
   .ana-sticky{position:relative;height:auto;top:auto;margin-bottom:32px;justify-content:flex-start}
   .ana-steps{padding:4vh 0}
-  .ana-step{min-height:auto;opacity:1;padding:40px 0;border-top:1px solid var(--line)}
-  .ana-step:first-child{border-top:none;padding-top:8px}
+  .ana-step{min-height:auto;opacity:1;padding:48px 0;border-top:1px solid var(--line)}
+  .ana-step:first-child{border-top:none;padding-top:0}
   .split-grid,.feat-grid,.phil-grid{grid-template-columns:repeat(2,1fr)}
   .scard,.pill{border-bottom:1px solid var(--line)}
   .scard:nth-child(2),.pill:nth-child(2){border-right:none}
@@ -325,6 +325,9 @@ footer{border-top:1px solid var(--line);padding:58px 0 42px;background:var(--pap
   .scard,.pill{border-right:none}
   .strip-in{grid-template-columns:1fr 1fr}
   .cta,.gh{padding:84px 0}
+  .hero-steps{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}
+  .hero-steps::-webkit-scrollbar{display:none}
+  .hero-steps span,.step-sep{flex-shrink:0;white-space:nowrap}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
