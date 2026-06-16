@@ -193,7 +193,7 @@ copyBtn&&copyBtn.addEventListener("click",async()=>{
   },1500);
 })();
 
-/* ── live GitHub stars (wire REPO below) ── */
+/* ── live GitHub stars ── */
 (function stars(){
   const el=document.getElementById("stars"); if(!el) return;
   const REPO="Ratel-Factory/Ratel-Factory";
