@@ -67,9 +67,9 @@ nav.scrolled{background:rgba(245,244,239,.82);backdrop-filter:blur(14px) saturat
 .btn-lg{padding:14px 24px;font-size:15px;border-radius:11px}
 .play{width:18px;height:18px;border-radius:50%;border:1.5px solid currentColor;display:inline-flex;align-items:center;justify-content:center}
 .play::before{content:"";border-left:6px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;margin-left:2px}
-.install{margin-top:26px;display:inline-flex;align-items:center;gap:14px;font-family:"JetBrains Mono";font-size:13.5px;color:var(--ink);padding:12px 15px;border-radius:10px;border:1px solid var(--line);background:var(--paper-2);max-width:100%}
+.install{margin-top:26px;display:flex;align-items:center;gap:14px;font-family:"JetBrains Mono";font-size:13.5px;color:var(--ink);padding:13px 18px;border-radius:10px;border:1px solid var(--line);background:var(--paper-2);width:100%;box-sizing:border-box}
 .install .pmt{color:var(--honey);font-weight:600}
-.install code{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.install code{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
 .copy{margin-left:2px;flex:none;cursor:pointer;color:var(--faint);background:none;border:none;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px;transition:color .2s}
 .copy:hover{color:var(--ink)} .copy.ok{color:var(--honey)}
 .microtrust{margin-top:28px;font-family:"JetBrains Mono";font-size:12px;color:var(--faint);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
