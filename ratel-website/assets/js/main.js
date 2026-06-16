@@ -5,7 +5,7 @@ const nav=document.getElementById("nav");
 const railFill=document.getElementById("rail-fill");
 addEventListener("scroll",()=>{
   const y=scrollY; nav.classList.toggle("scrolled",y>20);
-  const h=document.documentElement.scrollHeight-innerHeight;
+  const h=document.documentElement.scrollHeight-document.documentElement.clientHeight;
   if(railFill) railFill.style.width=(h>0?(y/h*100):0)+"%";
 },{passive:true});
 

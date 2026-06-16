@@ -305,7 +305,9 @@ footer{border-top:1px solid var(--line);padding:58px 0 42px;background:var(--pap
   .cmp-row .feat{background:var(--paper-2)}
   .ana-grid{grid-template-columns:1fr;gap:0}
   .ana-sticky{position:relative;height:auto;top:auto;margin-bottom:32px;justify-content:flex-start}
-  .ana-steps{padding:4vh 0} .ana-step{min-height:auto;opacity:1}
+  .ana-steps{padding:4vh 0}
+  .ana-step{min-height:auto;opacity:1;padding:40px 0;border-top:1px solid var(--line)}
+  .ana-step:first-child{border-top:none;padding-top:8px}
   .split-grid,.feat-grid,.phil-grid{grid-template-columns:repeat(2,1fr)}
   .scard,.pill{border-bottom:1px solid var(--line)}
   .scard:nth-child(2),.pill:nth-child(2){border-right:none}
