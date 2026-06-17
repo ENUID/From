@@ -14,8 +14,31 @@
 
 import crypto from 'crypto'
 
-// Read-only catalog access is all we need to ingest products.
-export const SHOPIFY_SCOPES = 'read_products'
+// Scopes FROM requests when a brand connects. Catalog + media + collections +
+// metafields power rich product data and best-shot selection; pricing scopes
+// surface sale prices; checkout/order scopes enable future FROM-native checkout
+// (hybrid money flow). Override per-deploy with the SHOPIFY_SCOPES env var.
+// NOTE: read_orders/read_customers (protected customer data) and write scopes
+// require Shopify app approval before a public app can request them.
+export const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES ?? [
+  'read_products',
+  'read_inventory',
+  'read_locations',
+  'read_metafields',
+  'read_product_listings',
+  'read_orders',
+  'read_checkouts',
+  'write_checkouts',
+  'read_customers',
+  'read_fulfillments',
+  'read_shipping',
+  'read_analytics',
+  'read_discounts',
+  'read_price_rules',
+  'read_collections',
+  'write_orders',
+  'write_returns',
+].join(',')
 const API_VERSION = '2024-10'
 
 export function shopifyConfigured(): boolean {

@@ -28,7 +28,7 @@ query Products($cursor: String) {
         maxVariantPrice { amount currencyCode }
       }
       featuredImage { url }
-      images(first: 8) { nodes { url } }
+      images(first: 20) { nodes { url altText } }
       options { name values }
       variants(first: 50) {
         nodes {
@@ -66,7 +66,7 @@ type GqlProduct = {
     maxVariantPrice: { amount: string; currencyCode: string }
   }
   featuredImage: { url: string } | null
-  images: { nodes: { url: string }[] }
+  images: { nodes: { url: string; altText: string | null }[] }
   options: { name: string; values: string[] }[]
   variants: { nodes: GqlVariant[] }
 }
@@ -86,6 +86,31 @@ async function gql<T>(shop: string, token: string, query: string, variables: Rec
   return json.data as T
 }
 
+// Signals that an image is a model/lifestyle "best shot" (vs a flat packshot).
+const MODEL_RE = /\b(model|worn|wearing|on[\s-]?body|on[\s-]?model|lifestyle|editorial|look\b|outfit|street|full[\s-]?length|campaign)\b/i
+const FLAT_RE  = /\b(flat[\s-]?lay|packshot|product[\s-]?only|white[\s-]?background|ghost|still|swatch|detail|close[\s-]?up|back\b)\b/i
+
+/** Order a product's images so the best model/lifestyle shot leads — that's the
+ *  hero shown in the FROM feed. Falls back to the merchant's featured image, then
+ *  original order. Pure heuristic (alt text + position); cheap, runs at ingest. */
+function orderByBestShot(
+  nodes: { url: string; altText: string | null }[],
+  featuredUrl?: string,
+): string[] {
+  const seen = new Set<string>()
+  const unique = nodes.filter(n => n.url && !seen.has(n.url) && seen.add(n.url))
+  const scored = unique.map((n, i) => {
+    const alt = n.altText ?? ''
+    let score = -i * 0.1                       // gentle preference for original order
+    if (MODEL_RE.test(alt)) score += 10
+    if (FLAT_RE.test(alt)) score -= 6
+    if (featuredUrl && n.url === featuredUrl) score += 3
+    return { url: n.url, score }
+  })
+  scored.sort((a, b) => b.score - a.score)
+  return scored.map(s => s.url)
+}
+
 function inferGender(p: GqlProduct): string[] {
   const hay = `${p.title} ${p.productType} ${p.tags.join(' ')}`.toLowerCase()
   const g: string[] = []
@@ -98,8 +123,9 @@ function toNormalized(p: GqlProduct, storeDomain: string): NormalizedProduct {
   const min = Number(p.priceRangeV2?.minVariantPrice?.amount ?? 0)
   const max = Number(p.priceRangeV2?.maxVariantPrice?.amount ?? min)
   const currency = p.priceRangeV2?.minVariantPrice?.currencyCode || 'USD'
-  const images = (p.images?.nodes ?? []).map(n => n.url).filter(Boolean)
-  const image = p.featuredImage?.url || images[0] || ''
+  // Best model/lifestyle shot leads; full gallery preserved behind it.
+  const images = orderByBestShot(p.images?.nodes ?? [], p.featuredImage?.url)
+  const image = images[0] || p.featuredImage?.url || ''
   const externalId = p.id.split('/').pop() || p.handle
 
   return {
@@ -111,7 +137,7 @@ function toNormalized(p: GqlProduct, storeDomain: string): NormalizedProduct {
     currency,
     store_url: p.onlineStoreUrl || `https://${storeDomain}/products/${p.handle}`,
     image_url: image,
-    images: image && !images.includes(image) ? [image, ...images] : images,
+    images,
     in_stock: (p.totalInventory ?? 1) > 0 || p.variants.nodes.some(v => v.availableForSale),
     tags: (p.tags ?? []).slice(0, 25),
     description: (p.description ?? '').slice(0, 2000),
@@ -134,7 +160,7 @@ query Product($id: ID!) {
     id title handle vendor productType description tags onlineStoreUrl totalInventory
     priceRangeV2 { minVariantPrice { amount currencyCode } maxVariantPrice { amount currencyCode } }
     featuredImage { url }
-    images(first: 8) { nodes { url } }
+    images(first: 20) { nodes { url altText } }
     options { name values }
     variants(first: 50) { nodes { id title availableForSale price selectedOptions { name value } } }
   }
