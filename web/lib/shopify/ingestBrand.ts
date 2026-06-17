@@ -39,11 +39,12 @@ async function upsertConnectedProduct(
   brandAccountId: string,
   p: NormalizedProduct,
   emb: number[] | null,
+  published: boolean,
 ): Promise<boolean> {
   try {
     await db`
       INSERT INTO products (
-        store_id, brand_account_id, source, verified, quality_score,
+        store_id, brand_account_id, source, verified, published, quality_score,
         external_id, title, vendor,
         price_min, price_max, currency,
         store_url, image_url, images,
@@ -51,7 +52,7 @@ async function upsertConnectedProduct(
         categories, gender, options, variants,
         crawled_at, updated_at
       ) VALUES (
-        ${storeId}, ${brandAccountId}, 'connected', TRUE, ${CONNECTED_QUALITY},
+        ${storeId}, ${brandAccountId}, 'connected', TRUE, ${published}, ${CONNECTED_QUALITY},
         ${p.external_id}, ${p.title}, ${p.vendor},
         ${p.price_min}, ${p.price_max}, ${p.currency},
         ${p.store_url}, ${p.image_url}, ${JSON.stringify(p.images)},
@@ -64,6 +65,7 @@ async function upsertConnectedProduct(
         brand_account_id = EXCLUDED.brand_account_id,
         source           = 'connected',
         verified         = TRUE,
+        published        = ${published},
         quality_score    = ${CONNECTED_QUALITY},
         title       = EXCLUDED.title,
         vendor      = EXCLUDED.vendor,
@@ -107,17 +109,23 @@ export async function ingestConnectedBrand(args: {
 }): Promise<BrandIngestResult> {
   const db = sql()
   try {
+    // The brand's approval status decides whether its products go live in search
+    // immediately. Pending/rejected brands ingest hidden (published = FALSE).
+    const statusRows = await db`SELECT status FROM brand_accounts WHERE id = ${args.brandAccountId} LIMIT 1`
+    const published = ((statusRows as any[])[0]?.status ?? 'pending') === 'approved'
+
     const products = await fetchBrandCatalog(args.storeDomain, args.accessToken)
     const storeId = await ensureStore(args.publicDomain || args.storeDomain, args.displayName)
 
     // Tie the brand account to its store row.
     await db`UPDATE brand_accounts SET store_id = ${storeId}, updated_at = now() WHERE id = ${args.brandAccountId}`
 
-    const upserted = await ingestProducts(storeId, args.brandAccountId, products)
+    const upserted = await ingestProducts(storeId, args.brandAccountId, products, published)
 
+    // Update sync bookkeeping only — never clobber the review status.
     await db`
       UPDATE brand_accounts
-      SET product_count = ${upserted}, last_synced_at = now(), sync_error = NULL, status = 'connected', updated_at = now()
+      SET product_count = ${upserted}, last_synced_at = now(), sync_error = NULL, updated_at = now()
       WHERE id = ${args.brandAccountId}
     `
     await db`UPDATE stores SET product_count = ${upserted}, last_crawled_at = now() WHERE id = ${storeId}`
@@ -125,17 +133,19 @@ export async function ingestConnectedBrand(args: {
     return { fetched: products.length, upserted }
   } catch (err) {
     const msg = (err as Error).message
-    await db`UPDATE brand_accounts SET sync_error = ${msg}, status = 'error', updated_at = now() WHERE id = ${args.brandAccountId}`
+    await db`UPDATE brand_accounts SET sync_error = ${msg}, updated_at = now() WHERE id = ${args.brandAccountId}`
       .catch(() => {})
     return { fetched: 0, upserted: 0, error: msg }
   }
 }
 
-/** Embed + upsert a set of connected products. Reused by full sync and webhooks. */
+/** Embed + upsert a set of connected products. Reused by full sync and webhooks.
+ *  `published` reflects the brand's approval status — hidden until approved. */
 export async function ingestProducts(
   storeId: string,
   brandAccountId: string,
   products: NormalizedProduct[],
+  published = false,
 ): Promise<number> {
   if (products.length === 0) return 0
   const db = sql()
@@ -144,7 +154,7 @@ export async function ingestProducts(
     const chunk = products.slice(i, i + EMBED_BATCH)
     const embeddings = await embedProducts(chunk)
     for (let j = 0; j < chunk.length; j++) {
-      if (await upsertConnectedProduct(db, storeId, brandAccountId, chunk[j], embeddings[j])) upserted++
+      if (await upsertConnectedProduct(db, storeId, brandAccountId, chunk[j], embeddings[j], published)) upserted++
     }
   }
   return upserted

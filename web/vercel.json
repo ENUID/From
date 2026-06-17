@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/brand-health",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/brand-sync",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

@@ -56,6 +56,9 @@ function buildWhere(filters: SearchFilters, params: unknown[]): string {
   const clauses: string[] = [
     "p.image_url IS NOT NULL",
     "p.image_url != ''",
+    // Connected products are hidden until their brand is approved; crawled
+    // products default to published = TRUE so the existing corpus is unaffected.
+    "p.published = TRUE",
   ]
 
   if (filters.inStockOnly !== false) clauses.push('p.in_stock = TRUE')

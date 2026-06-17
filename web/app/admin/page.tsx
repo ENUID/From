@@ -184,6 +184,9 @@ export default function AdminPage() {
         </p>
       </div>
 
+      {/* Brand review queue */}
+      {secret && <BrandReview secret={secret} />}
+
       {/* Log */}
       {log.length > 0 && (
         <div style={card}>
@@ -213,6 +216,99 @@ function Stat({ n, label }: { n: number; label: string }) {
     <div>
       <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{n.toLocaleString()}</div>
       <div style={{ fontSize: 12, color: '#9a968e', marginTop: 4 }}>{label}</div>
+    </div>
+  )
+}
+
+type BrandRow = {
+  store_domain: string
+  display_name?: string
+  status?: string
+  product_count?: number
+  tagline?: string
+  instagram?: string
+  website?: string
+  submitted_at?: string
+  rejection_reason?: string
+}
+
+function BrandReview({ secret }: { secret: string }) {
+  const [data, setData] = useState<{ pending?: BrandRow[]; approved?: BrandRow[]; other?: BrandRow[]; error?: string } | null>(null)
+  const [acting, setActing] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/brands', { headers: { 'x-cron-secret': secret }, cache: 'no-store' })
+      setData(await res.json())
+    } catch (err) { setData({ error: (err as Error).message }) }
+  }, [secret])
+
+  useEffect(() => { load() }, [load])
+
+  async function review(domain: string, action: 'approve' | 'reject') {
+    let reason: string | undefined
+    if (action === 'reject') { reason = prompt(`Reject ${domain}? Optional reason:`) ?? undefined }
+    setActing(domain)
+    try {
+      await fetch('/api/admin/brands', {
+        method: 'POST',
+        headers: { 'x-cron-secret': secret, 'content-type': 'application/json' },
+        body: JSON.stringify({ domain, action, reason }),
+      })
+      await load()
+    } finally { setActing(null) }
+  }
+
+  const pending = data?.pending ?? []
+  const approved = data?.approved ?? []
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e8e6e1', borderRadius: 16, padding: 20, marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#79756d' }}>BRAND REVIEW</div>
+        <button onClick={load} style={{ fontSize: 12.5, color: '#666', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>refresh</button>
+      </div>
+
+      {data?.error && <div style={{ color: '#c0392b', fontSize: 13 }}>{data.error}</div>}
+
+      {pending.length === 0 && !data?.error && (
+        <div style={{ fontSize: 13, color: '#9a968e' }}>No brands awaiting review.</div>
+      )}
+
+      {pending.map(b => (
+        <div key={b.store_domain} style={{ border: '1px solid #eee7df', borderRadius: 12, padding: 14, marginBottom: 10 }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>{b.display_name || b.store_domain}</div>
+          <div style={{ fontSize: 12.5, color: '#9a968e', marginTop: 2 }}>
+            {b.store_domain} · {b.product_count ?? 0} products
+            {b.submitted_at ? ` · submitted ${new Date(b.submitted_at).toLocaleDateString()}` : ''}
+          </div>
+          {b.tagline && <div style={{ fontSize: 13, color: '#555', marginTop: 6 }}>{b.tagline}</div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button
+              disabled={acting === b.store_domain}
+              onClick={() => review(b.store_domain, 'approve')}
+              style={{ flex: 1, padding: '10px', fontSize: 14, fontWeight: 600, color: '#fff', background: acting === b.store_domain ? '#bcb8b0' : '#1f8a4c', border: 'none', borderRadius: 9, cursor: 'pointer' }}
+            >{acting === b.store_domain ? '…' : 'Approve → go live'}</button>
+            <button
+              disabled={acting === b.store_domain}
+              onClick={() => review(b.store_domain, 'reject')}
+              style={{ padding: '10px 16px', fontSize: 14, fontWeight: 600, color: '#9a3030', background: '#fff', border: '1px solid #e3cfcf', borderRadius: 9, cursor: 'pointer' }}
+            >Reject</button>
+          </div>
+        </div>
+      ))}
+
+      {approved.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#79756d', marginBottom: 8 }}>LIVE BRANDS ({approved.length})</div>
+          {approved.map(b => (
+            <div key={b.store_domain} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '7px 0', borderBottom: '1px solid #f1ede6' }}>
+              <span>{b.display_name || b.store_domain}</span>
+              <span style={{ color: '#9a968e' }}>{b.product_count ?? 0} products</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

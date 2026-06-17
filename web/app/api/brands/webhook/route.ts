@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   try {
     const db = sql()
     const rows = await db`
-      SELECT id, store_id, access_token FROM brand_accounts WHERE store_domain = ${shop} LIMIT 1
+      SELECT id, store_id, access_token, status FROM brand_accounts WHERE store_domain = ${shop} LIMIT 1
     `
     const brand = (rows as any[])[0]
     if (!brand) return NextResponse.json({ ok: true })
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       if (!brand.access_token || !externalId) return NextResponse.json({ ok: true })
       const product = await fetchProductById(shop, brand.access_token, externalId)
       if (product) {
-        await ingestProducts(brand.store_id, brand.id, [product])
+        await ingestProducts(brand.store_id, brand.id, [product], brand.status === 'approved')
       } else {
         // Went unavailable/out of catalog — remove it from search.
         await deleteConnectedProduct(brand.store_id, externalId)

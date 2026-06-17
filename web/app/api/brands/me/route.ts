@@ -20,7 +20,8 @@ export async function GET() {
     const db = sql()
     const rows = await db`
       SELECT store_domain, display_name, plan, status, product_count,
-             connected_at, last_synced_at, sync_error
+             tagline, bio, logo_url, hero_url, instagram, website,
+             connected_at, last_synced_at, sync_error, reviewed_at, rejection_reason
       FROM brand_accounts WHERE store_domain = ${domain} LIMIT 1
     `
     const brand = (rows as any[])[0]

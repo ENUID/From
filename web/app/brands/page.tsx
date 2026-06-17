@@ -17,6 +17,13 @@ type Brand = {
   product_count?: number
   last_synced_at?: string
   sync_error?: string | null
+  tagline?: string
+  bio?: string
+  logo_url?: string
+  hero_url?: string
+  instagram?: string
+  website?: string
+  rejection_reason?: string
 }
 type Me =
   | { connected: false }
@@ -122,12 +129,99 @@ export default function BrandsPage() {
           </p>
         </div>
       ) : (
-        <Connected me={me as Extract<Me, { connected: true }>} busy={busy} onResync={resync} onDisconnect={disconnect} />
+        <Dashboard
+          me={me as Extract<Me, { connected: true }>}
+          busy={busy} onResync={resync} onDisconnect={disconnect} onReload={loadMe}
+        />
+      )}
+    </main>
+  )
+}
+
+function Dashboard({ me, busy, onResync, onDisconnect, onReload }: {
+  me: Extract<Me, { connected: true }>; busy: string | null
+  onResync: () => void; onDisconnect: () => void; onReload: () => void
+}) {
+  const status = me.brand?.status ?? 'pending'
+
+  if (status === 'rejected') {
+    return (
+      <div style={{ ...card, background: '#fcf3f2', borderColor: '#eccfcf' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Not approved yet</div>
+        <p style={{ fontSize: 14, color: '#7a4a4a', margin: 0, lineHeight: 1.55 }}>
+          Your store wasn’t approved for FROM at this time.
+          {me.brand?.rejection_reason ? ` Reason: ${me.brand.rejection_reason}.` : ''}
+          {' '}Reach out if you think this was a mistake.
+        </p>
+        <button style={{ ...primaryBtn(), marginTop: 16, background: '#fff', color: '#9a3030', border: '1px solid #e3cfcf' }} onClick={onDisconnect}>
+          Disconnect
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {status === 'pending' && (
+        <div style={{ ...card, background: '#fff8ec', borderColor: '#f0e2c4' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>✦ Under review</div>
+          <p style={{ fontSize: 14, color: '#7a6a45', margin: 0, lineHeight: 1.55 }}>
+            Thanks for connecting — we’ve pulled your catalog and your store is in the review queue.
+            FROM is curated, so every brand is checked by a human first. You’ll go live once approved.
+            Meanwhile, polish your profile below so it’s ready.
+          </p>
+        </div>
       )}
 
-      {connected && <AiTools />}
-      {connected && <Insights />}
-    </main>
+      <Connected me={me} busy={busy} onResync={onResync} onDisconnect={onDisconnect} isLive={status === 'approved'} />
+      <ProfileEditor me={me} onSaved={onReload} />
+      {status === 'approved' && <AiTools />}
+      {status === 'approved' && <Insights />}
+    </>
+  )
+}
+
+function ProfileEditor({ me, onSaved }: { me: Extract<Me, { connected: true }>; onSaved: () => void }) {
+  const b = me.brand
+  const [tagline, setTagline] = useState(b?.tagline ?? '')
+  const [bio, setBio] = useState(b?.bio ?? '')
+  const [logo, setLogo] = useState(b?.logo_url ?? '')
+  const [hero, setHero] = useState(b?.hero_url ?? '')
+  const [instagram, setInstagram] = useState(b?.instagram ?? '')
+  const [website, setWebsite] = useState(b?.website ?? '')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  async function save() {
+    setBusy(true); setSaved(false)
+    try {
+      await fetch('/api/brands/profile', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tagline, bio, logo_url: logo, hero_url: hero, instagram, website }),
+      })
+      setSaved(true); onSaved()
+    } finally { setBusy(false) }
+  }
+
+  const slug = (b?.display_name || b?.store_domain || '').replace(/\.myshopify\.com$/, '')
+  return (
+    <div style={card}>
+      <div style={label}>YOUR FROM PROFILE</div>
+      <p style={{ fontSize: 13, color: '#79756d', margin: '0 0 14px' }}>
+        This is your public brand page on FROM{me.brand?.status === 'approved' ? <> — <a href={`/brand/${slug}`} target="_blank" rel="noopener" style={{ color: '#111' }}>view it ↗</a></> : ' (goes live when approved)'}.
+      </p>
+      <input style={input} placeholder="Tagline (e.g. Heritage workwear, made in Japan)" value={tagline} onChange={e => setTagline(e.target.value)} />
+      <textarea style={{ ...input, marginTop: 10, minHeight: 80, resize: 'vertical' }} placeholder="Brand story / bio" value={bio} onChange={e => setBio(e.target.value)} />
+      <input style={{ ...input, marginTop: 10 }} placeholder="Logo image URL" value={logo} onChange={e => setLogo(e.target.value)} />
+      <input style={{ ...input, marginTop: 10 }} placeholder="Hero/banner image URL" value={hero} onChange={e => setHero(e.target.value)} />
+      <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+        <input style={input} placeholder="Instagram handle" value={instagram} onChange={e => setInstagram(e.target.value)} />
+        <input style={input} placeholder="Website" value={website} onChange={e => setWebsite(e.target.value)} />
+      </div>
+      <button style={{ ...primaryBtn(busy), marginTop: 14 }} disabled={busy} onClick={save}>
+        {busy ? 'Saving…' : saved ? 'Saved ✓' : 'Save profile'}
+      </button>
+    </div>
   )
 }
 
@@ -173,8 +267,8 @@ function Pitch() {
   )
 }
 
-function Connected({ me, busy, onResync, onDisconnect }: {
-  me: Extract<Me, { connected: true }>; busy: string | null; onResync: () => void; onDisconnect: () => void
+function Connected({ me, busy, onResync, onDisconnect, isLive }: {
+  me: Extract<Me, { connected: true }>; busy: string | null; onResync: () => void; onDisconnect: () => void; isLive: boolean
 }) {
   const b = me.brand
   const live = me.live
@@ -183,7 +277,7 @@ function Connected({ me, busy, onResync, onDisconnect }: {
       <div style={label}>YOUR CATALOG IN FROM</div>
       <div style={{ display: 'flex', gap: 28, marginBottom: 6 }}>
         <Stat n={Number(b?.product_count ?? 0)} label="products synced" />
-        <Stat n={Number(live?.total ?? 0)} label="live in search" />
+        <Stat n={Number(live?.total ?? 0)} label={isLive ? 'live in search' : 'ready (hidden)'} />
         <Stat n={Number(live?.in_stock ?? 0)} label="in stock" />
       </div>
       <div style={{ fontSize: 13, color: '#6b675f', marginTop: 10 }}>

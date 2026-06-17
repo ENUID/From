@@ -86,22 +86,50 @@ CREATE TABLE IF NOT EXISTS brand_accounts (
   access_token   TEXT,
   scope          TEXT,
   plan           TEXT DEFAULT 'free',
-  status         TEXT DEFAULT 'connected',
+  -- Lifecycle: pending (awaiting review) → approved | rejected; disconnected.
+  status         TEXT DEFAULT 'pending',
   store_id       UUID REFERENCES stores(id) ON DELETE SET NULL,
   product_count  INT  DEFAULT 0,
+  -- Brand profile (editable by the brand, shown on its public FROM page).
+  tagline        TEXT,
+  bio            TEXT,
+  logo_url       TEXT,
+  hero_url       TEXT,
+  instagram      TEXT,
+  website        TEXT,
+  -- Review metadata.
+  submitted_at   TIMESTAMPTZ DEFAULT now(),
+  reviewed_at    TIMESTAMPTZ,
+  rejection_reason TEXT,
   connected_at   TIMESTAMPTZ DEFAULT now(),
   last_synced_at TIMESTAMPTZ,
   sync_error     TEXT,
   updated_at     TIMESTAMPTZ DEFAULT now()
 );
 
+-- Back-fill columns for accounts created before the profile/review fields existed.
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS tagline          TEXT;
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS bio              TEXT;
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS logo_url         TEXT;
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS hero_url         TEXT;
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS instagram        TEXT;
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS website          TEXT;
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS submitted_at     TIMESTAMPTZ DEFAULT now();
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS reviewed_at      TIMESTAMPTZ;
+ALTER TABLE brand_accounts ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+
 ALTER TABLE products ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'crawl';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS brand_account_id UUID REFERENCES brand_accounts(id) ON DELETE SET NULL;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
+-- Search visibility. Crawled products are visible by default; connected products
+-- stay hidden until the brand is approved (published flips TRUE on approval).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS published BOOLEAN DEFAULT TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_products_source        ON products (source);
 CREATE INDEX IF NOT EXISTS idx_products_brand_account ON products (brand_account_id);
+CREATE INDEX IF NOT EXISTS idx_products_published     ON products (published);
 CREATE INDEX IF NOT EXISTS idx_brand_accounts_domain  ON brand_accounts (store_domain);
+CREATE INDEX IF NOT EXISTS idx_brand_accounts_status  ON brand_accounts (status);
 
 CREATE TABLE IF NOT EXISTS sync_log (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
