@@ -16,7 +16,6 @@ if [ ! -f .env.local ]; then
   cat > .env.local <<'EOF'
 # Public Convex URL (safe, client-side by design)
 NEXT_PUBLIC_CONVEX_URL=https://tangible-shrimp-237.convex.cloud
-NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=dev-preview-secret-change-me
 EOF
 fi
@@ -29,5 +28,7 @@ fi
   [ -n "$CRON_SECRET" ]    && echo "CRON_SECRET=$CRON_SECRET"
 } >> .env.local
 
-echo "Setup complete. The dev server will start automatically."
-echo "Open the forwarded port 3000, then visit /discover"
+# NEXTAUTH_URL is set dynamically at start time using $CODESPACE_NAME
+# (can't hardcode here because name isn't known until runtime)
+
+echo "Setup complete."

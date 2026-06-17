@@ -10,9 +10,7 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
-  "postAttachCommand": {
-    "dev": "cd web && NEXTAUTH_URL=http://localhost:3000 npm run dev"
-  },
+  "postStartCommand": "bash .devcontainer/start.sh",
   "customizations": {
     "vscode": {
       "extensions": ["dbaeumer.vscode-eslint"]
