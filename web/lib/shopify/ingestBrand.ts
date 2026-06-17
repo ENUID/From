@@ -113,14 +113,7 @@ export async function ingestConnectedBrand(args: {
     // Tie the brand account to its store row.
     await db`UPDATE brand_accounts SET store_id = ${storeId}, updated_at = now() WHERE id = ${args.brandAccountId}`
 
-    let upserted = 0
-    for (let i = 0; i < products.length; i += EMBED_BATCH) {
-      const chunk = products.slice(i, i + EMBED_BATCH)
-      const embeddings = await embedProducts(chunk)
-      for (let j = 0; j < chunk.length; j++) {
-        if (await upsertConnectedProduct(db, storeId, args.brandAccountId, chunk[j], embeddings[j])) upserted++
-      }
-    }
+    const upserted = await ingestProducts(storeId, args.brandAccountId, products)
 
     await db`
       UPDATE brand_accounts
@@ -136,4 +129,29 @@ export async function ingestConnectedBrand(args: {
       .catch(() => {})
     return { fetched: 0, upserted: 0, error: msg }
   }
+}
+
+/** Embed + upsert a set of connected products. Reused by full sync and webhooks. */
+export async function ingestProducts(
+  storeId: string,
+  brandAccountId: string,
+  products: NormalizedProduct[],
+): Promise<number> {
+  if (products.length === 0) return 0
+  const db = sql()
+  let upserted = 0
+  for (let i = 0; i < products.length; i += EMBED_BATCH) {
+    const chunk = products.slice(i, i + EMBED_BATCH)
+    const embeddings = await embedProducts(chunk)
+    for (let j = 0; j < chunk.length; j++) {
+      if (await upsertConnectedProduct(db, storeId, brandAccountId, chunk[j], embeddings[j])) upserted++
+    }
+  }
+  return upserted
+}
+
+/** Remove a single connected product (webhook products/delete). */
+export async function deleteConnectedProduct(storeId: string, externalId: string): Promise<void> {
+  const db = sql()
+  await db`DELETE FROM products WHERE store_id = ${storeId} AND external_id = ${externalId}`
 }

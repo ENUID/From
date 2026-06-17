@@ -13,6 +13,7 @@ import {
   exchangeCodeForToken, normalizeShopDomain, verifyOAuthHmac, shopifyConfigured,
 } from '@/lib/shopify/oauth'
 import { ingestConnectedBrand } from '@/lib/shopify/ingestBrand'
+import { registerWebhooks } from '@/lib/shopify/webhooks'
 import { signBrandToken, BRAND_COOKIE, BRAND_COOKIE_MAX_AGE } from '@/lib/brands/session'
 
 export const runtime = 'nodejs'
@@ -58,6 +59,9 @@ export async function GET(req: NextRequest) {
       RETURNING id
     `
     const brandAccountId = ((rows as any[])[0] as any).id as string
+
+    // Register real-time webhooks (best-effort — never block connect on this).
+    await registerWebhooks(shop, access_token).catch(() => 0)
 
     // First ingest — pull their catalog into the corpus right away.
     const result = await ingestConnectedBrand({

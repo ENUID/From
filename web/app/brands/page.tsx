@@ -102,6 +102,8 @@ export default function BrandsPage() {
         </div>
       )}
 
+      {!connected && <Pitch />}
+
       {!connected ? (
         <div style={card}>
           <div style={label}>CONNECT YOUR SHOPIFY STORE</div>
@@ -126,6 +128,48 @@ export default function BrandsPage() {
       {connected && <AiTools />}
       {connected && <Insights />}
     </main>
+  )
+}
+
+function Pitch() {
+  const benefits = [
+    {
+      title: 'Reach shoppers hunting for you',
+      body: 'FROM shoppers search by vibe and intent — "quiet luxury linen for a coastal wedding." Your pieces surface to people who want exactly what you make, not a sea of fast fashion.',
+    },
+    {
+      title: 'Free AI tools for your store',
+      body: 'Generate polished product copy, SEO titles, and tags in seconds. See real demand data — what shoppers search for, including gaps you could stock into.',
+    },
+    {
+      title: 'Keep your store, keep your customer',
+      body: 'Checkout stays on your own site. We only read your products (you approve on Shopify). No fees to be found. Connect in one click, disconnect anytime.',
+    },
+  ]
+  return (
+    <div style={{ ...card, padding: '26px 22px' }}>
+      <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.25, marginBottom: 8 }}>
+        The best-dressed shoppers aren’t on the mainstream. They’re searching for brands like yours.
+      </div>
+      <p style={{ fontSize: 14.5, color: '#6b675f', lineHeight: 1.55, margin: '0 0 20px' }}>
+        FROM is an AI shopping search across independent brands. Connect your Shopify store and your
+        catalog goes live to every FROM shopper — with AI tools and real demand data on the house.
+      </p>
+      <div style={{ display: 'grid', gap: 12 }}>
+        {benefits.map((b, i) => (
+          <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{
+              flexShrink: 0, width: 24, height: 24, borderRadius: 12, background: '#111', color: '#fff',
+              fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>{i + 1}</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 2 }}>{b.title}</div>
+              <div style={{ fontSize: 13.5, color: '#6b675f', lineHeight: 1.5 }}>{b.body}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 

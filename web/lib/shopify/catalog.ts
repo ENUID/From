@@ -128,6 +128,32 @@ function toNormalized(p: GqlProduct, storeDomain: string): NormalizedProduct {
   }
 }
 
+const SINGLE_PRODUCT_QUERY = `
+query Product($id: ID!) {
+  product(id: $id) {
+    id title handle vendor productType description tags onlineStoreUrl totalInventory
+    priceRangeV2 { minVariantPrice { amount currencyCode } maxVariantPrice { amount currencyCode } }
+    featuredImage { url }
+    images(first: 8) { nodes { url } }
+    options { name values }
+    variants(first: 50) { nodes { id title availableForSale price selectedOptions { name value } } }
+  }
+}`
+
+/** Fetch one product by numeric id (from a webhook), normalized for the corpus.
+ *  Returns null if it no longer exists or has no image. */
+export async function fetchProductById(
+  shop: string, token: string, productId: string | number,
+): Promise<NormalizedProduct | null> {
+  const gid = String(productId).startsWith('gid://')
+    ? String(productId)
+    : `gid://shopify/Product/${productId}`
+  const data = await gql<{ product: GqlProduct | null }>(shop, token, SINGLE_PRODUCT_QUERY, { id: gid })
+  if (!data.product) return null
+  const n = toNormalized(data.product, shop)
+  return n.image_url ? n : null
+}
+
 /** Fetch every active product from a connected store, normalized for the corpus. */
 export async function fetchBrandCatalog(shop: string, token: string): Promise<NormalizedProduct[]> {
   const out: NormalizedProduct[] = []

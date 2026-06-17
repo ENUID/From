@@ -3025,6 +3025,21 @@ export default function FromApp({
                 ))}
               </div>
 
+              {/* For Brands */}
+              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, opacity: 0.6, marginBottom: 8 }}>For Brands</div>
+              <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
+                <a href="/brands" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', textDecoration: 'none' }}>
+                  <div style={{ flexShrink: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 22V12h6v10"/></svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK }}>Sell on FROM</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 1 }}>Connect your store — reach FROM shoppers</div>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </a>
+              </div>
+
               {/* Sign out */}
               <button onClick={() => signOut({ callbackUrl: window.location.origin + '/' })}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: 'rgba(44,18,6,.03)', borderRadius: 14, border: 'none', cursor: 'pointer', textAlign: 'left' }}
