@@ -14,30 +14,27 @@
 
 import crypto from 'crypto'
 
-// Scopes FROM requests when a brand connects. Catalog + media + collections +
-// metafields power rich product data and best-shot selection; pricing scopes
-// surface sale prices; checkout/order scopes enable future FROM-native checkout
-// (hybrid money flow). Override per-deploy with the SHOPIFY_SCOPES env var.
-// NOTE: read_orders/read_customers (protected customer data) and write scopes
-// require Shopify app approval before a public app can request them.
+// Scopes FROM requests when a brand connects.
+//
+// We default to the catalog/media set that an UNAPPROVED app can request right
+// away — everything needed to ingest products, media, collections, metafields,
+// inventory and pricing. The order/customer/checkout scopes (protected customer
+// data + write access) require Shopify app approval, so they're intentionally
+// left out until FROM is approved. When that happens, set the full set via the
+// SHOPIFY_SCOPES env var (comma-separated) — no code change needed.
+//
+// Full set for later: read_orders, read_customers, read_checkouts,
+// write_checkouts, read_fulfillments, read_shipping, read_analytics,
+// write_orders, write_returns.
 export const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES ?? [
   'read_products',
+  'read_product_listings',
   'read_inventory',
   'read_locations',
   'read_metafields',
-  'read_product_listings',
-  'read_orders',
-  'read_checkouts',
-  'write_checkouts',
-  'read_customers',
-  'read_fulfillments',
-  'read_shipping',
-  'read_analytics',
+  'read_collections',
   'read_discounts',
   'read_price_rules',
-  'read_collections',
-  'write_orders',
-  'write_returns',
 ].join(',')
 const API_VERSION = '2024-10'
 
