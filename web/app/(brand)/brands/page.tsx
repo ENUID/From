@@ -260,9 +260,9 @@ function ProfileEditor({ me, onSaved }: { me: Extract<Me, { connected: true }>; 
       <textarea style={{ ...input, marginTop: 10, minHeight: 88, resize: 'vertical' }} placeholder="Your brand story" value={bio} onChange={e => setBio(e.target.value)} />
       <input style={{ ...input, marginTop: 10 }} placeholder="Logo image URL" value={logo} onChange={e => setLogo(e.target.value)} />
       <input style={{ ...input, marginTop: 10 }} placeholder="Hero / banner image URL" value={hero} onChange={e => setHero(e.target.value)} />
-      <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-        <input style={input} placeholder="Instagram" value={instagram} onChange={e => setInstagram(e.target.value)} />
-        <input style={input} placeholder="Website" value={website} onChange={e => setWebsite(e.target.value)} />
+      <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+        <input style={{ ...input, flex: '1 1 200px' }} placeholder="Instagram" value={instagram} onChange={e => setInstagram(e.target.value)} />
+        <input style={{ ...input, flex: '1 1 200px' }} placeholder="Website" value={website} onChange={e => setWebsite(e.target.value)} />
       </div>
       <button style={{ ...pill(busy), marginTop: 16 }} disabled={busy} onClick={save}>
         {busy ? 'Saving…' : saved ? 'Saved ✓' : 'Save profile'}
