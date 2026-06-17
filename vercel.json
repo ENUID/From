@@ -2,5 +2,11 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "web/.next",
   "framework": "nextjs",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/cron/catalog-sync",
+      "schedule": "0 4 * * *"
+    }
+  ]
 }
