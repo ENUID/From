@@ -50,6 +50,10 @@ export async function GET(req: NextRequest) {
     inStockOnly: true,
   }
 
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ products: [], meta: { style, mode: 'unconfigured' } })
+  }
+
   try {
     // If we have a style with a known seed text, embed it and use vector discovery
     const seedText = style ? AESTHETIC_SEEDS[style] ?? style : null

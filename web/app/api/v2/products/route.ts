@@ -34,6 +34,10 @@ export async function GET(req: NextRequest) {
     inStockOnly: searchParams.get('inStock') !== 'false',
   }
 
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ products: [], meta: { query, mode: 'unconfigured' } })
+  }
+
   try {
     const products = await searchProducts(query, { limit, offset, filters })
 
