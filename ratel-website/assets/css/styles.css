@@ -326,9 +326,9 @@ footer{border-top:1px solid var(--line);padding:58px 0 42px;background:var(--pap
   .scard,.pill{border-right:none}
   .strip-in{grid-template-columns:1fr 1fr}
   .cta,.gh{padding:84px 0}
-  .hero-steps{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}
-  .hero-steps::-webkit-scrollbar{display:none}
-  .hero-steps span,.step-sep{flex-shrink:0;white-space:nowrap}
+  .hero-steps{flex-wrap:wrap;overflow-x:visible;padding-bottom:0;gap:6px}
+  .hero-steps span{font-size:10.5px;white-space:normal;flex-shrink:1}
+  .step-sep{flex-shrink:1}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
