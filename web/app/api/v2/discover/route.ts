@@ -165,7 +165,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ products: parsed, meta: { style, limit, offset, mode: 'sample' } })
 
   } catch (err) {
-    console.error('[v2/discover]', err)
-    return NextResponse.json({ error: 'Discovery failed' }, { status: 500 })
+    console.error('[v2/discover] DB query failed, falling back to live UCP', err)
+    // DB not ready (schema not set up, or connection issue) — fall back to live crawl
+    try {
+      const products = await ucpFallback(style, genderParam, limit, offset)
+      return NextResponse.json({ products, meta: { style, limit, offset, mode: 'ucp-live-fallback' } })
+    } catch (fallbackErr) {
+      console.error('[v2/discover] UCP fallback also failed', fallbackErr)
+      return NextResponse.json({ products: [], meta: { style, mode: 'error' } })
+    }
   }
 }
