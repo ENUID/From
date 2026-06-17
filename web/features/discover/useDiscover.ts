@@ -48,12 +48,7 @@ export function useDiscover(style: string, gender: Gender) {
       setHasMore(fresh.length === PAGE_SIZE)
       setEmpty(fresh.length === 0 && offset === 0)
     } catch (err) {
-      const msg = (err as Error).message
-      if (msg.includes('DATABASE_URL') || msg.includes('not set') || msg.includes('connect')) {
-        setEmpty(true)   // DB not configured — show setup state
-      } else {
-        setError(msg)
-      }
+      setError((err as Error).message)
     } finally {
       setLoading(false)
       setLoadingMore(false)
