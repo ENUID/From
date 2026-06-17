@@ -1,0 +1,279 @@
+'use client'
+
+/**
+ * /brands — the merchant side of FROM.
+ *
+ * Not connected → enter Shopify domain, connect via OAuth.
+ * Connected → catalog status + re-sync, AI description writer, demand insights.
+ */
+
+import { useCallback, useEffect, useState } from 'react'
+
+type Brand = {
+  store_domain: string
+  display_name?: string
+  plan?: string
+  status?: string
+  product_count?: number
+  last_synced_at?: string
+  sync_error?: string | null
+}
+type Me =
+  | { connected: false }
+  | { connected: true; brand?: Brand; live?: { total?: number; in_stock?: number }; store_domain?: string; error?: string }
+
+const wrap: React.CSSProperties = {
+  maxWidth: 720, margin: '0 auto', padding: '28px 18px 90px',
+  fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1a1a1a',
+  background: '#faf9f7', minHeight: '100vh',
+}
+const card: React.CSSProperties = {
+  background: '#fff', border: '1px solid #e8e6e1', borderRadius: 16, padding: 22, marginBottom: 16,
+}
+const label: React.CSSProperties = { fontSize: 12, fontWeight: 700, letterSpacing: 0.4, color: '#79756d', marginBottom: 10 }
+const primaryBtn = (disabled?: boolean): React.CSSProperties => ({
+  padding: '13px 20px', fontSize: 15, fontWeight: 600, color: '#fff',
+  background: disabled ? '#bcb8b0' : '#111', border: 'none', borderRadius: 11,
+  cursor: disabled ? 'default' : 'pointer', WebkitTapHighlightColor: 'transparent',
+})
+const input: React.CSSProperties = {
+  width: '100%', padding: '13px 14px', fontSize: 16, borderRadius: 10,
+  border: '1px solid #ddd9d2', outline: 'none', boxSizing: 'border-box',
+}
+
+export default function BrandsPage() {
+  const [me, setMe] = useState<Me | null>(null)
+  const [shop, setShop] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [banner, setBanner] = useState<string | null>(null)
+
+  const loadMe = useCallback(async () => {
+    try {
+      const res = await fetch('/api/brands/me', { cache: 'no-store' })
+      setMe(await res.json())
+    } catch { setMe({ connected: false }) }
+  }, [])
+
+  useEffect(() => { loadMe() }, [loadMe])
+
+  // Surface the OAuth callback result from the URL.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('connected')) setBanner(`Store connected — ${p.get('synced') ?? 0} products synced into FROM.`)
+    else if (p.get('error')) setBanner(`Connection failed: ${p.get('error')}`)
+    if (p.has('connected') || p.has('error')) window.history.replaceState({}, '', '/brands')
+  }, [])
+
+  function connect() {
+    const s = shop.trim()
+    if (!s) return
+    window.location.href = `/api/brands/connect?shop=${encodeURIComponent(s)}`
+  }
+
+  async function resync() {
+    setBusy('sync')
+    try {
+      const res = await fetch('/api/brands/sync', { method: 'POST' })
+      const data = await res.json()
+      setBanner(res.ok ? `Synced ${data.upserted ?? 0} products.` : `Sync failed: ${data.error}`)
+      loadMe()
+    } finally { setBusy(null) }
+  }
+
+  async function disconnect() {
+    if (!confirm('Disconnect your store? Your products stay live but stop refreshing.')) return
+    setBusy('disconnect')
+    try { await fetch('/api/brands/disconnect', { method: 'POST' }); loadMe(); setBanner('Disconnected.') }
+    finally { setBusy(null) }
+  }
+
+  const connected = me?.connected === true
+
+  return (
+    <main style={wrap}>
+      <h1 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 4px' }}>FROM for Brands</h1>
+      <p style={{ color: '#79756d', fontSize: 14, margin: '0 0 22px' }}>
+        Connect your store once. Your catalog goes live to every FROM shopper, and you get AI tools + real demand data back.
+      </p>
+
+      {banner && (
+        <div style={{ ...card, background: '#f0f7f1', borderColor: '#cfe6d3', color: '#1f6b3a', fontSize: 14 }}>
+          {banner}
+        </div>
+      )}
+
+      {!connected ? (
+        <div style={card}>
+          <div style={label}>CONNECT YOUR SHOPIFY STORE</div>
+          <input
+            style={input}
+            placeholder="your-store.myshopify.com"
+            value={shop}
+            onChange={e => setShop(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && connect()}
+            autoCapitalize="none" autoCorrect="off"
+          />
+          <button style={{ ...primaryBtn(), marginTop: 14 }} onClick={connect}>Connect store →</button>
+          <p style={{ fontSize: 12.5, color: '#9a968e', margin: '14px 0 0', lineHeight: 1.5 }}>
+            We request read-only access to your products. You approve on Shopify; nothing is changed in your store.
+            Checkout still happens on your own site.
+          </p>
+        </div>
+      ) : (
+        <Connected me={me as Extract<Me, { connected: true }>} busy={busy} onResync={resync} onDisconnect={disconnect} />
+      )}
+
+      {connected && <AiTools />}
+      {connected && <Insights />}
+    </main>
+  )
+}
+
+function Connected({ me, busy, onResync, onDisconnect }: {
+  me: Extract<Me, { connected: true }>; busy: string | null; onResync: () => void; onDisconnect: () => void
+}) {
+  const b = me.brand
+  const live = me.live
+  return (
+    <div style={card}>
+      <div style={label}>YOUR CATALOG IN FROM</div>
+      <div style={{ display: 'flex', gap: 28, marginBottom: 6 }}>
+        <Stat n={Number(b?.product_count ?? 0)} label="products synced" />
+        <Stat n={Number(live?.total ?? 0)} label="live in search" />
+        <Stat n={Number(live?.in_stock ?? 0)} label="in stock" />
+      </div>
+      <div style={{ fontSize: 13, color: '#6b675f', marginTop: 10 }}>
+        {b?.store_domain} · {b?.status}
+        {b?.last_synced_at ? ` · last synced ${new Date(b.last_synced_at).toLocaleString()}` : ''}
+      </div>
+      {b?.sync_error && <div style={{ fontSize: 13, color: '#c0392b', marginTop: 6 }}>Last error: {b.sync_error}</div>}
+      <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+        <button style={primaryBtn(busy === 'sync')} disabled={busy === 'sync'} onClick={onResync}>
+          {busy === 'sync' ? 'Syncing…' : 'Re-sync catalog'}
+        </button>
+        <button
+          style={{ ...primaryBtn(), background: '#fff', color: '#9a3030', border: '1px solid #e3cfcf' }}
+          onClick={onDisconnect}
+        >
+          Disconnect
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AiTools() {
+  const [title, setTitle] = useState('')
+  const [materials, setMaterials] = useState('')
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [out, setOut] = useState<{ description?: string; seoTitle?: string; metaDescription?: string; tags?: string[]; error?: string } | null>(null)
+
+  async function generate() {
+    if (!title.trim()) return
+    setBusy(true); setOut(null)
+    try {
+      const res = await fetch('/api/brands/ai/describe', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title, materials, notes }),
+      })
+      setOut(await res.json())
+    } catch (e) { setOut({ error: (e as Error).message }) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div style={card}>
+      <div style={label}>AI PRODUCT COPY</div>
+      <p style={{ fontSize: 13, color: '#79756d', margin: '0 0 14px' }}>
+        Drop in a product name and a few details — get a polished description, SEO title, and tags.
+      </p>
+      <input style={input} placeholder="Product name (e.g. Cropped Linen Camp Shirt)" value={title} onChange={e => setTitle(e.target.value)} />
+      <input style={{ ...input, marginTop: 10 }} placeholder="Materials (optional, e.g. 100% French linen)" value={materials} onChange={e => setMaterials(e.target.value)} />
+      <textarea style={{ ...input, marginTop: 10, minHeight: 70, resize: 'vertical' }} placeholder="Notes (optional: fit, occasion, story)" value={notes} onChange={e => setNotes(e.target.value)} />
+      <button style={{ ...primaryBtn(busy), marginTop: 14 }} disabled={busy} onClick={generate}>
+        {busy ? 'Writing…' : 'Generate copy'}
+      </button>
+
+      {out && !out.error && (
+        <div style={{ marginTop: 18, borderTop: '1px solid #eee', paddingTop: 16 }}>
+          {out.description && <Field title="Description" value={out.description} />}
+          {out.seoTitle && <Field title="SEO title" value={out.seoTitle} />}
+          {out.metaDescription && <Field title="Meta description" value={out.metaDescription} />}
+          {out.tags && out.tags.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#79756d', marginBottom: 6 }}>Tags</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {out.tags.map((t, i) => (
+                  <span key={i} style={{ fontSize: 12.5, padding: '4px 10px', background: '#f0eee9', borderRadius: 20 }}>{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {out?.error && <div style={{ marginTop: 12, color: '#c0392b', fontSize: 13 }}>{out.error}</div>}
+    </div>
+  )
+}
+
+function Insights() {
+  const [data, setData] = useState<{ total?: number; thinResults?: number; topSearches?: { query: string; count: number }[]; terms?: { term: string; count: number }[]; message?: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/brands/insights', { cache: 'no-store' }).then(r => r.json()).then(setData).catch(() => {})
+  }, [])
+
+  if (!data) return null
+  return (
+    <div style={card}>
+      <div style={label}>SHOPPER DEMAND · LAST 14 DAYS</div>
+      {data.message ? (
+        <p style={{ fontSize: 13, color: '#9a968e', margin: 0 }}>{data.message}</p>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: 28, marginBottom: 16 }}>
+            <Stat n={Number(data.total ?? 0)} label="searches" />
+            <Stat n={Number(data.thinResults ?? 0)} label="unmet (thin results)" />
+          </div>
+          {data.terms && data.terms.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#79756d', margin: '4px 0 8px' }}>What shoppers want</div>
+              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                {data.terms.slice(0, 24).map((t, i) => (
+                  <span key={i} style={{ fontSize: 13, padding: '5px 11px', background: '#f0eee9', borderRadius: 20 }}>
+                    {t.term} <span style={{ color: '#a8a39a' }}>{t.count}</span>
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function Field({ title, value }: { title: string; value: string }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#79756d' }}>{title}</span>
+        <button
+          onClick={() => navigator.clipboard?.writeText(value)}
+          style={{ fontSize: 11.5, color: '#666', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+        >copy</button>
+      </div>
+      <div style={{ fontSize: 14, lineHeight: 1.55, color: '#2a2a2a', whiteSpace: 'pre-wrap' }}>{value}</div>
+    </div>
+  )
+}
+
+function Stat({ n, label: l }: { n: number; label: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{n.toLocaleString()}</div>
+      <div style={{ fontSize: 12, color: '#9a968e', marginTop: 4 }}>{l}</div>
+    </div>
+  )
+}

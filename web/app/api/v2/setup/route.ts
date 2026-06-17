@@ -75,6 +75,34 @@ CREATE TABLE IF NOT EXISTS discovery_feeds (
   updated_at  TIMESTAMPTZ DEFAULT now()
 );
 
+-- Brands that connect their own store (Shopify OAuth). A connected brand is the
+-- authoritative, live source for its products — higher trust than a crawl.
+CREATE TABLE IF NOT EXISTS brand_accounts (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_domain   TEXT NOT NULL UNIQUE,
+  public_domain  TEXT,
+  display_name   TEXT,
+  platform       TEXT DEFAULT 'shopify',
+  access_token   TEXT,
+  scope          TEXT,
+  plan           TEXT DEFAULT 'free',
+  status         TEXT DEFAULT 'connected',
+  store_id       UUID REFERENCES stores(id) ON DELETE SET NULL,
+  product_count  INT  DEFAULT 0,
+  connected_at   TIMESTAMPTZ DEFAULT now(),
+  last_synced_at TIMESTAMPTZ,
+  sync_error     TEXT,
+  updated_at     TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'crawl';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS brand_account_id UUID REFERENCES brand_accounts(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
+
+CREATE INDEX IF NOT EXISTS idx_products_source        ON products (source);
+CREATE INDEX IF NOT EXISTS idx_products_brand_account ON products (brand_account_id);
+CREATE INDEX IF NOT EXISTS idx_brand_accounts_domain  ON brand_accounts (store_domain);
+
 CREATE TABLE IF NOT EXISTS sync_log (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   started_at        TIMESTAMPTZ DEFAULT now(),
