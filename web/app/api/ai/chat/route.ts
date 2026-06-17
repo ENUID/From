@@ -6,6 +6,7 @@ import { compileIntent, compiledReplyText, compiledSuggestions } from '@/lib/int
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
 import { GlobalCatalogService, UcpProduct, type CatalogSearchDebug } from '@/lib/services/GlobalCatalogService'
+import { searchCorpusOrNull } from '@/lib/search/corpusAdapter'
 import {
   UCP_REGISTRY,
   detectBrandsInQuery,
@@ -198,6 +199,32 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
   const brandDomains = options.brandDomains || []
+
+  // ── Corpus-first ────────────────────────────────────────────────────────────
+  // Serve the fast pre-crawled Postgres corpus for general first-page searches.
+  // Skip it for brand-specific queries (need the live brand catalog), load-more
+  // (live pagination handles excludeIds), and reserve refreshes. Returns null
+  // when the corpus is empty/sparse/unconfigured, so we fall through to live.
+  if (!options.loadMore && !options.refreshReserve && brandDomains.length === 0) {
+    const corpus = await searchCorpusOrNull({
+      query: args.searchQuery,
+      limit: 30,
+      offset: 0,
+      filters: { priceMax: args.budgetMax ?? undefined, inStockOnly: true },
+    })
+    if (corpus) {
+      return {
+        products: corpus,
+        searchQuery: args.searchQuery,
+        budgetMax: args.budgetMax,
+        budgetCurrency,
+        isClothing: args.isClothing,
+        sort,
+        brandFallback: undefined,
+      }
+    }
+  }
+
   let products = await GlobalCatalogService.search(
     args.searchQuery,
     args.budgetMax,

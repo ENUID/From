@@ -1,6 +1,5 @@
 import { cookies, headers } from 'next/headers'
 import FromPage from '@/features/from/FromPage'
-import BottomNav from '@/components/BottomNav'
 import {
   SHOPPER_COUNTRY_COOKIE,
   SHOPPER_CURRENCY_COOKIE,
@@ -22,12 +21,9 @@ export default async function Page() {
   const rates = await getExchangeRates()
 
   return (
-    <>
-      <FromPage
-        initialShopperContext={shopperContext}
-        initialRates={rates}
-      />
-      <BottomNav active="search" />
-    </>
+    <FromPage
+      initialShopperContext={shopperContext}
+      initialRates={rates}
+    />
   )
 }
