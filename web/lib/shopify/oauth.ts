@@ -14,19 +14,11 @@
 
 import crypto from 'crypto'
 
-// Scopes FROM requests when a brand connects.
+// ── Shopify scopes ───────────────────────────────────────────────────────────
 //
-// We default to the catalog/media set that an UNAPPROVED app can request right
-// away — everything needed to ingest products, media, collections, metafields,
-// inventory and pricing. The order/customer/checkout scopes (protected customer
-// data + write access) require Shopify app approval, so they're intentionally
-// left out until FROM is approved. When that happens, set the full set via the
-// SHOPIFY_SCOPES env var (comma-separated) — no code change needed.
-//
-// Full set for later: read_orders, read_customers, read_checkouts,
-// write_checkouts, read_fulfillments, read_shipping, read_analytics,
-// write_orders, write_returns.
-export const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES ?? [
+// CATALOG (works today, no Shopify approval needed): everything to ingest
+// products, media, collections, metafields, inventory and pricing.
+const CATALOG_SCOPES = [
   'read_products',
   'read_product_listings',
   'read_inventory',
@@ -35,7 +27,40 @@ export const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES ?? [
   'read_collections',
   'read_discounts',
   'read_price_rules',
+]
+
+// FULL (needs Shopify app approval): adds write access + protected customer
+// data so the AI can, once the features exist:
+//   • write_products  → update descriptions / add best-shot & model images back to the store
+//   • orders/returns  → manage orders + returns for FROM-native checkout
+//   • checkouts       → create checkouts on the brand's store (hybrid money flow)
+//   • customers/analytics/fulfillments/shipping → merchant insights + fulfilment
+export const FULL_SHOPIFY_SCOPES = [
+  ...CATALOG_SCOPES,
+  'write_products',
+  'read_orders',
+  'write_orders',
+  'write_returns',
+  'read_fulfillments',
+  'read_shipping',
+  'read_customers',
+  'read_analytics',
+  'read_checkouts',
+  'write_checkouts',
 ].join(',')
+
+// Resolve which scopes to request:
+//   • unset            → CATALOG (safe default, works unapproved)
+//   • "full"           → FULL_SHOPIFY_SCOPES (use once FROM is approved)
+//   • "a,b,c"          → exactly those scopes
+function resolveScopes(): string {
+  const env = process.env.SHOPIFY_SCOPES?.trim()
+  if (!env) return CATALOG_SCOPES.join(',')
+  if (env.toLowerCase() === 'full') return FULL_SHOPIFY_SCOPES
+  return env
+}
+
+export const SHOPIFY_SCOPES = resolveScopes()
 const API_VERSION = '2024-10'
 
 export function shopifyConfigured(): boolean {
