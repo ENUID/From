@@ -2507,8 +2507,8 @@ export default function FromApp({
            4 columns is the industry standard for fashion e-commerce on desktop
            (Net-a-Porter, SSENSE, Farfetch all cap at 4 — gives images room to breathe).
            Only very wide monitors (1500px+) step up to 5. */
-        .fr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:26px 10px;width:100%;flex-shrink:0;}
-        @media(min-width:600px){.fr-grid{grid-template-columns:repeat(3,1fr);gap:30px 14px;}}
+        .fr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:26px 10px;width:100%;flex-shrink:0;padding:0 10px;box-sizing:border-box;}
+        @media(min-width:600px){.fr-grid{grid-template-columns:repeat(3,1fr);gap:30px 14px;padding:0 14px;}}
         @media(min-width:820px){.fr-grid{grid-template-columns:repeat(4,1fr);}}
         @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
         .fr-card{display:flex;flex-direction:column;opacity:0;animation:fr-fi .35s ease forwards;}
