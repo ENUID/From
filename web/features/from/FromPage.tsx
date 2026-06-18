@@ -372,7 +372,9 @@ function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void
   const active = useRef(false)
   const swiped = useRef(false)
 
-  const imgs = images.slice(0, 8)
+  // Cap to 8, then upgrade to on-body-first so the card leads with a model shot
+  // and the flat packshot trails (renders instantly in heuristic order first).
+  const imgs = useModelFirstOrder(images.slice(0, 8))
 
   if (imgs.length === 0) {
     return (
