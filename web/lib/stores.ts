@@ -4705,6 +4705,206 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "items": ["oversized tee","graphic tee","shirt","joggers","hoodie"],
     "about": "Indian streetwear label — oversized graphic tees and easy everyday casuals"
   },
+  {
+    "domain": "anubhutee.com",
+    "name": "Anubhutee",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["ethnic","contemporary","feminine","everyday"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["kurta set","kurta","dress","co-ord","suit"],
+    "about": "Indian ethnicwear label — printed kurtas, suits and fusion sets for everyday and festive wear"
+  },
+  {
+    "domain": "baccabucci.com",
+    "name": "Bacca Bucci",
+    "categories": ["footwear","accessory"],
+    "vibe": ["streetwear","casual","sport","everyday"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["sneakers","boots","slides","loafers","sandals"],
+    "about": "Indian men's footwear brand — chunky sneakers, boots and street-ready styles"
+  },
+  {
+    "domain": "bluorng.com",
+    "name": "Bluorng",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["streetwear","contemporary","bold","casual"],
+    "gender": ["men","women"],
+    "priceRange": "mid",
+    "items": ["graphic tee","sweatshirt","cargo","shirt","jacket"],
+    "about": "New Delhi streetwear label blending Indian motifs with global street culture"
+  },
+  {
+    "domain": "boldfit.in",
+    "name": "Boldfit",
+    "categories": ["activewear","top","bottom","accessory"],
+    "vibe": ["active","workout","performance","sport"],
+    "gender": ["men","women"],
+    "priceRange": "budget",
+    "items": ["gym tee","joggers","sports bra","shorts","tank"],
+    "about": "Indian fitness brand — performance gymwear and training gear for everyday athletes"
+  },
+  {
+    "domain": "dennislingo.com",
+    "name": "Dennis Lingo",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["casual","everyday","streetwear","contemporary"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["shirt","t-shirt","jacket","trousers","sweatshirt"],
+    "about": "Indian men's casualwear — shirts, tees and layering staples for the everyday wardrobe"
+  },
+  {
+    "domain": "hubberholme.com",
+    "name": "Hubberholme",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["casual","contemporary","everyday","minimalist"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt","t-shirt","trousers","jacket","polo"],
+    "about": "Indian menswear label of clean, contemporary casuals and easy tailoring"
+  },
+  {
+    "domain": "indya.com",
+    "name": "Indya",
+    "categories": ["dress","top","bottom","accessory"],
+    "vibe": ["ethnic","contemporary","feminine","resort"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta","fusion dress","drape saree","co-ord","lehenga"],
+    "about": "Indian fusion-wear brand — modern ethnic and indo-western pieces for celebrations"
+  },
+  {
+    "domain": "jaipurkurti.com",
+    "name": "Jaipur Kurti",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["ethnic","heritage","everyday","feminine"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["kurta","kurta set","dress","palazzo","co-ord"],
+    "about": "Jaipur-rooted ethnicwear — block-print kurtas and easy Indian everyday staples"
+  },
+  {
+    "domain": "jodilife.com",
+    "name": "Jodi",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["maximalist","quirky","artistic","resort"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["printed dress","co-ord","kaftan","top","skirt"],
+    "about": "Indian label of joyful, print-led pieces — playful botanical and folk-art prints"
+  },
+  {
+    "domain": "kalkifashion.com",
+    "name": "Kalki Fashion",
+    "categories": ["dress","top","bottom","accessory"],
+    "vibe": ["ethnic","formal","heritage","occasion"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["lehenga","saree","gown","anarkali","suit"],
+    "about": "Indian occasion-wear house — lehengas, sarees and couture-inspired festive dressing"
+  },
+  {
+    "domain": "ketch.in",
+    "name": "Ketch",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["casual","streetwear","trend","everyday"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["t-shirt","shirt","joggers","jacket","co-ord"],
+    "about": "Affordable Indian menswear — trend-led tees, shirts and street casuals"
+  },
+  {
+    "domain": "neemans.com",
+    "name": "Neeman's",
+    "categories": ["footwear"],
+    "vibe": ["sustainable","minimalist","everyday","casual"],
+    "gender": ["men","women"],
+    "priceRange": "mid",
+    "items": ["wool sneakers","slip-ons","loafers","sliders","trainers"],
+    "about": "Indian sustainable footwear made from merino wool and natural materials"
+  },
+  {
+    "domain": "rustorange.com",
+    "name": "Rust Orange",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["contemporary","casual","feminine","everyday"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["dress","co-ord","top","jumpsuit","skirt"],
+    "about": "Indian womenswear — easy dresses and co-ords in soft prints for everyday style"
+  },
+  {
+    "domain": "sassafras.in",
+    "name": "SASSAFRAS",
+    "categories": ["dress","top","bottom","outerwear"],
+    "vibe": ["contemporary","streetwear","trend","feminine"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["dress","top","jeans","co-ord","blazer"],
+    "about": "Indian western-wear brand — fashion-forward tops, dresses and denim for young women"
+  },
+  {
+    "domain": "soch.com",
+    "name": "Soch",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["ethnic","heritage","feminine","occasion"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["saree","kurta set","kurta","lehenga","gown"],
+    "about": "Indian ethnicwear brand — sarees, suits and festive pieces in vibrant prints and weaves"
+  },
+  {
+    "domain": "solethreads.com",
+    "name": "Sole Threads",
+    "categories": ["footwear","accessory"],
+    "vibe": ["casual","everyday","coastal","sport"],
+    "gender": ["men","women"],
+    "priceRange": "budget",
+    "items": ["flip-flops","sliders","sneakers","clogs","sandals"],
+    "about": "Indian everyday footwear — fun flip-flops, sliders and casual slip-ons"
+  },
+  {
+    "domain": "tistabene.com",
+    "name": "Tistabene",
+    "categories": ["accessory","top","bottom"],
+    "vibe": ["ethnic","contemporary","casual","everyday"],
+    "gender": ["men","women"],
+    "priceRange": "budget",
+    "items": ["pocket square","jacket","kurta","stole","tie"],
+    "about": "Indian label of menswear accessories and fusion ethnic pieces"
+  },
+  {
+    "domain": "tokyotalkies.com",
+    "name": "Tokyo Talkies",
+    "categories": ["dress","top","bottom","outerwear"],
+    "vibe": ["contemporary","streetwear","trend","feminine"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["top","dress","jeans","co-ord","jacket"],
+    "about": "Indian western-wear brand — on-trend tops, denim and dresses for everyday fashion"
+  },
+  {
+    "domain": "yoho.in",
+    "name": "YOHO",
+    "categories": ["footwear","accessory"],
+    "vibe": ["casual","streetwear","everyday","sport"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["sneakers","loafers","boots","slides","sandals"],
+    "about": "Indian men's footwear brand — comfort-led sneakers, loafers and casual styles"
+  },
+  {
+    "domain": "proyog.com",
+    "name": "Proyog",
+    "categories": ["activewear","top","bottom"],
+    "vibe": ["active","organic","sustainable","seamless"],
+    "gender": ["women","men"],
+    "priceRange": "premium",
+    "items": ["yoga leggings","organic tee","bra top","shorts","joggers"],
+    "about": "Indian organic yogawear made from natural fibres for movement and ease"
+  },
 ];
 
 // ── Brand directory ───────────────────────────────────────────────────────────
@@ -4713,6 +4913,26 @@ export const UCP_REGISTRY: StoreProfile[] = [
 // brand-specific search ("show me shirts from Allbirds") and the "From {brand}"
 // label, and is the single place to keep brand names in sync with the registry.
 export const BRAND_NAMES: Record<string, string> = {
+  "anubhutee.com": "Anubhutee",
+  "baccabucci.com": "Bacca Bucci",
+  "bluorng.com": "Bluorng",
+  "boldfit.in": "Boldfit",
+  "dennislingo.com": "Dennis Lingo",
+  "hubberholme.com": "Hubberholme",
+  "indya.com": "Indya",
+  "jaipurkurti.com": "Jaipur Kurti",
+  "jodilife.com": "Jodi",
+  "kalkifashion.com": "Kalki Fashion",
+  "ketch.in": "Ketch",
+  "neemans.com": "Neeman's",
+  "rustorange.com": "Rust Orange",
+  "sassafras.in": "SASSAFRAS",
+  "soch.com": "Soch",
+  "solethreads.com": "Sole Threads",
+  "tistabene.com": "Tistabene",
+  "tokyotalkies.com": "Tokyo Talkies",
+  "yoho.in": "YOHO",
+  "proyog.com": "Proyog",
   "bewakoof.com": "Bewakoof",
   "bhaane.com": "Bhaane",
   "bummer.in": "Bummer",
