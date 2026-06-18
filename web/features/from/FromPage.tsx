@@ -3014,7 +3014,7 @@ export default function FromApp({
 
             {otpStep === 'email' && (
               <>
-                <button type="button" onClick={() => signIn('google', { callbackUrl: window.location.origin + '/shop' })}
+                <button type="button" onClick={() => signIn('google', { callbackUrl: window.location.origin + '/' })}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                     padding: '13px 16px', borderRadius: 30, background: '#fff', border: `1px solid ${BRD}`,
                     fontFamily: SANS, fontSize: 14, fontWeight: 500, color: INK, cursor: 'pointer', marginBottom: 18 }}>
@@ -3730,7 +3730,7 @@ export default function FromApp({
                     {/* Google */}
                     <button
                       type="button"
-                      onClick={() => signIn('google', { callbackUrl: window.location.origin + '/shop' })}
+                      onClick={() => signIn('google', { callbackUrl: window.location.origin + '/' })}
                       style={{
                         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
                         padding: '11px 16px', borderRadius: 10,
