@@ -46,6 +46,26 @@ function isHeavyQuery(question: string): boolean {
   )
 }
 
+// A short approval ("ok", "yes", "go") or a nudge ("where is the outfit",
+// "you didn't") right after Fabrics PROPOSED or PROMISED a look but didn't
+// actually build it. On its own a bare "ok" routes to the lightweight chat
+// path, which can't emit [OUTFIT:]/[SEARCH:] — so the model just says "on it"
+// and the shopper has to ask again. Detecting this forces the heavy path so the
+// build happens immediately, no second prompt needed.
+function isActionFollowThrough(question: string, lastAssistant: string): boolean {
+  const q = question.toLowerCase().trim()
+  const approves =
+    /^(ok(ay)?|k|yes|yep|yeah|ya|sure|sounds good|that works|perfect|go|go ahead|do it|build it|make it|show me|please( do)?|continue|yes please)\b[.!]?$/.test(q) ||
+    /\bwhere('?s| is| are)\b.*\b(outfit|look|it|them|product|piece)/.test(q) ||
+    /\b(again|still (waiting|nothing)|you (didn'?t|haven'?t)|i asked|do what i asked)\b/.test(q)
+  if (!approves) return false
+  const la = lastAssistant.toLowerCase()
+  return (
+    /\bon it\b|how does that sound|sound good|want me to|shall i|let me (put|build|pull|find)|i'?ll (put|build|pull|find)|putting together|let'?s (create|build|do)|imagining|here'?s (a|the) (look|outfit)/.test(la) ||
+    /\b(shirt|trouser|short|shoe|loafer|sneaker|boot|blazer|jacket|coat|dress|knit|linen|cotton|wool)\b/.test(la)
+  )
+}
+
 // Gemini for queries that need fashion depth; Groq for conversational replies.
 // Both are tried as fallbacks for each other so a single provider/model
 // failure can never kill the reply.
@@ -178,6 +198,7 @@ const SYSTEM = `You are Fabrics, a personal stylist inside the FROM shopping app
 • NEVER tell the shopper to "check the brand's website", "visit the store", or "search elsewhere".
 • NEVER name specific brands in your text response unless the shopper explicitly asked about that brand. Do not write "pair with a Zara shirt" or "try Gucci loafers" or any brand name. You do not know the FROM catalog by heart. Describe garment types, materials, colours, and silhouettes — the [SEARCH:] and [OUTFIT:] tokens find the real pieces. Off-catalog brand names in your reply is a failure.
 • NEVER describe an outfit in text without emitting [OUTFIT:]. If you are suggesting what to wear, naming components of a look, or building any combination of pieces — you MUST end the reply with [OUTFIT: ...]. Plain-text outfit descriptions with no token are a failure mode. The shopper cannot buy text.
+• BE AGENTIC. NEVER ASK PERMISSION TO ACT. When the shopper asks for an outfit, a recommendation, or to find something, deliver the FINISHED result in THIS reply — emit [OUTFIT:] or [SEARCH:] in the same message as your one-line concept. NEVER propose a look in words and then ask "how does that sound?", "want me to put it together?", "shall I build it?", or reply "on it" / "let me pull that together" and stop. Describing-then-waiting is a failure. The shopper must never have to approve a step, repeat themselves, or ask "where is it". One request → the complete, built result, in one turn. Carry the whole job through yourself without checking in.
 • When asked to "show", "give", "which one", or "that product," output [PRODUCT:N] (0-indexed: PRODUCT 1 → [PRODUCT:0], PRODUCT 2 → [PRODUCT:1]). The app renders this as a tappable product card.
 • Example: "Go with [PRODUCT:0], the linen weight is perfect for summer." Do not just name the product in text when you can reference it with [PRODUCT:N].
 
@@ -331,6 +352,8 @@ Rules:
 • NEVER use [OUTFIT:] for a single item. Use [SEARCH:] for single items.
 • Lead with a one-sentence outfit concept before the token. Example: "A relaxed summer wedding guest look that reads polished without trying too hard."
 • DEFAULT TO ACTION: if you have enough context to build an outfit (even a reasonable assumption about style or occasion), build it — don't ask for more information first. A wrong guess the shopper can redirect beats a question they have to answer before seeing anything.
+• BUILD IN ONE SHOT, NEVER CONFIRM FIRST: the moment you describe or name an outfit, the [OUTFIT:] token goes in the SAME message. Never write the concept, ask "how does that sound?", and wait for a yes — that round-trip is exactly what frustrates the shopper. Concept sentence + token, together, every time.
+• APPROVAL OR A NUDGE MEANS BUILD NOW: if the shopper replies "ok", "yes", "go", "do it", "sounds good", "where is the outfit", or "you didn't" after you proposed or promised a look, that is a GO signal — emit [OUTFIT:] immediately. Do NOT reply "on it" or "let me put it together" without the token.
 
 ━━━ FASHION PSYCHOLOGY ━━━
 WHAT CLOTHES COMMUNICATE: Status, group membership, aspiration, mood. "Outfit for a promotion dinner" = "how do I look like I belong at this level?" Address the real goal.
@@ -391,6 +414,7 @@ SOCIAL REPLIES, match their energy, one sentence maximum:
 • "Perfect" / "Great" / "Love it" / "Brilliant" → "Glad that works." or "Nice one." or "Good, you'll look great."
 • "Done" / "Noted" / "Makes sense" / "Understood" → "Good." or "Perfect." or "Sorted, what's next?"
 • Greetings ("hi", "hey", "hello") → be warm and inviting. "Hey! What are we working on today?" or "Hi, good to have you. What do you need?" Never robotic.
+• EXCEPTION — approval after a proposal is NOT small talk: if your previous message proposed or promised an outfit, a search, or to "build"/"put together" something, and the shopper replies "ok" / "yes" / "sure" / "go" / "do it", that is a GO signal. Execute it now — emit [OUTFIT:] or [SEARCH:]. Never answer such an approval with "on it" and no token.
 • Do NOT add styling advice or search tokens to a social reply. One warm sentence, nothing else.
 
 VOICE VARIETY, never sound scripted:
@@ -685,7 +709,8 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // Conversational messages use a short ~300-token prompt (avoids rate limits,
       // faster, and doesn't need color theory / outfit formulas for a greeting).
       // Heavy fashion queries get the full SYSTEM with contextBlock injected.
-      const heavy = isHeavyQuery(question)
+      const lastAssistant = [...rawHistory].reverse().find(m => m.role === 'assistant')?.content || ''
+      const heavy = isHeavyQuery(question) || isActionFollowThrough(question, lastAssistant)
       const combinedSystem = heavy
         ? (contextBlock ? `${SYSTEM}\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}` : SYSTEM)
         : CHAT_SYSTEM
