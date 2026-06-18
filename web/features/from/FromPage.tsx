@@ -487,6 +487,21 @@ function inferTitleColor(title: string): string | null {
   return null
 }
 
+// A display colour name for single-colourway products (those with no Color
+// option). Titles usually carry it as a trailing segment — "…Shirt – Ice Blue".
+// We take that segment when it reads like a colour, else fall back to any colour
+// word found anywhere in the title. Title-cased for display.
+function inferSheetColorName(title: string): string | null {
+  const tc = (s: string) => s.replace(/\b\w/g, m => m.toUpperCase())
+  const segs = title.split(/[–—|]| - /).map(s => s.trim()).filter(Boolean)
+  if (segs.length > 1) {
+    const last = segs[segs.length - 1]
+    if (last.length <= 22 && inferTitleColor(last)) return tc(last)
+  }
+  const w = inferTitleColor(title)
+  return w ? tc(w) : null
+}
+
 // The swatches to display for a product. Multi-colour products return their
 // option values (interactive — they swap images). Single-colour products
 // return one inferred swatch so every card shows a colourway.
@@ -2388,21 +2403,33 @@ export default function FromApp({
   // brand's product.json (most reliable — they're the real variants), falling
   // back to the catalog options when the fetch hasn't returned (or had none).
   const _catalogColors = selectedProduct ? getProductColors(selectedProduct) : []
-  const sheetColorList = fetchedColors.length > 0 ? fetchedColors : _catalogColors
+  // Real colour options: product.json first, then catalog. When a product has
+  // none (single-colour pieces encode the colour in their title), infer one
+  // swatch so the popup always shows a colourway — sampled from the photo.
+  const _realColors = fetchedColors.length > 0 ? fetchedColors : _catalogColors
+  const _hasRealColors = _realColors.length > 0
+  const _inferredColor = selectedProduct && !_hasRealColors
+    ? inferSheetColorName(selectedProduct.title)
+    : null
+  const sheetColorList = _hasRealColors
+    ? _realColors
+    : _inferredColor ? [_inferredColor] : []
   const _activeSheetColor = selectedProduct
     ? (selectedColor || sheetColorList[0] || null)
     : null
-  // Images tied to that colour. Prefer the per-colour map from product.json
-  // (full, high-res, correctly separated), then the catalog's variant media.
+  // Only narrow the gallery to a colourway when the shopper explicitly taps one
+  // — opening the popup shows the full set of photos. Inferred single colours
+  // never filter (they have no separate media).
+  const _imageColor = _hasRealColors ? selectedColor : null
   const _fetchedColorImages = (() => {
-    if (!_activeSheetColor) return [] as string[]
-    const want = _activeSheetColor.toLowerCase()
+    if (!_imageColor) return [] as string[]
+    const want = _imageColor.toLowerCase()
     const key = Object.keys(fetchedColorImages).find(k => k.toLowerCase() === want)
     return key ? rankImageUrls(fetchedColorImages[key]) : []
   })()
   const _colorImages = _fetchedColorImages.length > 0
     ? _fetchedColorImages
-    : selectedProduct ? getColorVariantImages(selectedProduct, _activeSheetColor) : []
+    : (_imageColor && selectedProduct) ? getColorVariantImages(selectedProduct, _imageColor) : []
   // Merge catalog images with the full gallery fetched from product.json.
   // Fetched images take precedence (higher quality, more complete); any catalog
   // images not already present are appended so nothing is lost.
