@@ -516,66 +516,79 @@ function extractSuggestions(text: string): { cleanText: string, suggestions: str
 }
 
 export async function POST(req: NextRequest) {
+  let parsedBody: any
   try {
-    const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, buyerCountry, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile, shopperGender } = await req.json()
-    // 'Men' → 'men', 'Women' → 'women', 'Both'/'Non-binary'/unset → null (no prefix)
-    const genderPrefix = shopperGender === 'Men' ? 'men' : shopperGender === 'Women' ? 'women' : null
-    // Regex to detect if a query specifies a gender — or clearly refers to someone else
-    // (wife, girlfriend, sister, daughter, him, her). In these cases the user's default
-    // gender should NOT be applied; the LLM decides the right gender from context.
-    const GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|gender.neutral|wife|husband|girlfriend|boyfriend|sister|brother|daughter|son|her|his)\b/i
-    const applyGenderPrefix = (q: string): string => {
-      if (!genderPrefix) return q
-      if (!q.trim()) return q  // empty query = full catalog browse — don't add gender prefix
-      if (GENDER_TERM_RE.test(q) || GENDER_TERM_RE.test(safeMessage)) return q
-      return `${genderPrefix} ${q}`
-    }
-    if (!message) throw new Error('No message provided')
-    // Rate-limit ALL paths including load-more so the check cannot be bypassed.
-    if (isRateLimited(req)) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-    }
-    // Cap message length to prevent excessive token spend on crafted inputs.
-    const safeMessage: string = typeof message === 'string' ? message.slice(0, 500) : ''
-    // Prefer the frontend's resolved country (geo header → cookie → locale chain);
-    // fall back to the IP header so geo-boost still works if the body omits it.
-    const countryCode = (typeof buyerCountry === 'string' && buyerCountry.trim()
-      ? buyerCountry.trim().toUpperCase()
-      : req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null);
-    const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
+    parsedBody = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
-    if (safeMessage === 'more' && searchQuery) {
-      const excludeIds = collectProductIds(history || [], currentExcludeIds)
-      const moreArgs = SearchToolSchema.parse({
-        searchQuery,
-        budgetMax,
-        budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
-        isClothing,
-        mandatoryConcepts: [],
-        sort: normalizeSort(sort),
-      })
-      const moreOptions = {
-        countryCode,
-        buyerCurrency: activeBuyerCurrency,
-        excludeIds,
-        brandDomains: detectBrandsInQuery(searchQuery),
-      }
+  const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, buyerCountry, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile, shopperGender } = parsedBody
 
-      const catalogDebug: CatalogSearchDebug = {}
-      const result = await runCatalogSearch(moreArgs, {
-        ...moreOptions,
-        loadMore: true,
-        refreshReserve: true,
-        debug: catalogDebug,
-      })
+  if (!message) return NextResponse.json({ error: 'No message provided' }, { status: 400 })
 
-      return NextResponse.json({
-        text: "Here are some more options for you:",
-        ...result,
-        meta: catalogDebug,
-      });
+  // Rate-limit ALL paths including load-more so the check cannot be bypassed.
+  if (isRateLimited(req)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
+  // Cap message length to prevent excessive token spend on crafted inputs.
+  const safeMessage: string = typeof message === 'string' ? message.slice(0, 500) : ''
+  // Prefer the frontend's resolved country (geo header → cookie → locale chain);
+  // fall back to the IP header so geo-boost still works if the body omits it.
+  const countryCode = (typeof buyerCountry === 'string' && buyerCountry.trim()
+    ? buyerCountry.trim().toUpperCase()
+    : req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || null);
+  const activeBuyerCurrency = typeof buyerCurrency === 'string' ? buyerCurrency.toUpperCase() : 'USD'
+
+  // 'Men' → 'men', 'Women' → 'women', 'Both'/'Non-binary'/unset → null (no prefix)
+  const genderPrefix = shopperGender === 'Men' ? 'men' : shopperGender === 'Women' ? 'women' : null
+  // Regex to detect if a query specifies a gender — or clearly refers to someone else
+  // (wife, girlfriend, sister, daughter, him, her). In these cases the user's default
+  // gender should NOT be applied; the LLM decides the right gender from context.
+  const GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|gender.neutral|wife|husband|girlfriend|boyfriend|sister|brother|daughter|son|her|his)\b/i
+  const applyGenderPrefix = (q: string): string => {
+    if (!genderPrefix) return q
+    if (!q.trim()) return q  // empty query = full catalog browse — don't add gender prefix
+    if (GENDER_TERM_RE.test(q) || GENDER_TERM_RE.test(safeMessage)) return q
+    return `${genderPrefix} ${q}`
+  }
+
+  // ── 'more' path — stays as plain JSON, unchanged ──────────────────────────
+  if (safeMessage === 'more' && searchQuery) {
+    const excludeIds = collectProductIds(history || [], currentExcludeIds)
+    const moreArgs = SearchToolSchema.parse({
+      searchQuery,
+      budgetMax,
+      budgetCurrency: typeof budgetCurrency === 'string' ? budgetCurrency : activeBuyerCurrency,
+      isClothing,
+      mandatoryConcepts: [],
+      sort: normalizeSort(sort),
+    })
+    const moreOptions = {
+      countryCode,
+      buyerCurrency: activeBuyerCurrency,
+      excludeIds,
+      brandDomains: detectBrandsInQuery(searchQuery),
     }
 
+    const catalogDebug: CatalogSearchDebug = {}
+    const result = await runCatalogSearch(moreArgs, {
+      ...moreOptions,
+      loadMore: true,
+      refreshReserve: true,
+      debug: catalogDebug,
+    })
+
+    return NextResponse.json({
+      text: "Here are some more options for you:",
+      ...result,
+      meta: catalogDebug,
+    });
+  }
+
+  // ── All other paths use SSE streaming ─────────────────────────────────────
+  return sseStream(async (emit) => {
     const cleanHistory = sanitizeHistory(history || [], safeMessage)
     const messages: ChatMessage[] = [...cleanHistory, { role: 'user', content: safeMessage }]
 
@@ -616,7 +629,8 @@ export async function POST(req: NextRequest) {
           : brandResult.products.length > 0
             ? (lang === 'vi' ? `Đây là những gì ${brandNames} có hiện tại.` : `Here's what ${brandNames} has right now.`)
             : brandUnavailableText([brandNames], lang, false)
-        return NextResponse.json({
+        emit({
+          type: 'products',
           text,
           // Store the original message as searchQuery so load-more can re-detect
           // the brand and paginate correctly (empty string is falsy → breaks load-more).
@@ -625,6 +639,7 @@ export async function POST(req: NextRequest) {
           suggestions: [`What are the bestsellers from ${brandNames}?`, `Show me ${brandNames} under $100`, `Do you have ${brandNames} in my size?`],
           meta: { brandOnly: true },
         })
+        return
       }
     }
 
@@ -645,12 +660,14 @@ export async function POST(req: NextRequest) {
       const compiledText = compiledResult.brandFallback
         ? brandUnavailableText(compiledResult.brandFallback, inferLanguage(message), compiledResult.products.length > 0)
         : compiledReplyText(compiled, compiledResult.products.length)
-      return NextResponse.json({
+      emit({
+        type: 'products',
         text: compiledText,
         ...compiledResult,
         suggestions: compiledSuggestions(compiled),
         meta: { compiledIntent: true, brandFallback: compiledResult.brandFallback ?? null },
       })
+      return
     }
 
     let dynamicSystemPrompt = SYSTEM_PROMPT;
@@ -749,13 +766,15 @@ export async function POST(req: NextRequest) {
         buyerCurrency: activeBuyerCurrency,
       }, inferLanguage(message))
 
-      return NextResponse.json({
+      emit({
+        type: 'products',
         text: fallbackText(message, result.products, {
           budgetMax: result.budgetMax,
           diagnostics: result.products.length === 0 ? diagnostics : undefined,
         }),
         ...result,
       })
+      return
     }
 
     let products: UcpProduct[] = []
@@ -777,13 +796,14 @@ export async function POST(req: NextRequest) {
           activeBudgetCurrency = (args.budgetCurrency || activeBuyerCurrency).toUpperCase()
           activeIsClothing = args.isClothing
           activeSort = normalizeSort(args.sort)
-          
+
           const searchDiagnostics = formatSearchDiagnostics(args, {
             countryCode,
             buyerCurrency: activeBuyerCurrency,
           }, inferLanguage(message))
 
-          const result = await runCatalogSearch(args, {
+          // Start catalog search immediately (runs in parallel with any early text emit)
+          const catalogPromise = runCatalogSearch(args, {
             countryCode,
             buyerCurrency: activeBuyerCurrency,
             excludeIds: collectProductIds(history || []),
@@ -792,6 +812,15 @@ export async function POST(req: NextRequest) {
             tasteProfile: typeof tasteProfile === 'string' ? tasteProfile : undefined,
             rerankQuery: message,
           })
+
+          // If LLM already gave us text, stream it immediately (user sees it in ~2s)
+          const earlyText = aiResponse.content?.trim()
+          if (earlyText) {
+            emit({ type: 'text', text: earlyText, suggestions: [] })
+          }
+
+          // Wait for catalog (runs in parallel with client rendering the text)
+          const result = await catalogPromise
           products = result.products
           activeBudgetCurrency = result.budgetCurrency
           activeSort = result.sort
@@ -802,7 +831,8 @@ export async function POST(req: NextRequest) {
           if (result.brandFallback) {
             finalContent = brandUnavailableText(result.brandFallback, inferLanguage(message), products.length > 0)
             const extractedFb = extractSuggestions(aiResponse.content || '')
-            return NextResponse.json({
+            emit({
+              type: 'products',
               text: finalContent,
               products,
               searchQuery: activeSearchQuery,
@@ -813,17 +843,19 @@ export async function POST(req: NextRequest) {
               suggestions: extractedFb.suggestions,
               meta: { brandFallback: result.brandFallback },
             })
+            return
           }
 
-          const aiText = aiResponse.content?.trim()
-          if (aiText) {
-            finalContent = aiText
+          if (earlyText) {
+            // We already emitted early text; update finalContent for the products event
+            finalContent = earlyText
             if (products.length === 0) {
               finalContent += inferLanguage(message) === 'vi'
                 ? `\n\nĐã tìm trên Shopify catalog: ${searchDiagnostics}`
                 : `\n\nSearched Shopify catalog: ${searchDiagnostics}`
             }
           } else {
+            // No early text — generate post-tool reply now (sequential, same as before)
             const POST_TOOL_PROMPT = `You are "From", a high-end personal shopper. The pieces have ALREADY been found and are rendering as cards below your message.
 Write a short, warm, editorial lead-in — one or two sentences that frame what you pulled and why it fits the request, the way a great buyer hands you something off the rail. Reference the material, vibe, or occasion when it adds something; never list products, prices, or URLs (the cards do that).
 Have a little point of view — if there's a standout or a smart-buy angle, hint at it in a few words.
@@ -863,13 +895,15 @@ Reply in the exact language the user wrote in.`
               buyerCurrency: activeBuyerCurrency,
             }, inferLanguage(message))
 
-            return NextResponse.json({
+            emit({
+              type: 'products',
               text: fallbackText(message, result.products, {
                 budgetMax: result.budgetMax,
                 diagnostics: result.products.length === 0 ? diagnostics : undefined,
               }),
               ...result,
             })
+            return
           }
           products = []
           if (error.message?.includes('429')) {
@@ -890,7 +924,8 @@ Reply in the exact language the user wrote in.`
 
     const extracted = extractSuggestions(finalContent || "I'm sorry, I couldn't process that request right now.")
 
-    return NextResponse.json({
+    emit({
+      type: 'products',
       text: extracted.cleanText,
       products,
       searchQuery: activeSearchQuery,
@@ -898,17 +933,7 @@ Reply in the exact language the user wrote in.`
       budgetCurrency: activeBudgetCurrency,
       isClothing: activeIsClothing,
       sort: activeSort,
-      suggestions: extracted.suggestions
+      suggestions: extracted.suggestions,
     })
-  } catch (error: any) {
-    console.error('Chat API Error:', error)
-    let errorMessage = 'The search request did not complete. Please try again in a moment.'
-    if (error.message?.includes('429')) {
-      errorMessage = "Hệ thống AI hiện đang nhận quá nhiều yêu cầu cùng lúc. Xin bạn vui lòng đợi vài giây rồi thử lại!"
-    }
-    return NextResponse.json({ 
-      text: errorMessage,
-      products: [] 
-    })
-  }
+  })
 }
