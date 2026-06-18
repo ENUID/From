@@ -497,6 +497,110 @@ function displaySwatches(p: Product): { colors: string[]; interactive: boolean }
   return { colors: inferred ? [inferred] : ['neutral'], interactive: false }
 }
 
+// ── Dominant-colour sampling ──────────────────────────────────────────────────
+// Title text lies about colour ("Linen Shirt" is a fabric, not a hue), so the
+// only reliable swatch is the garment itself. We load a tiny copy of the
+// product image (Shopify CDN sends CORS headers) and average the centre region
+// — where the garment sits on a flat-lay or a model's torso — to get the exact
+// colour. Cached per URL; falls back to the name-based swatch when sampling
+// can't run (non-CORS store, decode error).
+const _swatchColorCache = new Map<string, string>()
+const _swatchPending = new Map<string, Promise<string | null>>()
+
+function _thumbForSampling(url: string): string {
+  try {
+    const u = new URL(url.startsWith('//') ? `https:${url}` : url)
+    if (u.hostname.includes('shopify') || u.hostname.includes('cdn.shopify.com')) {
+      u.searchParams.set('width', '80')
+      u.searchParams.delete('height')
+      return u.toString()
+    }
+  } catch { /* fall through */ }
+  return url
+}
+
+function sampleImageColor(url: string): Promise<string | null> {
+  if (_swatchColorCache.has(url)) return Promise.resolve(_swatchColorCache.get(url)!)
+  const inflight = _swatchPending.get(url)
+  if (inflight) return inflight
+  const job = new Promise<string | null>(resolve => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.decoding = 'async'
+    img.onload = () => {
+      try {
+        const S = 32
+        const cv = document.createElement('canvas')
+        cv.width = S; cv.height = S
+        const ctx = cv.getContext('2d', { willReadFrequently: true } as CanvasRenderingContext2DSettings)
+        if (!ctx) return resolve(null)
+        ctx.drawImage(img, 0, 0, S, S)
+        // Centre 40–70% box → the garment, away from background edges.
+        const a = Math.floor(S * 0.32), b = Math.ceil(S * 0.68)
+        const px = ctx.getImageData(a, a, b - a, b - a).data
+        let r = 0, g = 0, bl = 0, n = 0
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i + 3] < 128) continue
+          r += px[i]; g += px[i + 1]; bl += px[i + 2]; n++
+        }
+        if (!n) return resolve(null)
+        const css = `rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(bl / n)})`
+        _swatchColorCache.set(url, css)
+        resolve(css)
+      } catch { resolve(null) }
+    }
+    img.onerror = () => resolve(null)
+    img.src = _thumbForSampling(url)
+  })
+  _swatchPending.set(url, job)
+  return job
+}
+
+function useSwatchColor(url?: string | null): string | null {
+  const [color, setColor] = useState<string | null>(() => (url ? _swatchColorCache.get(url) ?? null : null))
+  useEffect(() => {
+    if (!url) { setColor(null); return }
+    const cached = _swatchColorCache.get(url)
+    if (cached) { setColor(cached); return }
+    let cancelled = false
+    sampleImageColor(url).then(c => { if (!cancelled && c) setColor(c) })
+    return () => { cancelled = true }
+  }, [url])
+  return color
+}
+
+// A single colour swatch. Shows the EXACT garment colour sampled from its image
+// when available, falling back to the name-based hue. Used on cards (small
+// square) and in the detail sheet (larger round).
+function ColorSwatch({ name, imageUrl, size, shape, selected, available, onClick }: {
+  name: string; imageUrl?: string | null; size: number; shape: 'square' | 'round'
+  selected: boolean; available: boolean; onClick?: () => void
+}) {
+  const sampled = useSwatchColor(imageUrl)
+  const bg = sampled ?? colorToCss(name)
+  const radius = shape === 'round' ? '50%' : `${Math.max(2, Math.round(size * 0.16))}px`
+  const ring = Math.max(1.5, size * 0.09)
+  return (
+    <button type="button" title={name} aria-label={name}
+      onClick={onClick ? e => { e.stopPropagation(); if (available) onClick() } : undefined}
+      style={{
+        width: size, height: size, borderRadius: radius, padding: 0, background: bg,
+        border: selected ? `1px solid ${INK}` : '1px solid rgba(44,18,6,0.22)',
+        boxShadow: selected ? `0 0 0 ${ring}px ${BG}, 0 0 0 ${ring + 1}px ${INK}` : 'none',
+        opacity: available ? 1 : 0.34, position: 'relative', display: 'inline-block',
+        cursor: onClick && available ? 'pointer' : 'default', transition: 'box-shadow .15s',
+      }}>
+      {!available && size >= 20 && (
+        <span style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+            <line x1={size * 0.2} y1={size * 0.8} x2={size * 0.8} y2={size * 0.2} stroke={INK} strokeWidth="1.1" />
+          </svg>
+        </span>
+      )}
+    </button>
+  )
+}
+
 // ── Product meta — the editorial caption under each grid image ────────────────
 // Title (uppercase) + a quick "bag it" plus, price, and colour swatches. When
 // the product has real colour variants, the swatches are tappable and drive
@@ -507,6 +611,7 @@ function ProductMeta({ p, rates, saved, onSave, onOpen, activeColor, onSelectCol
 }) {
   const avail = getColorAvailability(p)
   const { colors, interactive } = displaySwatches(p)
+  const heroImg = getProductImages(p)[0] || p.image_url
   return (
     <div onClick={onOpen} style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -534,17 +639,15 @@ function ProductMeta({ p, rates, saved, onSave, onOpen, activeColor, onSelectCol
           {colors.slice(0, 6).map(c => {
             const isAvail = avail[c] !== false
             const on = interactive && (activeColor ?? colors[0]) === c
+            // Sample the colour from its own variant image; for a single-colour
+            // product the hero IS that colour, so sample that. Multi-colour
+            // variants without their own media fall back to the name swatch.
+            const variantImg = interactive ? getColorVariantImages(p, c)[0] : undefined
+            const sampleImg = variantImg ?? ((!interactive || colors.length === 1) ? heroImg : undefined)
             return (
-              <button key={c} type="button" title={c} disabled={!interactive || !isAvail}
-                onClick={e => { e.stopPropagation(); if (interactive && isAvail) onSelectColor?.(c) }}
-                style={{
-                  width: 13, height: 13, borderRadius: 2, padding: 0,
-                  background: colorToCss(c),
-                  border: on ? `1px solid ${INK}` : '1px solid rgba(44,18,6,0.22)',
-                  boxShadow: on ? `0 0 0 1.5px ${BG}, 0 0 0 2.5px ${INK}` : 'none',
-                  opacity: isAvail ? 1 : 0.32, display: 'inline-block',
-                  cursor: interactive && isAvail ? 'pointer' : 'default',
-                }} />
+              <ColorSwatch key={c} name={c} imageUrl={sampleImg} size={13} shape="square"
+                selected={on} available={isAvail}
+                onClick={interactive && isAvail ? () => onSelectColor?.(c) : undefined} />
             )
           })}
           {colors.length > 6 && (
@@ -2331,6 +2434,18 @@ export default function FromApp({
   const sizeAvail      = selectedProduct ? getSizeAvailability(selectedProduct, _activeSheetColor) : {}
   const colorAvail     = selectedProduct ? getColorAvailability(selectedProduct) : {}
   const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
+  // The image a colour swatch samples from: that colourway's first photo (from
+  // product.json, then catalog variant media). For a single-colour product the
+  // hero IS that colour. Multi-colour without media → undefined → name swatch.
+  const swatchImageFor = (c: string): string | undefined => {
+    if (!selectedProduct) return undefined
+    const want = c.toLowerCase()
+    const key = Object.keys(fetchedColorImages).find(k => k.toLowerCase() === want)
+    const fromFetch = key ? fetchedColorImages[key][0] : undefined
+    const fromCatalog = getColorVariantImages(selectedProduct, c)[0]
+    const variantImg = fromFetch ?? fromCatalog
+    return variantImg ?? (sheetColors.length === 1 ? sheetImages[0] : undefined)
+  }
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
   // Open the brand's checkout in a centered popup window so From stays open
   // behind it. (The brand's checkout lives on its own domain and blocks being
@@ -5319,22 +5434,8 @@ export default function FromApp({
                               const on = effectiveColor === c
                               const avail = colorAvail[c] !== false
                               return (
-                                <button key={c} title={c} aria-label={c} disabled={!avail} onClick={() => avail && setColor(c)}
-                                  style={{
-                                    width: 26, height: 26, borderRadius: '50%', padding: 0,
-                                    background: colorToCss(c),
-                                    border: on ? `1px solid ${INK}` : '1px solid rgba(44,18,6,0.22)',
-                                    boxShadow: on ? `0 0 0 2px ${BG}, 0 0 0 3px ${INK}` : 'none',
-                                    cursor: avail ? 'pointer' : 'not-allowed',
-                                    opacity: avail ? 1 : 0.32,
-                                    position: 'relative', transition: 'box-shadow .15s',
-                                  }}>
-                                  {!avail && (
-                                    <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: INK }}>
-                                      <svg width="26" height="26" viewBox="0 0 26 26"><line x1="4" y1="22" x2="22" y2="4" stroke={INK} strokeWidth="1.2" /></svg>
-                                    </span>
-                                  )}
-                                </button>
+                                <ColorSwatch key={c} name={c} imageUrl={swatchImageFor(c)} size={26} shape="round"
+                                  selected={on} available={avail} onClick={() => avail && setColor(c)} />
                               )
                             })}
                           </div>
@@ -5562,21 +5663,8 @@ export default function FromApp({
                             const on = effectiveColor === c
                             const avail = colorAvail[c] !== false
                             return (
-                              <button key={c} title={c} aria-label={c} disabled={!avail} onClick={() => avail && setColor(c)}
-                                style={{
-                                  width: 26, height: 26, borderRadius: "50%", padding: 0,
-                                  background: colorToCss(c),
-                                  border: on ? `1px solid ${INK}` : "1px solid rgba(44,18,6,0.22)",
-                                  boxShadow: on ? `0 0 0 2px ${BG}, 0 0 0 3px ${INK}` : "none",
-                                  cursor: avail ? "pointer" : "not-allowed",
-                                  opacity: avail ? 1 : 0.32,
-                                  position: "relative", transition: "box-shadow .15s" }}>
-                                {!avail && (
-                                  <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <svg width="26" height="26" viewBox="0 0 26 26"><line x1="4" y1="22" x2="22" y2="4" stroke={INK} strokeWidth="1.2" /></svg>
-                                  </span>
-                                )}
-                              </button>
+                              <ColorSwatch key={c} name={c} imageUrl={swatchImageFor(c)} size={26} shape="round"
+                                selected={on} available={avail} onClick={() => avail && setColor(c)} />
                             )
                           })}
                         </div>
