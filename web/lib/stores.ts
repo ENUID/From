@@ -4495,6 +4495,216 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "items": ["camp shirt","flannel","trousers","knit","cap"],
     "about": "New York heritage menswear — vintage-rooted American sportswear and workwear"
   },
+  {
+    "domain": "bewakoof.com",
+    "name": "Bewakoof",
+    "categories": ["top","bottom","outerwear","accessory"],
+    "vibe": ["casual","streetwear","everyday","quirky"],
+    "gender": ["men","women"],
+    "priceRange": "budget",
+    "items": ["graphic tee","oversized tee","joggers","hoodie","shirt"],
+    "about": "Indian pop-culture label — affordable graphic tees, oversized fits and everyday casualwear"
+  },
+  {
+    "domain": "bhaane.com",
+    "name": "Bhaane",
+    "categories": ["top","bottom","outerwear","dress"],
+    "vibe": ["contemporary","minimalist","casual","indie"],
+    "gender": ["men","women"],
+    "priceRange": "premium",
+    "items": ["shirt","trousers","dress","jacket","tee"],
+    "about": "New Delhi contemporary label — easy, design-led separates with an understated cool"
+  },
+  {
+    "domain": "bummer.in",
+    "name": "Bummer",
+    "categories": ["innerwear","top","bottom"],
+    "vibe": ["everyday","casual","cozy","quirky"],
+    "gender": ["men","women"],
+    "priceRange": "budget",
+    "items": ["boxers","briefs","loungewear","tee","co-ord"],
+    "about": "India's fun innerwear and loungewear brand — soft micromodal basics in bold prints"
+  },
+  {
+    "domain": "campussutra.com",
+    "name": "Campus Sutra",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["casual","active","streetwear","everyday"],
+    "gender": ["men","women"],
+    "priceRange": "budget",
+    "items": ["t-shirt","jacket","shirt","joggers","sweatshirt"],
+    "about": "Affordable Indian casualwear — everyday tees, jackets and athleisure for young India"
+  },
+  {
+    "domain": "doodlage.in",
+    "name": "Doodlage",
+    "categories": ["dress","top","bottom","outerwear"],
+    "vibe": ["sustainable","contemporary","organic","ethnic"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["dress","shirt","co-ord","skirt","jacket"],
+    "about": "New Delhi sustainable label upcycling factory waste into modern, conscious womenswear"
+  },
+  {
+    "domain": "dressfolk.com",
+    "name": "Dressfolk",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["ethnic","heritage","organic","minimalist"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["handloom saree","kurta","dress","co-ord","top"],
+    "about": "Handloom-forward Indian label celebrating indigenous weaves in modern silhouettes"
+  },
+  {
+    "domain": "faballey.com",
+    "name": "FabAlley",
+    "categories": ["dress","top","bottom","outerwear"],
+    "vibe": ["contemporary","formal","everyday","feminine"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress","jumpsuit","blazer","top","co-ord"],
+    "about": "Indian contemporary womenswear — workwear, party and everyday edits with a fashion-forward edge"
+  },
+  {
+    "domain": "fabnest.in",
+    "name": "Fabnest",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["contemporary","everyday","feminine","casual"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["dress","co-ord","top","skirt","jumpsuit"],
+    "about": "Affordable Indian womenswear — breezy dresses and co-ords for everyday and occasion"
+  },
+  {
+    "domain": "kharakapas.com",
+    "name": "Khara Kapas",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["organic","minimalist","ethnic","heritage"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["cotton dress","kurta","skirt","co-ord","top"],
+    "about": "Indian slow-fashion label working in pure cottons with timeless, handcrafted ease"
+  },
+  {
+    "domain": "kica.in",
+    "name": "KICA",
+    "categories": ["activewear","top","bottom"],
+    "vibe": ["active","seamless","everyday","performance"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["leggings","sports bra","tank","joggers","tee"],
+    "about": "Indian activewear for women — supportive, second-skin pieces for movement and rest"
+  },
+  {
+    "domain": "libas.in",
+    "name": "Libas",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["ethnic","contemporary","everyday","feminine"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta set","suit","kurta","dress","co-ord"],
+    "about": "Leading Indian ethnicwear brand — kurtas, suits and fusion pieces for every occasion"
+  },
+  {
+    "domain": "littleboxindia.com",
+    "name": "Little Box India",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["casual","everyday","feminine","contemporary"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["dress","top","co-ord","jumpsuit","skirt"],
+    "about": "Affordable Indian womenswear — trend-led dresses and casuals for the everyday wardrobe"
+  },
+  {
+    "domain": "newme.asia",
+    "name": "Newme",
+    "categories": ["dress","top","bottom","outerwear"],
+    "vibe": ["contemporary","streetwear","everyday","feminine"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["dress","top","co-ord","jeans","jacket"],
+    "about": "Fast-moving Indian womenswear label translating runway trends into accessible everyday style"
+  },
+  {
+    "domain": "okhai.org",
+    "name": "Okhai",
+    "categories": ["dress","top","bottom","accessory"],
+    "vibe": ["ethnic","organic","heritage","artisan"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["hand-embroidered dress","kurta","top","jacket","co-ord"],
+    "about": "Artisan-led Indian label of hand-embroidered, handcrafted pieces supporting rural craftswomen"
+  },
+  {
+    "domain": "snitch.com",
+    "name": "Snitch",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["streetwear","contemporary","trend","casual"],
+    "gender": ["men"],
+    "priceRange": "mid",
+    "items": ["shirt","t-shirt","trousers","jacket","co-ord"],
+    "about": "Fast-fashion Indian menswear — trend-driven shirts, tees and tailoring for young men"
+  },
+  {
+    "domain": "suvasa.in",
+    "name": "Suvasa",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["ethnic","heritage","organic","everyday"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["hand-block kurta","dress","co-ord","top","suit"],
+    "about": "Indian label of hand-block-printed cottons — everyday ethnic with traditional craft"
+  },
+  {
+    "domain": "thesouledstore.com",
+    "name": "The Souled Store",
+    "categories": ["top","bottom","outerwear","accessory"],
+    "vibe": ["streetwear","casual","quirky","everyday"],
+    "gender": ["men","women"],
+    "priceRange": "budget",
+    "items": ["graphic tee","oversized tee","hoodie","joggers","shirt"],
+    "about": "India's pop-culture merch and casualwear brand — licensed graphics, oversized tees and fun basics"
+  },
+  {
+    "domain": "thesummerhouse.in",
+    "name": "The Summer House",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["sustainable","minimalist","contemporary","resort"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["dress","co-ord","top","trousers","skirt"],
+    "about": "Bengaluru sustainable label of fluid, easy resortwear in natural, responsible fabrics"
+  },
+  {
+    "domain": "tjori.com",
+    "name": "Tjori",
+    "categories": ["dress","top","bottom","accessory"],
+    "vibe": ["ethnic","heritage","organic","feminine"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta","dress","co-ord","suit","top"],
+    "about": "Indian heritage-meets-wellness label — handcrafted ethnicwear rooted in natural fabrics"
+  },
+  {
+    "domain": "urbanofashion.com",
+    "name": "Urbano Fashion",
+    "categories": ["bottom","top","outerwear"],
+    "vibe": ["denim","casual","streetwear","everyday"],
+    "gender": ["men"],
+    "priceRange": "budget",
+    "items": ["jeans","cargo","t-shirt","shirt","joggers"],
+    "about": "Indian denim and casual menswear — jeans, cargos and everyday street staples"
+  },
+  {
+    "domain": "veirdo.in",
+    "name": "Veirdo",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["streetwear","casual","quirky","everyday"],
+    "gender": ["men","women"],
+    "priceRange": "budget",
+    "items": ["oversized tee","graphic tee","shirt","joggers","hoodie"],
+    "about": "Indian streetwear label — oversized graphic tees and easy everyday casuals"
+  },
 ];
 
 // ── Brand directory ───────────────────────────────────────────────────────────
@@ -4503,6 +4713,27 @@ export const UCP_REGISTRY: StoreProfile[] = [
 // brand-specific search ("show me shirts from Allbirds") and the "From {brand}"
 // label, and is the single place to keep brand names in sync with the registry.
 export const BRAND_NAMES: Record<string, string> = {
+  "bewakoof.com": "Bewakoof",
+  "bhaane.com": "Bhaane",
+  "bummer.in": "Bummer",
+  "campussutra.com": "Campus Sutra",
+  "doodlage.in": "Doodlage",
+  "dressfolk.com": "Dressfolk",
+  "faballey.com": "FabAlley",
+  "fabnest.in": "Fabnest",
+  "kharakapas.com": "Khara Kapas",
+  "kica.in": "KICA",
+  "libas.in": "Libas",
+  "littleboxindia.com": "Little Box India",
+  "newme.asia": "Newme",
+  "okhai.org": "Okhai",
+  "snitch.com": "Snitch",
+  "suvasa.in": "Suvasa",
+  "thesouledstore.com": "The Souled Store",
+  "thesummerhouse.in": "The Summer House",
+  "tjori.com": "Tjori",
+  "urbanofashion.com": "Urbano Fashion",
+  "veirdo.in": "Veirdo",
   "aligne.co": "Aligne",
   "asket.com": "ASKET",
   "bandofoutsiders.com": "Band of Outsiders",
