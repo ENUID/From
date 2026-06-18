@@ -1539,6 +1539,10 @@ export default function FromApp({
   const [cleanDescLoading, setCleanDescLoading] = useState(false)
   const [shippingInfo, setShippingInfo]         = useState<{ shipping: string; returns: string } | null>(null)
   const [fetchedProductImages, setFetchedProductImages] = useState<string[]>([])
+  // Per-colour image map fetched from the brand's product.json — lets the sheet
+  // show one colourway at a time. Keyed by colour value; looked up case-insensitively.
+  const [fetchedColorImages, setFetchedColorImages] = useState<Record<string, string[]>>({})
+  const [fetchedColors, setFetchedColors] = useState<string[]>([])
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   const [exploreToast, setExploreToast] = useState(false)
@@ -2088,7 +2092,7 @@ export default function FromApp({
     const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 6500)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
-  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
+  useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]); setFetchedColorImages({}); setFetchedColors([]) } }, [selectedProduct])
   // When the shopper picks a colour in the drawer, jump the gallery back to the
   // first image of that colourway.
   useEffect(() => { setActiveImg(0) }, [selectedColor])
@@ -2268,11 +2272,25 @@ export default function FromApp({
   const handleReset = () => { resetConversation(); setInputHint(null); setActiveBrand(null) }
 
   // The colour currently selected in the drawer (falls back to the first one).
+  // The colour list shown in the sheet: prefer the colourways parsed from the
+  // brand's product.json (most reliable — they're the real variants), falling
+  // back to the catalog options when the fetch hasn't returned (or had none).
+  const _catalogColors = selectedProduct ? getProductColors(selectedProduct) : []
+  const sheetColorList = fetchedColors.length > 0 ? fetchedColors : _catalogColors
   const _activeSheetColor = selectedProduct
-    ? (selectedColor || getProductColors(selectedProduct)[0] || null)
+    ? (selectedColor || sheetColorList[0] || null)
     : null
-  // Images tied to that colour, if the product carries any.
-  const _colorImages = selectedProduct ? getColorVariantImages(selectedProduct, _activeSheetColor) : []
+  // Images tied to that colour. Prefer the per-colour map from product.json
+  // (full, high-res, correctly separated), then the catalog's variant media.
+  const _fetchedColorImages = (() => {
+    if (!_activeSheetColor) return [] as string[]
+    const want = _activeSheetColor.toLowerCase()
+    const key = Object.keys(fetchedColorImages).find(k => k.toLowerCase() === want)
+    return key ? rankImageUrls(fetchedColorImages[key]) : []
+  })()
+  const _colorImages = _fetchedColorImages.length > 0
+    ? _fetchedColorImages
+    : selectedProduct ? getColorVariantImages(selectedProduct, _activeSheetColor) : []
   // Merge catalog images with the full gallery fetched from product.json.
   // Fetched images take precedence (higher quality, more complete); any catalog
   // images not already present are appended so nothing is lost.
@@ -2300,7 +2318,7 @@ export default function FromApp({
   const sheetCareTags  = selectedProduct ? extractCareTags(selectedProduct) : []
   const sheetDetailTags= selectedProduct ? extractDetailTags(selectedProduct) : []
   const sheetSizes     = selectedProduct ? getProductSizes(selectedProduct) : []
-  const sheetColors    = selectedProduct ? getProductColors(selectedProduct) : []
+  const sheetColors    = sheetColorList
   const sizeAvail      = selectedProduct ? getSizeAvailability(selectedProduct) : {}
   const colorAvail     = selectedProduct ? getColorAvailability(selectedProduct) : {}
   const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
@@ -2465,12 +2483,19 @@ export default function FromApp({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setFetchedProductImages([])
+    setFetchedColorImages({})
+    setFetchedColors([])
     const storeUrl = selectedProduct?.store_url
     if (!storeUrl) return
     let cancelled = false
     fetch(`/api/product-images?url=${encodeURIComponent(storeUrl)}`)
       .then(r => r.json())
-      .then(d => { if (!cancelled && Array.isArray(d.images) && d.images.length > 0) setFetchedProductImages(d.images) })
+      .then(d => {
+        if (cancelled) return
+        if (Array.isArray(d.images) && d.images.length > 0) setFetchedProductImages(d.images)
+        if (d.byColor && typeof d.byColor === 'object') setFetchedColorImages(d.byColor)
+        if (Array.isArray(d.colors) && d.colors.length > 0) setFetchedColors(d.colors)
+      })
       .catch(() => {})
     return () => { cancelled = true }
   }, [selectedProduct?.id])
@@ -5280,17 +5305,26 @@ export default function FromApp({
                           <p style={{ fontFamily: SANS, fontSize: 12, marginBottom: 10, letterSpacing: '.02em' }}>
                             <span style={{ color: INK3 }}>Colour: </span><span style={{ color: INK }}>{effectiveColor}</span>
                           </p>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                             {sheetColors.map(c => {
                               const on = effectiveColor === c
                               const avail = colorAvail[c] !== false
                               return (
-                                <button key={c} disabled={!avail} onClick={() => avail && setColor(c)}
-                                  style={{ fontFamily: SANS, fontSize: 12, color: !avail ? INK3 : on ? INK : INK3,
-                                    background: '#fff', border: `1px solid ${on ? INK : BRD}`, padding: '8px 14px',
-                                    cursor: avail ? 'pointer' : 'not-allowed', opacity: avail ? 1 : 0.38,
-                                    textDecoration: avail ? 'none' : 'line-through', transition: 'border-color .15s' }}>
-                                  {c}
+                                <button key={c} title={c} aria-label={c} disabled={!avail} onClick={() => avail && setColor(c)}
+                                  style={{
+                                    width: 26, height: 26, borderRadius: '50%', padding: 0,
+                                    background: colorToCss(c),
+                                    border: on ? `1px solid ${INK}` : '1px solid rgba(44,18,6,0.22)',
+                                    boxShadow: on ? `0 0 0 2px ${BG}, 0 0 0 3px ${INK}` : 'none',
+                                    cursor: avail ? 'pointer' : 'not-allowed',
+                                    opacity: avail ? 1 : 0.32,
+                                    position: 'relative', transition: 'box-shadow .15s',
+                                  }}>
+                                  {!avail && (
+                                    <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: INK }}>
+                                      <svg width="26" height="26" viewBox="0 0 26 26"><line x1="4" y1="22" x2="22" y2="4" stroke={INK} strokeWidth="1.2" /></svg>
+                                    </span>
+                                  )}
                                 </button>
                               )
                             })}
@@ -5514,22 +5548,25 @@ export default function FromApp({
                         <p style={{ fontFamily: SANS, fontSize: 12, marginBottom: 10, letterSpacing: ".02em" }}>
                           <span style={{ color: INK3 }}>Colour: </span><span style={{ color: INK }}>{effectiveColor}</span>
                         </p>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                           {sheetColors.map(c => {
                             const on = effectiveColor === c
                             const avail = colorAvail[c] !== false
                             return (
-                              <button key={c} disabled={!avail} onClick={() => avail && setColor(c)}
-                                style={{ fontFamily: SANS, fontSize: 12,
-                                  color: !avail ? INK3 : on ? INK : INK3,
-                                  background: "#fff",
-                                  border: `1px solid ${on ? INK : BRD}`,
-                                  padding: "9px 14px",
+                              <button key={c} title={c} aria-label={c} disabled={!avail} onClick={() => avail && setColor(c)}
+                                style={{
+                                  width: 26, height: 26, borderRadius: "50%", padding: 0,
+                                  background: colorToCss(c),
+                                  border: on ? `1px solid ${INK}` : "1px solid rgba(44,18,6,0.22)",
+                                  boxShadow: on ? `0 0 0 2px ${BG}, 0 0 0 3px ${INK}` : "none",
                                   cursor: avail ? "pointer" : "not-allowed",
-                                  opacity: avail ? 1 : 0.38,
-                                  textDecoration: avail ? "none" : "line-through",
-                                  transition: "border-color .15s" }}>
-                                {c}
+                                  opacity: avail ? 1 : 0.32,
+                                  position: "relative", transition: "box-shadow .15s" }}>
+                                {!avail && (
+                                  <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <svg width="26" height="26" viewBox="0 0 26 26"><line x1="4" y1="22" x2="22" y2="4" stroke={INK} strokeWidth="1.2" /></svg>
+                                  </span>
+                                )}
                               </button>
                             )
                           })}

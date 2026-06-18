@@ -4,8 +4,14 @@ import { safeParseStoreUrl } from '@/lib/ssrfGuard'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
+type Gallery = {
+  images: string[]
+  colors: string[]
+  byColor: Record<string, string[]>
+}
+
 // Cache by product URL so repeated sheet opens are instant
-const cache = new BoundedCache<string, string[]>(2000)
+const cache = new BoundedCache<string, Gallery>(2000)
 
 function toGalleryUrl(src: string): string {
   if (!src) return src
@@ -23,19 +29,21 @@ function toGalleryUrl(src: string): string {
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('url')
-  if (!raw) return NextResponse.json({ images: [] })
+  if (!raw) return NextResponse.json({ images: [], colors: [], byColor: {} })
 
   const parsed = safeParseStoreUrl(raw)
-  if (!parsed) return NextResponse.json({ images: [] })
+  if (!parsed) return NextResponse.json({ images: [], colors: [], byColor: {} })
 
-  if (cache.has(raw)) return NextResponse.json({ images: cache.get(raw) })
+  if (cache.has(raw)) return NextResponse.json(cache.get(raw))
 
   // Extract the product handle from the URL
   const handleMatch = raw.match(/\/products\/([^/?#]+)/)
-  if (!handleMatch) return NextResponse.json({ images: [] })
+  if (!handleMatch) return NextResponse.json({ images: [], colors: [], byColor: {} })
 
   const { protocol, hostname } = parsed
   const jsonUrl = `${protocol}//${hostname}/products/${handleMatch[1]}.json`
+
+  const empty: Gallery = { images: [], colors: [], byColor: {} }
 
   try {
     const controller = new AbortController()
@@ -46,34 +54,76 @@ export async function GET(req: NextRequest) {
     })
     clearTimeout(timer)
     if (!res.ok) {
-      cache.set(raw, [])
-      return NextResponse.json({ images: [] })
+      cache.set(raw, empty)
+      return NextResponse.json(empty)
     }
 
     const data = await res.json()
     const product = data?.product
 
-    // Collect all images: product.images covers the full gallery including
-    // images attached to specific variants.
+    // ── Full gallery (ordered by position) ──────────────────────────────────
     const seen = new Set<string>()
     const images: string[] = []
-
     const push = (src?: string) => {
       if (!src) return
       const url = toGalleryUrl(src)
       if (!seen.has(url)) { seen.add(url); images.push(url) }
     }
-
-    // Primary gallery (ordered by position)
     for (const img of (product?.images ?? [])) push(img.src)
-
-    // Variant images — may include colour-specific shots not in main gallery
     for (const v of (product?.variants ?? [])) push(v.featured_image?.src)
 
-    cache.set(raw, images)
-    return NextResponse.json({ images })
+    // ── Separate images by colour ───────────────────────────────────────────
+    // Shopify exposes the variant→image link via image.variant_ids and the
+    // colour value via the variant's optionN field (N = the colour option's
+    // position). We walk both to bucket every image under its colourway, so the
+    // sheet can show one colour at a time.
+    const byColor: Record<string, string[]> = {}
+    const colors: string[] = []
+
+    const colorOpt = (product?.options ?? []).find((o: any) => /colou?r/i.test(o?.name ?? ''))
+    if (colorOpt) {
+      const pos: number = colorOpt.position // 1-indexed
+      for (const val of (colorOpt.values ?? [])) {
+        if (typeof val === 'string' && val.trim()) colors.push(val)
+      }
+
+      // variantId → colour value
+      const variantColor = new Map<number, string>()
+      // colour value → its variant's featured image (fallback when an image
+      // carries no variant_ids but the variant has a featured_image).
+      for (const v of (product?.variants ?? [])) {
+        const colour = v?.[`option${pos}`]
+        if (typeof colour !== 'string' || !colour.trim()) continue
+        if (typeof v?.id === 'number') variantColor.set(v.id, colour)
+        if (v?.featured_image?.src) {
+          const url = toGalleryUrl(v.featured_image.src)
+          ;(byColor[colour] ??= [])
+          if (!byColor[colour].includes(url)) byColor[colour].push(url)
+        }
+      }
+
+      // Each gallery image may be tagged to specific variants → colours.
+      for (const img of (product?.images ?? [])) {
+        const url = toGalleryUrl(img?.src)
+        if (!url) continue
+        const vids: number[] = Array.isArray(img?.variant_ids) ? img.variant_ids : []
+        const coloursForImg = new Set<string>()
+        for (const vid of vids) {
+          const colour = variantColor.get(vid)
+          if (colour) coloursForImg.add(colour)
+        }
+        for (const colour of Array.from(coloursForImg)) {
+          ;(byColor[colour] ??= [])
+          if (!byColor[colour].includes(url)) byColor[colour].push(url)
+        }
+      }
+    }
+
+    const gallery: Gallery = { images, colors, byColor }
+    cache.set(raw, gallery)
+    return NextResponse.json(gallery)
   } catch {
-    cache.set(raw, [])
-    return NextResponse.json({ images: [] })
+    cache.set(raw, empty)
+    return NextResponse.json(empty)
   }
 }
