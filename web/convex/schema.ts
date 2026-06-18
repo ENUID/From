@@ -147,4 +147,13 @@ export default defineSchema({
     products: v.string(),    // JSON-encoded product snapshot (capped)
     createdAt: v.number(),
   }).index("by_key", ["key"]),
+
+  // Vision-classified image ordering — caches the model-shot-first ordering for
+  // a product's photo set so the costly vision call runs once per product, ever.
+  // Orderings are stable, so there is no TTL; the key is a hash of the URL set.
+  image_order: defineTable({
+    key: v.string(),         // hash of the image URL set
+    order: v.string(),       // JSON array of URLs, on-body shots first
+    createdAt: v.number(),
+  }).index("by_key", ["key"]),
 });

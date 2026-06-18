@@ -586,68 +586,43 @@ function useSwatchColor(url?: string | null): string | null {
   return color
 }
 
-// ── On-body detection (model shot vs flat packshot) ───────────────────────────
-// Filename/aspect heuristics miss often (hash URLs, portrait packshots), so the
-// reliable signal is the pixels: a model shot contains human skin (face, neck,
-// arms, legs); a flat studio/packshot on a white table has essentially none. We
-// reuse the swatch sampling pipeline — load a tiny CORS copy, scan the whole
-// frame, and return the fraction of skin-tone pixels. Cached per URL.
-const _skinFracCache = new Map<string, number>()
-const _skinPending = new Map<string, Promise<number>>()
+// ── On-body ordering (model shot first, flat packshot last) ───────────────────
+// Pixel/filename heuristics can't tell a skin-coloured GARMENT (terracotta,
+// beige, tan) laid flat from a person wearing it, and some store CDNs block the
+// browser from reading pixels at all. So the reliable signal — the shape of a
+// person — is computed server-side by the vision model (/api/image-order) and
+// cached per product. Here we just fetch that ordering and cache it client-side,
+// rendering instantly in the incoming heuristic order and upgrading when it
+// resolves. The vision call runs at most once per product, ever.
+const _imageOrderCache = new Map<string, string[]>()
+const _imageOrderPending = new Map<string, Promise<string[]>>()
 
-// Kovac et al. skin-tone rule in RGB — robust across lighting and skin tones.
-function _isSkinPixel(r: number, g: number, b: number): boolean {
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b)
-  return r > 95 && g > 40 && b > 20 && (mx - mn) > 15 &&
-         Math.abs(r - g) > 15 && r > g && r > b
-}
-
-function sampleImageSkin(url: string): Promise<number> {
-  if (_skinFracCache.has(url)) return Promise.resolve(_skinFracCache.get(url)!)
-  const inflight = _skinPending.get(url)
+function fetchImageOrder(urls: string[]): Promise<string[]> {
+  const key = urls.join('|')
+  const cached = _imageOrderCache.get(key)
+  if (cached) return Promise.resolve(cached)
+  const inflight = _imageOrderPending.get(key)
   if (inflight) return inflight
-  const job = new Promise<number>(resolve => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.decoding = 'async'
-    img.onload = () => {
-      try {
-        const S = 36
-        const cv = document.createElement('canvas')
-        cv.width = S; cv.height = S
-        const ctx = cv.getContext('2d', { willReadFrequently: true } as CanvasRenderingContext2DSettings)
-        if (!ctx) return resolve(-1)
-        ctx.drawImage(img, 0, 0, S, S)
-        const px = ctx.getImageData(0, 0, S, S).data
-        let skin = 0, n = 0
-        for (let i = 0; i < px.length; i += 4) {
-          if (px[i + 3] < 128) continue
-          n++
-          if (_isSkinPixel(px[i], px[i + 1], px[i + 2])) skin++
-        }
-        const frac = n ? skin / n : -1
-        _skinFracCache.set(url, frac)
-        resolve(frac)
-      } catch { resolve(-1) }
-    }
-    img.onerror = () => resolve(-1)
-    img.src = _thumbForSampling(url)
+  const job = fetch('/api/image-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ urls }),
   })
-  _skinPending.set(url, job)
+    .then(r => (r.ok ? r.json() : null))
+    .then((d: { order?: string[] } | null) =>
+      Array.isArray(d?.order) && d!.order.length > 0 ? d!.order : urls)
+    .catch(() => urls)
+    .then(order => {
+      _imageOrderCache.set(key, order)
+      _imageOrderPending.delete(key)
+      return order
+    })
+  _imageOrderPending.set(key, job)
   return job
 }
 
-// A skin fraction in this band means a person is wearing the item. Below it →
-// no skin (flat packshot). Above it → the frame is mostly skin-tone, which is a
-// camel/beige/tan GARMENT filling a packshot, not a person — so not a model shot.
-function _looksLikeModel(frac: number): boolean | null {
-  if (frac < 0) return null            // sampling failed / non-CORS store
-  return frac > 0.035 && frac < 0.6
-}
-
-// Reorder a gallery so confirmed on-body shots lead and the flat packshot trails.
-// Renders instantly with the synchronous filename/aspect heuristic, then upgrades
-// to pixel-accurate order once skin sampling resolves (a few hundred ms, cached).
+// Reorder a gallery on-body-first. Renders immediately in the order it's given
+// (already heuristic-ranked upstream), then swaps to the vision-accurate order.
 function useModelFirstOrder(urls: string[]): string[] {
   const key = urls.join('|')
   const [order, setOrder] = useState<string[]>(urls)
@@ -655,19 +630,8 @@ function useModelFirstOrder(urls: string[]): string[] {
     setOrder(urls)
     if (urls.length < 2) return
     let cancelled = false
-    Promise.all(urls.map(u => sampleImageSkin(u).catch(() => -1))).then(fracs => {
-      if (cancelled) return
-      const scored = urls.map((u, i) => {
-        const model = _looksLikeModel(fracs[i])
-        const base = imageScore(u)
-        // Confirmed model → top tier; confirmed packshot → bottom; unknown falls
-        // back to the heuristic in the middle so nothing regresses.
-        const tier = model === true ? 3 : model === false ? 0 : (base >= 0 ? 2 : 1)
-        return { u, i, tier, base }
-      })
-      scored.sort((a, b) => b.tier - a.tier || b.base - a.base || a.i - b.i)
-      const next = scored.map(s => s.u)
-      if (next.join('|') !== key) setOrder(next)
+    fetchImageOrder(urls).then(next => {
+      if (!cancelled && next.join('|') !== key) setOrder(next)
     })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
