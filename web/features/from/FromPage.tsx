@@ -341,6 +341,20 @@ function getProductImages(p: Product): string[] {
   base.sort((a, b) => b.s - a.s || a.im.idx - b.im.idx)
   return base.map(r => r.im.url)
 }
+// Images tied to a specific colour variant, model-first. Returns [] when the
+// product carries no media for that colour, so callers fall back to the full
+// gallery. Powers colour-swatch → image swapping on cards and in the drawer.
+function getColorVariantImages(p: Product, color: string | null): string[] {
+  if (!color) return []
+  const want = color.toLowerCase()
+  const urls: string[] = []
+  for (const v of p.variants ?? []) {
+    if (!v.options?.some(o => o.label?.toLowerCase() === want)) continue
+    for (const m of v.media ?? []) if (m?.url) urls.push(m.url)
+  }
+  return rankImageUrls(Array.from(new Set(urls)))
+}
+
 // The single image to show on a grid card: the top-ranked (model-first) image
 // from the gallery, falling back to the raw catalog thumbnail.
 function heroImage(p: Product): string {
@@ -446,6 +460,7 @@ const COLOR_CSS: Record<string, string> = {
   pink:'#e0a7b4', blush:'#e9c9cf', rose:'#d99aa6', dusty:'#cba3a8', fuchsia:'#b13b73', magenta:'#a83271', hotpink:'#d44a87',
   purple:'#6b4a86', lilac:'#c5b6da', lavender:'#cabfe0', violet:'#6f5499', plum:'#5e3a5b', mauve:'#9c7d92', aubergine:'#43283f',
   yellow:'#e3c14a', mustard:'#c79a3a', gold:'#c0a04e', butter:'#ecdfa6', lemon:'#ecdf7e',
+  neutral:'#c2b8a6',
   multicolor:'linear-gradient(135deg,#d98a6e,#9ab6d4,#c79a3a)', multi:'linear-gradient(135deg,#d98a6e,#9ab6d4,#c79a3a)',
   print:'linear-gradient(135deg,#cdbfae,#b9a98f)', floral:'linear-gradient(135deg,#d9b3c0,#a8c5a0)', patterned:'linear-gradient(135deg,#cdbfae,#b9a98f)', stripe:'repeating-linear-gradient(45deg,#23314d 0 4px,#f4f1ea 4px 8px)', striped:'repeating-linear-gradient(45deg,#23314d 0 4px,#f4f1ea 4px 8px)', check:'repeating-linear-gradient(45deg,#6b4a2f 0 4px,#e7ddc8 4px 8px)', plaid:'repeating-linear-gradient(45deg,#5e2030 0 4px,#23314d 4px 8px)',
 }
@@ -460,13 +475,38 @@ function colorToCss(name: string): string {
   return '#bdb6ab'
 }
 
+// Pull a colour word out of a product title ("…Shirt in Warm Grey", "Tee - Ivory")
+// so single-colourway products still show a swatch. null when none is found.
+function inferTitleColor(title: string): string | null {
+  const t = ` ${title.toLowerCase()} `
+  const keys = Object.keys(COLOR_CSS).filter(k => k.length >= 3).sort((a, b) => b.length - a.length)
+  for (const k of keys) {
+    const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    if (new RegExp(`[\\s\\-/(]${esc}[\\s\\-/)]`).test(t)) return k
+  }
+  return null
+}
+
+// The swatches to display for a product. Multi-colour products return their
+// option values (interactive — they swap images). Single-colour products
+// return one inferred swatch so every card shows a colourway.
+function displaySwatches(p: Product): { colors: string[]; interactive: boolean } {
+  const opt = getProductColors(p)
+  if (opt.length > 0) return { colors: opt, interactive: true }
+  const inferred = inferTitleColor(p.title)
+  return { colors: inferred ? [inferred] : ['neutral'], interactive: false }
+}
+
 // ── Product meta — the editorial caption under each grid image ────────────────
-// Title (uppercase) + a quick "bag it" plus, price, and colour swatches.
-function ProductMeta({ p, rates, saved, onSave, onOpen }: {
+// Title (uppercase) + a quick "bag it" plus, price, and colour swatches. When
+// the product has real colour variants, the swatches are tappable and drive
+// the card's image (via activeColor / onSelectColor).
+function ProductMeta({ p, rates, saved, onSave, onOpen, activeColor, onSelectColor }: {
   p: Product; rates: ExchangeRates; saved: boolean; onSave: () => void; onOpen: () => void
+  activeColor?: string | null; onSelectColor?: (c: string) => void
 }) {
-  const colors = getProductColors(p)
   const avail = getColorAvailability(p)
+  const { colors, interactive } = displaySwatches(p)
   return (
     <div onClick={onOpen} style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -490,15 +530,25 @@ function ProductMeta({ p, rates, saved, onSave, onOpen }: {
         {formatMoney(p.price, p.currency, p.base_currency, rates)}
       </div>
       {colors.length > 0 && (
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', marginTop: 1 }}>
-          {colors.slice(0, 6).map(c => (
-            <span key={c} title={c} style={{
-              width: 12, height: 12, borderRadius: 2, background: colorToCss(c),
-              border: '1px solid rgba(44,18,6,0.22)', opacity: avail[c] === false ? 0.32 : 1, display: 'inline-block',
-            }} />
-          ))}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 1 }}>
+          {colors.slice(0, 6).map(c => {
+            const isAvail = avail[c] !== false
+            const on = interactive && (activeColor ?? colors[0]) === c
+            return (
+              <button key={c} type="button" title={c} disabled={!interactive || !isAvail}
+                onClick={e => { e.stopPropagation(); if (interactive && isAvail) onSelectColor?.(c) }}
+                style={{
+                  width: 13, height: 13, borderRadius: 2, padding: 0,
+                  background: colorToCss(c),
+                  border: on ? `1px solid ${INK}` : '1px solid rgba(44,18,6,0.22)',
+                  boxShadow: on ? `0 0 0 1.5px ${BG}, 0 0 0 2.5px ${INK}` : 'none',
+                  opacity: isAvail ? 1 : 0.32, display: 'inline-block',
+                  cursor: interactive && isAvail ? 'pointer' : 'default',
+                }} />
+            )
+          })}
           {colors.length > 6 && (
-            <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, lineHeight: '12px' }}>+{colors.length - 6}</span>
+            <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, lineHeight: '13px' }}>+{colors.length - 6}</span>
           )}
         </div>
       )}
@@ -1466,6 +1516,9 @@ export default function FromApp({
   const [selectedProduct, setSelected]= useState<Product | null>(null)
   const [selectedSize, setSize]       = useState<string | null>(null)
   const [selectedColor, setColor]     = useState<string | null>(null)
+  // Per-card selected colour in the results grid — keyed by product id so a
+  // tapped swatch swaps that card's image without disturbing the others.
+  const [cardColors, setCardColors]   = useState<Record<string, string>>({})
   const [activeImg, setActiveImg]     = useState(0)
   const [sheetY, setSheetY]           = useState(0)
   const [sheetSnap, setSheetSnap]     = useState<'full'|'half'>('full')
@@ -2035,6 +2088,9 @@ export default function FromApp({
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]) } }, [selectedProduct])
+  // When the shopper picks a colour in the drawer, jump the gallery back to the
+  // first image of that colourway.
+  useEffect(() => { setActiveImg(0) }, [selectedColor])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"
@@ -2210,18 +2266,27 @@ export default function FromApp({
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
   const handleReset = () => { resetConversation(); setInputHint(null); setActiveBrand(null) }
 
+  // The colour currently selected in the drawer (falls back to the first one).
+  const _activeSheetColor = selectedProduct
+    ? (selectedColor || getProductColors(selectedProduct)[0] || null)
+    : null
+  // Images tied to that colour, if the product carries any.
+  const _colorImages = selectedProduct ? getColorVariantImages(selectedProduct, _activeSheetColor) : []
   // Merge catalog images with the full gallery fetched from product.json.
   // Fetched images take precedence (higher quality, more complete); any catalog
   // images not already present are appended so nothing is lost.
   const _catalogImages = selectedProduct ? getProductImages(selectedProduct) : []
-  const sheetImages = fetchedProductImages.length > 0
-    ? (() => {
-        const fetchedSet = new Set(fetchedProductImages)
-        const extra = _catalogImages.filter(u => !fetchedSet.has(u))
-        // Reorder the combined set model-first so on-body shots lead the gallery.
-        return rankImageUrls([...fetchedProductImages, ...extra])
-      })()
-    : _catalogImages
+  const sheetImages = _colorImages.length > 0
+    // A colour is selected and has its own media — show only that colourway.
+    ? _colorImages
+    : fetchedProductImages.length > 0
+      ? (() => {
+          const fetchedSet = new Set(fetchedProductImages)
+          const extra = _catalogImages.filter(u => !fetchedSet.has(u))
+          // Reorder the combined set model-first so on-body shots lead the gallery.
+          return rankImageUrls([...fetchedProductImages, ...extra])
+        })()
+      : _catalogImages
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
   const sheetDescRaw   = selectedProduct?.description_html
     ? sanitizeHtml(selectedProduct.description_html)
@@ -3805,7 +3870,11 @@ export default function FromApp({
             {/* Explore — cached products while no live results, or "build history" nudge */}
             {showExplore && !loading && searchProducts.length === 0 && (
               exploreCache.length > 0
-                ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => (
+                ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => {
+                    const cardColor = cardColors[p.id] ?? getProductColors(p)[0] ?? null
+                    const colorImgs = getColorVariantImages(p, cardColor)
+                    const cardImgs = colorImgs.length > 0 ? colorImgs : getProductImages(p)
+                    return (
                     <div key={p.id} className="fr-card">
                       <div className="fr-cell"
                         role="button" tabIndex={0}
@@ -3820,13 +3889,16 @@ export default function FromApp({
                         })}
                         onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                         <CardCarousel
-                          images={getProductImages(p)}
+                          key={cardColor ?? 'default'}
+                          images={cardImgs}
                           onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                         />
                       </div>
-                      <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)} />
+                      <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)}
+                        activeColor={cardColor} onSelectColor={c => setCardColors(m => ({ ...m, [p.id]: c }))} />
                     </div>
-                  ))}</div>
+                    )
+                  })}</div>
                 : <div style={{ padding: "60px 28px", textAlign: "center" }}>
                     <p style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 300, fontStyle: "italic", color: INK3, lineHeight: 1.5 }}>Search a few things first</p>
                     <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: ".1em", display: "block", marginTop: 8, opacity: .5 }}>Explore personalises as you search</span>
@@ -3851,7 +3923,11 @@ export default function FromApp({
             {(hasConversation || showExplore) && !loading && searchProducts.length > 0 && (
               <>
                 <div className="fr-grid">
-                  {searchProducts.map(p => (
+                  {searchProducts.map(p => {
+                    const cardColor = cardColors[p.id] ?? getProductColors(p)[0] ?? null
+                    const colorImgs = getColorVariantImages(p, cardColor)
+                    const cardImgs = colorImgs.length > 0 ? colorImgs : getProductImages(p)
+                    return (
                     <div key={p.id} className="fr-card">
                       <div className="fr-cell"
                         role="button" tabIndex={0}
@@ -3866,16 +3942,19 @@ export default function FromApp({
                         })}
                         onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                         <CardCarousel
-                          images={getProductImages(p)}
+                          key={cardColor ?? 'default'}
+                          images={cardImgs}
                           onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                         />
                       </div>
-                      <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)} />
+                      <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)}
+                        activeColor={cardColor} onSelectColor={c => setCardColors(m => ({ ...m, [p.id]: c }))} />
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 {lastProductMsg?.loadingMore && (
-                  <div className="fr-grid" style={{ paddingTop: 0 }}>
+                  <div className="fr-grid" style={{ marginTop: 26 }}>
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="fr-card">
                         <div className="fr-cell" style={{ background: '#e8e4de', overflow: 'hidden' }}>
