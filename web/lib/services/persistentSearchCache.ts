@@ -22,7 +22,7 @@ function client(): ConvexHttpClient | null {
   return url ? new ConvexHttpClient(url) : null
 }
 
-export async function readPersistentCache(key: string): Promise<UcpProduct[] | null> {
+export async function readPersistentCache(key: string): Promise<{ products: UcpProduct[], age: number } | null> {
   if (!enabled()) return null
   const c = client()
   if (!c) return null
@@ -30,10 +30,11 @@ export async function readPersistentCache(key: string): Promise<UcpProduct[] | n
     const row = (await Promise.race([
       c.query(anyApi.searchCache.get, { key }),
       new Promise(resolve => setTimeout(() => resolve(null), READ_TIMEOUT_MS)),
-    ])) as { products?: string } | null
+    ])) as { products?: string; createdAt?: number } | null
     if (!row?.products) return null
     const arr = JSON.parse(row.products)
-    return Array.isArray(arr) ? (arr as UcpProduct[]) : null
+    if (!Array.isArray(arr)) return null
+    return { products: arr as UcpProduct[], age: Date.now() - (row.createdAt ?? 0) }
   } catch {
     return null
   }

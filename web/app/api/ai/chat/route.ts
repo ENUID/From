@@ -15,6 +15,26 @@ import {
   buildVibeGlossary,
 } from '@/lib/stores'
 
+const _sseEncoder = new TextEncoder()
+function sseStream(fn: (emit: (d: object) => void) => Promise<void>): Response {
+  const stream = new ReadableStream({
+    async start(controller) {
+      const emit = (d: object) =>
+        controller.enqueue(_sseEncoder.encode(`data: ${JSON.stringify(d)}\n\n`))
+      try { await fn(emit) } catch (e: any) {
+        try { emit({ type: 'error', message: 'Search failed. Please try again.' }) } catch {}
+      } finally { controller.close() }
+    },
+  })
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Accel-Buffering': 'no',
+    },
+  })
+}
+
 
 const CHAT_WINDOW_MS = 60_000
 const CHAT_MAX_REQUESTS = 20

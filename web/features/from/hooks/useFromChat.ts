@@ -21,6 +21,7 @@ export interface Message {
   isClothing?: boolean
   sort?: 'price_asc' | 'price_desc' | 'relevance'
   suggestions?: string[]
+  productsLoading?: boolean   // true while SSE products event hasn't arrived yet
 }
 
 export type ConversationTurn = Pick<
@@ -282,44 +283,184 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
         }),
         signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Request failed')
 
-      let products = Array.isArray(data.products)
-        ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
-        : []
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error((errData as any).error ?? 'Request failed')
+      }
 
-      const isFirstMsg = messages.filter(m => m.role === 'user').length === 1
-      if (!opts?.skipHistory && isFirstMsg) rememberSearch(messageText, products.length)
-      setMessages(previous => [
-        ...previous,
-        {
-          role: 'assistant',
-          content: data.text,
-          products,
-          searchQuery: data.searchQuery,
-          budgetMax: data.budgetMax,
-          budgetCurrency: data.budgetCurrency,
-          isClothing: data.isClothing,
-          sort: data.sort,
-          suggestions: data.suggestions,
-        },
-      ])
-      setHistory(previous => [
-        ...previous,
-        { role: 'user', content: messageText },
-        {
-          role: 'assistant',
-          content: data.text,
-          products,
-          searchQuery: data.searchQuery,
-          budgetMax: data.budgetMax,
-          budgetCurrency: data.budgetCurrency,
-          isClothing: data.isClothing,
-          sort: data.sort,
-          suggestions: data.suggestions,
-        },
-      ])
+      const contentType = res.headers.get('content-type') ?? ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        // SSE streaming path
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = ''
+        let assistantMsgAdded = false
+        let isFirstMsg = messages.filter(m => m.role === 'user').length === 1
+
+        const handleEvent = (data: any) => {
+          if (data.type === 'text') {
+            // LLM text arrived before products — show it immediately
+            setLoading(false)
+            assistantMsgAdded = true
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'assistant' as const,
+                content: data.text ?? '',
+                products: [],
+                suggestions: data.suggestions ?? [],
+                productsLoading: true,
+              },
+            ])
+          } else if (data.type === 'products') {
+            const products = Array.isArray(data.products)
+              ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
+              : []
+
+            if (!opts?.skipHistory && isFirstMsg) rememberSearch(messageText, products.length)
+
+            if (assistantMsgAdded) {
+              // Update the placeholder message with products
+              setMessages(prev => {
+                const idx = prev.reduceRight((found: number, m: Message, i: number) => found === -1 && m.role === 'assistant' ? i : found, -1)
+                if (idx === -1) return prev
+                return prev.map((m, i) => i === idx ? {
+                  ...m,
+                  content: data.text ?? m.content,
+                  products,
+                  searchQuery: data.searchQuery,
+                  budgetMax: data.budgetMax,
+                  budgetCurrency: data.budgetCurrency,
+                  isClothing: data.isClothing,
+                  sort: data.sort,
+                  suggestions: data.suggestions ?? m.suggestions ?? [],
+                  productsLoading: false,
+                } : m)
+              })
+              setHistory(prev => [
+                ...prev,
+                { role: 'user', content: messageText },
+                {
+                  role: 'assistant',
+                  content: data.text ?? '',
+                  products,
+                  searchQuery: data.searchQuery,
+                  budgetMax: data.budgetMax,
+                  budgetCurrency: data.budgetCurrency,
+                  isClothing: data.isClothing,
+                  sort: data.sort,
+                  suggestions: data.suggestions ?? [],
+                },
+              ])
+            } else {
+              // Products arrived without a prior text event (fast path)
+              setLoading(false)
+              assistantMsgAdded = true
+              setMessages(prev => [
+                ...prev,
+                {
+                  role: 'assistant' as const,
+                  content: data.text ?? '',
+                  products,
+                  searchQuery: data.searchQuery,
+                  budgetMax: data.budgetMax,
+                  budgetCurrency: data.budgetCurrency,
+                  isClothing: data.isClothing,
+                  sort: data.sort,
+                  suggestions: data.suggestions ?? [],
+                  productsLoading: false,
+                },
+              ])
+              setHistory(prev => [
+                ...prev,
+                { role: 'user', content: messageText },
+                {
+                  role: 'assistant',
+                  content: data.text ?? '',
+                  products,
+                  searchQuery: data.searchQuery,
+                  budgetMax: data.budgetMax,
+                  budgetCurrency: data.budgetCurrency,
+                  isClothing: data.isClothing,
+                  sort: data.sort,
+                  suggestions: data.suggestions ?? [],
+                },
+              ])
+            }
+          } else if (data.type === 'error') {
+            setLoading(false)
+            if (!assistantMsgAdded) {
+              assistantMsgAdded = true
+              setMessages(prev => [
+                ...prev,
+                { role: 'assistant' as const, content: data.message ?? 'Search failed. Please try again.', products: [] },
+              ])
+            }
+          }
+        }
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += decoder.decode(value, { stream: true })
+          const parts = buf.split('\n\n')
+          buf = parts.pop() ?? ''
+          for (const part of parts) {
+            for (const line of part.split('\n')) {
+              if (line.startsWith('data: ')) {
+                try { handleEvent(JSON.parse(line.slice(6))) } catch {}
+              }
+            }
+          }
+        }
+        // flush remaining buffer
+        if (buf.trim()) {
+          for (const line of buf.split('\n')) {
+            if (line.startsWith('data: ')) {
+              try { handleEvent(JSON.parse(line.slice(6))) } catch {}
+            }
+          }
+        }
+      } else {
+        // Fallback JSON path
+        const data = await res.json()
+        const products = Array.isArray(data.products)
+          ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
+          : []
+        const isFirstMsg = messages.filter(m => m.role === 'user').length === 1
+        if (!opts?.skipHistory && isFirstMsg) rememberSearch(messageText, products.length)
+        setMessages(previous => [
+          ...previous,
+          {
+            role: 'assistant',
+            content: data.text,
+            products,
+            searchQuery: data.searchQuery,
+            budgetMax: data.budgetMax,
+            budgetCurrency: data.budgetCurrency,
+            isClothing: data.isClothing,
+            sort: data.sort,
+            suggestions: data.suggestions,
+          },
+        ])
+        setHistory(previous => [
+          ...previous,
+          { role: 'user', content: messageText },
+          {
+            role: 'assistant',
+            content: data.text,
+            products,
+            searchQuery: data.searchQuery,
+            budgetMax: data.budgetMax,
+            budgetCurrency: data.budgetCurrency,
+            isClothing: data.isClothing,
+            sort: data.sort,
+            suggestions: data.suggestions,
+          },
+        ])
+      }
     } catch (error: unknown) {
       const timedOut = error instanceof Error && error.name === 'TimeoutError'
       setMessages(previous => [
@@ -327,7 +468,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
         {
           role: 'assistant',
           content: timedOut
-            ? 'Yêu cầu mất quá nhiều thời gian. Vui lòng thử lại — lần sau thường nhanh hơn nhờ cache.'
+            ? 'The search timed out. Please try again — it\'s usually faster after the first load.'
             : 'The search request did not complete. Please try again in a moment.',
         },
       ])

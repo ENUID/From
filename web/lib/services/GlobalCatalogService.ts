@@ -60,7 +60,7 @@ type ProductSort = 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc'
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
-const STORE_TIMEOUT_MS = 7000
+const STORE_TIMEOUT_MS = 4500
 const BATCH_SIZE = 45          // stores queried in parallel per round
 const MAX_ROUNDS_PER_CALL = 2  // up to 90 stores fetched per search() call
 const INITIAL_LIMIT = 30
@@ -664,9 +664,10 @@ export class GlobalCatalogService {
       // while load-more can still fetch fresh stores. 15-min TTL enforced in Convex.
       if (!isLoadMore) {
         const persisted = await readPersistentCache(cacheKey)
-        if (persisted && persisted.length > 0) {
-          entry.products = persisted
-          seededFromPersistent = true
+        if (persisted && persisted.products.length > 0) {
+          entry.products = persisted.products
+          // If data is fresh (< 5min), skip re-fetch; otherwise re-fetch but still serve stale immediately
+          seededFromPersistent = persisted.age < 5 * 60 * 1000
         }
       }
     }

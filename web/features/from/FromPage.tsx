@@ -1933,9 +1933,10 @@ export default function FromApp({
   const lastProductMsg      = [...messages].reverse().find(m => m.role === 'assistant' && m.products?.length)
   const lastProductMsgIndex = lastProductMsg ? messages.lastIndexOf(lastProductMsg as any) : -1
   const searchProducts: Product[] = (lastProductMsg?.products || []).filter((p: Product) => p.in_stock)
+  const productsLoading = lastProductMsg?.productsLoading === true
 
   const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
-  const showEmpty = hasConversation && searchProducts.length === 0 && !loading
+  const showEmpty = hasConversation && searchProducts.length === 0 && !loading && !productsLoading
   const canSend   = input.trim().length > 0 || uploadedImages.length > 0 || barProducts.length > 0
   const hasName   = userName.length > 0
 
@@ -3830,9 +3831,9 @@ export default function FromApp({
 
 
             {/* Loading — skeleton image grid */}
-            {loading && (
+            {(loading || productsLoading) && (
               <div className="fr-grid">
-                {Array.from({ length: 12 }).map((_, i) => (
+                {Array.from({ length: 24 }).map((_, i) => (
                   <div key={i} className="fr-card">
                     <div style={{
                       aspectRatio: '3/4',
@@ -3920,7 +3921,7 @@ export default function FromApp({
             )}
 
             {/* Product grid */}
-            {(hasConversation || showExplore) && !loading && searchProducts.length > 0 && (
+            {(hasConversation || showExplore) && !loading && !productsLoading && searchProducts.length > 0 && (
               <>
                 <div className="fr-grid">
                   {searchProducts.map(p => {
@@ -3953,7 +3954,7 @@ export default function FromApp({
                     )
                   })}
                 </div>
-                {lastProductMsg?.loadingMore && (
+                {lastProductMsg?.loadingMore && !productsLoading && (
                   <div className="fr-grid" style={{ marginTop: 26 }}>
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="fr-card">
