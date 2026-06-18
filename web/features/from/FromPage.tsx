@@ -426,6 +426,86 @@ function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void
   )
 }
 
+// ── Colour-name → CSS swatch ─────────────────────────────────────────────────
+// Maps fashion colour vocabulary to a displayable swatch. Falls back to CSS
+// named colours, then a neutral, so an unknown name never renders blank.
+const COLOR_CSS: Record<string, string> = {
+  black:'#1c1a18', jet:'#1c1a18', onyx:'#1c1a18', charcoal:'#39383a', graphite:'#3c3b3d',
+  white:'#f4f1ea', ivory:'#f1ecde', cream:'#ece4d2', ecru:'#ddd2bd', chalk:'#efe9dc',
+  beige:'#d9cab0', sand:'#d8c4a0', stone:'#cabfa9', oatmeal:'#ddd2bd', oat:'#ddd2bd',
+  natural:'#e2d8c4', nude:'#e0cdb6', bone:'#e8e0cf', linen:'#e7ddc8',
+  tan:'#c9a87c', camel:'#b78b56', khaki:'#9c8b5e', taupe:'#9c8d79', mushroom:'#b3a692',
+  brown:'#6b4a2f', chocolate:'#4b3220', coffee:'#5a4233', cognac:'#8a4f2a', mocha:'#5e463a', caramel:'#a9743e',
+  navy:'#23314d', blue:'#3a5a8c', 'light blue':'#9fb6d4', 'sky blue':'#a8c5e0', sky:'#a8c5e0',
+  denim:'#41618a', indigo:'#2f3c66', cobalt:'#1f3c88', royal:'#23409a', teal:'#1f6f6f', turquoise:'#3fb3ab', aqua:'#79c7c2',
+  grey:'#9a9892', gray:'#9a9892', silver:'#c4c2bb', slate:'#5b6670', ash:'#a8a6a0',
+  green:'#3f6b46', olive:'#6b6a3a', sage:'#9aa784', forest:'#2c4631', 'dark green':'#2c4631',
+  khakigreen:'#6b6a3a', mint:'#bcdcc6', emerald:'#1f7a52', moss:'#5a6238', pistachio:'#b9c79a',
+  red:'#a83232', burgundy:'#5e2030', maroon:'#5a1f2a', wine:'#5e2030', oxblood:'#4a1f24', cherry:'#9c2738',
+  rust:'#9c4b2a', terracotta:'#b56b4a', brick:'#9a4a36', orange:'#cf7330', coral:'#e08a6e', peach:'#edb89a', apricot:'#e7a772', salmon:'#e69684',
+  pink:'#e0a7b4', blush:'#e9c9cf', rose:'#d99aa6', dusty:'#cba3a8', fuchsia:'#b13b73', magenta:'#a83271', hotpink:'#d44a87',
+  purple:'#6b4a86', lilac:'#c5b6da', lavender:'#cabfe0', violet:'#6f5499', plum:'#5e3a5b', mauve:'#9c7d92', aubergine:'#43283f',
+  yellow:'#e3c14a', mustard:'#c79a3a', gold:'#c0a04e', butter:'#ecdfa6', lemon:'#ecdf7e',
+  multicolor:'linear-gradient(135deg,#d98a6e,#9ab6d4,#c79a3a)', multi:'linear-gradient(135deg,#d98a6e,#9ab6d4,#c79a3a)',
+  print:'linear-gradient(135deg,#cdbfae,#b9a98f)', floral:'linear-gradient(135deg,#d9b3c0,#a8c5a0)', patterned:'linear-gradient(135deg,#cdbfae,#b9a98f)', stripe:'repeating-linear-gradient(45deg,#23314d 0 4px,#f4f1ea 4px 8px)', striped:'repeating-linear-gradient(45deg,#23314d 0 4px,#f4f1ea 4px 8px)', check:'repeating-linear-gradient(45deg,#6b4a2f 0 4px,#e7ddc8 4px 8px)', plaid:'repeating-linear-gradient(45deg,#5e2030 0 4px,#23314d 4px 8px)',
+}
+function colorToCss(name: string): string {
+  const n = name.toLowerCase().trim()
+  if (COLOR_CSS[n]) return COLOR_CSS[n]
+  // Longest key contained in the name (handles "Light Blue Marl", "Dark Olive").
+  const keys = Object.keys(COLOR_CSS).sort((a, b) => b.length - a.length)
+  for (const k of keys) if (n.includes(k)) return COLOR_CSS[k]
+  // CSS understands many single-word colours (olive, teal, maroon…) — try it.
+  if (/^[a-z]+$/.test(n)) return n
+  return '#bdb6ab'
+}
+
+// ── Product meta — the editorial caption under each grid image ────────────────
+// Title (uppercase) + a quick "bag it" plus, price, and colour swatches.
+function ProductMeta({ p, rates, saved, onSave, onOpen }: {
+  p: Product; rates: ExchangeRates; saved: boolean; onSave: () => void; onOpen: () => void
+}) {
+  const colors = getProductColors(p)
+  const avail = getColorAvailability(p)
+  return (
+    <div onClick={onOpen} style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <h3 style={{
+          fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: '.045em', textTransform: 'uppercase',
+          color: INK, lineHeight: 1.35, margin: 0,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>{p.title}</h3>
+        <button type="button" aria-label={saved ? 'In your bag' : 'Add to bag'}
+          onClick={e => { e.stopPropagation(); onSave() }}
+          style={{ flexShrink: 0, width: 20, height: 20, marginTop: 1, padding: 0, border: 'none', background: 'none',
+            cursor: 'pointer', color: INK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {saved ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+          )}
+        </button>
+      </div>
+      <div style={{ fontFamily: SANS, fontSize: 12.5, color: INK, fontWeight: 500, letterSpacing: '.01em' }}>
+        {formatMoney(p.price, p.currency, p.base_currency, rates)}
+      </div>
+      {colors.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', marginTop: 1 }}>
+          {colors.slice(0, 6).map(c => (
+            <span key={c} title={c} style={{
+              width: 12, height: 12, borderRadius: 2, background: colorToCss(c),
+              border: '1px solid rgba(44,18,6,0.22)', opacity: avail[c] === false ? 0.32 : 1, display: 'inline-block',
+            }} />
+          ))}
+          {colors.length > 6 && (
+            <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, lineHeight: '12px' }}>+{colors.length - 6}</span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function getDescriptionText(p: Product): string {
   if (!p.description) return ''
   return p.description
@@ -2427,19 +2507,19 @@ export default function FromApp({
            4 columns is the industry standard for fashion e-commerce on desktop
            (Net-a-Porter, SSENSE, Farfetch all cap at 4 — gives images room to breathe).
            Only very wide monitors (1500px+) step up to 5. */
-        .fr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;width:100%;flex-shrink:0;}
-        @media(min-width:600px){.fr-grid{grid-template-columns:repeat(3,1fr);}}
+        .fr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:26px 10px;width:100%;flex-shrink:0;}
+        @media(min-width:600px){.fr-grid{grid-template-columns:repeat(3,1fr);gap:30px 14px;}}
         @media(min-width:820px){.fr-grid{grid-template-columns:repeat(4,1fr);}}
         @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
+        .fr-card{display:flex;flex-direction:column;opacity:0;animation:fr-fi .35s ease forwards;}
         .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;-webkit-touch-callout:none;pointer-events:none;user-select:none;-webkit-user-select:none;}
-        .fr-cell:hover img{transform:scale(1.03);}
-        .fr-cell{opacity:0;animation:fr-fi .35s ease forwards;}
+        .fr-card:hover .fr-cell img{transform:scale(1.03);}
         @keyframes fr-fi{to{opacity:1;}}
-        .fr-cell:nth-child(1){animation-delay:.00s}.fr-cell:nth-child(2){animation-delay:.05s}
-        .fr-cell:nth-child(3){animation-delay:.10s}.fr-cell:nth-child(4){animation-delay:.15s}
-        .fr-cell:nth-child(5){animation-delay:.20s}.fr-cell:nth-child(6){animation-delay:.25s}
-        .fr-cell:nth-child(n+7){animation-delay:.30s}
+        .fr-card:nth-child(1){animation-delay:.00s}.fr-card:nth-child(2){animation-delay:.05s}
+        .fr-card:nth-child(3){animation-delay:.10s}.fr-card:nth-child(4){animation-delay:.15s}
+        .fr-card:nth-child(5){animation-delay:.20s}.fr-card:nth-child(6){animation-delay:.25s}
+        .fr-card:nth-child(n+7){animation-delay:.30s}
 
         /* ── Sidebar ── */
         .fr-sb{position:absolute;top:0;left:0;bottom:0;width:min(290px,86%);z-index:200;
@@ -3688,20 +3768,27 @@ export default function FromApp({
             {loading && (
               <div className="fr-grid">
                 {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} style={{
-                    aspectRatio: '3/4',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    background: '#e8e4de',
-                  }}>
-                    {/* Shimmer: fade from base color → light → base color — no dark edges */}
+                  <div key={i} className="fr-card">
                     <div style={{
-                      position: 'absolute', top: 0, bottom: 0,
-                      width: '60%',
-                      background: 'linear-gradient(90deg, #e8e4de 0%, #edeae5 35%, #f0ece7 50%, #edeae5 65%, #e8e4de 100%)',
-                      animation: `sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,
-                      willChange: 'transform',
-                    }} />
+                      aspectRatio: '3/4',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      background: '#e8e4de',
+                    }}>
+                      {/* Shimmer: fade from base color → light → base color — no dark edges */}
+                      <div style={{
+                        position: 'absolute', top: 0, bottom: 0,
+                        width: '60%',
+                        background: 'linear-gradient(90deg, #e8e4de 0%, #edeae5 35%, #f0ece7 50%, #edeae5 65%, #e8e4de 100%)',
+                        animation: `sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,
+                        willChange: 'transform',
+                      }} />
+                    </div>
+                    {/* Meta placeholders — keep the card height stable while loading */}
+                    <div style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ height: 9, width: '85%', background: '#e8e4de', borderRadius: 2 }} />
+                      <div style={{ height: 9, width: '40%', background: '#e8e4de', borderRadius: 2 }} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -3719,22 +3806,25 @@ export default function FromApp({
             {showExplore && !loading && searchProducts.length === 0 && (
               exploreCache.length > 0
                 ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => (
-                    <div key={p.id} className="fr-cell"
-                      role="button" tabIndex={0}
-                      {...makePressHandlers((x, y) => {
-                        productWasLong.current = true
-                        const menuW = 200; const menuH = 160
-                        const above = y + 8 + menuH > window.innerHeight
-                        const my = Math.max(8, above ? y - menuH - 4 : y + 8)
-                        const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
-                        ctxMenuOpenAt.current = Date.now()
-                        setProductCtxMenu({ product: p, x: mx, y: my, above })
-                      })}
-                      onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                      <CardCarousel
-                        images={getProductImages(p)}
-                        onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
-                      />
+                    <div key={p.id} className="fr-card">
+                      <div className="fr-cell"
+                        role="button" tabIndex={0}
+                        {...makePressHandlers((x, y) => {
+                          productWasLong.current = true
+                          const menuW = 200; const menuH = 160
+                          const above = y + 8 + menuH > window.innerHeight
+                          const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                          const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
+                          ctxMenuOpenAt.current = Date.now()
+                          setProductCtxMenu({ product: p, x: mx, y: my, above })
+                        })}
+                        onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
+                        <CardCarousel
+                          images={getProductImages(p)}
+                          onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                        />
+                      </div>
+                      <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)} />
                     </div>
                   ))}</div>
                 : <div style={{ padding: "60px 28px", textAlign: "center" }}>
@@ -3762,32 +3852,41 @@ export default function FromApp({
               <>
                 <div className="fr-grid">
                   {searchProducts.map(p => (
-                    <div key={p.id} className="fr-cell"
-                      role="button" tabIndex={0}
-                      {...makePressHandlers((x, y) => {
-                        productWasLong.current = true
-                        const menuW = 200; const menuH = 160
-                        const above = y + 8 + menuH > window.innerHeight
-                        const my = Math.max(8, above ? y - menuH - 4 : y + 8)
-                        const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
-                        ctxMenuOpenAt.current = Date.now()
-                        setProductCtxMenu({ product: p, x: mx, y: my, above })
-                      })}
-                      onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                      <CardCarousel
-                        images={getProductImages(p)}
-                        onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
-                      />
+                    <div key={p.id} className="fr-card">
+                      <div className="fr-cell"
+                        role="button" tabIndex={0}
+                        {...makePressHandlers((x, y) => {
+                          productWasLong.current = true
+                          const menuW = 200; const menuH = 160
+                          const above = y + 8 + menuH > window.innerHeight
+                          const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                          const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
+                          ctxMenuOpenAt.current = Date.now()
+                          setProductCtxMenu({ product: p, x: mx, y: my, above })
+                        })}
+                        onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
+                        <CardCarousel
+                          images={getProductImages(p)}
+                          onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                        />
+                      </div>
+                      <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)} />
                     </div>
                   ))}
                 </div>
                 {lastProductMsg?.loadingMore && (
                   <div className="fr-grid" style={{ paddingTop: 0 }}>
                     {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="fr-cell" style={{ background: '#e8e4de', overflow: 'hidden' }}>
-                        <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
-                          background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
-                          animation:`sk-sweep 2s ${i * 0.1}s ease-in-out infinite`,willChange:'transform' }} />
+                      <div key={i} className="fr-card">
+                        <div className="fr-cell" style={{ background: '#e8e4de', overflow: 'hidden' }}>
+                          <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
+                            background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
+                            animation:`sk-sweep 2s ${i * 0.1}s ease-in-out infinite`,willChange:'transform' }} />
+                        </div>
+                        <div style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ height: 9, width: '85%', background: '#e8e4de', borderRadius: 2 }} />
+                          <div style={{ height: 9, width: '40%', background: '#e8e4de', borderRadius: 2 }} />
+                        </div>
                       </div>
                     ))}
                   </div>
