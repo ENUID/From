@@ -266,6 +266,12 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     setLoading(true)
     setMessages(previous => [...previous, { role: 'user', content: messageText }])
 
+    // The most recent search this conversation ran — lets the API continue a
+    // refinement ("blue colour" after "I need a shirt") instead of searching the
+    // modifier on its own.
+    const lastSearchQuery = [...messages].reverse()
+      .find(m => m.role === 'assistant' && typeof m.searchQuery === 'string' && m.searchQuery.trim())?.searchQuery
+
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -280,6 +286,7 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
           recentSearches: searchHistory.slice(0, 8).map(entry => entry.query),
           tasteProfile: tasteProfileText,
           shopperGender: shopperGender,
+          lastSearchQuery,
         }),
         signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
       })

@@ -227,6 +227,68 @@ export function compileIntent(message: string, buyerCurrency: string): CompiledI
   return { args, aesthetics, summary }
 }
 
+// Remove any matched synonym of a lexicon from a string (used to let a new
+// attribute override the previous one — "navy" replaces an earlier "blue").
+function stripLexicon(text: string, lexicon: Record<string, string[]>): string {
+  let out = text
+  for (const synonyms of Object.values(lexicon)) {
+    for (const syn of synonyms) {
+      const pattern = syn.includes(' ') || syn.includes('-')
+        ? syn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        : `\\b${syn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`
+      out = out.replace(new RegExp(pattern, 'ig'), ' ')
+    }
+  }
+  return out.replace(/\s+/g, ' ').trim()
+}
+
+// Extra refinement words that signal "continue the last search, tweaked" even
+// when no colour/material/budget is present on their own.
+const REFINEMENT_WORDS = /\b(cheap|cheaper|cheapest|affordable|expensive|pricier|premium|luxury|longer|shorter|looser|tighter|oversized|cropped|baggy|slim|relaxed|darker|lighter|warmer|brighter|bolder|plainer|simpler|fancier|dressier|casual|formal|short.sleeve|long.sleeve|sleeveless|other|others|different|more)\b/i
+
+/**
+ * Continuation compiler — folds a short refinement ("blue colour", "in linen",
+ * "cheaper", "navy instead") into the PREVIOUS search so the conversation
+ * carries context. Returns null when the message isn't a refinement of a prior
+ * garment search (those go to the LLM). Attributes in the new message override
+ * the old ones (a new colour replaces the previous colour).
+ */
+export function continueIntent(
+  message: string,
+  prevSearchQuery: string,
+  buyerCurrency: string,
+): CompiledIntent | null {
+  const raw = message.trim()
+  if (!raw || raw.length < 2 || raw.length > 160) return null
+  if (CONVERSATIONAL.test(raw)) return null
+  const q = raw.toLowerCase()
+
+  // The new message must NOT already name a garment — if it does, compileIntent
+  // handles it as a fresh search and we shouldn't drag in stale context.
+  if (findInLexicon(q, GARMENTS).length > 0) return null
+
+  // The previous search must have a garment to continue from.
+  const prev = (prevSearchQuery || '').toLowerCase()
+  if (findInLexicon(prev, GARMENTS).length === 0) return null
+
+  // The new message must carry a real refinement signal.
+  const hasColor = findInLexicon(q, COLORS).length > 0
+  const hasMaterial = findInLexicon(q, MATERIALS).length > 0
+  const hasBudget = !!parseBudget(raw, buyerCurrency).budgetMax
+  const hasStyle = matchStyles(raw).length > 0
+  const hasWord = REFINEMENT_WORDS.test(q)
+  if (!hasColor && !hasMaterial && !hasBudget && !hasStyle && !hasWord) return null
+
+  // Build the merged query: the new message first (so its attributes win), then
+  // the previous query with any overridden attribute types stripped out.
+  let base = prevSearchQuery
+  if (hasColor) base = stripLexicon(base, COLORS)
+  if (hasMaterial) base = stripLexicon(base, MATERIALS)
+  const merged = `${raw} ${base}`.replace(/\s+/g, ' ').trim()
+
+  return compileIntent(merged, buyerCurrency)
+}
+
 /** Templated lead-in for compiled searches — no LLM round-trip needed. */
 export function compiledReplyText(intent: CompiledIntent, productCount: number): string {
   if (productCount === 0) {

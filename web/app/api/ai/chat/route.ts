@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
-import { compileIntent, compiledReplyText, compiledSuggestions } from '@/lib/intentCompiler'
+import { compileIntent, continueIntent, compiledReplyText, compiledSuggestions } from '@/lib/intentCompiler'
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
@@ -523,7 +523,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, buyerCountry, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile, shopperGender } = parsedBody
+  const { message, history, savedProducts, searchQuery, budgetMax, budgetCurrency, buyerCurrency, buyerCountry, isClothing, currentExcludeIds, sort, userName, recentSearches, tasteProfile, shopperGender, lastSearchQuery } = parsedBody
 
   if (!message) return NextResponse.json({ error: 'No message provided' }, { status: 400 })
 
@@ -645,7 +645,14 @@ export async function POST(req: NextRequest) {
 
     // Fast path: deterministic compiler for clear product queries.
     // Skips the LLM entirely — instant response with no model latency.
-    const compiled = compileIntent(safeMessage, activeBuyerCurrency)
+    // When the message is a bare refinement ("blue colour", "in linen",
+    // "cheaper") it has no garment of its own — fold it into the previous
+    // search so the conversation continues instead of searching the modifier
+    // alone and returning noise.
+    let compiled = compileIntent(safeMessage, activeBuyerCurrency)
+    if (!compiled && typeof lastSearchQuery === 'string' && lastSearchQuery.trim()) {
+      compiled = continueIntent(safeMessage, lastSearchQuery, activeBuyerCurrency)
+    }
     if (compiled && !/\b(more|others?|another|different ones?)\b/i.test(safeMessage)) {
       compiled.args.searchQuery = applyGenderPrefix(compiled.args.searchQuery)
       const compiledResult = await runCatalogSearch(compiled.args, {
