@@ -584,6 +584,95 @@ function useSwatchColor(url?: string | null): string | null {
   return color
 }
 
+// ── On-body detection (model shot vs flat packshot) ───────────────────────────
+// Filename/aspect heuristics miss often (hash URLs, portrait packshots), so the
+// reliable signal is the pixels: a model shot contains human skin (face, neck,
+// arms, legs); a flat studio/packshot on a white table has essentially none. We
+// reuse the swatch sampling pipeline — load a tiny CORS copy, scan the whole
+// frame, and return the fraction of skin-tone pixels. Cached per URL.
+const _skinFracCache = new Map<string, number>()
+const _skinPending = new Map<string, Promise<number>>()
+
+// Kovac et al. skin-tone rule in RGB — robust across lighting and skin tones.
+function _isSkinPixel(r: number, g: number, b: number): boolean {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b)
+  return r > 95 && g > 40 && b > 20 && (mx - mn) > 15 &&
+         Math.abs(r - g) > 15 && r > g && r > b
+}
+
+function sampleImageSkin(url: string): Promise<number> {
+  if (_skinFracCache.has(url)) return Promise.resolve(_skinFracCache.get(url)!)
+  const inflight = _skinPending.get(url)
+  if (inflight) return inflight
+  const job = new Promise<number>(resolve => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.decoding = 'async'
+    img.onload = () => {
+      try {
+        const S = 36
+        const cv = document.createElement('canvas')
+        cv.width = S; cv.height = S
+        const ctx = cv.getContext('2d', { willReadFrequently: true } as CanvasRenderingContext2DSettings)
+        if (!ctx) return resolve(-1)
+        ctx.drawImage(img, 0, 0, S, S)
+        const px = ctx.getImageData(0, 0, S, S).data
+        let skin = 0, n = 0
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i + 3] < 128) continue
+          n++
+          if (_isSkinPixel(px[i], px[i + 1], px[i + 2])) skin++
+        }
+        const frac = n ? skin / n : -1
+        _skinFracCache.set(url, frac)
+        resolve(frac)
+      } catch { resolve(-1) }
+    }
+    img.onerror = () => resolve(-1)
+    img.src = _thumbForSampling(url)
+  })
+  _skinPending.set(url, job)
+  return job
+}
+
+// A skin fraction in this band means a person is wearing the item. Below it →
+// no skin (flat packshot). Above it → the frame is mostly skin-tone, which is a
+// camel/beige/tan GARMENT filling a packshot, not a person — so not a model shot.
+function _looksLikeModel(frac: number): boolean | null {
+  if (frac < 0) return null            // sampling failed / non-CORS store
+  return frac > 0.035 && frac < 0.6
+}
+
+// Reorder a gallery so confirmed on-body shots lead and the flat packshot trails.
+// Renders instantly with the synchronous filename/aspect heuristic, then upgrades
+// to pixel-accurate order once skin sampling resolves (a few hundred ms, cached).
+function useModelFirstOrder(urls: string[]): string[] {
+  const key = urls.join('|')
+  const [order, setOrder] = useState<string[]>(urls)
+  useEffect(() => {
+    setOrder(urls)
+    if (urls.length < 2) return
+    let cancelled = false
+    Promise.all(urls.map(u => sampleImageSkin(u).catch(() => -1))).then(fracs => {
+      if (cancelled) return
+      const scored = urls.map((u, i) => {
+        const model = _looksLikeModel(fracs[i])
+        const base = imageScore(u)
+        // Confirmed model → top tier; confirmed packshot → bottom; unknown falls
+        // back to the heuristic in the middle so nothing regresses.
+        const tier = model === true ? 3 : model === false ? 0 : (base >= 0 ? 2 : 1)
+        return { u, i, tier, base }
+      })
+      scored.sort((a, b) => b.tier - a.tier || b.base - a.base || a.i - b.i)
+      const next = scored.map(s => s.u)
+      if (next.join('|') !== key) setOrder(next)
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  return order
+}
+
 // A single colour swatch. Shows the EXACT garment colour sampled from its image
 // when available, falling back to the name-based hue. Used on cards (small
 // square) and in the detail sheet (larger round).
@@ -2443,7 +2532,7 @@ export default function FromApp({
   // Fetched images take precedence (higher quality, more complete); any catalog
   // images not already present are appended so nothing is lost.
   const _catalogImages = selectedProduct ? getProductImages(selectedProduct) : []
-  const sheetImages = _colorImages.length > 0
+  const _sheetImagesRaw = _colorImages.length > 0
     // A colour is selected and has its own media — show only that colourway.
     ? _colorImages
     : fetchedProductImages.length > 0
@@ -2454,6 +2543,9 @@ export default function FromApp({
           return rankImageUrls([...fetchedProductImages, ...extra])
         })()
       : _catalogImages
+  // Upgrade the heuristic order to pixel-accurate on-body-first using skin
+  // detection: confirmed model shots lead, the flat packshot trails.
+  const sheetImages = useModelFirstOrder(_sheetImagesRaw)
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
   const sheetDescRaw   = selectedProduct?.description_html
     ? sanitizeHtml(selectedProduct.description_html)
