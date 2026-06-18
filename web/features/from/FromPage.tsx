@@ -9,7 +9,7 @@ import { formatMoney } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
-import { BRAND_NAMES } from '@/lib/stores'
+import { BRAND_NAMES, UCP_REGISTRY, cleanBrandToken } from '@/lib/stores'
 import { TAGLINES, shuffledIndices } from './taglines'
 import DOMPurify from 'dompurify'
 
@@ -1718,11 +1718,20 @@ export default function FromApp({
   const [brandsOpen, setBrandsOpen]     = useState(false)
   const [brandQuery, setBrandQuery]     = useState('')
   const [activeBrand, setActiveBrand]   = useState<{ name: string; domain: string } | null>(null)
-  const allBrands = useMemo(() =>
-    Object.entries(BRAND_NAMES)
-      .map(([domain, name]) => ({ domain, name }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  [])
+  // Every brand in the registry — not just the ones with a hand-set name — so
+  // all ~370+ stores are browsable. Display name falls back name → BRAND_NAMES
+  // → a cleaned domain token, and we de-dupe by domain.
+  const allBrands = useMemo(() => {
+    const seen = new Set<string>()
+    const list: { domain: string; name: string }[] = []
+    for (const s of UCP_REGISTRY) {
+      const domain = s.domain
+      if (seen.has(domain)) continue
+      seen.add(domain)
+      list.push({ domain, name: s.name || BRAND_NAMES[domain] || cleanBrandToken(domain) })
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name))
+  }, [])
   const filteredBrands = useMemo(() => {
     const q = brandQuery.trim().toLowerCase()
     return q ? allBrands.filter(b => b.name.toLowerCase().includes(q)) : allBrands
