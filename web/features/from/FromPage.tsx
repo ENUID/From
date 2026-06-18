@@ -5384,8 +5384,8 @@ export default function FromApp({
                   /* ── Desktop / tablet: image left + details right ── */
                   <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-                    {/* Left — full-height image, swipeable carousel */}
-                    <div style={{ width: '48%', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#ede8e3', touchAction: sheetImages.length > 1 ? 'none' : 'auto' }}
+                    {/* Left — full-height 4:5 image, swipeable carousel */}
+                    <div style={{ height: '100%', aspectRatio: '4 / 5', width: 'auto', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#ede8e3', touchAction: sheetImages.length > 1 ? 'none' : 'auto' }}
                       onPointerDown={sheetImages.length > 1 ? onImgDown : undefined}
                       onPointerMove={sheetImages.length > 1 ? (e => onImgMove(e, sheetImages.length)) : undefined}
                       onPointerUp={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
@@ -5394,7 +5394,7 @@ export default function FromApp({
                       <div style={{ display: 'flex', height: '100%', transition: (imgActive.current && imgLockH.current) ? 'none' : 'transform .32s cubic-bezier(.32,.72,0,1)', transform: `translateX(calc(-${activeImg * 100}% + ${imgDX}px))` }}>
                         {sheetImages.length > 0 ? sheetImages.map((img, i) => (
                           <div key={i} style={{ width: '100%', height: '100%', flexShrink: 0 }}>
-                            <img src={img} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', userSelect: 'none', pointerEvents: 'none' }} />
+                            <img src={img} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', userSelect: 'none', pointerEvents: 'none' }} />
                           </div>
                         )) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -5627,7 +5627,7 @@ export default function FromApp({
                         <div style={{ display: "flex", transition: (imgActive.current && imgLockH.current) ? "none" : "transform .32s cubic-bezier(.32,.72,0,1)", transform: `translateX(calc(-${activeImg * 100}% + ${imgDX}px))` }}>
                           {sheetImages.length > 0 ? sheetImages.map((img, i) => (
                             <div key={i} style={{ width: "100%", flexShrink: 0 }}>
-                              <img src={img} alt="" draggable={false} style={{ width: "100%", aspectRatio: "4/5", objectFit: "contain", background: "#f5f4f2", display: "block", userSelect: "none", pointerEvents: "none" }} />
+                              <img src={img} alt="" draggable={false} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", background: "#f5f4f2", display: "block", userSelect: "none", pointerEvents: "none" }} />
                             </div>
                           )) : (
                             <div style={{ width: "100%", aspectRatio: "4/5", background: "#ebebeb", display: "flex", alignItems: "center", justifyContent: "center" }}>
