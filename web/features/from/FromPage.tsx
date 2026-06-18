@@ -777,25 +777,34 @@ function getProductSizes(p: Product): string[] {
 function getProductColors(p: Product): string[] {
   return p.options?.find(o => /colou?r/i.test(o.name))?.values || []
 }
-// Map each size value → whether any variant carrying it is available.
-function getSizeAvailability(p: Product): Record<string, boolean> {
+// Map each size value → whether it's available. A size is in stock if ANY
+// variant carrying it is available — a single sold-out colourway must never
+// grey out a size that's stocked elsewhere. When `color` is given, scope the
+// check to that colourway so the size grid reflects the selected colour.
+function getSizeAvailability(p: Product, color?: string | null): Record<string, boolean> {
   const map: Record<string, boolean> = {}
   const sizeOpt = p.options?.find(o => o.name.toLowerCase().includes('size'))
   if (!sizeOpt) return map
+  const want = color?.toLowerCase() ?? null
   for (const val of sizeOpt.values) {
-    const v = p.variants?.find(v => v.options.some(o => o.label === val))
-    map[val] = v ? v.availability : true
+    const variants = (p.variants ?? []).filter(v =>
+      v.options.some(o => o.label === val) &&
+      (!want || v.options.some(o => o.label?.toLowerCase() === want)),
+    )
+    // No matching variant → assume available (catalog data is often partial).
+    map[val] = variants.length === 0 ? true : variants.some(v => v.availability)
   }
   return map
 }
-// Map each colour value → whether any variant carrying it is available.
+// Map each colour value → whether any variant in that colour is available.
+// Uses `.some()` so a colour stays selectable as long as one size is in stock.
 function getColorAvailability(p: Product): Record<string, boolean> {
   const map: Record<string, boolean> = {}
   const colorOpt = p.options?.find(o => /colou?r/i.test(o.name))
   if (!colorOpt) return map
   for (const val of colorOpt.values) {
-    const v = p.variants?.find(v => v.options.some(o => o.label === val))
-    map[val] = v ? v.availability : true
+    const variants = (p.variants ?? []).filter(v => v.options.some(o => o.label === val))
+    map[val] = variants.length === 0 ? true : variants.some(v => v.availability)
   }
   return map
 }
@@ -2319,7 +2328,7 @@ export default function FromApp({
   const sheetDetailTags= selectedProduct ? extractDetailTags(selectedProduct) : []
   const sheetSizes     = selectedProduct ? getProductSizes(selectedProduct) : []
   const sheetColors    = sheetColorList
-  const sizeAvail      = selectedProduct ? getSizeAvailability(selectedProduct) : {}
+  const sizeAvail      = selectedProduct ? getSizeAvailability(selectedProduct, _activeSheetColor) : {}
   const colorAvail     = selectedProduct ? getColorAvailability(selectedProduct) : {}
   const effectiveColor = selectedColor || (sheetColors.length > 0 ? sheetColors[0] : null)
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
