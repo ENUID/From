@@ -1,15 +1,23 @@
 /**
- * Vision-based product image ordering.
+ * Vision-based product image curation + ordering.
  *
  * Heuristics (filename, aspect ratio, skin-tone pixels) can't reliably tell a
  * model shot from a flat lay when the garment itself is skin-coloured
  * (terracotta, beige, tan) — the clothing reads as "skin" too. The only robust
- * signal is the SHAPE of a person, so we ask the vision model to label each
- * photo as on-body vs product-only, then sort on-body first and flat last.
+ * signal is the SHAPE of a person, so the vision model labels each photo:
+ * on-body vs product-only, its camera angle, and a quality score.
+ *
+ * From that we CURATE the gallery down to the best 5–6: the strongest model
+ * shots across distinct angles (front → full → side → back → detail) followed by
+ * one clean product shot, dropping redundant / awkward-angle / low-quality
+ * extras. Model shots lead, the product shot trails.
+ *
+ * Groq caps a vision request at 5 images, so larger galleries are classified in
+ * parallel batches of 5 (the "second call") and merged before curating.
  *
  * Runs server-side (no browser CORS limits on reading images) and is cached
  * three ways — per-process memory, Convex persistence (shared across users,
- * survives cold starts), and the client — so the vision call happens at most
+ * survives cold starts), and the client — so the vision calls happen at most
  * once per product, ever. Failure-silent: any error falls back to input order.
  */
 import { createHash } from 'crypto'
@@ -18,7 +26,10 @@ import { anyApi } from 'convex/server'
 import { BoundedCache } from '@/lib/boundedCache'
 import { groqVisionChat, type VisionMessage } from '@/lib/groq'
 
-const MAX_IMAGES = 5          // Groq vision caps images per request at 5
+const BATCH = 5               // Groq vision caps images per request at 5
+const MAX_IMAGES = 12         // classify at most this many (≤3 batched calls)
+const FINAL_CAP = 6           // curated gallery size
+const MAX_MODELS = 5          // at most this many on-body shots in the result
 const READ_TIMEOUT_MS = 1500
 const mem = new BoundedCache<string, string[]>(4000)
 
@@ -33,8 +44,8 @@ function keyFor(urls: string[]): string {
   return createHash('sha1').update(urls.join('\n')).digest('hex')
 }
 
-// Smaller images = faster, cheaper vision calls. Low detail is plenty to tell a
-// person apart from a packshot. Non-Shopify hosts ignore the param harmlessly.
+// Smaller images = faster, cheaper vision calls. Low detail is plenty to read a
+// pose and angle. Non-Shopify hosts ignore the param harmlessly.
 function visionThumb(src: string): string {
   try {
     const u = new URL(src.startsWith('//') ? `https:${src}` : src)
@@ -46,16 +57,6 @@ function visionThumb(src: string): string {
   } catch {
     return src
   }
-}
-
-// Merge a cached/classified ordering back over the caller's full list: keep the
-// ordered items that still exist, then append anything the ordering didn't
-// cover (extra images beyond the cap), preserving the caller's order.
-function reattach(order: string[], full: string[]): string[] {
-  const inOrder = order.filter(u => full.includes(u))
-  const set = new Set(inOrder)
-  const extras = full.filter(u => !set.has(u))
-  return [...inOrder, ...extras]
 }
 
 async function readCache(key: string): Promise<string[] | null> {
@@ -84,27 +85,47 @@ async function writeCache(key: string, order: string[]): Promise<void> {
   }
 }
 
+// ── Vision classification ─────────────────────────────────────────────────────
+
+type Meta = { url: string; person: boolean | null; view: string; quality: number }
+
+const VIEWS = ['front', 'full', 'side', 'back', 'detail', 'flatlay', 'other'] as const
+
 const SYSTEM =
   'You are a precise fashion product-image classifier. You only ever output JSON, no prose.'
 
 function prompt(n: number): string {
   return (
     `These are ${n} photos of ONE clothing product, numbered 0 to ${n - 1} in order. ` +
-    `For each photo decide if a real human PERSON is wearing or modeling the clothing ` +
-    `(on-body, worn, lifestyle, or editorial shot). A flat lay, packshot on a surface, ` +
-    `hanger shot, folded item, ghost-mannequin with no visible person, swatch, or pure ` +
-    `product close-up is NOT a person. ` +
-    `Respond with ONLY a JSON array of ${n} objects, one per photo in order: ` +
-    `[{"i":0,"person":true},{"i":1,"person":false}, ...]. No other text.`
+    `For EACH photo return an object with:\n` +
+    `- "i": its index\n` +
+    `- "person": true if a real human is wearing/modeling the garment (on-body, worn, ` +
+    `lifestyle, editorial); false if it is product-only (flat lay, packshot, hanger, ` +
+    `folded, ghost-mannequin, swatch, pure close-up)\n` +
+    `- "view": the camera angle — one of "front","full","side","back","detail","flatlay","other"\n` +
+    `- "quality": 0-100, how good this photo is as a shop hero (clear, well-lit, ` +
+    `flattering, sharp; penalise blurry, dark, awkward, cropped, or duplicate angles)\n` +
+    `Respond with ONLY a JSON array of ${n} such objects in order. No other text.`
   )
 }
 
-// Parse per-image person labels. Tolerant of the model wrapping or truncating
-// JSON: tries a full parse first, then falls back to per-object regex.
-function parseLabels(text: string, n: number): (boolean | null)[] {
-  const labels: (boolean | null)[] = new Array(n).fill(null)
-  const apply = (i: number, person: boolean) => {
-    if (Number.isInteger(i) && i >= 0 && i < n) labels[i] = person
+function normView(v: unknown): string {
+  const s = String(v ?? '').toLowerCase().trim()
+  return (VIEWS as readonly string[]).includes(s) ? s : 'other'
+}
+function normQuality(q: unknown): number {
+  const n = typeof q === 'number' ? q : parseFloat(String(q))
+  if (!Number.isFinite(n)) return 50
+  return Math.max(0, Math.min(100, n))
+}
+
+// Parse the model's JSON (tolerant of wrapping / truncation) into per-index meta.
+function parseMetas(text: string, n: number): Array<Omit<Meta, 'url'>> {
+  const out: Array<Omit<Meta, 'url'>> = Array.from({ length: n }, () => ({
+    person: null, view: 'other', quality: 50,
+  }))
+  const apply = (i: number, person: boolean | null, view: string, quality: number) => {
+    if (Number.isInteger(i) && i >= 0 && i < n) out[i] = { person, view, quality }
   }
   const block = text.match(/\[[\s\S]*\]/)
   if (block) {
@@ -112,21 +133,28 @@ function parseLabels(text: string, n: number): (boolean | null)[] {
       const arr = JSON.parse(block[0])
       if (Array.isArray(arr)) {
         for (const o of arr) {
-          if (o && typeof o.i === 'number') apply(o.i, o.person === true)
+          if (o && typeof o.i === 'number') {
+            apply(o.i, o.person === true ? true : o.person === false ? false : null,
+              normView(o.view), normQuality(o.quality))
+          }
         }
-        return labels
+        return out
       }
     } catch {
       /* fall through to regex */
     }
   }
+  // Fallback: pull person flags only, keep neutral view/quality.
   const re = /"i"\s*:\s*(\d+)[^}]*?"person"\s*:\s*(true|false)/g
   let m: RegExpExecArray | null
-  while ((m = re.exec(text))) apply(parseInt(m[1], 10), m[2] === 'true')
-  return labels
+  while ((m = re.exec(text))) {
+    const i = parseInt(m[1], 10)
+    if (Number.isInteger(i) && i >= 0 && i < n) out[i].person = m[2] === 'true'
+  }
+  return out
 }
 
-async function classify(urls: string[]): Promise<string[]> {
+async function classifyBatch(urls: string[]): Promise<Meta[]> {
   const parts: VisionMessage['content'] = [
     { type: 'text', text: prompt(urls.length) },
     ...urls.map(u => ({
@@ -137,36 +165,76 @@ async function classify(urls: string[]): Promise<string[]> {
   const msg = await groqVisionChat(
     [{ role: 'user', content: parts }],
     SYSTEM,
-    { max_tokens: 300, temperature: 0 },
+    { max_tokens: 600, temperature: 0 },
   )
-  const labels = parseLabels(msg?.content ?? '', urls.length)
-  // On-body shots first, unknowns in the middle, flat/product shots last —
-  // stable within each group so the store's own sequencing is preserved.
-  const rank = (i: number) => (labels[i] === true ? 0 : labels[i] === false ? 2 : 1)
-  const idx = urls.map((_, i) => i).sort((a, b) => rank(a) - rank(b) || a - b)
-  return idx.map(i => urls[i])
+  const metas = parseMetas(msg?.content ?? '', urls.length)
+  return urls.map((url, i) => ({ url, ...metas[i] }))
 }
 
-/** Order a product's images on-body-first. Returns input order on any failure. */
+// ── Curation ──────────────────────────────────────────────────────────────────
+
+const VIEW_RANK: Record<string, number> = {
+  front: 0, full: 1, side: 2, back: 3, detail: 4, other: 5, flatlay: 6,
+}
+
+// Pick the best 5–6: strong model shots across distinct angles (front → back),
+// then one clean product shot. Drops redundant / low-quality / extra frames.
+function curate(metas: Meta[]): string[] {
+  const models = metas.filter(m => m.person === true)
+  const others = metas.filter(m => m.person !== true) // false or unknown
+
+  // Model shots: order by angle, best quality first; cap to 2 per angle so we
+  // get variety (front, full, back…) rather than five near-identical frames.
+  models.sort((a, b) =>
+    (VIEW_RANK[a.view] ?? 9) - (VIEW_RANK[b.view] ?? 9) || b.quality - a.quality)
+  const perView: Record<string, number> = {}
+  const chosenModels: Meta[] = []
+  for (const m of models) {
+    const seen = perView[m.view] ?? 0
+    if (seen >= 2) continue
+    perView[m.view] = seen + 1
+    chosenModels.push(m)
+    if (chosenModels.length >= MAX_MODELS) break
+  }
+
+  // One product shot: the single best-quality non-model frame.
+  others.sort((a, b) => b.quality - a.quality)
+  const chosenProduct = others.slice(0, 1)
+
+  let result = [...chosenModels, ...chosenProduct]
+  // No model shots at all → show the best handful of product frames instead.
+  if (result.length === 0) result = others.slice(0, FINAL_CAP)
+  return result.slice(0, FINAL_CAP).map(m => m.url)
+}
+
+/** Curate + order a product's images on-body-first. Returns input on any failure. */
 export async function orderImagesModelFirst(input: string[]): Promise<string[]> {
-  const urls = Array.from(new Set(input.filter(u => typeof u === 'string' && /^https?:|^\/\//.test(u)))).slice(0, MAX_IMAGES)
+  const urls = Array.from(
+    new Set(input.filter(u => typeof u === 'string' && /^https?:|^\/\//.test(u))),
+  ).slice(0, MAX_IMAGES)
   if (!enabled() || urls.length < 2) return input
 
   const key = keyFor(urls)
   const cached = mem.get(key)
-  if (cached) return reattach(cached, input)
+  if (cached) return cached
 
   const persisted = await readCache(key)
   if (persisted) {
     mem.set(key, persisted)
-    return reattach(persisted, input)
+    return persisted
   }
 
   try {
-    const order = await classify(urls)
-    mem.set(key, order)
-    void writeCache(key, order)
-    return reattach(order, input)
+    // Classify in parallel batches of 5 (Groq's per-request image cap), merge,
+    // then curate down to the best 5–6.
+    const batches: string[][] = []
+    for (let i = 0; i < urls.length; i += BATCH) batches.push(urls.slice(i, i + BATCH))
+    const metas = (await Promise.all(batches.map(classifyBatch))).flat()
+    const result = curate(metas)
+    if (result.length === 0) return input
+    mem.set(key, result)
+    void writeCache(key, result)
+    return result
   } catch {
     return input
   }

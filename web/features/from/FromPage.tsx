@@ -386,6 +386,9 @@ function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void
     )
   }
 
+  // Curation can shrink the list after a swipe, so clamp the active index.
+  const cur = Math.min(idx, imgs.length - 1)
+
   return (
     <>
       <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
@@ -393,7 +396,7 @@ function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void
           background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
           animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
       </div>
-      <img key={imgs[idx]} src={imgs[idx]} alt="" draggable={false} decoding="async"
+      <img key={imgs[cur]} src={imgs[cur]} alt="" draggable={false} decoding="async"
         style={{ position:'relative',zIndex:2,opacity:0 }}
         onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
       />
@@ -433,7 +436,7 @@ function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void
         <div style={{ position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',display:'flex',gap:4,zIndex:4,pointerEvents:'none' }}>
           {imgs.map((_, i) => (
             <div key={i} style={{ width:5,height:5,borderRadius:'50%',
-              background: i === idx ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.35)',
+              background: i === cur ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.35)',
               transition:'background .15s' }} />
           ))}
         </div>
@@ -2509,9 +2512,14 @@ export default function FromApp({
           return rankImageUrls([...fetchedProductImages, ...extra])
         })()
       : _catalogImages
-  // Upgrade the heuristic order to pixel-accurate on-body-first using skin
-  // detection: confirmed model shots lead, the flat packshot trails.
+  // Curate + order on-body-first via vision (model shots lead, one product shot
+  // trails, redundant/low-quality frames dropped). Returns the best 5–6.
   const sheetImages = useModelFirstOrder(_sheetImagesRaw)
+  // Curation can shrink the gallery after the user has swiped — keep the active
+  // index in range so the slider never lands on a blank panel.
+  useEffect(() => {
+    setActiveImg(i => (i >= sheetImages.length ? Math.max(0, sheetImages.length - 1) : i))
+  }, [sheetImages.length])
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
   const sheetDescRaw   = selectedProduct?.description_html
     ? sanitizeHtml(selectedProduct.description_html)
