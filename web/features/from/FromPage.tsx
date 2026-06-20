@@ -4670,16 +4670,26 @@ export default function FromApp({
                         <div style={{ marginTop: 10, width: '100%' }}>
                           <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Found for you</div>
                           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
-                            {m.foundProducts.map(p => (
-                              <div key={p.id} onClick={() => { setStylistOpen(false); setSelected(p) }}
-                                style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
-                                <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2 }}>
-                                  {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                            {m.foundProducts.map(p => {
+                              const { colors: pc } = displaySwatches(p)
+                              return (
+                                <div key={p.id} onClick={() => { setStylistOpen(false); setSelected(p) }}
+                                  style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
+                                  <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2 }}>
+                                    {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                  </div>
+                                  <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                                  <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                                  {pc.length > 0 && (
+                                    <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                                      {pc.slice(0, 5).map(c => (
+                                        <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={9} shape="square" selected={false} available={true} />
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                                <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         </div>
                       )}
@@ -4714,6 +4724,13 @@ export default function FromApp({
                                   <div style={{ padding: '7px 8px' }}>
                                     <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.title}</div>
                                     <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(best.price, best.currency, best.base_currency, liveRates)}</div>
+                                    {(() => { const { colors: sc } = displaySwatches(best); return sc.length > 0 ? (
+                                      <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
+                                        {sc.slice(0, 6).map(c => (
+                                          <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(best, c)[0] ?? getProductImages(best)[0]} size={9} shape="square" selected={false} available={true} />
+                                        ))}
+                                      </div>
+                                    ) : null })()}
                                   </div>
                                 </div>
                               )
