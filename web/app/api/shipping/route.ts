@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
       [{ role: 'user', content: combined }],
       SYSTEM,
       undefined,
-      { max_tokens: 300, temperature: 0.05 }
+      { max_tokens: 300, temperature: 0.05, model: 'llama-3.1-8b-instant' }
     )
 
     const raw_out = (msg?.content ?? '').trim()

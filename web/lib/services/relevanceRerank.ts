@@ -182,7 +182,7 @@ Return an entry for EVERY index. No trailing text after the closing bracket.`
       [{ role: 'user', content: userMsg }],
       system,
       undefined,
-      { temperature: 0, max_tokens: 1600 },
+      { temperature: 0, max_tokens: 1600, model: 'llama-3.1-8b-instant' },
     ).then((r: any) => {
       // groqChat returns data.choices[0].message — the message object itself.
       // Extract .content directly; do not drill into .choices again.

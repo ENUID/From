@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       [{ role: 'user', content: userMsg }],
       SYSTEM,
       undefined,
-      { max_tokens: 180, temperature: 0.2 }
+      { max_tokens: 180, temperature: 0.2, model: 'llama-3.1-8b-instant' }
     )
 
     const text = (msg?.content ?? '').trim()

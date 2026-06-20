@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqVisionChat, VisionMessage } from '@/lib/groq'
+import { wardrobeVisionChat } from '@/lib/groq'
 
 export const maxDuration = 30
 
@@ -57,14 +57,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ query: null })
     }
 
-    const parts: any[] = [
-      { type: 'text', text: hint ? `Shopper's note: "${hint}"` : 'Identify the piece to search for.' },
-      ...images.map(url => ({ type: 'image_url', image_url: { url, detail: 'low' as const } })),
-    ]
-    const messages: VisionMessage[] = [{ role: 'user', content: parts }]
-
-    const msg = await groqVisionChat(messages, SYSTEM, { max_tokens: 60, temperature: 0.1 })
-    const raw = typeof msg?.content === 'string' ? msg.content : ''
+    const question = hint ? `Shopper's note: "${hint}"\n\nIdentify the piece to search for.` : 'Identify the piece to search for.'
+    const raw = await wardrobeVisionChat(SYSTEM, question, images, { max_tokens: 60, temperature: 0.1 })
 
     // Sanitize: first line only, strip quotes/punctuation noise, cap length.
     const query = raw

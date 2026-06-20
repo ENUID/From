@@ -88,8 +88,8 @@ async function stylistChat(
   // Only when literally every provider fails do we surface an error.
   const hasGemini = !!process.env.GOOGLE_AI_API_KEY
   const groqOrder = useGemini
-    ? [process.env.GROQ_STYLIST_MODEL, GROQ_70B, GROQ_8B]   // heavy: depth first
-    : [CHAT_MODEL, GROQ_8B, GROQ_70B]                       // chitchat: fast first
+    ? [GROQ_70B, GROQ_8B]   // heavy: depth-first Groq fallback behind Gemini
+    : [GROQ_8B, GROQ_70B]   // chitchat: fast 8b first, 70b as depth fallback
   const groqModels = groqOrder.filter((m, i, a): m is string => !!m && a.indexOf(m) === i)
 
   type Attempt = { name: string; run: () => Promise<{ role: string; content: string | null }> }
