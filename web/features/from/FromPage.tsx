@@ -5,7 +5,7 @@ import { useSession, signIn, signOut } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useFromChat } from './hooks/useFromChat'
-import { formatMoney } from '@/lib/currency'
+import { formatMoney, convertCurrencyAmount } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import type { Product } from '@/components/ProductCard'
@@ -4697,12 +4697,25 @@ export default function FromApp({
                         <div style={{ marginTop: 12, width: '100%' }}>
                           <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Complete outfit</div>
                           {(() => {
-                            // Dedup and label every slot, then render the 2-col grid.
+                            // Dedup first so the total uses the same products as the cards.
                             const seenIds = new Set<string>()
-                            const slots = m.outfitSlots!.map((slot, si) => {
-                              const best = slot.products.find(p => !seenIds.has(p.id)) ?? slot.products[0]
+                            const bests = m.outfitSlots!.map(slot => {
+                              const b = slot.products.find(p => !seenIds.has(p.id)) ?? slot.products[0]
+                              if (b) seenIds.add(b.id)
+                              return b ?? null
+                            })
+
+                            // Total: convert every slot to the shopper's display currency
+                            // before summing so mixed-currency outfits add up correctly.
+                            const displayCurrency = shopperContext.currency || 'USD'
+                            const total = bests.reduce((sum, p) => {
+                              if (!p) return sum
+                              return sum + convertCurrencyAmount(p.price, p.base_currency ?? p.currency, displayCurrency, liveRates)
+                            }, 0)
+
+                            const slots = bests.map((best, si) => {
                               if (!best) return null
-                              seenIds.add(best.id)
+                              const slot = m.outfitSlots![si]
                               const slotLabel = slot.slotCategory ?? (() => {
                                 const t = `${slot.query} ${best.title} ${(best.tags || []).join(' ')}`.toLowerCase()
                                 if (/shoe|sneaker|loafer|boot|sandal|trainer|oxford|derby|moccasin|footwear|slip.on|espadrille|pump|heel|clog/.test(t)) return 'Shoes'
@@ -4735,13 +4748,12 @@ export default function FromApp({
                                 </div>
                               )
                             })
-                            const total = m.outfitSlots!.reduce((sum, s) => sum + (s.products[0]?.price ?? 0), 0)
                             return (
                               <>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>{slots}</div>
                                 {total > 0 && (
                                   <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: INK2, textAlign: 'right' }}>
-                                    Total outfit: {formatMoney(total, m.outfitSlots![0]?.products[0]?.currency, m.outfitSlots![0]?.products[0]?.base_currency, liveRates)}
+                                    Total outfit: {formatMoney(total, displayCurrency, displayCurrency, liveRates)}
                                   </div>
                                 )}
                               </>

@@ -179,7 +179,7 @@ function matchedCategories(query: string): Set<string> {
 }
 
 /** Returns registry domains matching the query's categories, sorted by relevance to the query. */
-function getCategoryDomains(query: string): string[] {
+function getCategoryDomains(query: string, cc?: string | null): string[] {
   const cats = matchedCategories(query)
   const qLower = query.toLowerCase()
 
@@ -223,6 +223,15 @@ function getCategoryDomains(query: string): string[] {
       }
       if (s.items && s.items.some(it => qLower.includes(it.toLowerCase()))) score += 8
       score += s.categories.length
+      // Geo-aware fetch ordering: prioritise stores in the shopper's country so
+      // local brands are in the pool before the geo-boost re-sorts the results.
+      if (cc) {
+        const dom = s.domain.toLowerCase().replace(/^www\./, '')
+        const storeCc = getStoreCountry(dom)
+        const userRegion = GEO_REGIONS[cc] ?? ''
+        if (storeCc === cc) score += 50
+        else if (userRegion && GEO_REGIONS[storeCc] === userRegion) score += 20
+      }
       return { domain: s.domain.toLowerCase().trim(), score }
     })
     .sort((a, b) => b.score - a.score)
@@ -655,7 +664,7 @@ export class GlobalCatalogService {
     if (!entry) {
       const orderedDomains = isBrandSearch
         ? validBrands.map(d => d.toLowerCase().trim())
-        : getCategoryDomains(storeQuery)
+        : getCategoryDomains(storeQuery, cc)
       entry = { timestamp: Date.now(), products: [], pending: [...orderedDomains], queried: new Set() }
       cacheSet(cacheKey, entry)
 
@@ -799,6 +808,21 @@ export class GlobalCatalogService {
         return geo * 4 + brandQualityScore(dom)   // geo dominates; quality refines
       }
       result = result.slice().sort((a, b) => composite(b.store_url) - composite(a.store_url))
+    }
+
+    // Vendor diversity: cap at 2 products per store so one brand can't crowd out
+    // the whole page. Applies to all sort modes. Brand searches are exempt — the
+    // user explicitly chose that brand and wants to see its full catalog.
+    if (!isBrandSearch) {
+      const domainOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' } }
+      const perDomain = new Map<string, number>()
+      result = result.filter(p => {
+        const dom = domainOf(p.store_url)
+        const seen = perDomain.get(dom) ?? 0
+        if (seen >= 2) return false
+        perDomain.set(dom, seen + 1)
+        return true
+      })
     }
 
     return result
