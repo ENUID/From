@@ -7,8 +7,30 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 export const metadata: Metadata = {
-  title: 'From - Be Different',
-  description: 'Search across independent stores through natural language. Describe what you need and discover unique finds from verified shops.',
+  title: 'FROM — Be Different',
+  description: 'AI fashion search across 450+ independent stores. Describe what you want, discover something you\'ll actually wear.',
+  metadataBase: new URL('https://from.enuid.com'),
+  openGraph: {
+    title: 'FROM — Be Different',
+    description: 'AI fashion search across 450+ independent stores. Describe what you want, discover something you\'ll actually wear.',
+    url: 'https://from.enuid.com',
+    siteName: 'FROM',
+    images: [
+      {
+        url: '/og.jpg',
+        width: 1100,
+        height: 880,
+        alt: 'FROM',
+      },
+    ],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'FROM — Be Different',
+    description: 'AI fashion search across 450+ independent stores. Describe what you want, discover something you\'ll actually wear.',
+    images: ['/og.jpg'],
+  },
 }
 
 export const viewport: Viewport = {
