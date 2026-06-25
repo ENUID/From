@@ -8,11 +8,11 @@ import { authOptions } from '@/lib/auth'
 
 export const metadata: Metadata = {
   title: 'FROM — Be Different',
-  description: 'FROM is an AI Shopping OS. You describe what you want, and AI Agents find the best, trusted, quality products from brands and stores. Agents search, compare, buy, and receive — with try-ons, comparison, agentic checkout, tracking and more, all in a single chat.',
+  description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
   metadataBase: new URL('https://from.enuid.com'),
   openGraph: {
     title: 'FROM — Be Different',
-    description: 'FROM is an AI Shopping OS. You describe what you want, and AI Agents find the best, trusted, quality products from brands and stores. Agents search, compare, buy, and receive — with try-ons, comparison, agentic checkout, tracking and more, all in a single chat.',
+    description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
     url: 'https://from.enuid.com',
     siteName: 'FROM',
     images: [
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'FROM — Be Different',
-    description: 'FROM is an AI Shopping OS. You describe what you want, and AI Agents find the best, trusted, quality products from brands and stores. Agents search, compare, buy, and receive — with try-ons, comparison, agentic checkout, tracking and more, all in a single chat.',
+    description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
     images: ['/og.jpg'],
   },
 }
