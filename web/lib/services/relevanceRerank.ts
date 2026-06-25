@@ -8,9 +8,9 @@ import { matchStyles, vocabPromptBlock } from '../styleVocabulary'
 export function isRerankEnabled(): boolean {
   return (process.env.RELEVANCE_RERANK ?? 'on').toLowerCase() === 'on'
 }
-const RERANK_TOP_N   = Number(process.env.RELEVANCE_RERANK_TOP_N   ?? 40)
+const RERANK_TOP_N   = Number(process.env.RELEVANCE_RERANK_TOP_N   ?? 20)
 const DESC_CHARS     = Number(process.env.RELEVANCE_RERANK_DESC_CHARS ?? 220)
-const TIMEOUT_MS     = Number(process.env.RELEVANCE_RERANK_TIMEOUT_MS ?? 6000)
+const TIMEOUT_MS     = Number(process.env.RELEVANCE_RERANK_TIMEOUT_MS ?? 2000)
 // Cost guard: cap LLM judge calls per rolling minute. Over budget → BM25 order
 // (still good, still free). 0 disables the cap. Default 120/min headroom.
 const MAX_LLM_PER_MIN = Number(process.env.RELEVANCE_RERANK_MAX_PER_MIN ?? 120)

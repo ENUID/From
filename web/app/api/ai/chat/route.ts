@@ -10,6 +10,7 @@ import {
   UCP_REGISTRY,
   detectBrandsInQuery,
   brandDisplayName,
+  storeLanguageLabel,
   buildCompactBrandDirectory,
   buildCategoryTaxonomy,
   buildVibeGlossary,
@@ -739,7 +740,27 @@ export async function POST(req: NextRequest) {
 
     dynamicSystemPrompt += `\n\nVIBE GLOSSARY — what each brand's style tag signals (use it to match mood/occasion to brands):\n${buildVibeGlossary()}`;
 
-    dynamicSystemPrompt += `\n\nCRITICAL STORE LIMITATION: You MUST only recommend or mention products from this curated brand roster. Each entry lists what the brand sells, its style tags, and its catalog language — use this to pick the brands that best fit the request:\n${buildCompactBrandDirectory()}\nThe 'search_ucp' tool strictly filters to these brands only. Never recommend or discuss products from any store outside this roster.`;
+    // For brand-specific queries include only the matched entries (~2–5 lines).
+    // For general queries skip the 7k-token full directory — the catalog service
+    // handles store selection; the LLM only needs to know the roster exists.
+    if (detectedBrandDomains.length > 0) {
+      const matchedLines = UCP_REGISTRY
+        .filter(s => detectedBrandDomains.includes(s.domain.toLowerCase().trim()))
+        .map(s => {
+          const name = brandDisplayName(s)
+          const cats = s.categories.join(', ')
+          const vibes = s.vibe.length ? s.vibe.join(', ') : 'general'
+          const lang = storeLanguageLabel(s)
+          const genderPart = s.gender ? ` | ${s.gender.join(', ')}` : ''
+          const pricePart = s.priceRange ? ` | price: ${s.priceRange}` : ''
+          const itemsPart = s.items ? ` | items: ${s.items.join(', ')}` : ''
+          return `- ${name} — ${s.domain}${genderPart}${pricePart} | sells: [${cats}]${itemsPart} | style: [${vibes}] | language: ${lang}`
+        })
+        .join('\n')
+      dynamicSystemPrompt += `\n\nBRAND ROSTER (${UCP_REGISTRY.length}+ brands; matched brands shown):\n${matchedLines}\nThe 'search_ucp' tool strictly filters to this curated roster. Never recommend or discuss products from any store outside it.`
+    } else {
+      dynamicSystemPrompt += `\n\nSTORE ROSTER: FROM's catalog covers ${UCP_REGISTRY.length}+ curated independent fashion brands across menswear, womenswear, footwear, bags, accessories and lifestyle. The 'search_ucp' tool strictly filters to this curated roster — never recommend or discuss any brand outside it.`
+    }
 
     if (detectedBrandDomains.length > 0) {
       const brandNames = detectedBrandDomains.map(d => {
@@ -876,7 +897,7 @@ Reply in the exact language the user wrote in.`
               POST_TOOL_PROMPT,
               aiResponse,
               formatSearchToolResult(products),
-              5000,
+              2500,
             )
             finalContent = postSearchText || fallbackText(message, products, {
               budgetMax: activeBudgetMax,
