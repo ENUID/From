@@ -1824,7 +1824,19 @@ export default function FromApp({
   type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; outfitSlots?: OutfitSlot[]; busy?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistOpen, setStylistOpen]       = useState(false)
+  // When a product is opened FROM the Fabrics sheet we close Fabrics (the detail
+  // sheet sits below it in z-order). This flag re-opens Fabrics once the product
+  // detail is dismissed, so the shopper lands back in the chat — not the home page.
+  const [reopenStylistOnClose, setReopenStylistOnClose] = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
+  // Once the product detail launched from Fabrics is dismissed (X, drag, or
+  // backdrop), bring the Fabrics chat back so the shopper stays in context.
+  useEffect(() => {
+    if (!selectedProduct && reopenStylistOnClose) {
+      setStylistOpen(true)
+      setReopenStylistOnClose(false)
+    }
+  }, [selectedProduct, reopenStylistOnClose])
   const STYLIST_HISTORY_LS = 'from:stylist-history'
   const stylistSessionLS = (id: string) => `from:stylist-session:${id}`
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>(() => {
@@ -2624,6 +2636,7 @@ export default function FromApp({
   function findMoreLikeThis(p: Product | null) {
     if (!p || loading) return
     const q = buildMoreLikeQuery(p)
+    setReopenStylistOnClose(false)  // this leaves Fabrics for the main search — don't reopen it
     setSelected(null)        // close the detail sheet
     sendMessage(q)           // runs the normal search pipeline (graceful fallback included)
   }
@@ -4530,7 +4543,7 @@ export default function FromApp({
           {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
           {stylistOpen && (
             <div onClick={() => setStylistOpen(false)}
-              style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100vh', zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100dvh', zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
               <div onClick={e => e.stopPropagation()}
                 style={isMedium ? {
                   width: 'min(680px, 92vw)', height: 'min(660px, 88vh)',
@@ -4570,7 +4583,7 @@ export default function FromApp({
                 <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
                   {stylistProducts.map(p => (
                     <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 80 }}>
-                      <div onClick={() => { setStylistOpen(false); setSelected(p) }} style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
+                      <div onClick={() => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(p) }} style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
                         {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </div>
                       <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
@@ -4640,7 +4653,7 @@ export default function FromApp({
                         {m.role === 'assistant'
                           ? (m.busy
                               ? <span className="fr-shine">{m.content}</span>
-                              : renderStylistText(m.content, stylistProducts, liveRates, (p) => { setStylistOpen(false); setSelected(p) }))
+                              : renderStylistText(m.content, stylistProducts, liveRates, (p) => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(p) }))
                           : m.content}
                       </div>
                       {m.comparison && m.comparison.rows.length > 0 && (
@@ -4682,7 +4695,7 @@ export default function FromApp({
                             {m.foundProducts.map(p => {
                               const { colors: pc } = displaySwatches(p)
                               return (
-                                <div key={p.id} onClick={() => { setStylistOpen(false); setSelected(p) }}
+                                <div key={p.id} onClick={() => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(p) }}
                                   style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
                                   <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2 }}>
                                     {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
@@ -4736,7 +4749,7 @@ export default function FromApp({
                               })()
                               return (
                                 <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}
-                                  onClick={() => { setStylistOpen(false); setSelected(best) }}>
+                                  onClick={() => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(best) }}>
                                   <div style={{ height: 110, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                     {getProductImages(best)[0] && <img src={getProductImages(best)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                     <div style={{ position: 'absolute', top: 6, left: 6, background: INK, color: '#fff', fontFamily: SANS, fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 20, letterSpacing: '.05em' }}>
