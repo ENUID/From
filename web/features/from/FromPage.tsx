@@ -1731,10 +1731,18 @@ export default function FromApp({
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
   // Explore feed — a random, Instagram-style mosaic of products from the best
-  // brands (geo-aware). Fetched from /api/featured, refreshed on each open.
-  const [exploreFeed, setExploreFeed]   = useState<Product[]>([])
+  // brands (geo-aware). Fetched from /api/featured, cached so reopening is
+  // instant, and paginated with infinite scroll.
+  const [exploreFeed, setExploreFeed]   = useState<Product[]>(() => {
+    if (typeof window === 'undefined') return []
+    try { return JSON.parse(localStorage.getItem('from:explore-feed') || '[]') } catch { return [] }
+  })
   const [exploreFeedLoading, setExploreFeedLoading] = useState(false)
+  const [exploreHasMore, setExploreHasMore] = useState(true)
   const [exploreSeed, setExploreSeed]   = useState(0)
+  const exploreFeedRef = useRef<Product[]>([])
+  const exploreBusyRef = useRef(false)
+  const exploreSentinelRef = useRef<HTMLDivElement>(null)
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null)
@@ -2491,36 +2499,99 @@ export default function FromApp({
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
   const handleReset = () => { resetConversation(); setInputHint(null); setActiveBrand(null) }
 
-  // Load the Explore feed: a fresh, shuffled sample of products from the best
-  // brands (geo-aware via /api/featured). Prices are normalised to the buyer's
-  // currency the same way search and Fabrics products are.
-  const loadExploreFeed = async () => {
-    setExploreFeedLoading(true)
-    try {
-      const res = await fetch('/api/featured', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country }),
-      })
-      const data = await res.json()
-      const items: Product[] = Array.isArray(data?.products) ? data.products : []
-      const displayCur = shopperContext.currency || 'USD'
-      const normalized = items
-        .filter(p => p && p.in_stock && getProductImages(p)[0])
-        .map(p => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur }))
-      setExploreFeed(normalized)
-    } catch { /* feed stays empty → graceful empty state */ }
-    finally { setExploreFeedLoading(false) }
+  // Keep a ref mirror of the feed so the infinite-scroll loader can dedupe
+  // without re-subscribing the observer on every append.
+  useEffect(() => { exploreFeedRef.current = exploreFeed }, [exploreFeed])
+
+  // Fetch one shuffled batch of products from the best brands (geo-aware via
+  // /api/featured), normalised to the buyer's currency like search/Fabrics.
+  const fetchExploreBatch = async (): Promise<Product[]> => {
+    const res = await fetch('/api/featured', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country }),
+    })
+    const data = await res.json()
+    const items: Product[] = Array.isArray(data?.products) ? data.products : []
+    const displayCur = shopperContext.currency || 'USD'
+    return items
+      .filter(p => p && p.in_stock && getProductImages(p)[0])
+      .map(p => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur }))
   }
 
-  // Open the Explore view: clear any active search/brand, show the feed, and
-  // refresh it so it feels new on every visit.
+  // Initial load (or background refresh) — replaces the feed.
+  const loadExploreFeed = async () => {
+    if (exploreBusyRef.current) return
+    exploreBusyRef.current = true
+    setExploreFeedLoading(true)
+    try {
+      const batch = await fetchExploreBatch()
+      if (batch.length) {
+        setExploreFeed(batch)
+        setExploreHasMore(true)
+        try { localStorage.setItem('from:explore-feed', JSON.stringify(batch.slice(0, 60))) } catch {}
+      }
+    } catch { /* keep whatever is cached */ }
+    finally { setExploreFeedLoading(false); exploreBusyRef.current = false }
+  }
+
+  // Infinite scroll — append a fresh batch, deduped against what's shown. After
+  // two consecutive batches with nothing new, stop (the roster is exhausted).
+  const exploreDryRef = useRef(0)
+  const loadMoreExplore = async () => {
+    if (exploreBusyRef.current || !exploreHasMore) return
+    exploreBusyRef.current = true
+    setExploreFeedLoading(true)
+    try {
+      const batch = await fetchExploreBatch()
+      const seen = new Set(exploreFeedRef.current.map(p => p.id))
+      const fresh = batch.filter(p => !seen.has(p.id))
+      if (fresh.length === 0) {
+        exploreDryRef.current += 1
+        if (exploreDryRef.current >= 2) setExploreHasMore(false)
+      } else {
+        exploreDryRef.current = 0
+        setExploreFeed(prev => [...prev, ...fresh])
+      }
+    } catch { /* leave the feed as-is; observer will retry on next scroll */ }
+    finally { setExploreFeedLoading(false); exploreBusyRef.current = false }
+  }
+  const loadMoreExploreRef = useRef(loadMoreExplore)
+  loadMoreExploreRef.current = loadMoreExplore
+
+  // Open the Explore view: clear any active search/brand, show the feed
+  // instantly from cache, and top it up if empty. Each open re-rolls the mosaic.
   const openExplore = () => {
     setSidebar(false)
     handleReset()
     setShowExplore(true)
     setExploreSeed(Math.floor(Math.random() * 7))  // varies the mosaic rhythm each open
-    loadExploreFeed()
+    setExploreHasMore(true)
+    exploreDryRef.current = 0
+    if (exploreFeedRef.current.length === 0) loadExploreFeed()
   }
+
+  // Prefetch the feed shortly after load (once, if no cache) so the first time
+  // the shopper opens Explore it's already there — instant.
+  useEffect(() => {
+    if (exploreFeedRef.current.length > 0) return
+    const t = setTimeout(() => { if (exploreFeedRef.current.length === 0) loadExploreFeed() }, 1500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Infinite-scroll observer for the Explore mosaic. rootMargin pre-loads well
+  // before the sentinel is visible so batches chain seamlessly.
+  useEffect(() => {
+    if (!showExplore || !exploreHasMore) return
+    const sentinel = exploreSentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMoreExploreRef.current() },
+      { rootMargin: '1800px', threshold: 0 }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [showExplore, exploreHasMore, exploreFeed.length])
 
   // The colour currently selected in the drawer (falls back to the first one).
   // The colour list shown in the sheet: prefer the colourways parsed from the
@@ -2909,6 +2980,9 @@ export default function FromApp({
           background:linear-gradient(to top,rgba(0,0,0,.46),rgba(0,0,0,0));opacity:0;transition:opacity .25s;letter-spacing:.01em;}
         .fr-mtile:hover .fr-mtile-price{opacity:1;}
         @media(hover:none){.fr-mtile-price{opacity:1;background:linear-gradient(to top,rgba(0,0,0,.4),rgba(0,0,0,0));}}
+        .fr-dot{width:6px;height:6px;border-radius:50%;background:${INK3};display:inline-block;animation:fr-bounce 1.2s infinite ease-in-out both;}
+        .fr-dot:nth-child(1){animation-delay:-.24s}.fr-dot:nth-child(2){animation-delay:-.12s}
+        @keyframes fr-bounce{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
 
         .fr-card:nth-child(1){animation-delay:.00s}.fr-card:nth-child(2){animation-delay:.05s}
         .fr-card:nth-child(3){animation-delay:.10s}.fr-card:nth-child(4){animation-delay:.15s}
@@ -4218,8 +4292,14 @@ export default function FromApp({
                       </div>
                     )
                   })}
+                  {exploreHasMore && <div ref={exploreSentinelRef} style={{ gridColumn: '1 / -1', height: 1 }} />}
+                  {exploreFeedLoading && exploreFeed.length > 0 && (
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5, padding: '18px 0 28px' }}>
+                      <span className="fr-dot" /><span className="fr-dot" /><span className="fr-dot" />
+                    </div>
+                  )}
                 </div>
-              ) : exploreFeedLoading ? (
+              ) : exploreFeedLoading && exploreFeed.length === 0 ? (
                 <div className="fr-mosaic">
                   {Array.from({ length: 18 }).map((_, i) => (
                     <div key={i} className={`fr-mtile ${(i % 8) === 0 ? 'hero' : ''} sk-sweep`} />
