@@ -1730,6 +1730,11 @@ export default function FromApp({
   const [fetchedColors, setFetchedColors] = useState<string[]>([])
   const [loaded, setLoaded]             = useState(false)
   const [showExplore, setShowExplore]   = useState(false)
+  // Explore feed — a random, Instagram-style mosaic of products from the best
+  // brands (geo-aware). Fetched from /api/featured, refreshed on each open.
+  const [exploreFeed, setExploreFeed]   = useState<Product[]>([])
+  const [exploreFeedLoading, setExploreFeedLoading] = useState(false)
+  const [exploreSeed, setExploreSeed]   = useState(0)
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null)
@@ -2486,6 +2491,37 @@ export default function FromApp({
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
   const handleReset = () => { resetConversation(); setInputHint(null); setActiveBrand(null) }
 
+  // Load the Explore feed: a fresh, shuffled sample of products from the best
+  // brands (geo-aware via /api/featured). Prices are normalised to the buyer's
+  // currency the same way search and Fabrics products are.
+  const loadExploreFeed = async () => {
+    setExploreFeedLoading(true)
+    try {
+      const res = await fetch('/api/featured', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country }),
+      })
+      const data = await res.json()
+      const items: Product[] = Array.isArray(data?.products) ? data.products : []
+      const displayCur = shopperContext.currency || 'USD'
+      const normalized = items
+        .filter(p => p && p.in_stock && getProductImages(p)[0])
+        .map(p => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur }))
+      setExploreFeed(normalized)
+    } catch { /* feed stays empty → graceful empty state */ }
+    finally { setExploreFeedLoading(false) }
+  }
+
+  // Open the Explore view: clear any active search/brand, show the feed, and
+  // refresh it so it feels new on every visit.
+  const openExplore = () => {
+    setSidebar(false)
+    handleReset()
+    setShowExplore(true)
+    setExploreSeed(Math.floor(Math.random() * 7))  // varies the mosaic rhythm each open
+    loadExploreFeed()
+  }
+
   // The colour currently selected in the drawer (falls back to the first one).
   // The colour list shown in the sheet: prefer the colourways parsed from the
   // brand's product.json (most reliable — they're the real variants), falling
@@ -2855,6 +2891,25 @@ export default function FromApp({
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;-webkit-touch-callout:none;pointer-events:none;user-select:none;-webkit-user-select:none;}
         .fr-card:hover .fr-cell img{transform:scale(1.03);}
         @keyframes fr-fi{to{opacity:1;}}
+
+        /* ── Explore mosaic — Instagram-style feed: square tiles with periodic
+           2×2 hero and 2×1 wide tiles for rhythm. Tight gaps, dense backfill. ── */
+        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;grid-auto-flow:dense;gap:4px;width:100%;padding:0 4px 24px;box-sizing:border-box;}
+        @media(min-width:820px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:5px;}}
+        @media(min-width:1500px){.fr-mosaic{grid-template-columns:repeat(6,1fr);}}
+        /* aspect-ratio hack: force each auto-row to equal one column's width → square cells */
+        .fr-mosaic::before{content:'';width:0;padding-bottom:100%;grid-row:1/1;grid-column:1/1;}
+        .fr-mosaic>*:first-child{grid-row:1/1;grid-column:1/1;}
+        .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;opacity:0;animation:fr-fi .4s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+        .fr-mtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .45s;pointer-events:none;user-select:none;}
+        .fr-mtile:hover img{transform:scale(1.04);}
+        .fr-mtile.hero{grid-column:span 2;grid-row:span 2;}
+        .fr-mtile.wide{grid-column:span 2;}
+        .fr-mtile-price{position:absolute;left:0;right:0;bottom:0;padding:14px 9px 7px;font-family:${SANS};font-size:11px;font-weight:500;color:#fff;
+          background:linear-gradient(to top,rgba(0,0,0,.46),rgba(0,0,0,0));opacity:0;transition:opacity .25s;letter-spacing:.01em;}
+        .fr-mtile:hover .fr-mtile-price{opacity:1;}
+        @media(hover:none){.fr-mtile-price{opacity:1;background:linear-gradient(to top,rgba(0,0,0,.4),rgba(0,0,0,0));}}
+
         .fr-card:nth-child(1){animation-delay:.00s}.fr-card:nth-child(2){animation-delay:.05s}
         .fr-card:nth-child(3){animation-delay:.10s}.fr-card:nth-child(4){animation-delay:.15s}
         .fr-card:nth-child(5){animation-delay:.20s}.fr-card:nth-child(6){animation-delay:.25s}
@@ -3524,14 +3579,8 @@ export default function FromApp({
             {/* Fixed nav items — Explore / Brand Collections / Bag */}
             <div style={{ padding: "4px 12px 4px", flexShrink: 0 }}>
 
-              {/* Explore — coming soon */}
-              <div className="fr-hi" onClick={() => {
-                setSidebar(false)
-                setExploreToastOut(false)
-                setExploreToast(true)
-                setTimeout(() => setExploreToastOut(true), 2200)
-                setTimeout(() => setExploreToast(false), 2650)
-              }}>
+              {/* Explore — random product feed */}
+              <div className="fr-hi" onClick={openExplore}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
                   <path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8z"/>
@@ -4141,17 +4190,18 @@ export default function FromApp({
               </div>
             )}
 
-            {/* Explore — cached products while no live results, or "build history" nudge */}
-            {showExplore && !loading && searchProducts.length === 0 && (
-              exploreCache.length > 0
-                ? <div className="fr-grid">{exploreCache.filter(p => p.in_stock).map(p => {
-                    const cardColor = cardColors[p.id] ?? getProductColors(p)[0] ?? null
-                    const colorImgs = getColorVariantImages(p, cardColor)
-                    const cardImgs = colorImgs.length > 0 ? colorImgs : getProductImages(p)
+            {/* Explore — random Instagram-style product feed */}
+            {showExplore && (
+              exploreFeed.length > 0 ? (
+                <div className="fr-mosaic">
+                  {exploreFeed.map((p, i) => {
+                    const m = (i + exploreSeed) % 8
+                    const tileCls = m === 0 ? 'hero' : (m === 5 ? 'wide' : '')
+                    const img = getProductImages(p)[0]
                     return (
-                    <div key={p.id} className="fr-card">
-                      <div className="fr-cell"
+                      <div key={p.id} className={`fr-mtile ${tileCls}`}
                         role="button" tabIndex={0}
+                        style={{ animationDelay: `${Math.min(i * 0.025, 0.5)}s` }}
                         {...makePressHandlers((x, y) => {
                           productWasLong.current = true
                           const menuW = 200; const menuH = 160
@@ -4161,22 +4211,26 @@ export default function FromApp({
                           ctxMenuOpenAt.current = Date.now()
                           setProductCtxMenu({ product: p, x: mx, y: my, above })
                         })}
+                        onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                         onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                        <CardCarousel
-                          key={cardColor ?? 'default'}
-                          images={cardImgs}
-                          onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
-                        />
+                        <img src={img} alt={p.title} loading="lazy" draggable={false} />
+                        <div className="fr-mtile-price">{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                       </div>
-                      <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)}
-                        activeColor={cardColor} onSelectColor={c => setCardColors(m => ({ ...m, [p.id]: c }))} />
-                    </div>
                     )
-                  })}</div>
-                : <div style={{ padding: "60px 28px", textAlign: "center" }}>
-                    <p style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 300, fontStyle: "italic", color: INK3, lineHeight: 1.5 }}>Search a few things first</p>
-                    <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: ".1em", display: "block", marginTop: 8, opacity: .5 }}>Explore personalises as you search</span>
-                  </div>
+                  })}
+                </div>
+              ) : exploreFeedLoading ? (
+                <div className="fr-mosaic">
+                  {Array.from({ length: 18 }).map((_, i) => (
+                    <div key={i} className={`fr-mtile ${(i % 8) === 0 ? 'hero' : ''} sk-sweep`} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: "60px 28px", textAlign: "center" }}>
+                  <p style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 300, fontStyle: "italic", color: INK3, lineHeight: 1.5 }}>Couldn’t load the feed</p>
+                  <span style={{ fontFamily: SANS, fontSize: 11, color: INK3, letterSpacing: ".1em", display: "block", marginTop: 8, opacity: .5 }}>Open Explore again to retry</span>
+                </div>
+              )
             )}
 
             {/* Brand profile header — shown when viewing a brand's catalog */}
