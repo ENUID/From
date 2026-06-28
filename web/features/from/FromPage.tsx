@@ -2554,6 +2554,24 @@ export default function FromApp({
   // Initial load (or background refresh) — replaces the feed with page 0.
   const exploreDryRef = useRef(0)
 
+  // Append products to the feed, dropping any that duplicate one already shown —
+  // by id AND by lead image, so the same (or a visually identical) product never
+  // appears twice / next to itself.
+  const appendExplore = (incoming: Product[]) => {
+    setExploreFeed(prev => {
+      const seenId = new Set(prev.map(p => p.id))
+      const seenImg = new Set(prev.map(p => getProductImages(p)[0]).filter(Boolean))
+      const add: Product[] = []
+      for (const p of incoming) {
+        const img = getProductImages(p)[0]
+        if (seenId.has(p.id) || (img && seenImg.has(img))) continue
+        seenId.add(p.id); if (img) seenImg.add(img)
+        add.push(p)
+      }
+      return add.length ? [...prev, ...add] : prev
+    })
+  }
+
   // Fetch the next rotating brand-window page; return only products not already
   // shown or sitting in the prefetch buffer.
   const fetchNextExplorePage = async (): Promise<Product[]> => {
@@ -2610,7 +2628,7 @@ export default function FromApp({
     if (exploreBufferRef.current.length > 0) {
       const buffered = exploreBufferRef.current
       exploreBufferRef.current = []
-      setExploreFeed(prev => [...prev, ...buffered])
+      appendExplore(buffered)
       fillExploreBuffer()
       return
     }
@@ -2625,7 +2643,7 @@ export default function FromApp({
         if (exploreDryRef.current >= 4) setExploreHasMore(false)
       } else {
         exploreDryRef.current = 0
-        setExploreFeed(prev => [...prev, ...fresh])
+        appendExplore(fresh)
       }
     } catch { /* leave the feed as-is; observer will retry on next scroll */ }
     finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
@@ -3050,7 +3068,7 @@ export default function FromApp({
         .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#F2F2F2;aspect-ratio:4/5;opacity:0;animation:fr-fi .5s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-mtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.22,.61,.36,1);pointer-events:none;user-select:none;}
         .fr-mtile:hover img{transform:scale(1.045);}
-        .fr-mtile-views{position:absolute;left:7px;bottom:6px;display:flex;align-items:center;gap:3px;
+        .fr-mtile-views{position:absolute;left:7px;bottom:6px;z-index:5;display:flex;align-items:center;gap:3px;
           font-family:${SANS};font-size:10px;font-weight:500;color:#fff;letter-spacing:.01em;opacity:.92;
           text-shadow:0 1px 3px rgba(0,0,0,.45);pointer-events:none;}
         .fr-mtile-views svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));flex-shrink:0;opacity:.95;}
@@ -4344,12 +4362,10 @@ export default function FromApp({
             {showExplore && (
               exploreFeed.length > 0 ? (
                 <div className="fr-mosaic">
-                  {exploreFeed.map((p, i) => {
-                    const img = getProductImages(p)[0]
-                    return (
+                  {exploreFeed.map((p, i) => (
                       <div key={p.id} className="fr-mtile"
                         role="button" tabIndex={0}
-                        style={{ animationDelay: `${Math.min(i * 0.025, 0.5)}s` }}
+                        style={{ animationDelay: `${Math.min(i * 0.02, 0.4)}s` }}
                         {...makePressHandlers((x, y) => {
                           productWasLong.current = true
                           const menuW = 200; const menuH = 160
@@ -4359,9 +4375,12 @@ export default function FromApp({
                           ctxMenuOpenAt.current = Date.now()
                           setProductCtxMenu({ product: p, x: mx, y: my, above })
                         })}
-                        onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                         onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                        <img src={img} alt={p.title} loading="lazy" draggable={false} />
+                        {/* Swipeable carousel shows every image of the product (dots + swipe) */}
+                        <CardCarousel
+                          images={getProductImages(p)}
+                          onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                        />
                         <div className="fr-mtile-views">
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
@@ -4369,8 +4388,7 @@ export default function FromApp({
                           {formatCount(socialProofCount(p.id))}
                         </div>
                       </div>
-                    )
-                  })}
+                  ))}
                   {exploreHasMore && <div ref={exploreSentinelRef} style={{ gridColumn: '1 / -1', height: 1 }} />}
                   {exploreFeedLoading && exploreFeed.length > 0 && (
                     <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5, padding: '18px 0 28px' }}>

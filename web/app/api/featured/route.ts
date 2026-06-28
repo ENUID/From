@@ -101,15 +101,20 @@ export async function POST(req: NextRequest) {
       sample,                    // restrict fan-out to this page's brand window
     )
 
-    // In stock, not already shown, max 3 per brand so one store can't fill the grid.
+    // In stock, not already shown, no duplicate id/image, max 3 per brand.
     const perBrand = new Map<string, number>()
+    const seenId = new Set<string>()
+    const seenImg = new Set<string>()
     const capped = products.filter(p => {
-      if (!p.in_stock || excludeIds.has(p.id)) return false
+      if (!p.in_stock || excludeIds.has(p.id) || seenId.has(p.id)) return false
+      const img = p.image_url || ''
+      if (img && seenImg.has(img)) return false
       let dom = ''
       try { dom = new URL(p.store_url).hostname.replace(/^www\./, '') } catch {}
       const n = perBrand.get(dom) ?? 0
       if (n >= 3) return false
       perBrand.set(dom, n + 1)
+      seenId.add(p.id); if (img) seenImg.add(img)
       return true
     })
 
