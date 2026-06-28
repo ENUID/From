@@ -805,7 +805,10 @@ export class GlobalCatalogService {
         const dom = domainOf(url)
         const ctry = getStoreCountry(dom)
         const geo = cc ? (ctry === cc ? 2 : GEO_REGIONS[ctry] === userRegion ? 1 : 0) : 0
-        return geo * 4 + brandQualityScore(dom)   // geo dominates; quality refines
+        // Geo STRICTLY dominates: a same-country brand always outranks any
+        // foreign one regardless of brand quality. Quality only breaks ties
+        // within the same geo tier. (×100 ≫ any brandQualityScore range.)
+        return geo * 100 + brandQualityScore(dom)
       }
       result = result.slice().sort((a, b) => composite(b.store_url) - composite(a.store_url))
     }

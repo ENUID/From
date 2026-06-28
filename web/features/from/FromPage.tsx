@@ -2003,8 +2003,17 @@ export default function FromApp({
       })
       const data = await res.json()
       if (data?.reply) {
-        const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts : []
-        const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0 ? data.outfitSlots : undefined
+        // Normalize currency the same way the search path does: the product's
+        // own `currency` (from the store feed) is its NATIVE/base currency, and
+        // we display in the buyer's currency. Without this, stylist products
+        // arrive with no base_currency and the detail view defaults the missing
+        // base to USD — printing e.g. a ₹5,750 piece as "$5,750.00 · Live rate".
+        const displayCur = shopperContext.currency || 'USD'
+        const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
+        const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts.map(withCur) : []
+        const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0
+          ? data.outfitSlots.map((s: any) => ({ ...s, products: Array.isArray(s.products) ? s.products.map(withCur) : s.products }))
+          : undefined
         // Products Fabrics surfaces from a search/outfit live ONLY in the chat
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
@@ -4810,7 +4819,7 @@ export default function FromApp({
                 </div>
 
                 {/* Input */}
-                <div style={{ flexShrink: 0, borderTop: `1px solid ${BRD}`, padding: '10px 14px calc(10px + env(safe-area-inset-bottom, 0px))' }}>
+                <div style={{ flexShrink: 0, padding: '10px 14px calc(10px + env(safe-area-inset-bottom, 0px))' }}>
                   <input ref={stylistFileRef} type="file" accept="image/*,*/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
                   <input ref={wardrobeFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleWardrobeFile} />
                   {/* Attached image strip */}
