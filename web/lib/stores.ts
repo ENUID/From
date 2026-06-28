@@ -4905,6 +4905,206 @@ export const UCP_REGISTRY: StoreProfile[] = [
     "items": ["yoga leggings","organic tee","bra top","shorts","joggers"],
     "about": "Indian organic yogawear made from natural fibres for movement and ease"
   },
+  {
+    "domain": "studiomedium.in",
+    "name": "Studio Medium",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["indian-ethnic","handcrafted","sustainable","contemporary"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["dress","co-ord set","top","trouser"],
+    "about": "New Delhi handwoven, resist-dyed sustainable womenswear at the intersection of craft and art"
+  },
+  {
+    "domain": "ofrida.com",
+    "name": "Ofrida",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["contemporary","artistic","sustainable"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress","top","trouser"],
+    "about": "Noida womenswear blending hand-painted abstract art with sustainable fashion"
+  },
+  {
+    "domain": "banithni.com",
+    "name": "Banithni",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["indian-ethnic","everyday"],
+    "gender": ["women"],
+    "priceRange": "budget",
+    "items": ["kurti","kurta set","dress"],
+    "about": "Jaipur affordable women's ethnic and cotton apparel"
+  },
+  {
+    "domain": "dayandage.in",
+    "name": "Day & Age",
+    "categories": ["top","bottom","dress"],
+    "vibe": ["contemporary","sustainable","quirky"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["top","bottom","dress"],
+    "about": "Jaipur slow-design label crafting vintage-fabric and current-season garments"
+  },
+  {
+    "domain": "escapebyaishwarya.com",
+    "name": "Escape by Aishwarya",
+    "categories": ["dress","top","bottom","accessory"],
+    "vibe": ["contemporary","minimalist","modern-indian"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["dress","top","jumpsuit","co-ord set"],
+    "about": "Contemporary womenswear for the modern Indian woman — chic dresses, coords and jumpsuits"
+  },
+  {
+    "domain": "pashaindia.com",
+    "name": "Pasha India",
+    "categories": ["top","bottom","dress"],
+    "vibe": ["indian-ethnic","contemporary","print"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta set","saree","lehenga","jumpsuit","kaftan"],
+    "about": "Print-led contemporary Indian womenswear with bold prints and simple silhouettes"
+  },
+  {
+    "domain": "oodeypore.in",
+    "name": "Oodeypore",
+    "categories": ["top","bottom","dress"],
+    "vibe": ["indian-ethnic","handcrafted","heritage"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["kurta set","dress","co-ord set"],
+    "about": "Udaipur label using traditional hand-printing and modal fabrics, stitched by village artisans"
+  },
+  {
+    "domain": "asmishop.in",
+    "name": "Asmi",
+    "categories": ["dress","top","bottom","outerwear"],
+    "vibe": ["sustainable","contemporary","minimalist","handcrafted"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["dress","tunic","co-ord set","jacket","lehenga","saree"],
+    "about": "Asmi by Mayank Modi — sustainable designer womenswear in organic Chanderi and silk"
+  },
+  {
+    "domain": "masoomm.com",
+    "name": "Masoomm",
+    "categories": ["dress","top","bottom"],
+    "vibe": ["feminine","floral","artisanal","indo-western"],
+    "gender": ["women"],
+    "priceRange": "mid",
+    "items": ["dress","maxi dress","suit set","co-ord set"],
+    "about": "Jaipur brand crafting soft feminine floral-embroidered dresses and suits"
+  },
+  {
+    "domain": "nitinbalchauhan.com",
+    "name": "Nitin Bal Chauhan",
+    "categories": ["dress","top","bottom","outerwear"],
+    "vibe": ["avant-garde","luxury","edgy","indian-fusion"],
+    "gender": ["women","men"],
+    "priceRange": "luxury",
+    "items": ["dress","lehenga","bustier","culottes","kaftan"],
+    "about": "Delhi avant-garde luxury occasionwear built on traditional crafts"
+  },
+  {
+    "domain": "houseofdesigners.in",
+    "name": "House of Designers",
+    "categories": ["top","bottom","dress","jewelry","accessory"],
+    "vibe": ["designer","contemporary","curated"],
+    "gender": ["women","men"],
+    "priceRange": "premium",
+    "items": ["shirt","dress","kurta","jewellery"],
+    "about": "Multi-designer marketplace curating Indian designer womenswear, jewellery and accessories"
+  },
+  {
+    "domain": "seedstore.co.in",
+    "name": "Seedstore",
+    "categories": ["top","bottom","accessory"],
+    "vibe": ["streetwear","quirky","casual"],
+    "gender": ["women","men"],
+    "priceRange": "budget",
+    "items": ["cargo","trouser","tee","cap","shorts"],
+    "about": "Mumbai unconventional apparel — quirky tees, caps and cargos at accessible prices"
+  },
+  {
+    "domain": "fardaclothing.com",
+    "name": "Farda",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["streetwear","utility","contemporary"],
+    "gender": ["women","men"],
+    "priceRange": "premium",
+    "items": ["cargo","jacket","tee","shorts"],
+    "about": "Unisex high-street streetwear making utility cargos, jackets and oversized tees"
+  },
+  {
+    "domain": "kardo.co",
+    "name": "Kardo",
+    "categories": ["top","bottom","outerwear"],
+    "vibe": ["heritage","artisanal","contemporary","workwear"],
+    "gender": ["men"],
+    "priceRange": "premium",
+    "items": ["shirt","trouser","jacket"],
+    "about": "Delhi slow-fashion menswear handcrafting shirts, trousers and jackets from Indian craft textiles"
+  },
+  {
+    "domain": "bombaim.in",
+    "name": "Bombaim",
+    "categories": ["dress","top","bottom","jewelry","accessory"],
+    "vibe": ["luxury","designer","heritage"],
+    "gender": ["women"],
+    "priceRange": "luxury",
+    "items": ["dress","kurta set","lehenga","co-ord set","jewellery"],
+    "about": "Multi-designer luxury house for Indian womenswear pret, occasion and bridal"
+  },
+  {
+    "domain": "bluebrew.in",
+    "name": "Bluebrew",
+    "categories": ["top","bottom"],
+    "vibe": ["streetwear","denim","casual"],
+    "gender": ["women","men"],
+    "priceRange": "mid",
+    "items": ["jeans","tee","shorts","skirt"],
+    "about": "Made-in-India denim and streetwear with better fits and fabrics for Indians"
+  },
+  {
+    "domain": "anitadongre.com",
+    "name": "Anita Dongre",
+    "categories": ["dress","top","bottom","jewelry"],
+    "vibe": ["indian-ethnic","luxury","bridal"],
+    "gender": ["women","men"],
+    "priceRange": "luxury",
+    "items": ["lehenga","saree","anarkali","sherwani"],
+    "about": "Celebrated Indian luxury couture house — bridal lehengas, handcrafted pret and menswear"
+  },
+  {
+    "domain": "ornatejewels.com",
+    "name": "Ornate Jewels",
+    "categories": ["jewelry"],
+    "vibe": ["fine-jewelry","luxury","everyday"],
+    "gender": ["women"],
+    "priceRange": "premium",
+    "items": ["ring","earring","necklace","bracelet"],
+    "about": "Factory-to-consumer 925 silver and gemstone fine jewellery — everyday luxury"
+  },
+  {
+    "domain": "johargram.co.in",
+    "name": "Johargram",
+    "categories": ["top","bottom","outerwear","accessory"],
+    "vibe": ["sustainable","streetwear","indian-ethnic"],
+    "gender": ["women","men"],
+    "priceRange": "mid",
+    "items": ["co-ord set","trench coat","shawl","stole"],
+    "about": "Ranchi sustainable streetwear reviving Jharkhand tribal textiles and handlooms"
+  },
+  {
+    "domain": "twamev.com",
+    "name": "Twamev",
+    "categories": ["top","bottom","outerwear","dress"],
+    "vibe": ["indian-ethnic","luxury","wedding"],
+    "gender": ["men","women"],
+    "priceRange": "luxury",
+    "items": ["kurta set","sherwani","nehru jacket","lehenga"],
+    "about": "Luxury Indian occasion and wedding wear blending heritage with modern tailoring"
+  }
 ];
 
 // ── Brand directory ───────────────────────────────────────────────────────────
@@ -5449,6 +5649,11 @@ const STORE_COUNTRIES: Record<string, string> = {
   'taylorstitch.com': 'US', 'marinelayer.com': 'US', 'outdoorvoices.com': 'US',
   'allbirds.com': 'US', 'fashionnova.com': 'US', 'kith.com': 'US',
   'aloyoga.com': 'US', 'goodamerican.com': 'US',
+  // ── Indian brands on .com/.co (TLD doesn't reveal country) ──
+  'ofrida.com': 'IN', 'banithni.com': 'IN', 'escapebyaishwarya.com': 'IN',
+  'pashaindia.com': 'IN', 'masoomm.com': 'IN', 'nitinbalchauhan.com': 'IN',
+  'fardaclothing.com': 'IN', 'kardo.co': 'IN', 'anitadongre.com': 'IN',
+  'ornatejewels.com': 'IN', 'twamev.com': 'IN',
 }
 
 /** Return the ISO-3166-1 alpha-2 country code for a store domain. */
