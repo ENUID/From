@@ -86,9 +86,9 @@ export async function POST(req: NextRequest) {
     const tier0 = seededShuffle(allDomains.filter(d => geoRank(d) === 0), page * 7 + 37)
     const ordered = [...tier2, ...tier1, ...tier0]
 
-    // A window of brands for this page; wraps around the roster on deep pages so
-    // scrolling never truly runs out.
-    const WINDOW = 24
+    // A wide window of brands for this page; wraps around the roster on deep
+    // pages so scrolling never truly runs out. Wide enough to yield ~50 products.
+    const WINDOW = 32
     const start = ordered.length ? (page * WINDOW) % ordered.length : 0
     const sample = ordered.slice(start, start + WINDOW)
     if (sample.length < WINDOW) sample.push(...ordered.slice(0, WINDOW - sample.length))
@@ -101,19 +101,19 @@ export async function POST(req: NextRequest) {
       sample,                    // restrict fan-out to this page's brand window
     )
 
-    // In stock, not already shown, max 2 per brand so one store can't fill the grid.
+    // In stock, not already shown, max 3 per brand so one store can't fill the grid.
     const perBrand = new Map<string, number>()
     const capped = products.filter(p => {
       if (!p.in_stock || excludeIds.has(p.id)) return false
       let dom = ''
       try { dom = new URL(p.store_url).hostname.replace(/^www\./, '') } catch {}
       const n = perBrand.get(dom) ?? 0
-      if (n >= 2) return false
+      if (n >= 3) return false
       perBrand.set(dom, n + 1)
       return true
     })
 
-    return NextResponse.json({ products: diversify(capped).slice(0, 40) })
+    return NextResponse.json({ products: diversify(capped).slice(0, 50) })
   } catch (e) {
     console.error('[featured] error:', e)
     return NextResponse.json({ products: [] })

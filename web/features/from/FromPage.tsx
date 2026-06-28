@@ -1767,6 +1767,7 @@ export default function FromApp({
   const [exploreSeed, setExploreSeed]   = useState(0)
   const exploreFeedRef = useRef<Product[]>([])
   const exploreBusyRef = useRef(false)
+  const exploreBufferRef = useRef<Product[]>([])   // next page, prefetched for instant scroll
   const exploreSentinelRef = useRef<HTMLDivElement>(null)
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
@@ -2551,6 +2552,38 @@ export default function FromApp({
   }
 
   // Initial load (or background refresh) — replaces the feed with page 0.
+  const exploreDryRef = useRef(0)
+
+  // Fetch the next rotating brand-window page; return only products not already
+  // shown or sitting in the prefetch buffer.
+  const fetchNextExplorePage = async (): Promise<Product[]> => {
+    explorePageRef.current += 1
+    const exclude = [...exploreFeedRef.current, ...exploreBufferRef.current].map(p => p.id)
+    const batch = await fetchExploreBatch(explorePageRef.current, exclude)
+    const seen = new Set(exclude)
+    return batch.filter(p => !seen.has(p.id))
+  }
+
+  // Prefetch the next page into the buffer (background, non-blocking) so the next
+  // scroll-load appears instantly instead of waiting on the network.
+  const fillExploreBuffer = async () => {
+    if (exploreBusyRef.current || !exploreHasMore || exploreBufferRef.current.length > 0) return
+    exploreBusyRef.current = true
+    try {
+      const fresh = await fetchNextExplorePage()
+      if (fresh.length === 0) {
+        exploreDryRef.current += 1
+        if (exploreDryRef.current >= 4) setExploreHasMore(false)
+      } else {
+        exploreDryRef.current = 0
+        exploreBufferRef.current = fresh
+      }
+    } catch { /* will retry on next trigger */ }
+    finally { exploreBusyRef.current = false }
+  }
+
+  // Initial load (or refresh) — page 0 → feed, then immediately warm the buffer
+  // with page 1 so the very first scroll-load is instant.
   const loadExploreFeed = async () => {
     if (exploreBusyRef.current) return
     exploreBusyRef.current = true
@@ -2558,6 +2591,7 @@ export default function FromApp({
     try {
       explorePageRef.current = 0
       exploreDryRef.current = 0
+      exploreBufferRef.current = []
       const batch = await fetchExploreBatch(0, [])
       if (batch.length) {
         setExploreFeed(batch)
@@ -2565,23 +2599,27 @@ export default function FromApp({
         try { localStorage.setItem('from:explore-feed', JSON.stringify(batch.slice(0, 60))) } catch {}
       }
     } catch { /* keep whatever is cached */ }
-    finally { setExploreFeedLoading(false); exploreBusyRef.current = false }
+    finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
   }
 
-  // Infinite scroll — advance to the next brand window and append fresh, deduped
-  // products. The window rotates the whole roster, so it keeps surfacing new
-  // brands/categories deep into the scroll; only stops after several pages with
-  // nothing new (full roster cycled).
-  const exploreDryRef = useRef(0)
+  // Infinite scroll — drain the prefetched buffer instantly when it's ready, then
+  // refill in the background. The brand window rotates the whole roster, so it
+  // keeps surfacing new brands/categories; only stops after the roster cycles.
   const loadMoreExplore = async () => {
+    // Instant path: the next page was already prefetched.
+    if (exploreBufferRef.current.length > 0) {
+      const buffered = exploreBufferRef.current
+      exploreBufferRef.current = []
+      setExploreFeed(prev => [...prev, ...buffered])
+      fillExploreBuffer()
+      return
+    }
+    // Buffer not ready yet — fetch directly, then warm the buffer.
     if (exploreBusyRef.current || !exploreHasMore) return
     exploreBusyRef.current = true
     setExploreFeedLoading(true)
     try {
-      explorePageRef.current += 1
-      const batch = await fetchExploreBatch(explorePageRef.current, exploreFeedRef.current.map(p => p.id))
-      const seen = new Set(exploreFeedRef.current.map(p => p.id))
-      const fresh = batch.filter(p => !seen.has(p.id))
+      const fresh = await fetchNextExplorePage()
       if (fresh.length === 0) {
         exploreDryRef.current += 1
         if (exploreDryRef.current >= 4) setExploreHasMore(false)
@@ -2590,7 +2628,7 @@ export default function FromApp({
         setExploreFeed(prev => [...prev, ...fresh])
       }
     } catch { /* leave the feed as-is; observer will retry on next scroll */ }
-    finally { setExploreFeedLoading(false); exploreBusyRef.current = false }
+    finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
   }
   const loadMoreExploreRef = useRef(loadMoreExplore)
   loadMoreExploreRef.current = loadMoreExplore
@@ -2605,7 +2643,9 @@ export default function FromApp({
     setExploreHasMore(true)
     exploreDryRef.current = 0
     explorePageRef.current = 0
+    exploreBufferRef.current = []
     if (exploreFeedRef.current.length === 0) loadExploreFeed()
+    else fillExploreBuffer()  // cached feed shows instantly; warm the next page
   }
 
   // Prefetch the feed shortly after load (once, if no cache) so the first time
@@ -3001,19 +3041,15 @@ export default function FromApp({
         .fr-card:hover .fr-cell img{transform:scale(1.03);}
         @keyframes fr-fi{to{opacity:1;}}
 
-        /* ── Explore mosaic — Instagram-style feed: tall 4:5 portrait tiles with
-           periodic 2×2 hero tiles for rhythm. Tight gaps, dense backfill. The
-           portrait ratio shows fashion full-length and gives the immersive,
-           vertical Instagram look. ── */
-        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:dense;gap:3px;width:100%;padding:8px 3px 28px;box-sizing:border-box;}
-        @media(min-width:820px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:4px;padding:10px 4px 28px;}}
-        @media(min-width:1300px){.fr-mosaic{grid-template-columns:repeat(5,1fr);}}
-        @media(min-width:1700px){.fr-mosaic{grid-template-columns:repeat(6,1fr);}}
+        /* ── Explore mosaic — Instagram-style feed: a uniform 3-across grid of
+           tall 4:5 portrait tiles, every tile the same size. Tight gaps; the
+           portrait ratio shows fashion full-length. ── */
+        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;width:100%;padding:8px 3px 28px;box-sizing:border-box;}
+        @media(min-width:900px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:4px;padding:10px 4px 28px;}}
+        @media(min-width:1400px){.fr-mosaic{grid-template-columns:repeat(5,1fr);}}
         .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#F2F2F2;aspect-ratio:4/5;opacity:0;animation:fr-fi .5s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-mtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.22,.61,.36,1);pointer-events:none;user-select:none;}
         .fr-mtile:hover img{transform:scale(1.045);}
-        /* 2×2 hero: spans two columns and two portrait rows → a large 4:5 feature */
-        .fr-mtile.hero{grid-column:span 2;grid-row:span 2;aspect-ratio:auto;}
         .fr-mtile-views{position:absolute;left:7px;bottom:6px;display:flex;align-items:center;gap:3px;
           font-family:${SANS};font-size:10px;font-weight:500;color:#fff;letter-spacing:.01em;opacity:.92;
           text-shadow:0 1px 3px rgba(0,0,0,.45);pointer-events:none;}
@@ -4309,12 +4345,9 @@ export default function FromApp({
               exploreFeed.length > 0 ? (
                 <div className="fr-mosaic">
                   {exploreFeed.map((p, i) => {
-                    // One large 2×2 feature roughly every 7 tiles for that
-                    // Instagram-explore rhythm; the seed re-rolls it each open.
-                    const tileCls = ((i + exploreSeed) % 7 === 3) ? 'hero' : ''
                     const img = getProductImages(p)[0]
                     return (
-                      <div key={p.id} className={`fr-mtile ${tileCls}`}
+                      <div key={p.id} className="fr-mtile"
                         role="button" tabIndex={0}
                         style={{ animationDelay: `${Math.min(i * 0.025, 0.5)}s` }}
                         {...makePressHandlers((x, y) => {
@@ -4348,7 +4381,7 @@ export default function FromApp({
               ) : exploreFeedLoading && exploreFeed.length === 0 ? (
                 <div className="fr-mosaic">
                   {Array.from({ length: 18 }).map((_, i) => (
-                    <div key={i} className={`fr-mtile ${(i % 7) === 3 ? 'hero' : ''} sk-sweep`} />
+                    <div key={i} className="fr-mtile sk-sweep" />
                   ))}
                 </div>
               ) : (
