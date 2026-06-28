@@ -2528,12 +2528,19 @@ export default function FromApp({
   // without re-subscribing the observer on every append.
   useEffect(() => { exploreFeedRef.current = exploreFeed }, [exploreFeed])
 
-  // Fetch one shuffled batch of products from the best brands (geo-aware via
-  // /api/featured), normalised to the buyer's currency like search/Fabrics.
-  const fetchExploreBatch = async (): Promise<Product[]> => {
+  // Fetch one page of the Explore feed (geo-aware, category-diversified via
+  // /api/featured). `page` rotates the brand window so each scroll pulls new
+  // brands; `excludeIds` avoids repeats. Normalised to the buyer's currency.
+  const explorePageRef = useRef(0)
+  const fetchExploreBatch = async (page: number, excludeIds: string[]): Promise<Product[]> => {
     const res = await fetch('/api/featured', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country }),
+      body: JSON.stringify({
+        buyerCurrency: shopperContext.currency,
+        buyerCountry: shopperContext.country,
+        page,
+        excludeIds: excludeIds.slice(-150),
+      }),
     })
     const data = await res.json()
     const items: Product[] = Array.isArray(data?.products) ? data.products : []
@@ -2543,13 +2550,15 @@ export default function FromApp({
       .map(p => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur }))
   }
 
-  // Initial load (or background refresh) — replaces the feed.
+  // Initial load (or background refresh) — replaces the feed with page 0.
   const loadExploreFeed = async () => {
     if (exploreBusyRef.current) return
     exploreBusyRef.current = true
     setExploreFeedLoading(true)
     try {
-      const batch = await fetchExploreBatch()
+      explorePageRef.current = 0
+      exploreDryRef.current = 0
+      const batch = await fetchExploreBatch(0, [])
       if (batch.length) {
         setExploreFeed(batch)
         setExploreHasMore(true)
@@ -2559,20 +2568,23 @@ export default function FromApp({
     finally { setExploreFeedLoading(false); exploreBusyRef.current = false }
   }
 
-  // Infinite scroll — append a fresh batch, deduped against what's shown. After
-  // two consecutive batches with nothing new, stop (the roster is exhausted).
+  // Infinite scroll — advance to the next brand window and append fresh, deduped
+  // products. The window rotates the whole roster, so it keeps surfacing new
+  // brands/categories deep into the scroll; only stops after several pages with
+  // nothing new (full roster cycled).
   const exploreDryRef = useRef(0)
   const loadMoreExplore = async () => {
     if (exploreBusyRef.current || !exploreHasMore) return
     exploreBusyRef.current = true
     setExploreFeedLoading(true)
     try {
-      const batch = await fetchExploreBatch()
+      explorePageRef.current += 1
+      const batch = await fetchExploreBatch(explorePageRef.current, exploreFeedRef.current.map(p => p.id))
       const seen = new Set(exploreFeedRef.current.map(p => p.id))
       const fresh = batch.filter(p => !seen.has(p.id))
       if (fresh.length === 0) {
         exploreDryRef.current += 1
-        if (exploreDryRef.current >= 2) setExploreHasMore(false)
+        if (exploreDryRef.current >= 4) setExploreHasMore(false)
       } else {
         exploreDryRef.current = 0
         setExploreFeed(prev => [...prev, ...fresh])
@@ -2592,6 +2604,7 @@ export default function FromApp({
     setExploreSeed(Math.floor(Math.random() * 7))  // varies the mosaic rhythm each open
     setExploreHasMore(true)
     exploreDryRef.current = 0
+    explorePageRef.current = 0
     if (exploreFeedRef.current.length === 0) loadExploreFeed()
   }
 
@@ -3001,10 +3014,10 @@ export default function FromApp({
         .fr-mtile:hover img{transform:scale(1.045);}
         /* 2×2 hero: spans two columns and two portrait rows → a large 4:5 feature */
         .fr-mtile.hero{grid-column:span 2;grid-row:span 2;aspect-ratio:auto;}
-        .fr-mtile-views{position:absolute;left:8px;bottom:7px;display:flex;align-items:center;gap:4px;
-          font-family:${SANS};font-size:12px;font-weight:600;color:#fff;letter-spacing:.01em;
-          text-shadow:0 1px 4px rgba(0,0,0,.55),0 0 2px rgba(0,0,0,.4);pointer-events:none;}
-        .fr-mtile-views svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));flex-shrink:0;}
+        .fr-mtile-views{position:absolute;left:7px;bottom:6px;display:flex;align-items:center;gap:3px;
+          font-family:${SANS};font-size:10px;font-weight:500;color:#fff;letter-spacing:.01em;opacity:.92;
+          text-shadow:0 1px 3px rgba(0,0,0,.45);pointer-events:none;}
+        .fr-mtile-views svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));flex-shrink:0;opacity:.95;}
         .fr-dot{width:6px;height:6px;border-radius:50%;background:${INK3};display:inline-block;animation:fr-bounce 1.2s infinite ease-in-out both;}
         .fr-dot:nth-child(1){animation-delay:-.24s}.fr-dot:nth-child(2){animation-delay:-.12s}
         @keyframes fr-bounce{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
@@ -4317,8 +4330,8 @@ export default function FromApp({
                         onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                         <img src={img} alt={p.title} loading="lazy" draggable={false} />
                         <div className="fr-mtile-views">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                           </svg>
                           {formatCount(socialProofCount(p.id))}
                         </div>
