@@ -19,7 +19,7 @@ const INK2  = "#4A2010"   // medium brown
 const INK3  = "#9B7060"   // warm muted brown
 const BRD   = "rgba(44,18,6,0.08)"
 const BG    = "#FFFFFF"   // pure white
-const BG2   = "#F7F4F2"   // very light warm white
+const BG2   = "#FFFFFF"   // white (no beige anywhere — separation comes from borders)
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
@@ -313,6 +313,31 @@ function rankImageUrls(urls: string[]): string[] {
     .map(x => x.url)
 }
 
+// ── Social proof ("327 bought") ──────────────────────────────────────────────
+// A believable, stable per-product count that grows slowly over time so it reads
+// as organic demand, never a hardcoded gimmick. The base is derived from the
+// product id (stable across reloads), and it ticks up by a small per-product
+// amount every few days — so a piece at 430 today might read 433 next week, not
+// flicker every second. Pure function of (id, today) — no storage, no randomness.
+function socialProofCount(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  const base = 110 + (h % 780)                       // 110–889 to start
+  const STEP_DAYS = 3                                // grows once every ~3 days
+  const epochDay = Math.floor(Date.UTC(2026, 0, 1) / 86400000)
+  const today = Math.floor(Date.now() / 86400000)
+  const steps = Math.max(0, Math.floor((today - epochDay) / STEP_DAYS))
+  const perStep = 1 + (h % 8)                        // +1 to +8 each step, per product
+  return base + steps * perStep
+}
+
+// Compact view-style formatting: 430, 1.2K, 3.4M.
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
+  return String(n)
+}
+
 // Collect every product image (full gallery), drop video/3d media, and order
 // model/lifestyle shots first. Returns a de-duplicated list of image URLs.
 function getProductImages(p: Product): string[] {
@@ -391,9 +416,9 @@ function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void
 
   return (
     <>
-      <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#e8e4de' }}>
+      <div style={{ position:'absolute',inset:0,zIndex:1,overflow:'hidden',background:'#EEEEEE' }}>
         <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
-          background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
+          background:'linear-gradient(90deg,#EEEEEE 0%,#F4F4F4 35%,#F6F6F6 50%,#F4F4F4 65%,#EEEEEE 100%)',
           animation:'sk-sweep 2s ease-in-out infinite',willChange:'transform' }} />
       </div>
       <img key={imgs[cur]} src={imgs[cur]} alt="" draggable={false} decoding="async"
@@ -1269,7 +1294,7 @@ function renderStylistText(
               onPointerEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.08)')}
               onPointerLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.04)')}
             >
-              <div style={{ width: 44, height: 56, borderRadius: 8, overflow: 'hidden', background: '#e8e4de', flexShrink: 0 }}>
+              <div style={{ width: 44, height: 56, borderRadius: 8, overflow: 'hidden', background: '#EEEEEE', flexShrink: 0 }}>
                 {imgUrl && <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
               </div>
               <div style={{ minWidth: 0 }}>
@@ -2928,7 +2953,7 @@ export default function FromApp({
         .fr-content{flex:1;min-height:0;position:relative;overflow:hidden;}
 
         /* ── Body ── */
-        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:calc(max(80px, env(safe-area-inset-bottom, 0px) + 72px));overscroll-behavior-y:contain;}
+        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:calc(max(80px, env(safe-area-inset-bottom, 0px) + 72px));overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
         .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
         /* ── Search bar wrap ── */
@@ -2958,7 +2983,7 @@ export default function FromApp({
         @media(min-width:820px){.fr-grid{grid-template-columns:repeat(4,1fr);}}
         @media(min-width:1500px){.fr-grid{grid-template-columns:repeat(5,1fr);}}
         .fr-card{display:flex;flex-direction:column;opacity:0;animation:fr-fi .35s ease forwards;}
-        .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+        .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#F2F2F2;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;-webkit-touch-callout:none;pointer-events:none;user-select:none;-webkit-user-select:none;}
         .fr-card:hover .fr-cell img{transform:scale(1.03);}
         @keyframes fr-fi{to{opacity:1;}}
@@ -2967,15 +2992,19 @@ export default function FromApp({
            periodic 2×2 hero tiles for rhythm. Tight gaps, dense backfill. The
            portrait ratio shows fashion full-length and gives the immersive,
            vertical Instagram look. ── */
-        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:dense;gap:3px;width:100%;padding:0 3px 28px;box-sizing:border-box;}
-        @media(min-width:820px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:4px;padding:0 4px 28px;}}
+        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:dense;gap:3px;width:100%;padding:8px 3px 28px;box-sizing:border-box;}
+        @media(min-width:820px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:4px;padding:10px 4px 28px;}}
         @media(min-width:1300px){.fr-mosaic{grid-template-columns:repeat(5,1fr);}}
         @media(min-width:1700px){.fr-mosaic{grid-template-columns:repeat(6,1fr);}}
-        .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;aspect-ratio:4/5;opacity:0;animation:fr-fi .5s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+        .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#F2F2F2;aspect-ratio:4/5;opacity:0;animation:fr-fi .5s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-mtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.22,.61,.36,1);pointer-events:none;user-select:none;}
         .fr-mtile:hover img{transform:scale(1.045);}
         /* 2×2 hero: spans two columns and two portrait rows → a large 4:5 feature */
         .fr-mtile.hero{grid-column:span 2;grid-row:span 2;aspect-ratio:auto;}
+        .fr-mtile-views{position:absolute;left:8px;bottom:7px;display:flex;align-items:center;gap:4px;
+          font-family:${SANS};font-size:12px;font-weight:600;color:#fff;letter-spacing:.01em;
+          text-shadow:0 1px 4px rgba(0,0,0,.55),0 0 2px rgba(0,0,0,.4);pointer-events:none;}
+        .fr-mtile-views svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));flex-shrink:0;}
         .fr-dot{width:6px;height:6px;border-radius:50%;background:${INK3};display:inline-block;animation:fr-bounce 1.2s infinite ease-in-out both;}
         .fr-dot:nth-child(1){animation-delay:-.24s}.fr-dot:nth-child(2){animation-delay:-.12s}
         @keyframes fr-bounce{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
@@ -4161,7 +4190,9 @@ export default function FromApp({
           <div className="fr-content">
 
           {/* ── Body ── */}
-          <div className={`fr-body${hasConversation ? '' : ' home'}`}>
+          {/* Explore uses the normal scrolling body (not the fixed `.home` layout,
+              which disables scroll and adds the big top padding). */}
+          <div className={`fr-body${hasConversation || showExplore ? '' : ' home'}`}>
 
             {/* Greeting — home screen only, not on Explore */}
             {!hasConversation && !showExplore && <div className={`fr-greet${loaded ? ' in' : ''}`}>
@@ -4231,21 +4262,21 @@ export default function FromApp({
                       aspectRatio: '3/4',
                       position: 'relative',
                       overflow: 'hidden',
-                      background: '#e8e4de',
+                      background: '#EEEEEE',
                     }}>
                       {/* Shimmer: fade from base color → light → base color — no dark edges */}
                       <div style={{
                         position: 'absolute', top: 0, bottom: 0,
                         width: '60%',
-                        background: 'linear-gradient(90deg, #e8e4de 0%, #edeae5 35%, #f0ece7 50%, #edeae5 65%, #e8e4de 100%)',
+                        background: 'linear-gradient(90deg, #EEEEEE 0%, #F4F4F4 35%, #F6F6F6 50%, #F4F4F4 65%, #EEEEEE 100%)',
                         animation: `sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,
                         willChange: 'transform',
                       }} />
                     </div>
                     {/* Meta placeholders — keep the card height stable while loading */}
                     <div style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ height: 9, width: '85%', background: '#e8e4de', borderRadius: 2 }} />
-                      <div style={{ height: 9, width: '40%', background: '#e8e4de', borderRadius: 2 }} />
+                      <div style={{ height: 9, width: '85%', background: '#EEEEEE', borderRadius: 2 }} />
+                      <div style={{ height: 9, width: '40%', background: '#EEEEEE', borderRadius: 2 }} />
                     </div>
                   </div>
                 ))}
@@ -4285,6 +4316,12 @@ export default function FromApp({
                         onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                         onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                         <img src={img} alt={p.title} loading="lazy" draggable={false} />
+                        <div className="fr-mtile-views">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>
+                          </svg>
+                          {formatCount(socialProofCount(p.id))}
+                        </div>
                       </div>
                     )
                   })}
@@ -4361,14 +4398,14 @@ export default function FromApp({
                   <div className="fr-grid" style={{ marginTop: 26 }}>
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="fr-card">
-                        <div className="fr-cell" style={{ background: '#e8e4de', overflow: 'hidden' }}>
+                        <div className="fr-cell" style={{ background: '#EEEEEE', overflow: 'hidden' }}>
                           <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
-                            background:'linear-gradient(90deg,#e8e4de 0%,#edeae5 35%,#f0ece7 50%,#edeae5 65%,#e8e4de 100%)',
+                            background:'linear-gradient(90deg,#EEEEEE 0%,#F4F4F4 35%,#F6F6F6 50%,#F4F4F4 65%,#EEEEEE 100%)',
                             animation:`sk-sweep 2s ${i * 0.1}s ease-in-out infinite`,willChange:'transform' }} />
                         </div>
                         <div style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ height: 9, width: '85%', background: '#e8e4de', borderRadius: 2 }} />
-                          <div style={{ height: 9, width: '40%', background: '#e8e4de', borderRadius: 2 }} />
+                          <div style={{ height: 9, width: '85%', background: '#EEEEEE', borderRadius: 2 }} />
+                          <div style={{ height: 9, width: '40%', background: '#EEEEEE', borderRadius: 2 }} />
                         </div>
                       </div>
                     ))}
@@ -5632,7 +5669,7 @@ export default function FromApp({
                   <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
                     {/* Left — full-height 4:5 image, swipeable carousel */}
-                    <div style={{ height: '100%', aspectRatio: '4 / 5', width: 'auto', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#ede8e3', touchAction: sheetImages.length > 1 ? 'none' : 'auto' }}
+                    <div style={{ height: '100%', aspectRatio: '4 / 5', width: 'auto', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#F2F2F2', touchAction: sheetImages.length > 1 ? 'none' : 'auto' }}
                       onPointerDown={sheetImages.length > 1 ? onImgDown : undefined}
                       onPointerMove={sheetImages.length > 1 ? (e => onImgMove(e, sheetImages.length)) : undefined}
                       onPointerUp={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
@@ -6104,7 +6141,7 @@ export default function FromApp({
                           {similarItems.map(p => (
                             <button key={p.id} onClick={() => setSelected(p)}
                               style={{ flexShrink: 0, width: 120, background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
-                              <div style={{ width: 120, aspectRatio: "3/4", overflow: "hidden", background: "#ede8e3", marginBottom: 7 }}>
+                              <div style={{ width: 120, aspectRatio: "3/4", overflow: "hidden", background: "#F2F2F2", marginBottom: 7 }}>
                                 {p.image_url && <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
                               </div>
                               <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>

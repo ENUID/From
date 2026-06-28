@@ -24,7 +24,7 @@
 
 /* ---------- LIGHT THEME (default) ---------- */
 :root {
-  --bg:           #F7F5F0;
+  --bg:           #FFFFFF;
   --bg-raised:    #FFFFFF;
   --border:       rgba(30,26,22,0.10);
   --border-hi:    rgba(30,26,22,0.20);
