@@ -2976,10 +2976,6 @@ export default function FromApp({
         .fr-mtile:hover img{transform:scale(1.045);}
         /* 2×2 hero: spans two columns and two portrait rows → a large 4:5 feature */
         .fr-mtile.hero{grid-column:span 2;grid-row:span 2;aspect-ratio:auto;}
-        .fr-mtile-price{position:absolute;left:0;right:0;bottom:0;padding:18px 10px 8px;font-family:${SANS};font-size:11px;font-weight:500;color:#fff;
-          background:linear-gradient(to top,rgba(0,0,0,.5),rgba(0,0,0,.1) 55%,rgba(0,0,0,0));opacity:0;transition:opacity .28s;letter-spacing:.01em;text-shadow:0 1px 3px rgba(0,0,0,.3);}
-        .fr-mtile:hover .fr-mtile-price{opacity:1;}
-        @media(hover:none){.fr-mtile-price{opacity:1;}}
         .fr-dot{width:6px;height:6px;border-radius:50%;background:${INK3};display:inline-block;animation:fr-bounce 1.2s infinite ease-in-out both;}
         .fr-dot:nth-child(1){animation-delay:-.24s}.fr-dot:nth-child(2){animation-delay:-.12s}
         @keyframes fr-bounce{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
@@ -4289,7 +4285,6 @@ export default function FromApp({
                         onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
                         onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
                         <img src={img} alt={p.title} loading="lazy" draggable={false} />
-                        <div className="fr-mtile-price">{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                       </div>
                     )
                   })}
