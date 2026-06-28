@@ -2963,23 +2963,23 @@ export default function FromApp({
         .fr-card:hover .fr-cell img{transform:scale(1.03);}
         @keyframes fr-fi{to{opacity:1;}}
 
-        /* ── Explore mosaic — Instagram-style feed: square tiles with periodic
-           2×2 hero and 2×1 wide tiles for rhythm. Tight gaps, dense backfill. ── */
-        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;grid-auto-flow:dense;gap:4px;width:100%;padding:0 4px 24px;box-sizing:border-box;}
-        @media(min-width:820px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:5px;}}
-        @media(min-width:1500px){.fr-mosaic{grid-template-columns:repeat(6,1fr);}}
-        /* aspect-ratio hack: force each auto-row to equal one column's width → square cells */
-        .fr-mosaic::before{content:'';width:0;padding-bottom:100%;grid-row:1/1;grid-column:1/1;}
-        .fr-mosaic>*:first-child{grid-row:1/1;grid-column:1/1;}
-        .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;opacity:0;animation:fr-fi .4s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
-        .fr-mtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .45s;pointer-events:none;user-select:none;}
-        .fr-mtile:hover img{transform:scale(1.04);}
-        .fr-mtile.hero{grid-column:span 2;grid-row:span 2;}
-        .fr-mtile.wide{grid-column:span 2;}
-        .fr-mtile-price{position:absolute;left:0;right:0;bottom:0;padding:14px 9px 7px;font-family:${SANS};font-size:11px;font-weight:500;color:#fff;
-          background:linear-gradient(to top,rgba(0,0,0,.46),rgba(0,0,0,0));opacity:0;transition:opacity .25s;letter-spacing:.01em;}
+        /* ── Explore mosaic — Instagram-style feed: tall 4:5 portrait tiles with
+           periodic 2×2 hero tiles for rhythm. Tight gaps, dense backfill. The
+           portrait ratio shows fashion full-length and gives the immersive,
+           vertical Instagram look. ── */
+        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:dense;gap:3px;width:100%;padding:0 3px 28px;box-sizing:border-box;}
+        @media(min-width:820px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:4px;padding:0 4px 28px;}}
+        @media(min-width:1300px){.fr-mosaic{grid-template-columns:repeat(5,1fr);}}
+        @media(min-width:1700px){.fr-mosaic{grid-template-columns:repeat(6,1fr);}}
+        .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#ede8e3;aspect-ratio:4/5;opacity:0;animation:fr-fi .5s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+        .fr-mtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.22,.61,.36,1);pointer-events:none;user-select:none;}
+        .fr-mtile:hover img{transform:scale(1.045);}
+        /* 2×2 hero: spans two columns and two portrait rows → a large 4:5 feature */
+        .fr-mtile.hero{grid-column:span 2;grid-row:span 2;aspect-ratio:auto;}
+        .fr-mtile-price{position:absolute;left:0;right:0;bottom:0;padding:18px 10px 8px;font-family:${SANS};font-size:11px;font-weight:500;color:#fff;
+          background:linear-gradient(to top,rgba(0,0,0,.5),rgba(0,0,0,.1) 55%,rgba(0,0,0,0));opacity:0;transition:opacity .28s;letter-spacing:.01em;text-shadow:0 1px 3px rgba(0,0,0,.3);}
         .fr-mtile:hover .fr-mtile-price{opacity:1;}
-        @media(hover:none){.fr-mtile-price{opacity:1;background:linear-gradient(to top,rgba(0,0,0,.4),rgba(0,0,0,0));}}
+        @media(hover:none){.fr-mtile-price{opacity:1;}}
         .fr-dot{width:6px;height:6px;border-radius:50%;background:${INK3};display:inline-block;animation:fr-bounce 1.2s infinite ease-in-out both;}
         .fr-dot:nth-child(1){animation-delay:-.24s}.fr-dot:nth-child(2){animation-delay:-.12s}
         @keyframes fr-bounce{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
@@ -4269,8 +4269,9 @@ export default function FromApp({
               exploreFeed.length > 0 ? (
                 <div className="fr-mosaic">
                   {exploreFeed.map((p, i) => {
-                    const m = (i + exploreSeed) % 8
-                    const tileCls = m === 0 ? 'hero' : (m === 5 ? 'wide' : '')
+                    // One large 2×2 feature roughly every 7 tiles for that
+                    // Instagram-explore rhythm; the seed re-rolls it each open.
+                    const tileCls = ((i + exploreSeed) % 7 === 3) ? 'hero' : ''
                     const img = getProductImages(p)[0]
                     return (
                       <div key={p.id} className={`fr-mtile ${tileCls}`}
@@ -4302,7 +4303,7 @@ export default function FromApp({
               ) : exploreFeedLoading && exploreFeed.length === 0 ? (
                 <div className="fr-mosaic">
                   {Array.from({ length: 18 }).map((_, i) => (
-                    <div key={i} className={`fr-mtile ${(i % 8) === 0 ? 'hero' : ''} sk-sweep`} />
+                    <div key={i} className={`fr-mtile ${(i % 7) === 3 ? 'hero' : ''} sk-sweep`} />
                   ))}
                 </div>
               ) : (
