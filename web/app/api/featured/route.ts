@@ -66,11 +66,47 @@ function diversify(products: any[], seed: number): any[] {
   return out
 }
 
-// Explore feed. Built on the proven-reliable "best brands" (premium/luxury —
-// the ones that actually respond on Shopify's MCP); the roster's long tail of
-// tiny stores mostly returns nothing, so leaning on them starved the feed.
-// Each page pulls a fresh rotated set of these brands for variety/depth, dedupes
-// against what's already shown (excludeIds), and interleaves clothes-first.
+// Core feed builder, shared by POST (the app) and GET (browser diagnostic).
+// Built on the proven-reliable "best brands" (premium/luxury — the ones that
+// actually respond on Shopify's MCP); the roster's long tail of tiny stores
+// mostly returns nothing, so leaning on them starved the feed. Each page pulls a
+// fresh rotated set of these brands, dedupes against what's shown, clothes-first.
+async function buildFeatured(
+  countryCode: string | null, page: number, excludeIds: Set<string>, buyerCurrency: string,
+) {
+  const all = seededShuffle(bestBrandDomains(), page * 7 + 11)
+  const WINDOW = 28
+  const start = all.length ? (page * WINDOW) % all.length : 0
+  const sample = all.slice(start, start + WINDOW)
+  if (sample.length < WINDOW) sample.push(...all.slice(0, WINDOW - sample.length))
+
+  const products = await GlobalCatalogService.search(
+    '',                       // empty query → browse each brand's catalog
+    undefined, [], countryCode, true, [],
+    'relevance', buyerCurrency,
+    { fastFirstPage: true },
+    sample,                    // restrict fan-out to this page's reliable brands
+  )
+
+  // In stock, not already shown, no duplicate id/image. NO per-brand cap — the
+  // working feed had none; a cap only ever subtracts.
+  const seenId = new Set<string>()
+  const seenImg = new Set<string>()
+  const kept = products.filter(p => {
+    if (!p.in_stock || excludeIds.has(p.id) || seenId.has(p.id)) return false
+    const img = p.image_url || ''
+    if (img && seenImg.has(img)) return false
+    seenId.add(p.id); if (img) seenImg.add(img)
+    return true
+  })
+
+  const out = diversify(kept, page * 13 + 1).slice(0, 50)
+  return {
+    products: out,
+    _meta: { sampled: sample.length, fetched: products.length, kept: kept.length, returned: out.length, cc: countryCode ?? null },
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
@@ -82,43 +118,28 @@ export async function POST(req: NextRequest) {
     const excludeIds: Set<string> = new Set(
       Array.isArray(body?.excludeIds) ? body.excludeIds.filter((x: any) => typeof x === 'string') : []
     )
-
-    // A rotated set of reliable brands for this page. The service's geo-boost
-    // ranks the shopper's local brands first within the results.
-    const all = seededShuffle(bestBrandDomains(), page * 7 + 11)
-    const WINDOW = 28
-    const start = all.length ? (page * WINDOW) % all.length : 0
-    const sample = all.slice(start, start + WINDOW)
-    if (sample.length < WINDOW) sample.push(...all.slice(0, WINDOW - sample.length))
-
-    const products = await GlobalCatalogService.search(
-      '',                       // empty query → browse each brand's catalog
-      undefined, [], countryCode, true, [],
-      'relevance', buyerCurrency,
-      { fastFirstPage: true },
-      sample,                    // restrict fan-out to this page's reliable brands
-    )
-
-    // In stock, not already shown, no duplicate id/image. NO per-brand cap — the
-    // working feed had none; a cap only ever subtracts. Vendor variety comes from
-    // the wide brand sample + category interleave.
-    const seenId = new Set<string>()
-    const seenImg = new Set<string>()
-    const kept = products.filter(p => {
-      if (!p.in_stock || excludeIds.has(p.id) || seenId.has(p.id)) return false
-      const img = p.image_url || ''
-      if (img && seenImg.has(img)) return false
-      seenId.add(p.id); if (img) seenImg.add(img)
-      return true
-    })
-
-    const out = diversify(kept, page * 13 + 1).slice(0, 50)
-    return NextResponse.json({
-      products: out,
-      _meta: { sampled: sample.length, fetched: products.length, kept: kept.length, returned: out.length, cc: countryCode ?? null },
-    })
+    return NextResponse.json(await buildFeatured(countryCode, page, excludeIds, buyerCurrency))
   } catch (e) {
     console.error('[featured] error:', e)
     return NextResponse.json({ products: [], _meta: { error: String(e) } })
+  }
+}
+
+// Browser diagnostic: open https://from.enuid.com/api/featured?cc=IN to see the
+// pipeline counts (sampled/fetched/kept/returned) and a sample of brand domains.
+export async function GET(req: NextRequest) {
+  try {
+    const cc = (req.nextUrl.searchParams.get('cc') || req.headers.get('x-vercel-ip-country') || 'US').toUpperCase()
+    const page = Math.max(0, Math.floor(Number(req.nextUrl.searchParams.get('page') ?? 0)) || 0)
+    const result = await buildFeatured(cc, page, new Set(), 'USD')
+    const sampleBrands = seededShuffle(bestBrandDomains(), page * 7 + 11).slice(0, 28)
+    return NextResponse.json({
+      _meta: result._meta,
+      totalBestBrands: bestBrandDomains().length,
+      sampleBrands,
+      firstProducts: result.products.slice(0, 8).map((p: any) => ({ title: p.title, vendor: p.vendor, store_url: p.store_url, img: !!p.image_url })),
+    })
+  } catch (e) {
+    return NextResponse.json({ error: String(e) })
   }
 }
