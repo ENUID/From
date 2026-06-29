@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
-import { UCP_REGISTRY, getStoreCountry, GEO_REGIONS } from '@/lib/stores'
+import { UCP_REGISTRY, getStoreCountry, GEO_REGIONS, bestBrandDomains } from '@/lib/stores'
 
 export const maxDuration = 60
 
@@ -102,12 +102,19 @@ export async function POST(req: NextRequest) {
     const tier0 = seededShuffle(allDomains.filter(d => geoRank(d) === 0), page * 7 + 37)
     const ordered = [...tier2, ...tier1, ...tier0]
 
-    // A wide window of brands for this page; wraps around the roster on deep
-    // pages so scrolling never truly runs out. Wide enough to yield ~50 products.
+    // A rotating window of brands for this page (wraps around the roster on deep
+    // pages so scrolling never runs out). The long tail of the roster has many
+    // small/slow brands that return nothing, so we ALWAYS blend in a core of
+    // reliable "best" brands — this guarantees a full page even when the rotating
+    // brands come back empty, while the rotation still adds variety and depth.
     const WINDOW = 24
     const start = ordered.length ? (page * WINDOW) % ordered.length : 0
-    const sample = ordered.slice(start, start + WINDOW)
-    if (sample.length < WINDOW) sample.push(...ordered.slice(0, WINDOW - sample.length))
+    const rotating = ordered.slice(start, start + WINDOW)
+    if (rotating.length < WINDOW) rotating.push(...ordered.slice(0, WINDOW - rotating.length))
+    const guaranteed = seededShuffle(
+      bestBrandDomains().map(d => d.toLowerCase().replace(/^www\./, '')), page + 1,
+    ).slice(0, 16)
+    const sample = Array.from(new Set([...rotating, ...guaranteed]))
 
     const products = await GlobalCatalogService.search(
       '',                       // empty query → browse each brand's catalog

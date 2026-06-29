@@ -2678,8 +2678,10 @@ export default function FromApp({
     exploreDryRef.current = 0
     explorePageRef.current = 0
     exploreBufferRef.current = []
-    if (exploreFeedRef.current.length === 0) loadExploreFeed()
-    else fillExploreBuffer()  // cached feed shows instantly; warm the next page
+    // Always fetch a fresh page on open. Any cached feed still shows instantly
+    // (it seeds the initial state), but we refresh so a stale/sparse cache from
+    // a previous session is replaced with a full one.
+    loadExploreFeed()
   }
 
   // Prefetch the feed shortly after load (once, if no cache) so the first time
