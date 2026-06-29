@@ -2545,6 +2545,7 @@ export default function FromApp({
       body: JSON.stringify({
         buyerCurrency: shopperContext.currency,
         buyerCountry: shopperContext.country,
+        gender: shopperGenderFromProfile,
         page,
         excludeIds: excludeIds.slice(-300),
       }),
@@ -4562,8 +4563,11 @@ export default function FromApp({
             <div style={{ height: 12 }} />
           </div>
 
-          {/* ── Search bar — floats above content ── */}
-          <div className="fr-bar-wrap" style={keyboardOffset > 0 ? { bottom: keyboardOffset } : undefined}>
+          {/* ── Search bar — floats above content. Hidden on Explore (pure browse). ── */}
+          <div className="fr-bar-wrap" style={{
+            ...(keyboardOffset > 0 ? { bottom: keyboardOffset } : {}),
+            ...(showExplore ? { display: 'none' } : {}),
+          }}>
 
             {/* Spring-animated wrapper */}
             <div style={{ transform: `scale(${barScale})`, transformOrigin: "center bottom", willChange: "transform" }}

@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
-import { bestBrandDomains } from '@/lib/stores'
+import { UCP_REGISTRY, bestBrandDomains } from '@/lib/stores'
 
 export const maxDuration = 60
+
+// Map a brand domain → the genders it serves (from the registry).
+const BRAND_GENDERS: Map<string, string[]> = new Map(
+  UCP_REGISTRY.map(s => [s.domain.toLowerCase().replace(/^www\./, ''), (s.gender ?? []).map(g => g.toLowerCase())]),
+)
+function brandServesGender(domain: string, gender: 'men' | 'women'): boolean {
+  const g = BRAND_GENDERS.get(domain.toLowerCase().replace(/^www\./, ''))
+  if (!g || g.length === 0) return true            // unknown → keep (don't starve)
+  return g.includes(gender) || g.includes('unisex')
+}
+
+// Drop products clearly meant for the opposite gender (conservative — only
+// strong signals, so we never over-filter the feed into emptiness).
+function isOppositeGender(p: any, gender: 'men' | 'women'): boolean {
+  const t = `${p.title ?? ''} ${(Array.isArray(p.tags) ? p.tags.join(' ') : '')}`.toLowerCase()
+  if (gender === 'men') {
+    return /\bwomen|woman\b|\bwomens\b|\bwomen's|ladies|\bdress\b|\bdresses\b|skirt|blouse|\bbra\b|bralette|lingerie|\bheels?\b|stiletto|saree|lehenga|anarkali|\bkurti\b|gown|\bher\b/.test(t)
+  }
+  // women: only drop things explicitly marked men's (women's garments rarely say "women")
+  return /\bmen's|\bmens\b|\bmenswear\b|boxers\b/.test(t)
+}
 
 // Deterministic shuffle keyed by a seed so each scroll page pulls a different,
 // stable set of brands (no Math.random → repeatable, paginates cleanly).
@@ -73,8 +94,14 @@ function diversify(products: any[], seed: number): any[] {
 // fresh rotated set of these brands, dedupes against what's shown, clothes-first.
 async function buildFeatured(
   countryCode: string | null, page: number, excludeIds: Set<string>, buyerCurrency: string,
+  gender: 'men' | 'women' | null = null,
 ) {
-  const all = seededShuffle(bestBrandDomains(), page * 7 + 11)
+  // Brand pool — when a gender is set, prefer brands that serve it (or unisex),
+  // but only drop those that exclusively serve the other gender, so the pool
+  // stays wide enough to fill the grid.
+  let pool = bestBrandDomains()
+  if (gender) pool = pool.filter(d => brandServesGender(d, gender))
+  const all = seededShuffle(pool, page * 7 + 11)
   const WINDOW = 28
   const start = all.length ? (page * WINDOW) % all.length : 0
   const sample = all.slice(start, start + WINDOW)
@@ -94,6 +121,7 @@ async function buildFeatured(
   const seenImg = new Set<string>()
   const kept = products.filter(p => {
     if (!p.in_stock || excludeIds.has(p.id) || seenId.has(p.id)) return false
+    if (gender && isOppositeGender(p, gender)) return false
     const img = p.image_url || ''
     if (img && seenImg.has(img)) return false
     seenId.add(p.id); if (img) seenImg.add(img)
@@ -118,7 +146,9 @@ export async function POST(req: NextRequest) {
     const excludeIds: Set<string> = new Set(
       Array.isArray(body?.excludeIds) ? body.excludeIds.filter((x: any) => typeof x === 'string') : []
     )
-    return NextResponse.json(await buildFeatured(countryCode, page, excludeIds, buyerCurrency))
+    const g = typeof body?.gender === 'string' ? body.gender.toLowerCase() : ''
+    const gender: 'men' | 'women' | null = g === 'men' ? 'men' : g === 'women' ? 'women' : null
+    return NextResponse.json(await buildFeatured(countryCode, page, excludeIds, buyerCurrency, gender))
   } catch (e) {
     console.error('[featured] error:', e)
     return NextResponse.json({ products: [], _meta: { error: String(e) } })
@@ -131,7 +161,9 @@ export async function GET(req: NextRequest) {
   try {
     const cc = (req.nextUrl.searchParams.get('cc') || req.headers.get('x-vercel-ip-country') || 'US').toUpperCase()
     const page = Math.max(0, Math.floor(Number(req.nextUrl.searchParams.get('page') ?? 0)) || 0)
-    const result = await buildFeatured(cc, page, new Set(), 'USD')
+    const g = (req.nextUrl.searchParams.get('gender') || '').toLowerCase()
+    const gender: 'men' | 'women' | null = g === 'men' ? 'men' : g === 'women' ? 'women' : null
+    const result = await buildFeatured(cc, page, new Set(), 'USD', gender)
     const sampleBrands = seededShuffle(bestBrandDomains(), page * 7 + 11).slice(0, 28)
     return NextResponse.json({
       _meta: result._meta,
