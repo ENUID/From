@@ -4348,24 +4348,47 @@ export default function FromApp({
                 <FromLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
               </div>
             </div>
-            {/* Right: compose / new chat */}
-            <button
-              onClick={() => handleReset()}
-              style={{
-                width: 36, height: 36, borderRadius: "50%", border: "none",
-                background: "#ffffff",
-                boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", flexShrink: 0, transition: "box-shadow .15s",
-              }}
-              onPointerEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
-              onPointerLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 20h9"/>
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-              </svg>
-            </button>
+            {/* Right: refresh (Explore only) + compose / new chat */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {showExplore && (
+                <button
+                  onClick={() => { exploreScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); refreshExplore() }}
+                  disabled={exploreFeedLoading}
+                  aria-label="Refresh feed"
+                  style={{
+                    width: 36, height: 36, borderRadius: "50%", border: "none",
+                    background: "#ffffff",
+                    boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: exploreFeedLoading ? "default" : "pointer", flexShrink: 0, transition: "box-shadow .15s",
+                  }}
+                  onPointerEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
+                  onPointerLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ animation: exploreFeedLoading ? 'spin .7s linear infinite' : 'none' }}>
+                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => handleReset()}
+                style={{
+                  width: 36, height: 36, borderRadius: "50%", border: "none",
+                  background: "#ffffff",
+                  boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0, transition: "box-shadow .15s",
+                }}
+                onPointerEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
+                onPointerLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* ── Content (body + floating bar share this space) ── */}
@@ -4596,33 +4619,6 @@ export default function FromApp({
 
             <div style={{ height: 12 }} />
           </div>
-
-          {/* ── Refresh button — Explore only. Floats at the TOP, shown near the
-              top / on scroll-up; slides up out of view while scrolling down. ── */}
-          {showExplore && (
-            <button type="button" onClick={() => { exploreScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); refreshExplore() }}
-              disabled={exploreFeedLoading}
-              aria-label="Refresh"
-              style={{
-                position: 'fixed', left: '50%', zIndex: 60,
-                top: `calc(60px + env(safe-area-inset-top, 0px))`,  // just below the FROM header
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 18px', borderRadius: 999, border: 'none',
-                background: INK, color: '#fff', fontFamily: SANS, fontSize: 12.5, fontWeight: 500, letterSpacing: '.02em',
-                boxShadow: '0 6px 22px rgba(44,18,6,.32), 0 1px 4px rgba(44,18,6,.2)',
-                cursor: exploreFeedLoading ? 'default' : 'pointer',
-                transition: 'opacity .25s ease, transform .25s ease',
-                opacity: showRefreshBtn ? (exploreFeedLoading ? 0.75 : 1) : 0,
-                transform: `translateX(-50%) translateY(${showRefreshBtn ? 0 : -70}px)`,
-                pointerEvents: showRefreshBtn ? 'auto' : 'none',
-              }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                style={{ animation: exploreFeedLoading ? 'spin .7s linear infinite' : 'none' }}>
-                <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
-              </svg>
-              {exploreFeedLoading ? 'Refreshing' : 'Refresh'}
-            </button>
-          )}
 
           {/* ── Search bar — floats above content ── */}
           <div className="fr-bar-wrap" style={keyboardOffset > 0 ? { bottom: keyboardOffset } : undefined}>
