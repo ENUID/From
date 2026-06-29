@@ -60,7 +60,8 @@ type ProductSort = 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc'
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
-const STORE_TIMEOUT_MS = 2500
+const STORE_TIMEOUT_MS = 5000   // many Shopify MCP endpoints take 2.5–4s; a tight
+                                // timeout silently drops them and starves results
 const BATCH_SIZE = 45          // stores queried in parallel per round
 const MAX_ROUNDS_PER_CALL = 2  // up to 90 stores fetched per search() call
 const INITIAL_LIMIT = 30
