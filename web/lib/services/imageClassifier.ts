@@ -177,34 +177,16 @@ const VIEW_RANK: Record<string, number> = {
   front: 0, full: 1, side: 2, back: 3, detail: 4, other: 5, flatlay: 6,
 }
 
-// Pick the best 5–6: strong model shots across distinct angles (front → back),
-// then one clean product shot. Drops redundant / low-quality / extra frames.
+// Order ALL of a product's images on-body-first — model shots (by angle, best
+// quality first), then product/flat shots (by quality). Nothing is dropped: the
+// shopper sees every image, just in a flattering order.
 function curate(metas: Meta[]): string[] {
   const models = metas.filter(m => m.person === true)
   const others = metas.filter(m => m.person !== true) // false or unknown
-
-  // Model shots: order by angle, best quality first; cap to 2 per angle so we
-  // get variety (front, full, back…) rather than five near-identical frames.
   models.sort((a, b) =>
     (VIEW_RANK[a.view] ?? 9) - (VIEW_RANK[b.view] ?? 9) || b.quality - a.quality)
-  const perView: Record<string, number> = {}
-  const chosenModels: Meta[] = []
-  for (const m of models) {
-    const seen = perView[m.view] ?? 0
-    if (seen >= 2) continue
-    perView[m.view] = seen + 1
-    chosenModels.push(m)
-    if (chosenModels.length >= MAX_MODELS) break
-  }
-
-  // One product shot: the single best-quality non-model frame.
   others.sort((a, b) => b.quality - a.quality)
-  const chosenProduct = others.slice(0, 1)
-
-  let result = [...chosenModels, ...chosenProduct]
-  // No model shots at all → show the best handful of product frames instead.
-  if (result.length === 0) result = others.slice(0, FINAL_CAP)
-  return result.slice(0, FINAL_CAP).map(m => m.url)
+  return [...models, ...others].map(m => m.url)
 }
 
 /** Curate + order a product's images on-body-first. Returns input on any failure. */

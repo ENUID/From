@@ -32,16 +32,32 @@ function categoryOf(p: any): string {
   return 'other'
 }
 
-// Round-robin interleave across category buckets so tops, bottoms, dresses,
-// shoes, bags etc. alternate rather than clumping.
-function diversify(products: any[]): any[] {
+// Round-robin interleave across category buckets so the feed alternates rather
+// than clumping — and LEADS WITH CLOTHING (tops, dresses, bottoms, outerwear),
+// pushing footwear to the back so it's never a wall of shoes up top. The bucket
+// order is shuffled (within clothing / within the rest) per page so it stays
+// fresh and randomised, but clothing always comes before shoes.
+const CLOTHING = ['top', 'dress', 'bottom', 'outerwear']
+function diversify(products: any[], seed: number): any[] {
   const buckets = new Map<string, any[]>()
   for (const p of products) {
     const c = categoryOf(p)
     if (!buckets.has(c)) buckets.set(c, [])
     buckets.get(c)!.push(p)
   }
-  const lists = Array.from(buckets.values())
+  // Shuffle products within each bucket so the same brand/order doesn't recur.
+  for (const list of Array.from(buckets.values())) {
+    const s = seededShuffle(list, seed + list.length)
+    list.length = 0
+    list.push(...s)
+  }
+  const present = Array.from(buckets.keys())
+  const clothing = seededShuffle(present.filter(c => CLOTHING.includes(c)), seed + 5)
+  const middle = seededShuffle(present.filter(c => !CLOTHING.includes(c) && c !== 'shoes'), seed + 9)
+  const shoes = present.filter(c => c === 'shoes')
+  // Clothing first, then bags/accessories/jewelry/other, then shoes last.
+  const order = [...clothing, ...middle, ...shoes]
+  const lists = order.map(c => buckets.get(c)!)
   const out: any[] = []
   let added = true
   while (added) {
@@ -112,13 +128,13 @@ export async function POST(req: NextRequest) {
       let dom = ''
       try { dom = new URL(p.store_url).hostname.replace(/^www\./, '') } catch {}
       const n = perBrand.get(dom) ?? 0
-      if (n >= 3) return false
+      if (n >= 5) return false
       perBrand.set(dom, n + 1)
       seenId.add(p.id); if (img) seenImg.add(img)
       return true
     })
 
-    return NextResponse.json({ products: diversify(capped).slice(0, 50) })
+    return NextResponse.json({ products: diversify(capped, page * 13 + 1).slice(0, 50) })
   } catch (e) {
     console.error('[featured] error:', e)
     return NextResponse.json({ products: [] })

@@ -397,9 +397,9 @@ function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void
   const active = useRef(false)
   const swiped = useRef(false)
 
-  // Cap to 8, then upgrade to on-body-first so the card leads with a model shot
-  // and the flat packshot trails (renders instantly in heuristic order first).
-  const imgs = useModelFirstOrder(images.slice(0, 8))
+  // Show every image, ordered on-body-first so the card leads with a model shot
+  // and flat packshots trail (renders instantly in heuristic order first).
+  const imgs = useModelFirstOrder(images)
 
   if (imgs.length === 0) {
     return (
@@ -2540,7 +2540,7 @@ export default function FromApp({
         buyerCurrency: shopperContext.currency,
         buyerCountry: shopperContext.country,
         page,
-        excludeIds: excludeIds.slice(-150),
+        excludeIds: excludeIds.slice(-300),
       }),
     })
     const data = await res.json()
@@ -2582,22 +2582,30 @@ export default function FromApp({
     return batch.filter(p => !seen.has(p.id))
   }
 
-  // Prefetch the next page into the buffer (background, non-blocking) so the next
-  // scroll-load appears instantly instead of waiting on the network.
+  // Keep ~2 pages prefetched at all times so the feed is always ready — even
+  // while scrolling fast — and loads feel instant. Fetches pages back-to-back
+  // until the buffer is deep enough, then tops up whenever it's drained.
+  const EXPLORE_BUFFER_TARGET = 100
   const fillExploreBuffer = async () => {
-    if (exploreBusyRef.current || !exploreHasMore || exploreBufferRef.current.length > 0) return
+    if (exploreBusyRef.current || !exploreHasMore) return
+    if (exploreBufferRef.current.length >= EXPLORE_BUFFER_TARGET) return
     exploreBusyRef.current = true
+    let again = false
     try {
       const fresh = await fetchNextExplorePage()
       if (fresh.length === 0) {
         exploreDryRef.current += 1
-        if (exploreDryRef.current >= 4) setExploreHasMore(false)
+        if (exploreDryRef.current >= 20) setExploreHasMore(false)
       } else {
         exploreDryRef.current = 0
-        exploreBufferRef.current = fresh
+        exploreBufferRef.current = [...exploreBufferRef.current, ...fresh]
+        again = exploreBufferRef.current.length < EXPLORE_BUFFER_TARGET
       }
     } catch { /* will retry on next trigger */ }
-    finally { exploreBusyRef.current = false }
+    finally {
+      exploreBusyRef.current = false
+      if (again && exploreHasMore) fillExploreBuffer()   // keep the buffer deep
+    }
   }
 
   // Initial load (or refresh) — page 0 → feed, then immediately warm the buffer
@@ -2624,12 +2632,12 @@ export default function FromApp({
   // refill in the background. The brand window rotates the whole roster, so it
   // keeps surfacing new brands/categories; only stops after the roster cycles.
   const loadMoreExplore = async () => {
-    // Instant path: the next page was already prefetched.
+    // Instant path: serve a page from the prefetched buffer, keep the rest.
     if (exploreBufferRef.current.length > 0) {
-      const buffered = exploreBufferRef.current
-      exploreBufferRef.current = []
-      appendExplore(buffered)
-      fillExploreBuffer()
+      const take = exploreBufferRef.current.slice(0, 50)
+      exploreBufferRef.current = exploreBufferRef.current.slice(50)
+      appendExplore(take)
+      fillExploreBuffer()   // top the buffer back up in the background
       return
     }
     // Buffer not ready yet — fetch directly, then warm the buffer.
@@ -2640,7 +2648,7 @@ export default function FromApp({
       const fresh = await fetchNextExplorePage()
       if (fresh.length === 0) {
         exploreDryRef.current += 1
-        if (exploreDryRef.current >= 4) setExploreHasMore(false)
+        if (exploreDryRef.current >= 20) setExploreHasMore(false)
       } else {
         exploreDryRef.current = 0
         appendExplore(fresh)
@@ -2683,7 +2691,7 @@ export default function FromApp({
     if (!sentinel) return
     const observer = new IntersectionObserver(
       (entries) => { if (entries[0].isIntersecting) loadMoreExploreRef.current() },
-      { rootMargin: '1800px', threshold: 0 }
+      { rootMargin: '3500px', threshold: 0 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
