@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
-import { UCP_REGISTRY, getStoreCountry, GEO_REGIONS, bestBrandDomains } from '@/lib/stores'
+import { UCP_REGISTRY, getStoreCountry, bestBrandDomains } from '@/lib/stores'
 
 export const maxDuration = 60
 
@@ -86,35 +86,25 @@ export async function POST(req: NextRequest) {
       Array.isArray(body?.excludeIds) ? body.excludeIds.filter((x: any) => typeof x === 'string') : []
     )
 
-    // Geo-prioritise the full roster: shopper's country first, then same region,
-    // then everyone else — shuffled within each tier (seeded by page) so local
-    // brands lead but the window rotates from page to page.
-    const userRegion = countryCode ? (GEO_REGIONS[countryCode] ?? '') : ''
-    const allDomains = UCP_REGISTRY.map(s => s.domain.toLowerCase().replace(/^www\./, ''))
-    const geoRank = (d: string): number => {
-      const c = getStoreCountry(d)
-      if (countryCode && c === countryCode) return 2
-      if (userRegion && GEO_REGIONS[c] === userRegion) return 1
-      return 0
-    }
-    const tier2 = seededShuffle(allDomains.filter(d => geoRank(d) === 2), page * 7 + 11)
-    const tier1 = seededShuffle(allDomains.filter(d => geoRank(d) === 1), page * 7 + 23)
-    const tier0 = seededShuffle(allDomains.filter(d => geoRank(d) === 0), page * 7 + 37)
-    const ordered = [...tier2, ...tier1, ...tier0]
+    // Brand selection. The feed's backbone is the RELIABLE brands (premium /
+    // luxury — the ones that actually respond on the MCP). The roster's long tail
+    // is full of small/slow stores that return nothing, so leaning on them (as a
+    // previous version did) starved the feed. So each page is mostly reliable
+    // brands, rotated per page for freshness, with the shopper's LOCAL brands up
+    // front (the service's geo-boost ranks their products first) and a little
+    // long-tail rotation for variety/depth.
+    const norm = (d: string) => d.toLowerCase().replace(/^www\./, '')
+    const allDomains = UCP_REGISTRY.map(s => norm(s.domain))
+    const reliable = seededShuffle(bestBrandDomains().map(norm), page * 7 + 11)
+    const local = countryCode ? allDomains.filter(d => getStoreCountry(d) === countryCode) : []
+    const tail = seededShuffle(allDomains, page * 13 + 5)
+    const tailStart = tail.length ? (page * 8) % tail.length : 0
 
-    // A rotating window of brands for this page (wraps around the roster on deep
-    // pages so scrolling never runs out). The long tail of the roster has many
-    // small/slow brands that return nothing, so we ALWAYS blend in a core of
-    // reliable "best" brands — this guarantees a full page even when the rotating
-    // brands come back empty, while the rotation still adds variety and depth.
-    const WINDOW = 24
-    const start = ordered.length ? (page * WINDOW) % ordered.length : 0
-    const rotating = ordered.slice(start, start + WINDOW)
-    if (rotating.length < WINDOW) rotating.push(...ordered.slice(0, WINDOW - rotating.length))
-    const guaranteed = seededShuffle(
-      bestBrandDomains().map(d => d.toLowerCase().replace(/^www\./, '')), page + 1,
-    ).slice(0, 16)
-    const sample = Array.from(new Set([...rotating, ...guaranteed]))
+    const sample = Array.from(new Set([
+      ...seededShuffle(local, page + 3).slice(0, 12),   // local brands lead
+      ...reliable.slice(0, 38),                          // reliable backbone (always responds)
+      ...tail.slice(tailStart, tailStart + 8),           // rotating long-tail for variety
+    ]))
 
     const products = await GlobalCatalogService.search(
       '',                       // empty query → browse each brand's catalog
@@ -141,9 +131,15 @@ export async function POST(req: NextRequest) {
       return true
     })
 
-    return NextResponse.json({ products: diversify(capped, page * 13 + 1).slice(0, 50) })
+    const out = diversify(capped, page * 13 + 1).slice(0, 50)
+    return NextResponse.json({
+      products: out,
+      // Lightweight diagnostics (always on, tiny) so the feed pipeline can be
+      // inspected on the live site without guesswork.
+      _meta: { sampled: sample.length, fetched: products.length, kept: capped.length, returned: out.length, cc: countryCode ?? null },
+    })
   } catch (e) {
     console.error('[featured] error:', e)
-    return NextResponse.json({ products: [] })
+    return NextResponse.json({ products: [], _meta: { error: String(e) } })
   }
 }
