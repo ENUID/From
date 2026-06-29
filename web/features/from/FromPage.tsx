@@ -4597,22 +4597,23 @@ export default function FromApp({
             <div style={{ height: 12 }} />
           </div>
 
-          {/* ── Refresh button — Explore only. Shown near the top / on scroll-up. ── */}
+          {/* ── Refresh button — Explore only. Floats at the TOP, shown near the
+              top / on scroll-up; slides up out of view while scrolling down. ── */}
           {showExplore && (
             <button type="button" onClick={() => { exploreScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); refreshExplore() }}
               disabled={exploreFeedLoading}
               aria-label="Refresh"
               style={{
                 position: 'fixed', left: '50%', zIndex: 60,
-                bottom: `calc(96px + env(safe-area-inset-bottom, 0px))`,  // sits above the search bar
+                top: `calc(60px + env(safe-area-inset-top, 0px))`,  // just below the FROM header
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '11px 20px', borderRadius: 999, border: 'none',
-                background: INK, color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 500, letterSpacing: '.02em',
+                padding: '9px 18px', borderRadius: 999, border: 'none',
+                background: INK, color: '#fff', fontFamily: SANS, fontSize: 12.5, fontWeight: 500, letterSpacing: '.02em',
                 boxShadow: '0 6px 22px rgba(44,18,6,.32), 0 1px 4px rgba(44,18,6,.2)',
                 cursor: exploreFeedLoading ? 'default' : 'pointer',
                 transition: 'opacity .25s ease, transform .25s ease',
                 opacity: showRefreshBtn ? (exploreFeedLoading ? 0.75 : 1) : 0,
-                transform: `translateX(-50%) translateY(${showRefreshBtn ? 0 : 80}px)`,
+                transform: `translateX(-50%) translateY(${showRefreshBtn ? 0 : -70}px)`,
                 pointerEvents: showRefreshBtn ? 'auto' : 'none',
               }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
