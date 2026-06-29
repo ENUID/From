@@ -2572,27 +2572,34 @@ export default function FromApp({
     })
   }
 
-  // Fetch the next rotating brand-window page; return only products not already
-  // shown or sitting in the prefetch buffer.
-  const fetchNextExplorePage = async (): Promise<Product[]> => {
-    explorePageRef.current += 1
+  // Fire N rotating pages CONCURRENTLY and return their combined fresh products
+  // (deduped against everything already shown or buffered). Parallel fetching is
+  // the key to instant loading: 3 pages land in one ~2.5s round-trip, not three.
+  const fetchExplorePages = async (count: number): Promise<Product[]> => {
     const exclude = [...exploreFeedRef.current, ...exploreBufferRef.current].map(p => p.id)
-    const batch = await fetchExploreBatch(explorePageRef.current, exclude)
+    const pages: number[] = []
+    for (let i = 0; i < count; i++) pages.push(++explorePageRef.current)
+    const results = await Promise.all(
+      pages.map(pg => fetchExploreBatch(pg, exclude).catch(() => [] as Product[]))
+    )
     const seen = new Set(exclude)
-    return batch.filter(p => !seen.has(p.id))
+    const fresh: Product[] = []
+    for (const batch of results) for (const p of batch) {
+      if (!seen.has(p.id)) { seen.add(p.id); fresh.push(p) }
+    }
+    return fresh
   }
 
-  // Keep ~2 pages prefetched at all times so the feed is always ready — even
-  // while scrolling fast — and loads feel instant. Fetches pages back-to-back
-  // until the buffer is deep enough, then tops up whenever it's drained.
-  const EXPLORE_BUFFER_TARGET = 100
+  // Keep a deep buffer (~3 pages) prefetched so the feed is always ready, even
+  // while scrolling fast. Fills in parallel and keeps topping up when drained.
+  const EXPLORE_BUFFER_TARGET = 150
   const fillExploreBuffer = async () => {
     if (exploreBusyRef.current || !exploreHasMore) return
     if (exploreBufferRef.current.length >= EXPLORE_BUFFER_TARGET) return
     exploreBusyRef.current = true
     let again = false
     try {
-      const fresh = await fetchNextExplorePage()
+      const fresh = await fetchExplorePages(3)
       if (fresh.length === 0) {
         exploreDryRef.current += 1
         if (exploreDryRef.current >= 20) setExploreHasMore(false)
@@ -2608,8 +2615,8 @@ export default function FromApp({
     }
   }
 
-  // Initial load (or refresh) — page 0 → feed, then immediately warm the buffer
-  // with page 1 so the very first scroll-load is instant.
+  // Initial load (or refresh) — fetch the first 2 pages in parallel so ~100
+  // products show fast, then deep-fill the buffer in the background.
   const loadExploreFeed = async () => {
     if (exploreBusyRef.current) return
     exploreBusyRef.current = true
@@ -2618,11 +2625,11 @@ export default function FromApp({
       explorePageRef.current = 0
       exploreDryRef.current = 0
       exploreBufferRef.current = []
-      const batch = await fetchExploreBatch(0, [])
-      if (batch.length) {
-        setExploreFeed(batch)
+      const fresh = await fetchExplorePages(2)
+      if (fresh.length) {
+        setExploreFeed(fresh)
         setExploreHasMore(true)
-        try { localStorage.setItem('from:explore-feed', JSON.stringify(batch.slice(0, 60))) } catch {}
+        try { localStorage.setItem('from:explore-feed', JSON.stringify(fresh.slice(0, 80))) } catch {}
       }
     } catch { /* keep whatever is cached */ }
     finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
@@ -2640,12 +2647,12 @@ export default function FromApp({
       fillExploreBuffer()   // top the buffer back up in the background
       return
     }
-    // Buffer not ready yet — fetch directly, then warm the buffer.
+    // Buffer not ready yet — fetch 2 pages in parallel, then warm the buffer.
     if (exploreBusyRef.current || !exploreHasMore) return
     exploreBusyRef.current = true
     setExploreFeedLoading(true)
     try {
-      const fresh = await fetchNextExplorePage()
+      const fresh = await fetchExplorePages(2)
       if (fresh.length === 0) {
         exploreDryRef.current += 1
         if (exploreDryRef.current >= 20) setExploreHasMore(false)
