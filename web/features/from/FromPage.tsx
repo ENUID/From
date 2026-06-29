@@ -470,6 +470,63 @@ function CardCarousel({ images, onOpen }: { images: string[]; onOpen: () => void
   )
 }
 
+// ── Explore tile — progressively upgrades to the on-body / model gallery ──────
+// Feed products only carry the store's primary image (usually a flat packshot).
+// The real model shots live in the product's full gallery (product.json), which
+// we fetch lazily here (cached) and rank model-first, so the tile shows the
+// model wearing the piece instead of a lame packshot — without blocking the feed.
+const _galleryCache = new Map<string, string[]>()
+const _galleryPending = new Map<string, Promise<string[]>>()
+function fetchGallery(storeUrl: string): Promise<string[]> {
+  const cached = _galleryCache.get(storeUrl)
+  if (cached) return Promise.resolve(cached)
+  const inflight = _galleryPending.get(storeUrl)
+  if (inflight) return inflight
+  const job = fetch(`/api/product-images?url=${encodeURIComponent(storeUrl)}`)
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => (Array.isArray(d?.images) ? (d.images as string[]) : []))
+    .catch(() => [] as string[])
+    .then(imgs => { _galleryCache.set(storeUrl, imgs); _galleryPending.delete(storeUrl); return imgs })
+  _galleryPending.set(storeUrl, job)
+  return job
+}
+
+function ExploreTile({ p, animDelay, pressHandlers, onOpen }: {
+  p: Product
+  animDelay: string
+  pressHandlers: Record<string, unknown>
+  onOpen: () => void
+}) {
+  const base = useMemo(() => getProductImages(p), [p.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [imgs, setImgs] = useState<string[]>(base)
+  useEffect(() => {
+    setImgs(base)
+    if (!p.store_url) return
+    let cancelled = false
+    fetchGallery(p.store_url).then(g => {
+      if (cancelled || g.length === 0) return
+      // Full gallery first (has the model shots), then any catalog images not in
+      // it; rankImageUrls puts model/on-body shots ahead of flat packshots.
+      const merged = rankImageUrls([...g, ...base.filter(u => !g.includes(u))])
+      if (merged.length > 0) setImgs(merged)
+    })
+    return () => { cancelled = true }
+  }, [p.id, p.store_url]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="fr-mtile" role="button" tabIndex={0} style={{ animationDelay: animDelay }}
+      {...pressHandlers}
+      onKeyDown={e => e.key === 'Enter' && onOpen()}>
+      <CardCarousel images={imgs} onOpen={onOpen} />
+      <div className="fr-mtile-views">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+        </svg>
+        {formatCount(socialProofCount(p.id))}
+      </div>
+    </div>
+  )
+}
+
 // ── Colour-name → CSS swatch ─────────────────────────────────────────────────
 // Maps fashion colour vocabulary to a displayable swatch. Falls back to CSS
 // named colours, then a neutral, so an unknown name never renders blank.
@@ -2643,11 +2700,15 @@ export default function FromApp({
     finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
   }
 
-  // Pull-to-refresh: jump to a different brand window and REPLACE the feed with a
-  // fresh set, then scroll back to the top. Each pull lands on new brands.
+  // Refresh (button or pull): jump to a different brand window and REPLACE the
+  // feed with a fresh set. Always works on demand — it is NOT blocked by a
+  // background buffer fill (only ignores rapid double-taps), so the toggle never
+  // feels stuck. Each refresh lands on new brands.
+  const exploreRefreshingRef = useRef(false)
   const refreshExplore = async () => {
-    if (exploreBusyRef.current) return
-    exploreBusyRef.current = true
+    if (exploreRefreshingRef.current) return   // ignore rapid double-taps only
+    exploreRefreshingRef.current = true
+    exploreBusyRef.current = true              // block background fills during refresh
     setExploreFeedLoading(true)
     try {
       exploreRefreshRef.current += 1
@@ -2662,7 +2723,12 @@ export default function FromApp({
         try { localStorage.setItem('from:explore-feed', JSON.stringify(fresh.slice(0, 80))) } catch {}
       }
     } catch { /* keep current feed on failure */ }
-    finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
+    finally {
+      setExploreFeedLoading(false)
+      exploreBusyRef.current = false
+      exploreRefreshingRef.current = false
+      fillExploreBuffer()
+    }
   }
 
   // Infinite scroll — drain the prefetched buffer instantly when it's ready, then
@@ -4444,31 +4510,19 @@ export default function FromApp({
               exploreFeed.length > 0 ? (
                 <div className="fr-mosaic">
                   {exploreFeed.map((p, i) => (
-                      <div key={p.id} className="fr-mtile"
-                        role="button" tabIndex={0}
-                        style={{ animationDelay: `${Math.min(i * 0.02, 0.4)}s` }}
-                        {...makePressHandlers((x, y) => {
-                          productWasLong.current = true
-                          const menuW = 200; const menuH = 160
-                          const above = y + 8 + menuH > window.innerHeight
-                          const my = Math.max(8, above ? y - menuH - 4 : y + 8)
-                          const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
-                          ctxMenuOpenAt.current = Date.now()
-                          setProductCtxMenu({ product: p, x: mx, y: my, above })
-                        })}
-                        onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                        {/* Swipeable carousel shows every image of the product (dots + swipe) */}
-                        <CardCarousel
-                          images={getProductImages(p)}
-                          onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
-                        />
-                        <div className="fr-mtile-views">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-                          </svg>
-                          {formatCount(socialProofCount(p.id))}
-                        </div>
-                      </div>
+                    <ExploreTile key={p.id} p={p}
+                      animDelay={`${Math.min(i * 0.02, 0.4)}s`}
+                      pressHandlers={makePressHandlers((x, y) => {
+                        productWasLong.current = true
+                        const menuW = 200; const menuH = 160
+                        const above = y + 8 + menuH > window.innerHeight
+                        const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                        const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
+                        ctxMenuOpenAt.current = Date.now()
+                        setProductCtxMenu({ product: p, x: mx, y: my, above })
+                      })}
+                      onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                    />
                   ))}
                   {exploreHasMore && <div ref={exploreSentinelRef} style={{ gridColumn: '1 / -1', height: 1 }} />}
                   {exploreFeedLoading && exploreFeed.length > 0 && (
@@ -4562,6 +4616,28 @@ export default function FromApp({
 
             <div style={{ height: 12 }} />
           </div>
+
+          {/* ── Refresh button — Explore only. Always visible; re-rolls the feed. ── */}
+          {showExplore && (
+            <button type="button" onClick={() => { exploreScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); refreshExplore() }}
+              disabled={exploreFeedLoading}
+              aria-label="Refresh"
+              style={{
+                position: 'fixed', left: '50%', transform: 'translateX(-50%)',
+                bottom: `calc(20px + env(safe-area-inset-bottom, 0px))`, zIndex: 60,
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '11px 20px', borderRadius: 999, border: 'none',
+                background: INK, color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 500, letterSpacing: '.02em',
+                boxShadow: '0 6px 22px rgba(44,18,6,.32), 0 1px 4px rgba(44,18,6,.2)',
+                cursor: exploreFeedLoading ? 'default' : 'pointer', opacity: exploreFeedLoading ? 0.7 : 1,
+              }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: exploreFeedLoading ? 'spin .7s linear infinite' : 'none' }}>
+                <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+              </svg>
+              {exploreFeedLoading ? 'Refreshing' : 'Refresh'}
+            </button>
+          )}
 
           {/* ── Search bar — floats above content. Hidden on Explore (pure browse). ── */}
           <div className="fr-bar-wrap" style={{
