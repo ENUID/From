@@ -400,7 +400,10 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
   const runOne = async (q: string): Promise<{ products: any[]; errored: boolean }> => {
     // Empty query = browse full catalog. Shopify MCP returns all available products
     // when no query is specified, so we omit the field rather than sending "".
-    const catalogArgs: Record<string, any> = { filters: { available: true }, pagination: { limit: 30 } }
+    // Reach deeper into each brand's catalog: more matches per brand for search,
+    // and a wider sample for browse/Explore. (Shopify's MCP caps the page here —
+    // true full-catalog depth needs cursor pagination via products.json.)
+    const catalogArgs: Record<string, any> = { filters: { available: true }, pagination: { limit: q ? 40 : 60 } }
     if (q) catalogArgs.query = q
     const payload = {
       jsonrpc: '2.0',
