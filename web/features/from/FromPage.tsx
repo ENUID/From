@@ -1827,11 +1827,11 @@ export default function FromApp({
   const exploreBufferRef = useRef<Product[]>([])   // next page, prefetched for instant scroll
   const exploreSentinelRef = useRef<HTMLDivElement>(null)
   const exploreScrollRef = useRef<HTMLDivElement>(null)
-  const exploreRefreshRef = useRef(0)              // bumps the brand window on pull-to-refresh
-  // Pull-to-refresh (Explore): track the drag from the top of the scroll area.
-  const [pullY, setPullY] = useState(0)
-  const pullStartY = useRef(0)
-  const pullActive = useRef(false)
+  const exploreRefreshRef = useRef(0)              // bumps the brand window on refresh
+  // Refresh button visibility — shown near the top / on scroll-up, hidden while
+  // scrolling down so it never covers products.
+  const [showRefreshBtn, setShowRefreshBtn] = useState(true)
+  const lastExploreScrollY = useRef(0)
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null)
@@ -2773,6 +2773,8 @@ export default function FromApp({
     exploreDryRef.current = 0
     explorePageRef.current = 0
     exploreBufferRef.current = []
+    lastExploreScrollY.current = 0
+    setShowRefreshBtn(true)
     // Always fetch a fresh page on open. Any cached feed still shows instantly
     // (it seeds the initial state), but we refresh so a stale/sparse cache from
     // a previous session is replaced with a full one.
@@ -4374,39 +4376,17 @@ export default function FromApp({
               which disables scroll and adds the big top padding). */}
           <div className={`fr-body${hasConversation || showExplore ? '' : ' home'}`}
             ref={exploreScrollRef}
-            onTouchStart={showExplore ? (e => {
-              const el = e.currentTarget
-              if (el.scrollTop <= 0 && !exploreFeedLoading) { pullStartY.current = e.touches[0].clientY; pullActive.current = true }
-              else pullActive.current = false
-            }) : undefined}
-            onTouchMove={showExplore ? (e => {
-              if (!pullActive.current) return
-              const dy = e.touches[0].clientY - pullStartY.current
-              if (dy > 0 && e.currentTarget.scrollTop <= 0) setPullY(Math.min(dy * 0.45, 80))
-              else { setPullY(0); if (e.currentTarget.scrollTop > 0) pullActive.current = false }
-            }) : undefined}
-            onTouchEnd={showExplore ? (() => {
-              if (!pullActive.current) return
-              pullActive.current = false
-              if (pullY > 56) { refreshExplore(); exploreScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }
-              setPullY(0)
+            onScroll={showExplore ? (e => {
+              // Show the Refresh button only when it's useful: near the top, or
+              // when the shopper scrolls up. Hide it while scrolling down so it
+              // never sits over the products.
+              const y = e.currentTarget.scrollTop
+              const last = lastExploreScrollY.current
+              if (y < 80) setShowRefreshBtn(true)
+              else if (y > last + 6) setShowRefreshBtn(false)
+              else if (y < last - 6) setShowRefreshBtn(true)
+              lastExploreScrollY.current = y
             }) : undefined}>
-
-            {/* Pull-to-refresh spinner (Explore) — follows the pull, then spins
-                while the fresh feed loads. */}
-            {showExplore && (pullY > 4 || (exploreFeedLoading && !pullActive.current)) && (
-              <div style={{ position: 'absolute', top: 8, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 5,
-                transform: `translateY(${pullActive.current ? Math.min(pullY * 0.5, 40) : 6}px)`,
-                opacity: pullActive.current ? Math.min(1, pullY / 56) : 1 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round"
-                  style={{
-                    animation: (exploreFeedLoading && !pullActive.current) ? 'spin .7s linear infinite' : 'none',
-                    transform: pullActive.current ? `rotate(${pullY * 4}deg)` : 'none',
-                  }}>
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                </svg>
-              </div>
-            )}
 
             {/* Greeting — home screen only, not on Explore */}
             {!hasConversation && !showExplore && <div className={`fr-greet${loaded ? ' in' : ''}`}>
@@ -4617,19 +4597,23 @@ export default function FromApp({
             <div style={{ height: 12 }} />
           </div>
 
-          {/* ── Refresh button — Explore only. Always visible; re-rolls the feed. ── */}
+          {/* ── Refresh button — Explore only. Shown near the top / on scroll-up. ── */}
           {showExplore && (
             <button type="button" onClick={() => { exploreScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); refreshExplore() }}
               disabled={exploreFeedLoading}
               aria-label="Refresh"
               style={{
-                position: 'fixed', left: '50%', transform: 'translateX(-50%)',
-                bottom: `calc(20px + env(safe-area-inset-bottom, 0px))`, zIndex: 60,
+                position: 'fixed', left: '50%', zIndex: 60,
+                bottom: `calc(96px + env(safe-area-inset-bottom, 0px))`,  // sits above the search bar
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '11px 20px', borderRadius: 999, border: 'none',
                 background: INK, color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 500, letterSpacing: '.02em',
                 boxShadow: '0 6px 22px rgba(44,18,6,.32), 0 1px 4px rgba(44,18,6,.2)',
-                cursor: exploreFeedLoading ? 'default' : 'pointer', opacity: exploreFeedLoading ? 0.7 : 1,
+                cursor: exploreFeedLoading ? 'default' : 'pointer',
+                transition: 'opacity .25s ease, transform .25s ease',
+                opacity: showRefreshBtn ? (exploreFeedLoading ? 0.75 : 1) : 0,
+                transform: `translateX(-50%) translateY(${showRefreshBtn ? 0 : 80}px)`,
+                pointerEvents: showRefreshBtn ? 'auto' : 'none',
               }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
                 style={{ animation: exploreFeedLoading ? 'spin .7s linear infinite' : 'none' }}>
@@ -4639,11 +4623,8 @@ export default function FromApp({
             </button>
           )}
 
-          {/* ── Search bar — floats above content. Hidden on Explore (pure browse). ── */}
-          <div className="fr-bar-wrap" style={{
-            ...(keyboardOffset > 0 ? { bottom: keyboardOffset } : {}),
-            ...(showExplore ? { display: 'none' } : {}),
-          }}>
+          {/* ── Search bar — floats above content ── */}
+          <div className="fr-bar-wrap" style={keyboardOffset > 0 ? { bottom: keyboardOffset } : undefined}>
 
             {/* Spring-animated wrapper */}
             <div style={{ transform: `scale(${barScale})`, transformOrigin: "center bottom", willChange: "transform" }}
