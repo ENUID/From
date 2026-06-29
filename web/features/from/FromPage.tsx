@@ -1769,6 +1769,12 @@ export default function FromApp({
   const exploreBusyRef = useRef(false)
   const exploreBufferRef = useRef<Product[]>([])   // next page, prefetched for instant scroll
   const exploreSentinelRef = useRef<HTMLDivElement>(null)
+  const exploreScrollRef = useRef<HTMLDivElement>(null)
+  const exploreRefreshRef = useRef(0)              // bumps the brand window on pull-to-refresh
+  // Pull-to-refresh (Explore): track the drag from the top of the scroll area.
+  const [pullY, setPullY] = useState(0)
+  const pullStartY = useRef(0)
+  const pullActive = useRef(false)
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null)
@@ -2633,6 +2639,28 @@ export default function FromApp({
         try { localStorage.setItem('from:explore-feed', JSON.stringify(fresh.slice(0, 80))) } catch {}
       }
     } catch { /* keep whatever is cached */ }
+    finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
+  }
+
+  // Pull-to-refresh: jump to a different brand window and REPLACE the feed with a
+  // fresh set, then scroll back to the top. Each pull lands on new brands.
+  const refreshExplore = async () => {
+    if (exploreBusyRef.current) return
+    exploreBusyRef.current = true
+    setExploreFeedLoading(true)
+    try {
+      exploreRefreshRef.current += 1
+      explorePageRef.current = exploreRefreshRef.current * 7   // new window each refresh
+      exploreDryRef.current = 0
+      exploreBufferRef.current = []
+      setExploreHasMore(true)
+      setExploreSeed(Math.floor((exploreRefreshRef.current * 3) % 7))
+      const fresh = await fetchExplorePages(1)
+      if (fresh.length) {
+        setExploreFeed(fresh)
+        try { localStorage.setItem('from:explore-feed', JSON.stringify(fresh.slice(0, 80))) } catch {}
+      }
+    } catch { /* keep current feed on failure */ }
     finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
   }
 
@@ -4277,7 +4305,41 @@ export default function FromApp({
           {/* ── Body ── */}
           {/* Explore uses the normal scrolling body (not the fixed `.home` layout,
               which disables scroll and adds the big top padding). */}
-          <div className={`fr-body${hasConversation || showExplore ? '' : ' home'}`}>
+          <div className={`fr-body${hasConversation || showExplore ? '' : ' home'}`}
+            ref={exploreScrollRef}
+            onTouchStart={showExplore ? (e => {
+              const el = e.currentTarget
+              if (el.scrollTop <= 0 && !exploreFeedLoading) { pullStartY.current = e.touches[0].clientY; pullActive.current = true }
+              else pullActive.current = false
+            }) : undefined}
+            onTouchMove={showExplore ? (e => {
+              if (!pullActive.current) return
+              const dy = e.touches[0].clientY - pullStartY.current
+              if (dy > 0 && e.currentTarget.scrollTop <= 0) setPullY(Math.min(dy * 0.45, 80))
+              else { setPullY(0); if (e.currentTarget.scrollTop > 0) pullActive.current = false }
+            }) : undefined}
+            onTouchEnd={showExplore ? (() => {
+              if (!pullActive.current) return
+              pullActive.current = false
+              if (pullY > 56) { refreshExplore(); exploreScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }
+              setPullY(0)
+            }) : undefined}>
+
+            {/* Pull-to-refresh spinner (Explore) — follows the pull, then spins
+                while the fresh feed loads. */}
+            {showExplore && (pullY > 4 || (exploreFeedLoading && !pullActive.current)) && (
+              <div style={{ position: 'absolute', top: 8, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 5,
+                transform: `translateY(${pullActive.current ? Math.min(pullY * 0.5, 40) : 6}px)`,
+                opacity: pullActive.current ? Math.min(1, pullY / 56) : 1 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round"
+                  style={{
+                    animation: (exploreFeedLoading && !pullActive.current) ? 'spin .7s linear infinite' : 'none',
+                    transform: pullActive.current ? `rotate(${pullY * 4}deg)` : 'none',
+                  }}>
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+              </div>
+            )}
 
             {/* Greeting — home screen only, not on Explore */}
             {!hasConversation && !showExplore && <div className={`fr-greet${loaded ? ' in' : ''}`}>
