@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
-import { UCP_REGISTRY, getStoreCountry, bestBrandDomains } from '@/lib/stores'
+import { bestBrandDomains } from '@/lib/stores'
 
 export const maxDuration = 60
 
 // Deterministic shuffle keyed by a seed so each scroll page pulls a different,
-// stable window of brands (no Math.random → repeatable, paginates cleanly).
+// stable set of brands (no Math.random → repeatable, paginates cleanly).
 function seededShuffle<T>(arr: T[], seed: number): T[] {
   const a = arr.slice()
   let s = (seed >>> 0) || 1
@@ -32,11 +32,9 @@ function categoryOf(p: any): string {
   return 'other'
 }
 
-// Round-robin interleave across category buckets so the feed alternates rather
-// than clumping — and LEADS WITH CLOTHING (tops, dresses, bottoms, outerwear),
-// pushing footwear to the back so it's never a wall of shoes up top. The bucket
-// order is shuffled (within clothing / within the rest) per page so it stays
-// fresh and randomised, but clothing always comes before shoes.
+// Round-robin interleave across category buckets so the feed LEADS WITH CLOTHING
+// (tops, dresses, bottoms, outerwear) and pushes footwear to the back — never a
+// wall of shoes up top. Reorders only; never drops a product.
 const CLOTHING = ['top', 'dress', 'bottom', 'outerwear']
 function diversify(products: any[], seed: number): any[] {
   const buckets = new Map<string, any[]>()
@@ -45,7 +43,6 @@ function diversify(products: any[], seed: number): any[] {
     if (!buckets.has(c)) buckets.set(c, [])
     buckets.get(c)!.push(p)
   }
-  // Shuffle products within each bucket so the same brand/order doesn't recur.
   for (const list of Array.from(buckets.values())) {
     const s = seededShuffle(list, seed + list.length)
     list.length = 0
@@ -55,7 +52,6 @@ function diversify(products: any[], seed: number): any[] {
   const clothing = seededShuffle(present.filter(c => CLOTHING.includes(c)), seed + 5)
   const middle = seededShuffle(present.filter(c => !CLOTHING.includes(c) && c !== 'shoes'), seed + 9)
   const shoes = present.filter(c => c === 'shoes')
-  // Clothing first, then bags/accessories/jewelry/other, then shoes last.
   const order = [...clothing, ...middle, ...shoes]
   const lists = order.map(c => buckets.get(c)!)
   const out: any[] = []
@@ -70,10 +66,11 @@ function diversify(products: any[], seed: number): any[] {
   return out
 }
 
-// Explore feed: a varied, geo-aware sample drawn from the WHOLE roster. Each
-// page rotates to a different window of brands so the feed has real depth (it
-// keeps surfacing new brands as the shopper scrolls), and results are
-// interleaved by category so it's never just shoes.
+// Explore feed. Built on the proven-reliable "best brands" (premium/luxury —
+// the ones that actually respond on Shopify's MCP); the roster's long tail of
+// tiny stores mostly returns nothing, so leaning on them starved the feed.
+// Each page pulls a fresh rotated set of these brands for variety/depth, dedupes
+// against what's already shown (excludeIds), and interleaves clothes-first.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
@@ -86,57 +83,39 @@ export async function POST(req: NextRequest) {
       Array.isArray(body?.excludeIds) ? body.excludeIds.filter((x: any) => typeof x === 'string') : []
     )
 
-    // Brand selection. The feed's backbone is the RELIABLE brands (premium /
-    // luxury — the ones that actually respond on the MCP). The roster's long tail
-    // is full of small/slow stores that return nothing, so leaning on them (as a
-    // previous version did) starved the feed. So each page is mostly reliable
-    // brands, rotated per page for freshness, with the shopper's LOCAL brands up
-    // front (the service's geo-boost ranks their products first) and a little
-    // long-tail rotation for variety/depth.
-    const norm = (d: string) => d.toLowerCase().replace(/^www\./, '')
-    const allDomains = UCP_REGISTRY.map(s => norm(s.domain))
-    const reliable = seededShuffle(bestBrandDomains().map(norm), page * 7 + 11)
-    const local = countryCode ? allDomains.filter(d => getStoreCountry(d) === countryCode) : []
-    const tail = seededShuffle(allDomains, page * 13 + 5)
-    const tailStart = tail.length ? (page * 8) % tail.length : 0
-
-    const sample = Array.from(new Set([
-      ...seededShuffle(local, page + 3).slice(0, 12),   // local brands lead
-      ...reliable.slice(0, 38),                          // reliable backbone (always responds)
-      ...tail.slice(tailStart, tailStart + 8),           // rotating long-tail for variety
-    ]))
+    // A rotated set of reliable brands for this page. The service's geo-boost
+    // ranks the shopper's local brands first within the results.
+    const all = seededShuffle(bestBrandDomains(), page * 7 + 11)
+    const WINDOW = 28
+    const start = all.length ? (page * WINDOW) % all.length : 0
+    const sample = all.slice(start, start + WINDOW)
+    if (sample.length < WINDOW) sample.push(...all.slice(0, WINDOW - sample.length))
 
     const products = await GlobalCatalogService.search(
       '',                       // empty query → browse each brand's catalog
       undefined, [], countryCode, true, [],
       'relevance', buyerCurrency,
       { fastFirstPage: true },
-      sample,                    // restrict fan-out to this page's brand window
+      sample,                    // restrict fan-out to this page's reliable brands
     )
 
-    // In stock, not already shown, no duplicate id/image, max 3 per brand.
-    const perBrand = new Map<string, number>()
+    // In stock, not already shown, no duplicate id/image. NO per-brand cap — the
+    // working feed had none; a cap only ever subtracts. Vendor variety comes from
+    // the wide brand sample + category interleave.
     const seenId = new Set<string>()
     const seenImg = new Set<string>()
-    const capped = products.filter(p => {
+    const kept = products.filter(p => {
       if (!p.in_stock || excludeIds.has(p.id) || seenId.has(p.id)) return false
       const img = p.image_url || ''
       if (img && seenImg.has(img)) return false
-      let dom = ''
-      try { dom = new URL(p.store_url).hostname.replace(/^www\./, '') } catch {}
-      const n = perBrand.get(dom) ?? 0
-      if (n >= 5) return false
-      perBrand.set(dom, n + 1)
       seenId.add(p.id); if (img) seenImg.add(img)
       return true
     })
 
-    const out = diversify(capped, page * 13 + 1).slice(0, 50)
+    const out = diversify(kept, page * 13 + 1).slice(0, 50)
     return NextResponse.json({
       products: out,
-      // Lightweight diagnostics (always on, tiny) so the feed pipeline can be
-      // inspected on the live site without guesswork.
-      _meta: { sampled: sample.length, fetched: products.length, kept: capped.length, returned: out.length, cc: countryCode ?? null },
+      _meta: { sampled: sample.length, fetched: products.length, kept: kept.length, returned: out.length, cc: countryCode ?? null },
     })
   } catch (e) {
     console.error('[featured] error:', e)
