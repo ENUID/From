@@ -1828,10 +1828,12 @@ export default function FromApp({
   const exploreSentinelRef = useRef<HTMLDivElement>(null)
   const exploreScrollRef = useRef<HTMLDivElement>(null)
   const exploreRefreshRef = useRef(0)              // bumps the brand window on refresh
-  // Refresh button visibility — shown near the top / on scroll-up, hidden while
-  // scrolling down so it never covers products.
-  const [showRefreshBtn, setShowRefreshBtn] = useState(true)
-  const lastExploreScrollY = useRef(0)
+  // Instagram-style pull-to-refresh: a spinner that follows the pull from the top
+  // and fades out when the fresh feed has loaded.
+  const [pullY, setPullY] = useState(0)
+  const [pullRefreshing, setPullRefreshing] = useState(false)
+  const pullStartY = useRef(0)
+  const pulling = useRef(false)
   const [exploreToast, setExploreToast] = useState(false)
   const [exploreToastOut, setExploreToastOut] = useState(false)
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null)
@@ -2773,8 +2775,9 @@ export default function FromApp({
     exploreDryRef.current = 0
     explorePageRef.current = 0
     exploreBufferRef.current = []
-    lastExploreScrollY.current = 0
-    setShowRefreshBtn(true)
+    setPullY(0)
+    setPullRefreshing(false)
+    pulling.current = false
     // Always fetch a fresh page on open. Any cached feed still shows instantly
     // (it seeds the initial state), but we refresh so a stale/sparse cache from
     // a previous session is replaced with a full one.
@@ -4348,29 +4351,8 @@ export default function FromApp({
                 <FromLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
               </div>
             </div>
-            {/* Right: refresh (Explore only) + compose / new chat */}
+            {/* Right: compose / new chat */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {showExplore && (
-                <button
-                  onClick={() => { exploreScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); refreshExplore() }}
-                  disabled={exploreFeedLoading}
-                  aria-label="Refresh feed"
-                  style={{
-                    width: 36, height: 36, borderRadius: "50%", border: "none",
-                    background: "#ffffff",
-                    boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: exploreFeedLoading ? "default" : "pointer", flexShrink: 0, transition: "box-shadow .15s",
-                  }}
-                  onPointerEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
-                  onPointerLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"
-                    style={{ animation: exploreFeedLoading ? 'spin .7s linear infinite' : 'none' }}>
-                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
-                  </svg>
-                </button>
-              )}
               <button
                 onClick={() => handleReset()}
                 style={{
@@ -4399,17 +4381,46 @@ export default function FromApp({
               which disables scroll and adds the big top padding). */}
           <div className={`fr-body${hasConversation || showExplore ? '' : ' home'}`}
             ref={exploreScrollRef}
-            onScroll={showExplore ? (e => {
-              // Show the Refresh button only when it's useful: near the top, or
-              // when the shopper scrolls up. Hide it while scrolling down so it
-              // never sits over the products.
-              const y = e.currentTarget.scrollTop
-              const last = lastExploreScrollY.current
-              if (y < 80) setShowRefreshBtn(true)
-              else if (y > last + 6) setShowRefreshBtn(false)
-              else if (y < last - 6) setShowRefreshBtn(true)
-              lastExploreScrollY.current = y
+            onTouchStart={showExplore ? (e => {
+              if (e.currentTarget.scrollTop <= 0 && !pullRefreshing) {
+                pullStartY.current = e.touches[0].clientY; pulling.current = true
+              } else pulling.current = false
+            }) : undefined}
+            onTouchMove={showExplore ? (e => {
+              if (!pulling.current) return
+              const dy = e.touches[0].clientY - pullStartY.current
+              if (dy > 0 && e.currentTarget.scrollTop <= 0) setPullY(Math.min(dy * 0.5, 90))
+              else { setPullY(0); if (e.currentTarget.scrollTop > 0) pulling.current = false }
+            }) : undefined}
+            onTouchEnd={showExplore ? (() => {
+              if (!pulling.current) return
+              pulling.current = false
+              if (pullY >= 56) {
+                setPullY(0)
+                setPullRefreshing(true)
+                refreshExplore().finally(() => setPullRefreshing(false))
+              } else setPullY(0)
             }) : undefined}>
+
+            {/* Pull-to-refresh spinner — sits in the space the pull opens at the
+                top of the feed, spins while loading, then collapses + fades out. */}
+            {showExplore && (
+              <div style={{
+                height: pullRefreshing ? 50 : pullY,
+                overflow: 'hidden', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: pulling.current ? 'none' : 'height .32s cubic-bezier(.22,.61,.36,1)',
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{
+                    opacity: pullRefreshing ? 1 : Math.min(1, pullY / 56),
+                    animation: pullRefreshing ? 'spin .7s linear infinite' : 'none',
+                    transform: pullRefreshing ? 'none' : `rotate(${pullY * 4}deg)`,
+                  }}>
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+              </div>
+            )}
 
             {/* Greeting — home screen only, not on Explore */}
             {!hasConversation && !showExplore && <div className={`fr-greet${loaded ? ' in' : ''}`}>
