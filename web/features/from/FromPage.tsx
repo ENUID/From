@@ -2590,16 +2590,17 @@ export default function FromApp({
     return fresh
   }
 
-  // Keep a deep buffer (~3 pages) prefetched so the feed is always ready, even
-  // while scrolling fast. Fills in parallel and keeps topping up when drained.
-  const EXPLORE_BUFFER_TARGET = 150
+  // Keep ~1 page prefetched so the next scroll-load is instant. Fetches ONE
+  // page at a time (guarded), topping up whenever the buffer is drained. Single
+  // light calls keep the per-request load low so brands don't time out.
+  const EXPLORE_BUFFER_TARGET = 60
   const fillExploreBuffer = async () => {
     if (exploreBusyRef.current || !exploreHasMore) return
     if (exploreBufferRef.current.length >= EXPLORE_BUFFER_TARGET) return
     exploreBusyRef.current = true
     let again = false
     try {
-      const fresh = await fetchExplorePages(3)
+      const fresh = await fetchExplorePages(1)
       if (fresh.length === 0) {
         exploreDryRef.current += 1
         if (exploreDryRef.current >= 20) setExploreHasMore(false)
@@ -2611,12 +2612,12 @@ export default function FromApp({
     } catch { /* will retry on next trigger */ }
     finally {
       exploreBusyRef.current = false
-      if (again && exploreHasMore) fillExploreBuffer()   // keep the buffer deep
+      if (again && exploreHasMore) fillExploreBuffer()   // keep the buffer topped up
     }
   }
 
-  // Initial load (or refresh) — fetch the first 2 pages in parallel so ~100
-  // products show fast, then deep-fill the buffer in the background.
+  // Initial load (or refresh) — one light page, shown as soon as it lands, then
+  // the buffer warms in the background.
   const loadExploreFeed = async () => {
     if (exploreBusyRef.current) return
     exploreBusyRef.current = true
@@ -2625,7 +2626,7 @@ export default function FromApp({
       explorePageRef.current = 0
       exploreDryRef.current = 0
       exploreBufferRef.current = []
-      const fresh = await fetchExplorePages(2)
+      const fresh = await fetchExplorePages(1)
       if (fresh.length) {
         setExploreFeed(fresh)
         setExploreHasMore(true)
@@ -2647,12 +2648,12 @@ export default function FromApp({
       fillExploreBuffer()   // top the buffer back up in the background
       return
     }
-    // Buffer not ready yet — fetch 2 pages in parallel, then warm the buffer.
+    // Buffer not ready yet — fetch one page directly, then warm the buffer.
     if (exploreBusyRef.current || !exploreHasMore) return
     exploreBusyRef.current = true
     setExploreFeedLoading(true)
     try {
-      const fresh = await fetchExplorePages(2)
+      const fresh = await fetchExplorePages(1)
       if (fresh.length === 0) {
         exploreDryRef.current += 1
         if (exploreDryRef.current >= 20) setExploreHasMore(false)

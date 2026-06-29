@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
     // A wide window of brands for this page; wraps around the roster on deep
     // pages so scrolling never truly runs out. Wide enough to yield ~50 products.
-    const WINDOW = 32
+    const WINDOW = 24
     const start = ordered.length ? (page * WINDOW) % ordered.length : 0
     const sample = ordered.slice(start, start + WINDOW)
     if (sample.length < WINDOW) sample.push(...ordered.slice(0, WINDOW - sample.length))

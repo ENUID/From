@@ -403,7 +403,7 @@ async function fetchStore(domain: string, query: string, countryCode: string | n
     // Reach deeper into each brand's catalog: more matches per brand for search,
     // and a wider sample for browse/Explore. (Shopify's MCP caps the page here —
     // true full-catalog depth needs cursor pagination via products.json.)
-    const catalogArgs: Record<string, any> = { filters: { available: true }, pagination: { limit: q ? 40 : 60 } }
+    const catalogArgs: Record<string, any> = { filters: { available: true }, pagination: { limit: q ? 40 : 50 } }
     if (q) catalogArgs.query = q
     const payload = {
       jsonrpc: '2.0',
