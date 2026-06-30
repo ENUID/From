@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat } from '@/lib/groq'
+import { groqChat, FAST_MODEL } from '@/lib/groq'
 import { BoundedCache } from '@/lib/boundedCache'
 
 const cache = new BoundedCache<string, string>(2000)
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       [{ role: 'user', content: userMsg }],
       SYSTEM,
       undefined,
-      { max_tokens: 180, temperature: 0.2, model: 'llama-3.1-8b-instant' }
+      { max_tokens: 180, temperature: 0.2, model: FAST_MODEL }
     )
 
     const text = (msg?.content ?? '').trim()

@@ -1,8 +1,37 @@
-export const GROQ_BASE = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1'
-export const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
-export const CHAT_MODEL = process.env.GROQ_CHAT_MODEL ?? 'llama-3.3-70b-versatile'
-export const STYLIST_MODEL = process.env.GROQ_STYLIST_MODEL ?? 'llama-3.3-70b-versatile'
-export const VISION_MODEL = process.env.GROQ_VISION_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct'
+// ── AI text/vision client ────────────────────────────────────────────────────
+// Talks to OpenRouter (https://openrouter.ai), not Groq directly. We moved off
+// Groq because it periodically retires hosted open-weight models on short
+// notice — llama-3.1-8b-instant, llama-3.3-70b-versatile and
+// llama-4-scout-17b-16e-instruct (everything this file used to call) were all
+// deprecated by Groq on 2026-06-17. OpenRouter proxies the same kind of open
+// models (DeepSeek, Qwen, Llama, etc.) behind one stable OpenAI-compatible API,
+// so when a model gets retired again it's an env var change, not a rewrite.
+//
+// Function/constant names below (groqChat, CHAT_MODEL, ...) are kept as-is on
+// purpose — a dozen routes import them, and renaming would touch every call
+// site for a cosmetic win. Only this file and the env vars matter if the
+// provider changes again.
+//
+// Requires OPENROUTER_API_KEY (get one at https://openrouter.ai/keys). Model
+// IDs are env-driven with defaults below — verify the defaults still exist at
+// https://openrouter.ai/models and override via env vars if not.
+const AI_BASE = process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1'
+const AI_API_KEY = process.env.OPENROUTER_API_KEY ?? ''
+// Back-compat aliases (old code/scripts may still reference these names).
+export const GROQ_BASE = AI_BASE
+export const GROQ_API_KEY = AI_API_KEY
+// "Smart" tier — tool-calling capable, used for search planning + the Fabrics
+// stylist's heavy path. Override with OPENROUTER_SMART_MODEL.
+export const CHAT_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat'
+export const STYLIST_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat'
+// "Fast" tier — chitchat routing, rerank judging, descriptions, shipping
+// parsing, memory compression. Defaults to the same model as the smart tier
+// for safety (one fewer unverified model ID); point it at something cheaper/
+// quicker via OPENROUTER_FAST_MODEL once you've picked one from the catalog.
+export const FAST_MODEL = process.env.OPENROUTER_FAST_MODEL ?? CHAT_MODEL
+// Vision FALLBACK only — Gemini is primary (see wardrobeVisionChat below);
+// this only fires when Gemini is rate-limited or GOOGLE_AI_API_KEY is unset.
+export const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL ?? 'meta-llama/llama-4-maverick'
 
 export type ChatMessage = {
   role: string
@@ -13,15 +42,18 @@ export type ChatMessage = {
   products?: any[]
 }
 
-// Re-add getHeaders function
 function getHeaders() {
-  if (!GROQ_API_KEY || GROQ_API_KEY.includes('YOUR_GROQ_API_KEY_HERE')) {
-    throw new Error('GROQ_API_KEY is not set. Please update .env.local with your real Groq API key.')
+  if (!AI_API_KEY || AI_API_KEY.includes('YOUR_')) {
+    throw new Error('OPENROUTER_API_KEY is not set. Get one at https://openrouter.ai/keys and add it to .env.local / Vercel.')
   }
 
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${GROQ_API_KEY}`,
+    Authorization: `Bearer ${AI_API_KEY}`,
+    // OpenRouter uses these for attribution + per-app rate-limit tiering.
+    // Optional, but recommended — harmless if the values don't matter to you.
+    'HTTP-Referer': process.env.OPENROUTER_SITE_URL ?? 'https://from.enuid.com',
+    'X-Title': 'FROM',
   }
 }
 
@@ -70,11 +102,11 @@ export async function groqChat(
         }
       } catch (e) {}
 
-      // Cap at 8s so a long Groq-suggested wait doesn't timeout the Vercel function.
+      // Cap at 8s so a long provider-suggested wait doesn't timeout the Vercel function.
       // If the wait would be too long, bail immediately and let the caller try a fallback model.
-      if (delay > 8000) throw new Error(`Groq rate limit: suggested wait ${delay}ms exceeds cap`)
+      if (delay > 8000) throw new Error(`Rate limit: suggested wait ${delay}ms exceeds cap`)
 
-      console.warn(`Groq Rate Limited (429). Retrying in ${delay}ms... (Attempt ${retryCount + 1})`);
+      console.warn(`Rate limited (429). Retrying in ${delay}ms... (Attempt ${retryCount + 1})`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return groqChat(messages, system, tools, opts, retryCount + 1);
     }
@@ -84,7 +116,7 @@ export async function groqChat(
       try {
         const errorJson = JSON.parse(errorText);
         if (errorJson.error?.code === 'tool_use_failed' && errorJson.error?.failed_generation) {
-          console.warn("Caught Groq tool_use_failed error. Self-healing via failed_generation parser...");
+          console.warn("Caught tool_use_failed error. Self-healing via failed_generation parser...");
           return {
             role: 'assistant',
             content: errorJson.error.failed_generation
@@ -99,7 +131,7 @@ export async function groqChat(
     return data.choices?.[0]?.message
   } catch (err: any) {
     if (retryCount < 2 && !err.message?.includes('API key')) {
-      console.warn(`Groq connection error: ${err.message}. Retrying in 2000ms...`);
+      console.warn(`AI provider connection error: ${err.message}. Retrying in 2000ms...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
       return groqChat(messages, system, tools, opts, retryCount + 1);
     }
@@ -307,7 +339,7 @@ export async function groqVisionChat(
 
 // ── Gemini Flash vision ───────────────────────────────────────────────────────
 // Primary for wardrobe scans. Throws {status:429} on rate-limit so the caller
-// can fall back to Groq without wrapping in a try/catch everywhere.
+// can fall back to the Groq-vision-replacement model without wrapping in a try/catch everywhere.
 
 async function geminiVisionChat(
   systemPrompt: string,
@@ -344,9 +376,9 @@ async function geminiVisionChat(
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 }
 
-// ── Wardrobe vision — Gemini with Groq fallback ───────────────────────────────
+// ── Wardrobe vision — Gemini primary, OpenRouter vision fallback ───────────────────────────────
 // Tries Gemini 2.0 Flash first (better clothing recognition). On 429 (rate
-// limit hit) or missing key, falls back seamlessly to Groq Llama 4 Scout.
+// limit hit) or missing key, falls back seamlessly to the OpenRouter vision model.
 
 export async function wardrobeVisionChat(
   systemPrompt: string,
@@ -357,7 +389,7 @@ export async function wardrobeVisionChat(
   try {
     return await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)
   } catch (err: any) {
-    // 429 = Gemini rate limit, 0 = key not set — fall back to Groq
+    // 429 = Gemini rate limit, 0 = key not set — fall back to OpenRouter vision
     if (err.status === 429 || err.status === 0) {
       const imageParts = imageDataUrls.map(url => ({
         type: 'image_url' as const,

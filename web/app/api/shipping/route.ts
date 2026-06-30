@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat } from '@/lib/groq'
+import { groqChat, FAST_MODEL } from '@/lib/groq'
 import { BoundedCache } from '@/lib/boundedCache'
 import { safeParseStoreUrl } from '@/lib/ssrfGuard'
 
@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
       [{ role: 'user', content: combined }],
       SYSTEM,
       undefined,
-      { max_tokens: 300, temperature: 0.05, model: 'llama-3.1-8b-instant' }
+      { max_tokens: 300, temperature: 0.05, model: FAST_MODEL }
     )
 
     const raw_out = (msg?.content ?? '').trim()

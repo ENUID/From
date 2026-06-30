@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat, wardrobeVisionChat, CHAT_MODEL } from '@/lib/groq'
+import { groqChat, wardrobeVisionChat, CHAT_MODEL, FAST_MODEL } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor } from '@/lib/queryParser'
@@ -66,13 +66,14 @@ function isActionFollowThrough(question: string, lastAssistant: string): boolean
   )
 }
 
-// Gemini for queries that need fashion depth; Groq for conversational replies.
-// Both are tried as fallbacks for each other so a single provider/model
-// failure can never kill the reply.
-// Distinct Groq models in priority order: 8b first (fast, cheap, high TPM),
-// then 70b for depth. Deduped so CHAT_MODEL isn't tried twice.
-const GROQ_8B = 'llama-3.1-8b-instant'
-const GROQ_70B = 'llama-3.3-70b-versatile'
+// Gemini for queries that need fashion depth; OpenRouter for conversational
+// replies. Both are tried as fallbacks for each other so a single provider/
+// model failure can never kill the reply.
+// Distinct model tiers in priority order: fast first (cheap, high throughput),
+// then smart for depth. Deduped below so CHAT_MODEL isn't tried twice when
+// FAST_MODEL defaults to the same value.
+const GROQ_8B = FAST_MODEL
+const GROQ_70B = CHAT_MODEL
 
 async function stylistChat(
   messages: any[],

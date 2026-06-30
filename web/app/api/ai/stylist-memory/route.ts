@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { groqChat } from '@/lib/groq'
+import { groqChat, FAST_MODEL } from '@/lib/groq'
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '@/convex/_generated/api'
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const compression = await groqChat(
       [{ role: 'user', content: `Compress this Fabrics (AI stylist) conversation into a 80-100 word memory summary. Capture: what the shopper is working on, their style preferences, sizes or budget mentioned, products they liked or disliked, and any relevant personal context. Write in second person ("The shopper prefers..."). Be specific and dense with useful signals.\n\n${recent}` }],
       undefined, undefined,
-      { temperature: 0, max_tokens: 160, model: 'llama-3.1-8b-instant' }
+      { temperature: 0, max_tokens: 160, model: FAST_MODEL }
     )
 
     const summary: string = (compression?.content ?? '').trim()

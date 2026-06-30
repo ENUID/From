@@ -1,4 +1,4 @@
-import { groqChat } from '../groq'
+import { groqChat, FAST_MODEL } from '../groq'
 import type { UcpProduct } from './GlobalCatalogService'
 import { matchStyles, vocabPromptBlock } from '../styleVocabulary'
 
@@ -182,7 +182,7 @@ Return an entry for EVERY index. No trailing text after the closing bracket.`
       [{ role: 'user', content: userMsg }],
       system,
       undefined,
-      { temperature: 0, max_tokens: 1600, model: 'llama-3.1-8b-instant' },
+      { temperature: 0, max_tokens: 1600, model: FAST_MODEL },
     ).then((r: any) => {
       // groqChat returns data.choices[0].message — the message object itself.
       // Extract .content directly; do not drill into .choices again.
