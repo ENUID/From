@@ -3183,7 +3183,7 @@ export default function FromApp({
         .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;width:100%;padding:8px 3px 28px;box-sizing:border-box;}
         @media(min-width:900px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:4px;padding:10px 4px 28px;}}
         @media(min-width:1400px){.fr-mosaic{grid-template-columns:repeat(5,1fr);}}
-        .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#F2F2F2;aspect-ratio:4/5;opacity:0;animation:fr-fi .5s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+        .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#F2F2F2;aspect-ratio:3/4;opacity:0;animation:fr-fi .5s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-mtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.22,.61,.36,1);pointer-events:none;user-select:none;}
         .fr-mtile:hover img{transform:scale(1.045);}
         .fr-mtile-views{position:absolute;left:7px;bottom:6px;z-index:5;display:flex;align-items:center;gap:3px;
