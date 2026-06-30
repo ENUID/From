@@ -3177,8 +3177,9 @@ export default function FromApp({
         /* ── Explore mosaic — Instagram-style feed: a uniform 3-across grid of
            tall 4:5 portrait tiles, every tile the same size. Tight gaps; the
            portrait ratio shows fashion full-length. ── */
-        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;width:100%;padding:8px 3px 28px;box-sizing:border-box;}
-        @media(min-width:900px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:4px;padding:10px 4px 28px;}}
+        /* Instagram-style: 3 columns, edge-to-edge, tiny 2px gaps → full-width tiles */
+        .fr-mosaic{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;width:100%;padding:0 0 28px;box-sizing:border-box;}
+        @media(min-width:900px){.fr-mosaic{grid-template-columns:repeat(4,1fr);gap:2px;}}
         @media(min-width:1400px){.fr-mosaic{grid-template-columns:repeat(5,1fr);}}
         .fr-mtile{position:relative;overflow:hidden;cursor:pointer;background:#F2F2F2;aspect-ratio:3/4;opacity:0;animation:fr-fi .5s ease forwards;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-mtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.22,.61,.36,1);pointer-events:none;user-select:none;}
