@@ -161,25 +161,22 @@ function seededShuffle(arr: string[]): string[] {
 const SHUFFLED_PALETTE = seededShuffle(LOGO_PALETTE)
 
 // ── FROM wordmark ─────────────────────────────────────────────────────────────
+// Fabrics mark — a fanned set of fabric swatches pinned at the base, the way a
+// stylist flips through a swatch book to choose materials. Original to Fabrics.
 function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
+  const pivotX = 12, pivotY = 19.3
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeLinecap="round">
-      <circle cx="12" cy="12" r="9.5" strokeWidth={strokeWidth * 1.2}/>
-      <line x1="4.4"  y1="6.30"  x2="4.4"  y2="17.70" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="6.3"  y1="4.40"  x2="6.3"  y2="19.60" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="8.2"  y1="3.29"  x2="8.2"  y2="20.71" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="10.1" y1="2.69"  x2="10.1" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="12"   y1="2.50"  x2="12"   y2="21.50" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="13.9" y1="2.69"  x2="13.9" y2="21.31" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="15.8" y1="3.29"  x2="15.8" y2="20.71" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="17.7" y1="4.40"  x2="17.7" y2="19.60" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="19.6" y1="6.30"  x2="19.6" y2="17.70" strokeWidth={strokeWidth * 0.85}/>
-      <line x1="2.62" y1="13.5"  x2="21.38" y2="13.5"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="2.92" y1="14.8"  x2="21.08" y2="14.8"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="3.43" y1="16.1"  x2="20.57" y2="16.1"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="4.18" y1="17.4"  x2="19.82" y2="17.4"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="5.27" y1="18.7"  x2="18.73" y2="18.7"  strokeWidth={strokeWidth * 0.85}/>
-      <line x1="6.88" y1="20.0"  x2="17.12" y2="20.0"  strokeWidth={strokeWidth * 0.85}/>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke}
+      strokeWidth={strokeWidth * 1.25} strokeLinecap="round" strokeLinejoin="round">
+      {/* back swatches, fanned out left and right */}
+      <rect x="9.6" y="5.8" width="4.8" height="13.8" rx="1.8" transform={`rotate(-25 ${pivotX} ${pivotY})`}/>
+      <rect x="9.6" y="5.8" width="4.8" height="13.8" rx="1.8" transform={`rotate(25 ${pivotX} ${pivotY})`}/>
+      {/* front swatch, upright, with a hint of weave */}
+      <rect x="9.6" y="5.0" width="4.8" height="14.6" rx="1.8"/>
+      <line x1="10.7" y1="8.6" x2="13.3" y2="8.6" strokeWidth={strokeWidth * 0.9}/>
+      <line x1="10.7" y1="11.0" x2="13.3" y2="11.0" strokeWidth={strokeWidth * 0.9}/>
+      {/* the pin holding the swatches together */}
+      <circle cx={pivotX} cy={pivotY} r="0.95" fill={stroke} stroke="none"/>
     </svg>
   )
 }
