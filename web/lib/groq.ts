@@ -12,9 +12,21 @@
 // site for a cosmetic win. Only this file and the env vars matter if the
 // provider changes again.
 //
-// Requires OPENROUTER_API_KEY (get one at https://openrouter.ai/keys). Model
-// IDs are env-driven with defaults below — verify the defaults still exist at
+// Requires OPENROUTER_API_KEY (get one at https://openrouter.ai/keys — no
+// credit card needed for the free-tier models below). Model IDs are env-driven
+// with defaults below — verify the defaults still exist at
 // https://openrouter.ai/models and override via env vars if not.
+//
+// Defaulted to the FREE (":free" suffix) model variants — zero cost, same as
+// how Groq's free tier was used before. Tradeoff: OpenRouter's free tier is
+// capped account-wide (across every ":free" model combined) at 20 req/min and
+// 50 req/day with no credit purchased, or 1000/day once you've bought $10 of
+// credit (one-time, doesn't need to be spent — it just raises the free-tier
+// ceiling). If you start seeing the "busy" message a lot, that cap is why —
+// either wait for it to reset, or add $10 credit to lift it to 1000/day
+// without paying per-request. Switch to a paid model anytime via
+// OPENROUTER_SMART_MODEL / OPENROUTER_FAST_MODEL / OPENROUTER_VISION_MODEL —
+// no code change needed either way.
 const AI_BASE = process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1'
 const AI_API_KEY = process.env.OPENROUTER_API_KEY ?? ''
 // Back-compat aliases (old code/scripts may still reference these names).
@@ -22,8 +34,8 @@ export const GROQ_BASE = AI_BASE
 export const GROQ_API_KEY = AI_API_KEY
 // "Smart" tier — tool-calling capable, used for search planning + the Fabrics
 // stylist's heavy path. Override with OPENROUTER_SMART_MODEL.
-export const CHAT_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat'
-export const STYLIST_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat'
+export const CHAT_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat-v3.1:free'
+export const STYLIST_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat-v3.1:free'
 // "Fast" tier — chitchat routing, rerank judging, descriptions, shipping
 // parsing, memory compression. Defaults to the same model as the smart tier
 // for safety (one fewer unverified model ID); point it at something cheaper/
@@ -31,7 +43,7 @@ export const STYLIST_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/dee
 export const FAST_MODEL = process.env.OPENROUTER_FAST_MODEL ?? CHAT_MODEL
 // Vision FALLBACK only — Gemini is primary (see wardrobeVisionChat below);
 // this only fires when Gemini is rate-limited or GOOGLE_AI_API_KEY is unset.
-export const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL ?? 'meta-llama/llama-4-maverick'
+export const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL ?? 'meta-llama/llama-4-maverick:free'
 
 export type ChatMessage = {
   role: string
