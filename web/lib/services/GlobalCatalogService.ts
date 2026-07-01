@@ -15,6 +15,7 @@
  */
 
 import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, getStoreCountry, GEO_REGIONS, brandQualityScore } from '../stores'
+import { GARMENT_PRODUCT_TERMS } from '../queryParser'
 import { getExchangeRates } from '../exchangeRates'
 import { rerankByRelevance } from './relevanceRerank'
 import { matchStyles, styleRecallSignals } from '../styleVocabulary'
@@ -259,35 +260,62 @@ function conceptHit(haystack: string, group: string[]): boolean {
   return group.some(term => {
     const t = term.toLowerCase().trim()
     if (!t) return false
-    if (t.length < 4 || t.includes(' ') || t.includes('-')) return haystack.includes(t)
-    return new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(haystack)
+    if (t.includes(' ') || t.includes('-')) return haystack.includes(t)
+    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    // Short terms need BOTH boundaries — a bare prefix match lets "red" hit
+    // "reduced" and "tee" hit "teen". Longer terms keep the open-ended suffix
+    // so "shirt" still matches "shirts", "boot" matches "boots".
+    if (t.length < 4) return new RegExp(`\\b${esc}s?\\b`, 'i').test(haystack)
+    return new RegExp(`\\b${esc}`, 'i').test(haystack)
   })
 }
 
-/** Orders products by concept-group matches; hard-filters off-garment items when safe. */
+// Which concept group is the GARMENT (category) group? Match against the known
+// garment vocabulary instead of trusting position — LLM output sometimes leads
+// with gender or material, and hard-filtering on those returns wrong products.
+function findGarmentGroupIndex(groups: string[][]): number {
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].some(t => GARMENT_PRODUCT_TERMS.has(t.toLowerCase().trim()))) return i
+  }
+  return 0 // fall back to the historical assumption
+}
+
+/**
+ * Precision ordering: products matching EVERY requested detail (garment AND
+ * material AND color AND …) rank first, then right-category products missing
+ * a detail. Off-category products are dropped entirely when enough
+ * right-category results survive — the page stays FULL but exact matches
+ * always lead. Always graceful: never empties the page over a filter.
+ */
 function applyConceptRelevance(products: UcpProduct[], concepts: string[][], minKeep: number): UcpProduct[] {
   const groups = (concepts || []).filter(g => Array.isArray(g) && g.length > 0)
   if (groups.length === 0 || products.length === 0) return products
 
+  const garmentIdx = findGarmentGroupIndex(groups)
   const scored = products.map((p, i) => {
     const hay = productHaystack(p)
-    let score = 0
+    let hits = 0
     let garmentHit = false
+    let score = 0
     groups.forEach((g, gi) => {
       if (conceptHit(hay, g)) {
-        score += gi === 0 ? 100 : 10  // garment group dominates
-        if (gi === 0) garmentHit = true
+        hits++
+        // Garment dominates; every extra matched detail (material, color,
+        // gender) stacks on top — so a full exact match always outranks a
+        // right-category-only match, which outranks everything else.
+        score += gi === garmentIdx ? 100 : 10
+        if (gi === garmentIdx) garmentHit = true
       }
     })
-    return { p, i, score, garmentHit }
+    return { p, i, score, hits, garmentHit }
   })
 
-  // Hard-filter to on-garment products only when enough survive — never empty the page.
+  // Drop off-category products when enough right-category ones survive.
   const onGarment = scored.filter(s => s.garmentHit)
   const pool = onGarment.length >= Math.min(minKeep, products.length) ? onGarment : scored
 
-  // Stable: concept score desc, then original (store relevance) order.
-  return [...pool].sort((a, b) => b.score - a.score || a.i - b.i).map(s => s.p)
+  // Most-details-matched first, then original (store relevance) order.
+  return [...pool].sort((a, b) => b.score - a.score || b.hits - a.hits || a.i - b.i).map(s => s.p)
 }
 
 // ─── Non-fashion filter ────────────────────────────────────────────────────────
@@ -332,7 +360,12 @@ function translateEnToJa(query: string): string {
 function normalizeImageUrl(url?: string): string {
   if (!url) return ''
   let u = url.startsWith('//') ? `https:${url}` : url
-  if (u.includes('cdn.shopify.com')) {
+  // Shopify serves images from cdn.shopify.com, *.shopifycdn.*, AND the
+  // store's own domain under /cdn/shop/… — all honour the ?width= param.
+  // Without it, cards download the multi-MB original and the grid appears to
+  // load a couple of products at a time; with it, each card is ~20-40KB and
+  // a whole page of images lands near-simultaneously.
+  if (u.includes('cdn.shopify.com') || u.includes('shopifycdn') || u.includes('/cdn/shop/')) {
     try {
       const obj = new URL(u)
       obj.searchParams.set('width', '400')

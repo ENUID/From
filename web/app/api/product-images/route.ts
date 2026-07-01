@@ -17,7 +17,9 @@ function toGalleryUrl(src: string): string {
   if (!src) return src
   try {
     const u = new URL(src.startsWith('//') ? `https:${src}` : src)
-    if (u.hostname.includes('cdn.shopify.com')) {
+    // Shopify image hosts: cdn.shopify.com, *.shopifycdn.*, and the store's
+    // own domain under /cdn/shop/… — all honour the ?width= param.
+    if (u.hostname.includes('cdn.shopify') || u.hostname.includes('shopifycdn') || u.pathname.includes('/cdn/shop/')) {
       u.searchParams.set('width', '2048')
       u.searchParams.delete('height')
     }

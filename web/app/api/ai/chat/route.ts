@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { compileIntent, continueIntent, compiledReplyText, compiledSuggestions } from '@/lib/intentCompiler'
+import { augmentConcepts } from '@/lib/queryParser'
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
@@ -219,13 +220,20 @@ async function runCatalogSearch(args: SearchToolArgs, options: {
   const budgetCurrency = (args.budgetCurrency || options.buyerCurrency).toUpperCase()
   const sort = normalizeSort(args.sort)
   const brandDomains = options.brandDomains || []
+  // Verify + backfill the LLM's concept groups with the deterministic parser:
+  // whatever the model missed (garment synonyms, material, COLOR, gender) is
+  // added from the query text, so "black linen shirt" is matched on all three
+  // details even when the model only emitted the garment group. Only the clean
+  // searchQuery is parsed — the raw message can reference OTHER garments
+  // ("trousers that go with my linen shirt") and would pollute the filter.
+  const concepts = augmentConcepts(args.mandatoryConcepts || [], args.searchQuery)
   let products = await GlobalCatalogService.search(
     args.searchQuery,
     args.budgetMax,
     options.excludeIds || [],
     options.countryCode,
     args.isClothing,
-    args.mandatoryConcepts || [],
+    concepts,
     sort,
     budgetCurrency,
     {
@@ -486,7 +494,8 @@ TOOL USAGE:
 - searchQuery: keep it simple, specific and focused — the product type plus key descriptors (e.g. "linen shirt", "black chelsea boots"). Do NOT use the 'OR' operator and do NOT pad it with synonyms.
   * Strip brand names from searchQuery — "shirts from Taylor Stitch" → searchQuery "shirts". The brand is targeted separately.
   * Query language: write searchQuery in the targeted store's catalog language (English for English stores; Japanese for a Japanese-catalog store like coverchord.com, e.g. "シャツ"). Never put Vietnamese words in searchQuery. Never mix languages in one query.
-- mandatoryConcepts: ALWAYS set this — extract the critical concepts (product type, specific material, country of origin) as groups of synonyms. The system uses these to hard-rank results and reject off-category products.
+- mandatoryConcepts: ALWAYS set this — extract the critical concepts (product type, specific material, COLOR, country of origin) as groups of synonyms. The system uses these to hard-rank results and reject off-category products. The product-type group must come FIRST.
+  * When the user names a colour, include it as its own group with catalog synonyms: "black shirt" → [["shirt","shirts","tee","top"], ["black","jet black","noir"]]. "navy trousers" → [["trouser","trousers","pants"], ["navy","midnight","dark blue"]].
   * ALWAYS include the primary product type as the first concept group, even for simple requests. E.g. "show me shoes" → [["shoe","shoes","sneaker","sneakers","footwear","boot","boots"]]. "shirts" → [["shirt","shirts","tee","tees","top","tops"]]. Never leave mandatoryConcepts empty for a product search.
   * E.g. "sustainable leather bags from vietnam" → [["bag","bags","backpack","tote","túi"], ["leather","da","cuero"], ["vietnam","việt nam","vietnamese"]]
   * On a brand-new request for a different item, DROP the old concepts — only carry the concepts explicitly asked for now.

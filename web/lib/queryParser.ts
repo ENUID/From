@@ -227,11 +227,48 @@ export const MATERIAL_VOCAB: Record<string, string[]> = {
   hemp:     ['hemp'],
 }
 
+// ── Color vocabulary ──────────────────────────────────────────────────────────
+// key: the color word to detect in the USER'S QUERY (whole-word).
+// value: synonym group to look for in PRODUCT TEXT — so "black shirt" ranks
+// black shirts first, not any shirt. Synonyms cover how catalogs actually
+// label the shade ("navy" pieces are often tagged "midnight"/"ink").
+export const COLOR_VOCAB: Record<string, string[]> = {
+  black:  ['black', 'jet black', 'onyx', 'noir'],
+  white:  ['white', 'ivory', 'ecru', 'off-white', 'off white'],
+  cream:  ['cream', 'ivory', 'ecru', 'oatmeal', 'bone', 'vanilla'],
+  beige:  ['beige', 'sand', 'stone', 'oatmeal', 'taupe'],
+  tan:    ['tan', 'camel', 'caramel', 'cognac'],
+  brown:  ['brown', 'chocolate', 'coffee', 'mocha', 'espresso', 'walnut'],
+  grey:   ['grey', 'gray', 'charcoal', 'slate', 'graphite'],
+  gray:   ['gray', 'grey', 'charcoal', 'slate', 'graphite'],
+  navy:   ['navy', 'midnight', 'dark blue'],
+  blue:   ['blue', 'navy', 'cobalt', 'indigo', 'azure'],
+  green:  ['green', 'olive', 'sage', 'forest', 'emerald', 'moss'],
+  olive:  ['olive', 'army green', 'military green', 'moss'],
+  red:    ['red', 'crimson', 'scarlet', 'cherry'],
+  burgundy: ['burgundy', 'maroon', 'wine', 'oxblood', 'bordeaux'],
+  pink:   ['pink', 'blush', 'rose', 'dusty pink'],
+  purple: ['purple', 'violet', 'plum', 'lilac', 'lavender'],
+  orange: ['orange', 'rust', 'terracotta', 'burnt orange', 'amber'],
+  yellow: ['yellow', 'mustard', 'ochre', 'lemon'],
+  gold:   ['gold', 'golden'],
+  silver: ['silver', 'metallic'],
+}
+
+// Every product-side garment term, lowercased — lets the catalog service
+// identify which concept group is the GARMENT group (the hard filter) no
+// matter what order the groups arrived in (LLM output varies; gender groups
+// used to land first and get mistaken for the garment).
+export const GARMENT_PRODUCT_TERMS: Set<string> = new Set(
+  Object.values(GARMENT_VOCAB).flatMap(e => e.product.map(t => t.toLowerCase())),
+)
+
 // ── Query decomposition ───────────────────────────────────────────────────────
 export type QueryComponents = {
   gender?: 'men' | 'women' | 'kids'
   garmentKeys: string[]
   materials: string[]
+  colors: string[]
 }
 
 export function decomposeQuery(query: string): QueryComponents {
@@ -251,19 +288,24 @@ export function decomposeQuery(query: string): QueryComponents {
     if (hasWord(lower, mat)) materials.push(mat)
   }
 
-  return { gender, garmentKeys, materials }
+  const colors: string[] = []
+  for (const [color] of Object.entries(COLOR_VOCAB)) {
+    if (hasWord(lower, color)) colors.push(color)
+  }
+
+  return { gender, garmentKeys, materials, colors }
 }
 
 // ── Concept builder ───────────────────────────────────────────────────────────
 // Builds mandatoryConcepts string[][] from a query.
-// Each group is a list of synonyms; a product must contain at least one
-// term from EVERY group to pass the hard filter.
+// ORDER MATTERS: the garment group(s) come FIRST — the catalog service treats
+// the garment group as the hard category filter, everything after it
+// (material, color, gender) as precision ranking signals. Gender goes LAST:
+// it's the weakest product-text signal (unisex pieces often name no gender)
+// and must never be mistaken for the garment filter.
 export function buildMandatoryConcepts(query: string): string[][] {
-  const { gender, garmentKeys, materials } = decomposeQuery(query)
+  const { gender, garmentKeys, materials, colors } = decomposeQuery(query)
   const concepts: string[][] = []
-
-  if (gender === 'men')   concepts.push(['men', 'mens', 'man', 'male', 'unisex'])
-  if (gender === 'women') concepts.push(['women', 'womens', 'woman', 'ladies', 'female'])
 
   for (const key of garmentKeys) {
     const entry = GARMENT_VOCAB[key]
@@ -274,6 +316,14 @@ export function buildMandatoryConcepts(query: string): string[][] {
     const synonyms = MATERIAL_VOCAB[mat]
     if (synonyms) concepts.push(synonyms)
   }
+
+  for (const color of colors) {
+    const synonyms = COLOR_VOCAB[color]
+    if (synonyms) concepts.push(synonyms)
+  }
+
+  if (gender === 'men')   concepts.push(['men', 'mens', 'man', 'male', 'unisex'])
+  if (gender === 'women') concepts.push(['women', 'womens', 'woman', 'ladies', 'female'])
 
   return concepts
 }
