@@ -636,7 +636,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         WARDROBE_SYSTEM,
         question || 'Please analyze my wardrobe pieces.',
         images,
-        { max_tokens: 900, temperature: 0.3 }
+        { max_tokens: 1400, temperature: 0.3 }
       )
       const { reply, wardrobeScan } = parseWardrobeToken(raw)
       return NextResponse.json({ reply, wardrobeScan: wardrobeScan ?? null, comparison: null })
@@ -704,7 +704,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         `Shopper's current message: ${question}`,
       ].filter(Boolean).join('\n\n')
 
-      raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 900, temperature: 0.3 })
+      raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 1100, temperature: 0.3 })
     } else {
       // Text-only path (no images).
       // Conversational messages use a short ~300-token prompt (avoids rate limits,
@@ -720,7 +720,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         { role: 'user' as const, content: question },
       ]
       try {
-        const msg = await stylistChat(messages, combinedSystem, { max_tokens: 700, temperature: 0.4 }, heavy)
+        const msg = await stylistChat(messages, combinedSystem, { max_tokens: 1100, temperature: 0.4 }, heavy)
         raw = (msg?.content ?? '').trim()
       } catch (err) {
         console.error('[stylist] model call failed:', err)
@@ -729,6 +729,28 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         }
         console.error('[stylist] all models failed:', (err as Error).message)
         return NextResponse.json({ reply: "Something went wrong. Please try again.", comparison: null })
+      }
+
+      // Self-heal: the #1 failure mode is the model describing an outfit/item in
+      // prose (garment names, materials) but never emitting the [SEARCH:]/
+      // [OUTFIT:] token — usually because it ran long and got cut off before the
+      // trailing token, or just didn't follow the instruction. Detect that
+      // specific shape and retry ONCE with a short, forceful reminder before
+      // giving up and showing bare text with no product cards.
+      const hasToken = /\[(SEARCH|OUTFIT|COMPARE|WARDROBE):/i.test(raw)
+      const describesProducts = /\b(shirt|jacket|blazer|coat|trouser|pant|jean|dress|shoe|sneaker|boot|loafer|sandal|skirt|sweater|knit|linen|cotton|wool|silk|leather|denim)\b/i.test(raw)
+      if (heavy && raw && !hasToken && describesProducts) {
+        try {
+          const retryNudge = combinedSystem + `\n\n━━━ CORRECTION ━━━ Your last reply described clothing but did not include the required token. This time keep the lead-in to ONE short sentence and end the reply with either [SEARCH: precise query] for a single item or [OUTFIT: query1 | query2 | query3] for a full look — the token MUST be present, it is how the shopper actually sees and buys the pieces.`
+          const retryMsg = await stylistChat(messages, retryNudge, { max_tokens: 1100, temperature: 0.3 }, heavy)
+          const retryRaw = (retryMsg?.content ?? '').trim()
+          if (retryRaw && /\[(SEARCH|OUTFIT|COMPARE|WARDROBE):/i.test(retryRaw)) {
+            raw = retryRaw
+          }
+        } catch (e) {
+          console.error('[stylist] token self-heal retry failed:', e)
+          // Keep the original text-only reply — never block the response over this.
+        }
       }
     }
 
