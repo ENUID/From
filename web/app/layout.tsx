@@ -7,11 +7,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 export const metadata: Metadata = {
-  title: 'FROM — The Future of AI Shopping',
+  title: 'FROM — AI Shopping Agent',
   description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
   metadataBase: new URL('https://from.enuid.com'),
   openGraph: {
-    title: 'FROM — The Future of AI Shopping',
+    title: 'FROM — AI Shopping Agent',
     description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
     url: 'https://from.enuid.com',
     siteName: 'FROM',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FROM — The Future of AI Shopping',
+    title: 'FROM — AI Shopping Agent',
     description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
     images: ['/og.jpg'],
   },
