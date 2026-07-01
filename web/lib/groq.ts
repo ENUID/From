@@ -1,37 +1,38 @@
 // ── AI text/vision client ────────────────────────────────────────────────────
-// Talks to OpenRouter (https://openrouter.ai), not Groq directly. We moved off
-// Groq because it periodically retires hosted open-weight models on short
-// notice — llama-3.1-8b-instant, llama-3.3-70b-versatile and
+// PRIMARY: OpenRouter (free-tier models — see below). FALLBACK: Groq direct,
+// for when OpenRouter's free tier hits its request cap. Two independent
+// providers so one running dry never takes text chat down.
+//
+// We moved the primary off Groq because it periodically retires hosted open
+// models on short notice — llama-3.1-8b-instant, llama-3.3-70b-versatile and
 // llama-4-scout-17b-16e-instruct (everything this file used to call) were all
 // deprecated by Groq on 2026-06-17. OpenRouter proxies the same kind of open
 // models (DeepSeek, Qwen, Llama, etc.) behind one stable OpenAI-compatible API,
 // so when a model gets retired again it's an env var change, not a rewrite.
+// Groq is kept as a SECOND, independent free tier behind it (Groq's own
+// current model lineup — NOT the deprecated ones — see GROQ_SMART_MODEL /
+// GROQ_FAST_MODEL below), so the two free tiers' request caps don't share a
+// pool: if OpenRouter's free 50-100/day cap is exhausted, Groq picks up.
 //
 // Function/constant names below (groqChat, CHAT_MODEL, ...) are kept as-is on
 // purpose — a dozen routes import them, and renaming would touch every call
-// site for a cosmetic win. Only this file and the env vars matter if the
-// provider changes again.
+// site for a cosmetic win. Only this file and the env vars matter if a
+// provider or model changes again.
 //
-// Requires OPENROUTER_API_KEY (get one at https://openrouter.ai/keys — no
-// credit card needed for the free-tier models below). Model IDs are env-driven
-// with defaults below — verify the defaults still exist at
-// https://openrouter.ai/models and override via env vars if not.
+// Requires OPENROUTER_API_KEY (https://openrouter.ai/keys — no card needed for
+// the free models below). GROQ_API_KEY / GROQ_BASE_URL are optional — reuses
+// whatever was already configured before the OpenRouter migration; if unset,
+// the Groq fallback is simply skipped and OpenRouter is the only provider.
 //
-// Defaulted to the FREE (":free" suffix) model variants — zero cost, same as
-// how Groq's free tier was used before. Tradeoff: OpenRouter's free tier is
-// capped account-wide (across every ":free" model combined) at 20 req/min and
-// 50 req/day with no credit purchased, or 1000/day once you've bought $10 of
-// credit (one-time, doesn't need to be spent — it just raises the free-tier
-// ceiling). If you start seeing the "busy" message a lot, that cap is why —
-// either wait for it to reset, or add $10 credit to lift it to 1000/day
-// without paying per-request. Switch to a paid model anytime via
-// OPENROUTER_SMART_MODEL / OPENROUTER_FAST_MODEL / OPENROUTER_VISION_MODEL —
-// no code change needed either way.
+// Defaulted to the FREE (":free" suffix) OpenRouter models — zero cost.
+// Tradeoff: OpenRouter's free tier is capped account-wide (across every
+// ":free" model combined) at 20 req/min and 50 req/day with no credit
+// purchased, or 1000/day once you've bought $10 of credit (one-time, doesn't
+// need to be spent — it just raises the ceiling). Once that's exhausted, this
+// file now falls back to Groq's own current lineup automatically. Switch any
+// model anytime via the env vars below — no code change needed either way.
 const AI_BASE = process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1'
 const AI_API_KEY = process.env.OPENROUTER_API_KEY ?? ''
-// Back-compat aliases (old code/scripts may still reference these names).
-export const GROQ_BASE = AI_BASE
-export const GROQ_API_KEY = AI_API_KEY
 // "Smart" tier — tool-calling capable, used for search planning + the Fabrics
 // stylist's heavy path. Override with OPENROUTER_SMART_MODEL.
 export const CHAT_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat-v3.1:free'
@@ -45,6 +46,20 @@ export const FAST_MODEL = process.env.OPENROUTER_FAST_MODEL ?? CHAT_MODEL
 // this only fires when Gemini is rate-limited or GOOGLE_AI_API_KEY is unset.
 export const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL ?? 'meta-llama/llama-4-maverick:free'
 
+// ── Groq direct — second-line fallback when OpenRouter's free tier is dry ──
+// Reuses GROQ_API_KEY / GROQ_BASE_URL from before the migration (they were
+// never removed from Vercel). Deliberately does NOT reuse the old
+// GROQ_CHAT_MODEL — that almost certainly still holds a now-dead model string
+// (llama-3.3-70b-versatile). These are Groq's own current replacements for
+// the deprecated models, as recommended in Groq's 2026-06-17 deprecation
+// notice — verify at https://console.groq.com/docs/models if this ever
+// starts erroring and override via GROQ_SMART_MODEL / GROQ_FAST_MODEL.
+const GROQ_DIRECT_BASE = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1'
+const GROQ_DIRECT_API_KEY = process.env.GROQ_API_KEY ?? ''
+export const GROQ_DIRECT_SMART_MODEL = process.env.GROQ_SMART_MODEL ?? 'openai/gpt-oss-120b'
+export const GROQ_DIRECT_FAST_MODEL = process.env.GROQ_FAST_MODEL ?? 'openai/gpt-oss-20b'
+export const GROQ_DIRECT_CONFIGURED = !!GROQ_DIRECT_API_KEY
+
 export type ChatMessage = {
   role: string
   content: string | null
@@ -54,37 +69,43 @@ export type ChatMessage = {
   products?: any[]
 }
 
-function getHeaders() {
-  if (!AI_API_KEY || AI_API_KEY.includes('YOUR_')) {
-    throw new Error('OPENROUTER_API_KEY is not set. Get one at https://openrouter.ai/keys and add it to .env.local / Vercel.')
-  }
-
-  return {
+function headersFor(base: string, apiKey: string) {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${AI_API_KEY}`,
-    // OpenRouter uses these for attribution + per-app rate-limit tiering.
-    // Optional, but recommended — harmless if the values don't matter to you.
-    'HTTP-Referer': process.env.OPENROUTER_SITE_URL ?? 'https://from.enuid.com',
-    'X-Title': 'FROM',
+    Authorization: `Bearer ${apiKey}`,
   }
+  // OpenRouter uses these for attribution + per-app rate-limit tiering.
+  // Optional, but recommended — a harmless no-op against Groq's own API.
+  if (base.includes('openrouter.ai')) {
+    headers['HTTP-Referer'] = process.env.OPENROUTER_SITE_URL ?? 'https://from.enuid.com'
+    headers['X-Title'] = 'FROM'
+  }
+  return headers
 }
 
 /**
- * Raw chat completion call to the AI Provider.
+ * Raw chat completion call against a given provider (base URL + key + model).
+ * Parametrized so both OpenRouter and the Groq-direct fallback share one
+ * retry/self-heal implementation instead of two near-identical copies.
  */
-export async function groqChat(
+async function chatCompletion(
+  base: string,
+  apiKey: string,
+  model: string,
   messages: ChatMessage[],
   system?: string,
   tools?: any[],
-  opts?: { max_tokens?: number; temperature?: number; model?: string },
-  retryCount = 0
+  opts?: { max_tokens?: number; temperature?: number },
+  retryCount = 0,
 ): Promise<any> {
+  if (!apiKey) throw new Error(`No API key configured for ${base}`)
+
   const allMessages = system
     ? [{ role: 'system', content: system }, ...messages]
     : messages
 
   const payload: any = {
-    model: opts?.model ?? CHAT_MODEL,
+    model,
     messages: allMessages,
     temperature: opts?.temperature ?? 0.1,
     max_tokens: opts?.max_tokens ?? 1200,
@@ -96,9 +117,9 @@ export async function groqChat(
   }
 
   try {
-    const res = await fetch(`${GROQ_BASE}/chat/completions`, {
+    const res = await fetch(`${base}/chat/completions`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: headersFor(base, apiKey),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(25000),
     })
@@ -115,12 +136,12 @@ export async function groqChat(
       } catch (e) {}
 
       // Cap at 8s so a long provider-suggested wait doesn't timeout the Vercel function.
-      // If the wait would be too long, bail immediately and let the caller try a fallback model.
+      // If the wait would be too long, bail immediately and let the caller try the fallback provider.
       if (delay > 8000) throw new Error(`Rate limit: suggested wait ${delay}ms exceeds cap`)
 
-      console.warn(`Rate limited (429). Retrying in ${delay}ms... (Attempt ${retryCount + 1})`);
+      console.warn(`Rate limited (429) on ${base}. Retrying in ${delay}ms... (Attempt ${retryCount + 1})`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return groqChat(messages, system, tools, opts, retryCount + 1);
+      return chatCompletion(base, apiKey, model, messages, system, tools, opts, retryCount + 1);
     }
 
     if (!res.ok) {
@@ -143,16 +164,59 @@ export async function groqChat(
     return data.choices?.[0]?.message
   } catch (err: any) {
     if (retryCount < 2 && !err.message?.includes('API key')) {
-      console.warn(`AI provider connection error: ${err.message}. Retrying in 2000ms...`);
+      console.warn(`AI provider connection error on ${base}: ${err.message}. Retrying in 2000ms...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
-      return groqChat(messages, system, tools, opts, retryCount + 1);
+      return chatCompletion(base, apiKey, model, messages, system, tools, opts, retryCount + 1);
     }
     throw err;
   }
 }
 
 /**
- * Robust wrapper that executes the chat and natively repairs any 
+ * Chat completion with automatic provider fallback: OpenRouter first, then
+ * Groq direct (if configured) on ANY OpenRouter failure — rate limit, out of
+ * credits, network error, whatever. This is what makes hitting OpenRouter's
+ * free-tier cap a non-event instead of an outage.
+ */
+export async function groqChat(
+  messages: ChatMessage[],
+  system?: string,
+  tools?: any[],
+  opts?: { max_tokens?: number; temperature?: number; model?: string },
+): Promise<any> {
+  const requestedModel = opts?.model ?? CHAT_MODEL
+  if (!AI_API_KEY) {
+    throw new Error('OPENROUTER_API_KEY is not set. Get one at https://openrouter.ai/keys and add it to .env.local / Vercel.')
+  }
+
+  try {
+    return await chatCompletion(AI_BASE, AI_API_KEY, requestedModel, messages, system, tools, opts)
+  } catch (primaryErr: any) {
+    if (!GROQ_DIRECT_API_KEY) throw primaryErr
+    const fallbackModel = requestedModel === FAST_MODEL ? GROQ_DIRECT_FAST_MODEL : GROQ_DIRECT_SMART_MODEL
+    console.warn(`[ai] OpenRouter failed (${primaryErr.message}) — falling back to Groq direct (${fallbackModel})`)
+    try {
+      return await chatCompletion(GROQ_DIRECT_BASE, GROQ_DIRECT_API_KEY, fallbackModel, messages, system, tools, opts)
+    } catch (fallbackErr: any) {
+      throw new Error(`OpenRouter: ${primaryErr.message} | Groq: ${fallbackErr.message}`)
+    }
+  }
+}
+
+// Diagnostic seams — call ONE provider in isolation, bypassing the automatic
+// fallback in groqChat, so /api/ai/stylist/health can report exactly which
+// provider is failing instead of the fallback silently masking it.
+export async function pingOpenRouter(model: string = CHAT_MODEL): Promise<any> {
+  if (!AI_API_KEY) throw new Error('OPENROUTER_API_KEY is not set')
+  return chatCompletion(AI_BASE, AI_API_KEY, model, [{ role: 'user', content: 'Reply with the single word ok.' }], undefined, undefined, { max_tokens: 10 })
+}
+export async function pingGroqDirect(model: string = GROQ_DIRECT_SMART_MODEL): Promise<any> {
+  if (!GROQ_DIRECT_API_KEY) throw new Error('GROQ_API_KEY is not set — Groq-direct fallback is not configured')
+  return chatCompletion(GROQ_DIRECT_BASE, GROQ_DIRECT_API_KEY, model, [{ role: 'user', content: 'Reply with the single word ok.' }], undefined, undefined, { max_tokens: 10 })
+}
+
+/**
+ * Robust wrapper that executes the chat and natively repairs any
  * open-source model tool syntax leaks (like Llama 3's <function> tags).
  */
 export async function generateRobustAIResponse(
@@ -324,9 +388,9 @@ export async function groqVisionChat(
     max_tokens: opts?.max_tokens ?? 700,
   }
   try {
-    const res = await fetch(`${GROQ_BASE}/chat/completions`, {
+    const res = await fetch(`${AI_BASE}/chat/completions`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: headersFor(AI_BASE, AI_API_KEY),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(30_000),
     })
