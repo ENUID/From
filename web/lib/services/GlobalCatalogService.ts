@@ -231,8 +231,13 @@ function getCategoryDomains(query: string, cc?: string | null): string[] {
         const dom = s.domain.toLowerCase().replace(/^www\./, '')
         const storeCc = getStoreCountry(dom)
         const userRegion = GEO_REGIONS[cc] ?? ''
-        if (storeCc === cc) score += 50
-        else if (userRegion && GEO_REGIONS[storeCc] === userRegion) score += 20
+        // Moderate boost only: local stores go EARLY in the fetch order but must
+        // not wall it off. (+50 made round 1 all-local for Indian shoppers; the
+        // pool became whichever local brand had the most matches, and the page
+        // filled with one brand.) Local-first RANKING of results is enforced
+        // downstream by the strict geo sort — the fetch pool must stay diverse.
+        if (storeCc === cc) score += 18
+        else if (userRegion && GEO_REGIONS[storeCc] === userRegion) score += 8
       }
       return { domain: s.domain.toLowerCase().trim(), score }
     })
@@ -605,6 +610,11 @@ function applyFiltersAndSort(
     limit: number
     rates: Record<string, number>
     concepts?: string[][]
+    /** Max products per store BEFORE the page slice. 0/undefined = no cap.
+     *  Capping pre-slice is what keeps the page full AND diverse: post-slice
+     *  capping let one keyword-rich brand eat all 30 slots, then shrink the
+     *  page to a handful of its own products. */
+    perVendorCap?: number
   },
 ): UcpProduct[] {
   const excluded = new Set(params.excludeIds)
@@ -627,6 +637,20 @@ function applyFiltersAndSort(
   if (params.sort === 'price_asc') out = [...out].sort((a, b) => a.price - b.price)
   else if (params.sort === 'price_desc') out = [...out].sort((a, b) => b.price - a.price)
   // 'relevance' / 'trust_desc': preserve concept + store catalog order
+
+  // Vendor diversity BEFORE the slice: the page fills its full `limit` with at
+  // most N per store, other brands backfilling — instead of one brand consuming
+  // the slice and the page collapsing to a few items after a post-hoc cap.
+  if (params.perVendorCap && params.perVendorCap > 0) {
+    const perDomain = new Map<string, number>()
+    out = out.filter(p => {
+      const dom = getStoreDomain(p.store_url)
+      const seen = perDomain.get(dom) ?? 0
+      if (seen >= params.perVendorCap!) return false
+      perDomain.set(dom, seen + 1)
+      return true
+    })
+  }
 
   return out.slice(0, params.limit)
 }
@@ -720,10 +744,14 @@ export class GlobalCatalogService {
 
     if (options.debug) options.debug.catalogFetched = true
 
+    // Diversity-aware page cap: brand searches show one brand's full catalog;
+    // everything else caps at 2 per store so no single brand floods the page.
+    const perVendorCap = isBrandSearch ? 0 : 2
+
     const enough = () =>
       applyFiltersAndSort(entry!.products, {
         budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
-        concepts: mandatoryConcepts,
+        concepts: mandatoryConcepts, perVendorCap,
       }).length >= limit
 
     const ingest = (batchRaw: any[][]) => {
@@ -762,7 +790,7 @@ export class GlobalCatalogService {
     if (!isLoadMore && !entry.broadened) {
       const current = applyFiltersAndSort(entry.products, {
         budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
-        concepts: mandatoryConcepts,
+        concepts: mandatoryConcepts, perVendorCap,
       })
       if (current.length < 5) {
         entry.broadened = true
@@ -816,7 +844,7 @@ export class GlobalCatalogService {
 
     let result = applyFiltersAndSort(entry.products, {
       budgetMax, budgetCurrency: bcur, excludeIds, sort, limit, rates,
-      concepts: mandatoryConcepts,
+      concepts: mandatoryConcepts, perVendorCap,
     })
 
     // Optional LLM rerank for nuanced relevance queries (first page only).
@@ -850,20 +878,8 @@ export class GlobalCatalogService {
       result = result.slice().sort((a, b) => composite(b.store_url) - composite(a.store_url))
     }
 
-    // Vendor diversity: cap at 2 products per store so one brand can't crowd out
-    // the whole page. Applies to all sort modes. Brand searches are exempt — the
-    // user explicitly chose that brand and wants to see its full catalog.
-    if (!isBrandSearch) {
-      const domainOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' } }
-      const perDomain = new Map<string, number>()
-      result = result.filter(p => {
-        const dom = domainOf(p.store_url)
-        const seen = perDomain.get(dom) ?? 0
-        if (seen >= 2) return false
-        perDomain.set(dom, seen + 1)
-        return true
-      })
-    }
+    // (Vendor diversity is applied INSIDE applyFiltersAndSort, before the page
+    // slice — so the page is both full and diverse. No post-hoc cap needed.)
 
     return result
   }
