@@ -538,11 +538,16 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
           .filter((o: any) => o.values.length > 0)
       : undefined
 
+    // Keep each variant's RAW signal (true/false/null) alongside the optimistic
+    // per-variant default — the raw value is what the product-level in_stock
+    // decision below actually reasons over. Losing this distinction (defaulting
+    // to true before aggregating) was the bug: one variant with no stock field
+    // at all was enough to mark the WHOLE product "in stock" via .some(), even
+    // when every other variant explicitly reported sold out.
     const variants = (raw.variants ?? []).map((v: any) => {
       const vc = normalizeCurrency(v.price?.currency ?? currency)
       const vz = ZERO_DECIMAL_CURRENCIES.has(vc)
-      // null (no availability data) → optimistically trust the API's available:true filter
-      const avail = readAvailability(v) ?? true
+      const rawAvail = readAvailability(v)
       return {
         id: v.id,
         title: v.title,
@@ -550,7 +555,10 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
           const va = v.price?.amount ?? 0
           return vz ? va : va / 100
         })(),
-        availability: avail,
+        // Per-variant UI (e.g. disabling a sold-out size button) still defaults
+        // optimistic on missing data — a single unknown variant is low-stakes.
+        availability: rawAvail ?? true,
+        _rawAvailability: rawAvail,
         options: v.options ?? [],
         media: (v.media ?? []).map((m: any) => ({
           url: normalizeImageUrl(m.url),
@@ -568,11 +576,22 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
     const image_url = normalizeImageUrl(raw.media?.[0]?.url ?? variant.media?.[0]?.url ?? '')
     if (!image_url) return null
 
-    // Product is in-stock if at least one parsed variant is available.
-    // Fall back to the raw product-level availability when no variants exist.
+    // Product-level in_stock (drives both the search filter AND the detail
+    // popup's green/red dot) — reasons over the RAW signals, not the
+    // per-variant optimistic default:
+    //   - any variant explicitly available            -> in stock
+    //   - no variant explicitly available, but at
+    //     least one explicitly SOLD OUT (a real signal) -> out of stock
+    //   - literally no variant reports availability     -> trust the store's
+    //     own available:true filter on the request (best info we have)
+    const anyExplicitlyAvailable = variants.some((v: { _rawAvailability: boolean | null }) => v._rawAvailability === true)
+    const anyKnownSignal = variants.some((v: { _rawAvailability: boolean | null }) => v._rawAvailability !== null)
     const inStock = variants.length > 0
-      ? variants.some((v: { availability: boolean }) => v.availability)
+      ? (anyExplicitlyAvailable || !anyKnownSignal)
       : (readAvailability(raw) ?? readAvailability(variant) ?? true)
+
+    // Strip the internal-only _rawAvailability before it leaves this module.
+    const publicVariants = variants.map(({ _rawAvailability, ...v }: any) => v)
 
     return {
       id: raw.id,
@@ -590,7 +609,7 @@ function parseProduct(raw: any, sourceDomain?: string): UcpProduct | null {
           ? raw.description.html
           : undefined,
       options: options?.length ? options : undefined,
-      variants,
+      variants: publicVariants,
       media,
     }
   } catch {
