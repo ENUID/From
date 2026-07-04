@@ -3428,7 +3428,7 @@ export default function FromApp({
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 8, marginBottom: 24, lineHeight: 1.65, whiteSpace: 'pre-line' }}>
               {otpStep === 'code'
                 ? `We sent a 6-digit code to\n${otpEmail}`
-                : "The best-dressed people don't shop the obvious places.\nNeither will you."}
+                : "You already have the taste.\nWe just find where it's sold."}
             </div>
 
             {authUrlError && (
