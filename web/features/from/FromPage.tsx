@@ -3428,7 +3428,7 @@ export default function FromApp({
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 8, marginBottom: 24, lineHeight: 1.65, whiteSpace: 'pre-line' }}>
               {otpStep === 'code'
                 ? `We sent a 6-digit code to\n${otpEmail}`
-                : "Independent brands from around the world,\ncurated in one place."}
+                : "The best-dressed people don't shop the obvious places.\nNeither will you."}
             </div>
 
             {authUrlError && (
@@ -4019,7 +4019,7 @@ export default function FromApp({
                     <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', opacity: 0.55, marginBottom: 22, lineHeight: 1.5 }}>
                       {otpStep === 'code'
                         ? `We sent a 6-digit code to ${otpEmail}`
-                        : 'Save your searches and bag across devices.'}
+                        : 'Your saves, sizes, and style — right where you left them.'}
                     </div>
 
                     {otpStep === 'email' ? (
