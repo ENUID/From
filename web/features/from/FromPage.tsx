@@ -4924,7 +4924,7 @@ export default function FromApp({
               style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100dvh', zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
               <div onClick={e => e.stopPropagation()}
                 style={isMedium ? {
-                  width: 'min(680px, 92vw)', height: 'min(660px, 88vh)',
+                  width: 'min(880px, 92vw)', height: 'min(720px, 88vh)',
                   background: '#fff', borderRadius: 20,
                   display: 'flex', flexDirection: 'column', overflow: 'hidden',
                   boxShadow: '0 24px 80px rgba(0,0,0,.22), 0 8px 24px rgba(0,0,0,.12)',
@@ -5241,8 +5241,8 @@ export default function FromApp({
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={wardrobeImages.length >= 8}
                           onClick={() => { wardrobeFileRef.current?.click() }} title="Add your wardrobe pieces">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="8" cy="9" r="2"/><path d="M21 15l-5-5-4 4-3-3-3 3"/>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="4" y="2.5" width="16" height="18.5" rx="1.5"/><line x1="12" y1="2.5" x2="12" y2="21"/><line x1="9.6" y1="9" x2="9.6" y2="12.5"/><line x1="14.4" y1="9" x2="14.4" y2="12.5"/><line x1="6.5" y1="21" x2="6.5" y2="23"/><line x1="17.5" y1="21" x2="17.5" y2="23"/>
                           </svg>
                         </button>
                       </div>
