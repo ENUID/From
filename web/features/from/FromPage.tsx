@@ -3866,8 +3866,14 @@ export default function FromApp({
             {/* Fixed nav items — Explore / Brand Collections / Bag */}
             <div style={{ padding: "4px 12px 4px", flexShrink: 0 }}>
 
-              {/* Explore — random product feed */}
-              <div className="fr-hi" onClick={openExplore}>
+              {/* Explore — coming soon */}
+              <div className="fr-hi" onClick={() => {
+                setSidebar(false)
+                setExploreToastOut(false)
+                setExploreToast(true)
+                setTimeout(() => setExploreToastOut(true), 2200)
+                setTimeout(() => setExploreToast(false), 2650)
+              }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z"/>
                   <path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8z"/>
