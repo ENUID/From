@@ -164,19 +164,24 @@ const SHUFFLED_PALETTE = seededShuffle(LOGO_PALETTE)
 // Fabrics mark — a fanned set of fabric swatches pinned at the base, the way a
 // stylist flips through a swatch book to choose materials. Original to Fabrics.
 function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
-  const pivotX = 12, pivotY = 19.3
+  // The whole craft of Fabrics in one mark: a spool of thread, its thread
+  // running out into a woven running-stitch, then up through a needle — spool,
+  // weave, thread and needle unified into a single line-art glyph.
+  const bold = strokeWidth * 1.4
+  const thin = strokeWidth * 0.85
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke}
-      strokeWidth={strokeWidth * 1.25} strokeLinecap="round" strokeLinejoin="round">
-      {/* back swatches, fanned out left and right */}
-      <rect x="9.6" y="5.8" width="4.8" height="13.8" rx="1.8" transform={`rotate(-25 ${pivotX} ${pivotY})`}/>
-      <rect x="9.6" y="5.8" width="4.8" height="13.8" rx="1.8" transform={`rotate(25 ${pivotX} ${pivotY})`}/>
-      {/* front swatch, upright, with a hint of weave */}
-      <rect x="9.6" y="5.0" width="4.8" height="14.6" rx="1.8"/>
-      <line x1="10.7" y1="8.6" x2="13.3" y2="8.6" strokeWidth={strokeWidth * 0.9}/>
-      <line x1="10.7" y1="11.0" x2="13.3" y2="11.0" strokeWidth={strokeWidth * 0.9}/>
-      {/* the pin holding the swatches together */}
-      <circle cx={pivotX} cy={pivotY} r="0.95" fill={stroke} stroke="none"/>
+      strokeLinecap="round" strokeLinejoin="round">
+      {/* spool — caps, sides, wound thread */}
+      <path strokeWidth={bold} d="M3.4 6.4 L6.8 6.4 M3.4 12 L6.8 12"/>
+      <path strokeWidth={bold} d="M4.3 6.6 L4.3 11.8 M5.9 6.6 L5.9 11.8"/>
+      <path strokeWidth={thin} d="M4.3 8.2 L5.9 8.5 M4.3 10 L5.9 10.3"/>
+      {/* the thread runs out into a woven running-stitch */}
+      <path strokeWidth={bold} d="M5.9 9.5 C 8 9.5, 8 12.5, 10 12.5 C 12 12.5, 12 9.5, 14 9.5"/>
+      {/* needle, with the thread passing up through its eye */}
+      <line strokeWidth={bold} x1="12.8" y1="16.9" x2="19.4" y2="7.7"/>
+      <ellipse strokeWidth={thin + 0.15} cx="18.5" cy="9" rx="0.55" ry="1.25" transform="rotate(55 18.5 9)"/>
+      <path strokeWidth={thin} d="M14 9.5 C 15.3 9.7, 16.5 9.2, 17.6 8.6"/>
     </svg>
   )
 }
