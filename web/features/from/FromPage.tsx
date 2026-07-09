@@ -1604,6 +1604,10 @@ export default function FromApp({
   const { status: authStatus, data: session } = useSession()
   const onboardEmail = session?.user?.email ?? undefined
 
+  // Feature flag: gate the whole app behind sign-in. Sealed off for now so
+  // anyone can use FROM directly — flip back to `true` to require login again.
+  const REQUIRE_LOGIN = false
+
   // ── Stylist memory (Fabrics persistent context) ─────────────────────────────
   const stylistMemoryData = useQuery(
     api.stylistMemory.getStylistMemory,
@@ -3417,7 +3421,7 @@ export default function FromApp({
           so it never scrolls away. Email-OTP unifies sign-up and sign-in (a code
           to a new email creates the account; to an existing one, signs in), and
           Google does the same — so there is no separate login screen to add. */}
-      {authStatus === 'unauthenticated' && (
+      {REQUIRE_LOGIN && authStatus === 'unauthenticated' && (
         <div className="fr-gate-outer">
           <div className="fr-gate-card">
             <div className="fr-gate-handle" />
