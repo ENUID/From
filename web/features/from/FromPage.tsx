@@ -1604,9 +1604,9 @@ export default function FromApp({
   const { status: authStatus, data: session } = useSession()
   const onboardEmail = session?.user?.email ?? undefined
 
-  // Feature flag: gate the whole app behind sign-in. Sealed off for now so
-  // anyone can use FROM directly — flip back to `true` to require login again.
-  const REQUIRE_LOGIN = false
+  // Feature flag: gate the whole app behind sign-in. Set `false` to let anyone
+  // use FROM directly without an account.
+  const REQUIRE_LOGIN = true
 
   // ── Stylist memory (Fabrics persistent context) ─────────────────────────────
   const stylistMemoryData = useQuery(
@@ -3367,7 +3367,7 @@ export default function FromApp({
 
         /* Auth/consent gate — CSS-only responsive so correct layout is applied
            before JS hydrates, eliminating the bottom-sheet flash on tablet/desktop. */
-        .fr-gate-outer{position:fixed;inset:0;z-index:4000;display:flex;align-items:flex-end;justify-content:center;background:rgba(28,12,4,0.44);backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);}
+        .fr-gate-outer{position:fixed;inset:0;z-index:4000;display:flex;align-items:flex-end;justify-content:center;background:rgba(28,12,4,0.28);backdrop-filter:blur(4px) saturate(130%);-webkit-backdrop-filter:blur(4px) saturate(130%);}
         .fr-gate-card{
           width:100%;
           background:#ffffff;
