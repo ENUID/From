@@ -263,6 +263,118 @@ export const GARMENT_PRODUCT_TERMS: Set<string> = new Set(
   Object.values(GARMENT_VOCAB).flatMap(e => e.product.map(t => t.toLowerCase())),
 )
 
+// ── Typo / misspelling normalization ─────────────────────────────────────────
+// Shoppers type fast and loose — "blak jaket", "snekers", "truosers", "wht
+// linnen shrt". The LLM planner usually recovers, but the instant compiler and
+// the LLM-down fallback both match on exact words, so a misspelling silently
+// drops to zero results. This corrects obvious fashion-term typos
+// deterministically, so messy spelling "just works" before any matching runs.
+
+// High-confidence corrections a single-edit check can't reach (2+ edits,
+// phonetic slips, or common informal forms).
+const TYPO_MAP: Record<string, string> = {
+  jaket: 'jacket', jakcet: 'jacket', jackt: 'jacket', jaccket: 'jacket', jacekt: 'jacket',
+  snekers: 'sneakers', sneekers: 'sneakers', snekrs: 'sneakers', sneaker: 'sneaker', sneekrs: 'sneakers',
+  truosers: 'trousers', trowsers: 'trousers', trousor: 'trousers', trosers: 'trousers', trowser: 'trouser',
+  tshit: 't-shirt', tshrt: 't-shirt', teeshirt: 't-shirt', teee: 'tee',
+  shrt: 'shirt', shert: 'shirt', shirtt: 'shirt', shrit: 'shirt',
+  jeens: 'jeans', jenes: 'jeans', jean: 'jeans',
+  swetar: 'sweater', sweter: 'sweater', swaeter: 'sweater', sweatr: 'sweater', sweather: 'sweater',
+  hoody: 'hoodie', hoddie: 'hoodie', hodie: 'hoodie', hoodi: 'hoodie',
+  jumpr: 'jumper', jumperr: 'jumper',
+  trosuer: 'trouser', jogers: 'joggers', joggger: 'jogger',
+  jewelery: 'jewelry', jewlery: 'jewelry', jewellary: 'jewellery',
+  accesories: 'accessories', accessorie: 'accessories', acessories: 'accessories',
+  blak: 'black', blck: 'black', balck: 'black', blakc: 'black',
+  wihte: 'white', whyte: 'white', whit: 'white', whte: 'white', wht: 'white',
+  navi: 'navy', gery: 'grey', gray: 'grey',
+  beig: 'beige', biege: 'beige', beigh: 'beige',
+  brwon: 'brown', borwn: 'brown', purpel: 'purple', gren: 'green', geren: 'green',
+  leathr: 'leather', lether: 'leather', leater: 'leather', leathar: 'leather',
+  coton: 'cotton', cottn: 'cotton', cottton: 'cotton',
+  wooll: 'wool', linnen: 'linen', linnene: 'linen', linin: 'linen', linnin: 'linen',
+  cashmer: 'cashmere', cashmier: 'cashmere', cashmire: 'cashmere',
+  denm: 'denim', denium: 'denim', deneim: 'denim', corderoy: 'corduroy', cordroy: 'corduroy',
+  dres: 'dress', dresss: 'dress', skrit: 'skirt', shorst: 'shorts',
+  caot: 'coat', blazr: 'blazer', blezer: 'blazer',
+  bagz: 'bags', watchs: 'watches', sunglases: 'sunglasses', sunglass: 'sunglasses',
+  wedeing: 'wedding', weding: 'wedding', casaul: 'casual', casul: 'casual', forml: 'formal',
+  summr: 'summer', wntr: 'winter', ofice: 'office', officee: 'office',
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length
+  if (Math.abs(m - n) > 1) return 2   // we only accept ≤1 from the fuzzy path
+  const dp: number[] = Array.from({ length: m + 1 }, (_, i) => i)
+  for (let j = 1; j <= n; j++) {
+    let prev = dp[0]
+    dp[0] = j
+    for (let i = 1; i <= m; i++) {
+      const tmp = dp[i]
+      dp[i] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[i], dp[i - 1])
+      prev = tmp
+    }
+  }
+  return dp[m]
+}
+
+// Canonical single-word fashion terms to correct toward.
+const CORRECTION_VOCAB: string[] = Array.from(new Set([
+  ...Array.from(GARMENT_PRODUCT_TERMS),
+  ...Object.values(MATERIAL_VOCAB).flat(),
+  ...Object.values(COLOR_VOCAB).flat(),
+].map(w => w.toLowerCase()).filter(w => /^[a-z]{4,}$/.test(w))))
+const CORRECTION_SET = new Set(CORRECTION_VOCAB)
+
+// Real English words that sit one edit from a fashion term and must never be
+// "corrected" (bed→red, best→vest, cost→coat, want→pant…). Also common intent
+// words that appear next to garments.
+const TYPO_SKIP = new Set([
+  'the', 'and', 'for', 'with', 'that', 'this', 'some', 'any', 'are', 'was', 'not',
+  'but', 'you', 'your', 'have', 'want', 'went', 'need', 'like', 'love', 'nice',
+  'good', 'best', 'cost', 'rest', 'test', 'bed', 'ten', 'ton', 'set', 'get',
+  'looking', 'something', 'anything', 'casual', 'formal', 'summer', 'winter',
+  'wedding', 'work', 'date', 'party', 'beach', 'office', 'under', 'over', 'cheap',
+  'size', 'color', 'colour', 'style', 'brand', 'shop', 'store', 'from', 'wear',
+  'them', 'they', 'here', 'there', 'what', 'when', 'show', 'find', 'give',
+])
+
+function matchCase(orig: string, repl: string): string {
+  const first = orig.charAt(0)
+  if (first !== first.toLowerCase() && first === first.toUpperCase()) {
+    return repl.charAt(0).toUpperCase() + repl.slice(1)
+  }
+  return repl
+}
+
+/**
+ * Correct obvious fashion-term misspellings in a free-text query. Only touches
+ * tokens that are unambiguously a typo of a known garment/colour/material term
+ * — everything else (brands, proper nouns, ordinary words) is left untouched.
+ */
+export function normalizeFashionTypos(text: string): string {
+  if (!text) return text
+  return text.replace(/[a-zA-Z][a-zA-Z'-]*/g, (token) => {
+    const lower = token.toLowerCase()
+    if (lower.length < 3) return token
+    if (CORRECTION_SET.has(lower) || GARMENT_PRODUCT_TERMS.has(lower)) return token // already valid
+    const mapped = TYPO_MAP[lower]
+    if (mapped) return matchCase(token, mapped)
+    if (TYPO_SKIP.has(lower)) return token
+    // Single-edit fuzzy match against the fashion vocabulary. Requires a unique
+    // nearest term (no ties) so ambiguous tokens are left alone.
+    let best: string | null = null, bestDist = 9, ties = 0
+    for (const cand of CORRECTION_VOCAB) {
+      if (Math.abs(cand.length - lower.length) > 1) continue
+      const d = levenshtein(lower, cand)
+      if (d < bestDist) { bestDist = d; best = cand; ties = 0 }
+      else if (d === bestDist) ties++
+    }
+    if (best && bestDist === 1 && ties === 0) return matchCase(token, best)
+    return token
+  })
+}
+
 // ── Query decomposition ───────────────────────────────────────────────────────
 export type QueryComponents = {
   gender?: 'men' | 'women' | 'kids'

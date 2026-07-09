@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { compileIntent, continueIntent, compiledReplyText, compiledSuggestions } from '@/lib/intentCompiler'
-import { augmentConcepts } from '@/lib/queryParser'
+import { augmentConcepts, normalizeFashionTypos } from '@/lib/queryParser'
 
 export const maxDuration = 60
 import { SearchToolArgs, SearchToolSchema, SEARCH_TOOL_DEF } from '@/lib/ai/schema'
@@ -185,7 +185,9 @@ function expandDirectQuery(query: string) {
 }
 
 function parseDirectSearchIntent(message: string, buyerCurrency: string): SearchToolArgs | null {
-  const query = stripBudgetText(message)
+  // Correct fashion-term typos so an LLM-down fallback still searches the right
+  // words ("jaket" → "jacket") instead of sending the misspelling to stores.
+  const query = normalizeFashionTypos(stripBudgetText(message))
   if (!query || query.length < 2) return null
 
   const lowerQuery = query.toLowerCase()

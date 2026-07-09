@@ -15,6 +15,7 @@
 
 import { SearchToolArgs, SearchToolSchema } from '@/lib/ai/schema'
 import { matchStyles, type StyleEntry } from '@/lib/styleVocabulary'
+import { normalizeFashionTypos } from '@/lib/queryParser'
 
 // ── Layer 1: Garment lexicon ───────────────────────────────────────────────────
 // canonical garment → synonym group used as a mandatoryConcepts hard filter.
@@ -164,8 +165,10 @@ export type CompiledIntent = {
  * those cases need the LLM planner.
  */
 export function compileIntent(message: string, buyerCurrency: string): CompiledIntent | null {
-  const raw = message.trim()
-  if (!raw || raw.length < 3 || raw.length > 220) return null
+  // Correct obvious fashion-term misspellings first ("blak jaket" → "black
+  // jacket") so a typo compiles instantly instead of dropping to the LLM.
+  const raw = normalizeFashionTypos(message.trim())
+  if (!raw || raw.length < 3 || raw.length > 260) return null
   if (CONVERSATIONAL.test(raw)) return null
 
   const q = raw.toLowerCase()
@@ -258,8 +261,8 @@ export function continueIntent(
   prevSearchQuery: string,
   buyerCurrency: string,
 ): CompiledIntent | null {
-  const raw = message.trim()
-  if (!raw || raw.length < 2 || raw.length > 160) return null
+  const raw = normalizeFashionTypos(message.trim())
+  if (!raw || raw.length < 2 || raw.length > 200) return null
   if (CONVERSATIONAL.test(raw)) return null
   const q = raw.toLowerCase()
 
