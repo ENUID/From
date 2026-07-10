@@ -1438,18 +1438,20 @@ type StylistLoadingPhase = { main: string; icon: StylistLoadingIcon; trace: stri
 
 // Each step in the tracker is a genuinely distinct operation in the pipeline
 // (parsing intent, hitting the catalog, applying filters, ranking results) —
-// naming the operation as its own agent makes that real division of labor
-// legible instead of reading as one undifferentiated "loading" spinner.
+// naming the operation makes that real division of labor legible instead of
+// reading as one undifferentiated "loading" spinner. Real atelier roles, not
+// the generic "X Agent" pattern every AI product reaches for — same instinct
+// as the thread/needle icon set: bespoke to Fabrics, not a reskinned default.
 const AGENT_NAME_BY_ICON: Record<StylistLoadingIcon, string> = {
-  read: 'Intent Agent',
-  search: 'Catalog Agent',
-  filter: 'Fit Agent',
-  compare: 'Comparison Agent',
-  palette: 'Color Agent',
-  fabric: 'Fabric Agent',
-  value: 'Value Agent',
-  outfit: 'Outfit Agent',
-  curate: 'Curation Agent',
+  read: 'The Cutter',       // takes the brief, cuts it down to its essential pattern
+  search: 'The Sourcer',    // finds it across every store
+  filter: 'The Fitter',     // checks fit, material, and quality against the brief
+  compare: 'The Adjudicator', // weighs two pieces against each other
+  palette: 'The Colorist',  // undertone, harmony, what bridges and what clashes
+  fabric: 'The Draper',     // fabric weight, drape, how it moves
+  value: 'The Valuer',      // cost-per-wear, worth against the price
+  outfit: 'The Dresser',    // assembles the complete look
+  curate: 'The Editor',     // final selection, ranked
 }
 
 // Same gender-default logic as the backend (applyGenderDefault in the stylist
