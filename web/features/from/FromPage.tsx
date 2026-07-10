@@ -1592,10 +1592,9 @@ export default function FromApp({
 }: { initialShopperContext: ShopperContext; initialRates: ExchangeRates }) {
 
   const {
-    messages, input, setInput, loading, hasConversation,
+    input, setInput,
     savedIds, savedProducts, searchHistory, shopperContext, rates,
-    sendMessage, toggleSaved, resetConversation, loadMoreProducts,
-    deleteHistoryEntry, renameHistoryEntry,
+    toggleSaved,
     isPremium, dailySearchesRemaining,
     showUpgradeSheet, setShowUpgradeSheet,
   } = useFromChat(initialShopperContext, initialRates)
@@ -1797,10 +1796,8 @@ export default function FromApp({
   const [sheetSnap, setSheetSnap]     = useState<'full'|'half'>('full')
   const [isDragging, setIsDragging]   = useState(false)
   const [sidebarOpen, setSidebar]     = useState(false)
-  const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'fabrics' | 'profile'>('nav')
-  const [uploadedImages, setUploaded]   = useState<{ url: string; name: string }[]>([])
+  const [sidebarView, setSidebarView] = useState<'nav' | 'saved' | 'profile'>('nav')
   const [inputHint, setInputHint]       = useState<string | null>(null)
-  const [visionBusy, setVisionBusy]     = useState(false)
   const [fetchedSizeGuide, setFetchedSizeGuide] = useState<string | null>(null)
   const [sizeGuideLoading, setSizeGuideLoading] = useState(false)
   const [sizeGuideOpen, setSizeGuideOpen]       = useState(false)
@@ -1832,7 +1829,6 @@ export default function FromApp({
   const exploreBusyRef = useRef(false)
   const exploreBufferRef = useRef<Product[]>([])   // next page, prefetched for instant scroll
   const exploreSentinelRef = useRef<HTMLDivElement>(null)
-  const exploreScrollRef = useRef<HTMLDivElement>(null)
   const exploreRefreshRef = useRef(0)              // bumps the brand window on refresh
   // Instagram-style pull-to-refresh: a spinner that follows the pull from the top
   // and fades out when the fresh feed has loaded.
@@ -1848,7 +1844,6 @@ export default function FromApp({
     try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
   })
   const [logoIdx, setLogoIdx] = useState(0)
-  const [ctxMenu, setCtxMenu] = useState<{ id: string; query: string; x: number; y: number; above: boolean } | null>(null)
   const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   const [bagCtxMenu, setBagCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   // ── Email OTP sign-in state ─────────────────────────────────────────────────
@@ -1908,17 +1903,14 @@ export default function FromApp({
     setBrandsOpen(false); setBrandQuery('')
     setActiveBrand(b)
     setShowExplore(false)
-    sendMessage(b.name)
+    sendStylist(b.name)
     setSidebar(false)
   }
-  const [renameId, setRenameId]         = useState<string | null>(null)
-  const [renameVal, setRenameVal]       = useState("")
   const [isWide, setIsWide]             = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false)
   const [isMedium, setIsMedium]         = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : false)
   // Attach input — the paperclip clicks this directly, opening the device's
   // own native picker (Photo Library / Take Photo / Choose Files / Drive).
   const attachPhotoRef  = useRef<HTMLInputElement>(null)
-  const [attachContext, setAttachContext]     = useState<'search' | 'fabrics'>('search')
   const attachBtnSearchRef  = useRef<HTMLButtonElement>(null)
   const attachBtnFabricsRef = useRef<HTMLButtonElement>(null)
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
@@ -1931,22 +1923,9 @@ export default function FromApp({
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
   type OutfitSlot = { query: string; slotCategory?: string | null; products: Product[] }
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; outfitSlots?: OutfitSlot[]; busy?: boolean }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
-  const [stylistOpen, setStylistOpen]       = useState(false)
-  // When a product is opened FROM the Fabrics sheet we close Fabrics (the detail
-  // sheet sits below it in z-order). This flag re-opens Fabrics once the product
-  // detail is dismissed, so the shopper lands back in the chat — not the home page.
-  const [reopenStylistOnClose, setReopenStylistOnClose] = useState(false)
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
-  // Once the product detail launched from Fabrics is dismissed (X, drag, or
-  // backdrop), bring the Fabrics chat back so the shopper stays in context.
-  useEffect(() => {
-    if (!selectedProduct && reopenStylistOnClose) {
-      setStylistOpen(true)
-      setReopenStylistOnClose(false)
-    }
-  }, [selectedProduct, reopenStylistOnClose])
   const STYLIST_HISTORY_LS = 'from:stylist-history'
   const stylistSessionLS = (id: string) => `from:stylist-session:${id}`
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>(() => {
@@ -1969,6 +1948,9 @@ export default function FromApp({
   const stylistRenameRef = useRef<HTMLInputElement>(null)
   const [stylistInput, setStylistInput]       = useState('')
   const [stylistLoading, setStylistLoading]   = useState(false)
+  // The home page IS the one conversation now — every "is a request in
+  // flight" check in the UI reads Fabrics' own loading state.
+  const loading = stylistLoading
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
   const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
   const [stylistSubVis, setStylistSubVis]               = useState(false)
@@ -2000,7 +1982,6 @@ export default function FromApp({
   }
   const addStylistProduct = (p: Product) => {
     setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 8) ? prev : [...prev, p])
-    setStylistOpen(true)
   }
   function deleteStylistEntry(id: string) {
     setStylistHistory(prev => prev.filter(e => e.id !== id))
@@ -2146,7 +2127,7 @@ export default function FromApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, outfitSlots, busy: data.busy === true }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined }])
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
           fetch('/api/ai/stylist-memory', {
@@ -2163,13 +2144,41 @@ export default function FromApp({
       setStylistLoading(false)
     }
   }
-  // Open the stylist page with attached products and immediately ask the query.
+  // Pin products and ask about them — continues the one ongoing conversation
+  // (or starts it, if this is the first message of the session).
   const openStylistWith = (products: Product[], query: string) => {
-    stylistSessionId.current = null
     setStylistProducts(products)
-    setStylistMsgs([])
-    setStylistOpen(true)
-    sendStylist(query, products, [])
+    sendStylist(query, products)
+  }
+
+  // "See more" on a result strip — re-runs the same query excluding what's
+  // already shown, and appends. No LLM call (mode: 'load-more').
+  const loadMoreStylistProducts = async (messageIndex: number) => {
+    const msg = stylistMsgs[messageIndex]
+    if (!msg || !msg.searchQuery || msg.loadingMore || msg.hasNoMore) return
+    setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: true } : m))
+    try {
+      const excludeIds = (msg.foundProducts || []).map(p => p.id)
+      const res = await fetch('/api/ai/stylist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'load-more', query: msg.searchQuery, excludeIds,
+          buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country,
+        }),
+      })
+      const data = await res.json()
+      const displayCur = shopperContext.currency || 'USD'
+      const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
+      const fresh: Product[] = Array.isArray(data?.foundProducts) ? data.foundProducts.map(withCur) : []
+      setStylistMsgs(prev => prev.map((m, i) => {
+        if (i !== messageIndex) return m
+        const existingIds = new Set((m.foundProducts || []).map(p => p.id))
+        const uniqueNew = fresh.filter(p => !existingIds.has(p.id))
+        return { ...m, foundProducts: [...(m.foundProducts || []), ...uniqueNew], loadingMore: false, hasNoMore: uniqueNew.length === 0 }
+      }))
+    } catch {
+      setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: false } : m))
+    }
   }
 
   // Glass interaction states
@@ -2185,13 +2194,9 @@ export default function FromApp({
   const light = useLight(barRef)
 
   const nameRef       = useRef<HTMLInputElement>(null)
-  const renameRef     = useRef<HTMLInputElement>(null)
   const taRef         = useRef<HTMLTextAreaElement>(null)
   const dragHandleRef = useRef<HTMLDivElement>(null)
   const similarRef    = useRef<HTMLDivElement>(null)
-  const sentinelRef   = useRef<HTMLDivElement>(null)
-  const canLoadMoreRef = useRef(false)
-  const loadMoreRef   = useRef(loadMoreProducts)
 
   // Image carousel horizontal swipe
   const [imgDX, setImgDX]   = useState(0)
@@ -2264,20 +2269,14 @@ export default function FromApp({
     }
   }
 
-  // Search results
-  const lastProductMsg      = [...messages].reverse().find(m => m.role === 'assistant' && m.products?.length)
-  const lastProductMsgIndex = lastProductMsg ? messages.lastIndexOf(lastProductMsg as any) : -1
-  const searchProducts: Product[] = (lastProductMsg?.products || []).filter((p: Product) => p.in_stock)
-  const productsLoading = lastProductMsg?.productsLoading === true
-
-  const lastAssistantText   = [...messages].reverse().find(m => m.role === 'assistant')?.content || ''
-  const showEmpty = hasConversation && searchProducts.length === 0 && !loading && !productsLoading
-  const canSend   = input.trim().length > 0 || uploadedImages.length > 0 || barProducts.length > 0
+  // The home page IS the Fabrics conversation — one thread, no separate grid search.
+  const hasConversation = stylistMsgs.length > 0
+  // Most recent product results shown, for the Explore-cache persist effect and
+  // the "similar items" panel on the product detail sheet.
+  const lastProductMsg = [...stylistMsgs].reverse().find(m => m.role === 'assistant' && (m.foundProducts?.length || m.outfitSlots?.length))
+  const searchProducts: Product[] = (lastProductMsg?.foundProducts || []).filter((p: Product) => p.in_stock)
+  const canSend   = input.trim().length > 0 || stylistImages.length > 0 || barProducts.length > 0
   const hasName   = userName.length > 0
-
-  // Keep refs up-to-date every render so the observer callback always sees current values
-  canLoadMoreRef.current = !loading && !!lastProductMsg && !lastProductMsg.loadingMore && !lastProductMsg.hasNoMore && lastProductMsgIndex >= 0
-  loadMoreRef.current = loadMoreProducts
 
   // Fetch live exchange rates on mount — server caches for 1 h so this is cheap
   useEffect(() => {
@@ -2381,7 +2380,6 @@ export default function FromApp({
     return () => clearInterval(id)
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
-  useEffect(() => { if (renameId && renameRef.current) { renameRef.current.focus(); renameRef.current.select() } }, [renameId])
   useEffect(() => { if (stylistRenameId && stylistRenameRef.current) { stylistRenameRef.current.focus(); stylistRenameRef.current.select() } }, [stylistRenameId])
   // Keep the stylist conversation scrolled to the latest message
   useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading])
@@ -2434,24 +2432,6 @@ export default function FromApp({
     }
   }, [input])
 
-  // Infinite scroll: trigger load-more when approaching the bottom.
-  // rootMargin 2000px fires well before the user reaches the sentinel, so
-  // batches chain seamlessly. Re-creating when loadingMore flips false ensures
-  // a fresh observer fires immediately if the sentinel is still in range.
-  useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel || lastProductMsgIndex < 0) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && canLoadMoreRef.current) {
-          loadMoreRef.current(lastProductMsgIndex)
-        }
-      },
-      { rootMargin: '2000px', threshold: 0 }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [lastProductMsgIndex, lastProductMsg?.loadingMore])
 
   const onHandleDown = (e: React.PointerEvent) => {
     e.preventDefault();
@@ -2530,7 +2510,7 @@ export default function FromApp({
   }
 
   const doSearch = async () => {
-    if (!canSend || loading || visionBusy) return
+    if (!canSend || loading) return
     // Products attached → take the query to the stylist page instead of searching.
     if (barProducts.length > 0) {
       const q = input.trim() || (barProducts.length > 1 ? 'Compare these for me' : 'Tell me about this piece')
@@ -2539,60 +2519,23 @@ export default function FromApp({
       return
     }
 
-    // Visual search: photos go to the vision model, which describes the piece
-    // as a catalog query. Graceful: any failure falls back to text + filenames —
-    // the search always runs, it just loses the visual understanding.
-    if (uploadedImages.length > 0) {
+    // Visual search: photos go straight into Fabrics' own vision flow — one
+    // model call that reasons about the photo directly, instead of the old
+    // two-call round-trip (describe the photo as text, then search on that).
+    if (stylistImages.length > 0) {
       const text = input.trim()
-      const images = uploadedImages.slice(0, 3).map(u => u.url)
-      const fallback = [text, uploadedImages.map(u => u.name).join(' ')].filter(Boolean).join(' ')
-      setVisionBusy(true)
-      setInputHint('Reading your photo…')
-      let q = fallback
-      try {
-        const res = await fetch('/api/ai/vision-search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ images, hint: text }),
-          signal: AbortSignal.timeout(20_000),
-        })
-        const data = await res.json()
-        if (typeof data?.query === 'string' && data.query.length >= 4) {
-          q = [data.query, text].filter(Boolean).join(' ').slice(0, 160)
-        }
-      } catch { /* fall back to text + filenames */ }
-      setVisionBusy(false)
-      if (!q) { setInputHint(null); return }
       setShowExplore(false); setActiveBrand(null)
-      sendMessage(q); setUploaded([]); setInputHint(null)
+      sendStylist(text)
+      setInputHint(null)
       if (attachPhotoRef.current) attachPhotoRef.current.value = ''
       return
     }
 
     const q = input.trim(); if (!q) return
     setShowExplore(false); setActiveBrand(null)
-    sendMessage(q); setUploaded([]); setInputHint(null)
+    sendStylist(q); setInputHint(null)
     if (attachPhotoRef.current) attachPhotoRef.current.value = ''
   }
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    files.slice(0, 11 - uploadedImages.length).forEach(file => {
-      const reader = new FileReader()
-      reader.onload = ev => {
-        const url = ev.target?.result as string
-        const name = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').toLowerCase()
-        setUploaded(prev => prev.length < 11 ? [...prev, { url, name }] : prev)
-      }
-      reader.readAsDataURL(file)
-    })
-    if (attachPhotoRef.current) attachPhotoRef.current.value = ''
-  }
-  const removeUpload = (idx: number) => setUploaded(prev => {
-    const next = prev.filter((_, i) => i !== idx)
-    if (next.length === 0) setInputHint(null)
-    return next
-  })
   const saveName = () => {
     const n = nameInput.trim()
     setUserName(n)
@@ -2600,7 +2543,11 @@ export default function FromApp({
     setIsEditing(false)
   }
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
-  const handleReset = () => { resetConversation(); setInputHint(null); setActiveBrand(null) }
+  const handleReset = () => {
+    setStylistMsgs([]); setStylistProducts([]); setStylistImages([]); setWardrobeImages([])
+    stylistSessionId.current = null
+    setInput(''); setInputHint(null); setActiveBrand(null)
+  }
 
   // Keep a ref mirror of the feed so the infinite-scroll loader can dedupe
   // without re-subscribing the observer on every append.
@@ -2969,9 +2916,8 @@ export default function FromApp({
   function findMoreLikeThis(p: Product | null) {
     if (!p || loading) return
     const q = buildMoreLikeQuery(p)
-    setReopenStylistOnClose(false)  // this leaves Fabrics for the main search — don't reopen it
     setSelected(null)        // close the detail sheet
-    sendMessage(q)           // runs the normal search pipeline (graceful fallback included)
+    sendStylist(q)           // continues the one conversation with a fresh search
   }
 
   // ── Learning loop: flag a result as a bad match ───────────────────────────
@@ -2981,7 +2927,7 @@ export default function FromApp({
   function flagBadMatch(p: Product | null) {
     if (!p || flaggedIds.has(p.id)) return
     setFlaggedIds(prev => new Set(prev).add(p.id))
-    const q = lastProductMsg?.searchQuery || [...messages].reverse().find(m => m.role === 'user')?.content || ''
+    const q = [...stylistMsgs].reverse().find(m => m.role === 'user')?.content || ''
     try {
       flagQualitySignal({
         userEmail: onboardEmail,
@@ -3420,7 +3366,9 @@ export default function FromApp({
 
       {/* Shared attach input — paperclip opens the device's native picker directly */}
       <input ref={attachPhotoRef}  type="file" accept="image/*,video/*" multiple style={{ display:'none' }}
-        onChange={e => { attachContext === 'fabrics' ? handleStylistFile(e) : handleFile(e) }} />
+        onChange={handleStylistFile} />
+      {/* Wardrobe — persistent pieces the shopper owns, for outfit-building */}
+      <input ref={wardrobeFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleWardrobeFile} />
 
       {/* ── Mandatory account gate ── */}
       {/* Blocks the app until signed in. No close button, no dismiss-on-tap, fixed
@@ -3924,19 +3872,6 @@ export default function FromApp({
                 )}
               </div>
 
-              {/* Fabrics (AI stylist) */}
-              <div className={`fr-hi${sidebarView === 'fabrics' ? ' on' : ''}`}
-                onClick={() => setSidebarView(v => v === 'fabrics' ? 'nav' : 'fabrics')}>
-                <FabricsIcon size={17} stroke={INK3} strokeWidth={1.05}/>
-                Fabrics
-                {stylistHistory.length > 0 && (
-                  <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, background: "rgba(0,0,0,.07)", borderRadius: 20, padding: "2px 8px" }}>
-                    {stylistHistory.length}
-                  </span>
-                )}
-              </div>
-
-
             </div>
 
             {/* Divider */}
@@ -4192,13 +4127,13 @@ export default function FromApp({
                   </>)}
 
                 </div>
-              ) : sidebarView === 'fabrics' ? (
+              ) : sidebarView === 'nav' ? (
                 <>
-                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Fabrics</p>
+                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
                   {stylistHistory.length === 0 ? (
                     <div style={{ padding: '12px 8px 4px' }}>
-                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, opacity: .45, marginBottom: 8 }}>No conversations with Fabrics yet!</p>
-                      <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, opacity: .35, lineHeight: 1.5 }}>Pin a product from your search results and ask Fabrics to style it, compare it, or find what pairs with it.</p>
+                      <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, opacity: .45, marginBottom: 8 }}>No conversations yet!</p>
+                      <p style={{ fontFamily: SANS, fontSize: 12, color: INK3, opacity: .35, lineHeight: 1.5 }}>Ask Fabrics to find, style, or compare anything — it'll show up here.</p>
                     </div>
                   ) : stylistHistory.map(h => (
                     <div key={h.id} className="fr-hi"
@@ -4215,7 +4150,7 @@ export default function FromApp({
                           stylistSessionId.current = h.id
                           setStylistProducts([])
                         }
-                        setStylistOpen(true)
+                        setSidebar(false)
                       }}
                       onPointerDown={e => {
                         wasLongPress.current = false
@@ -4259,56 +4194,6 @@ export default function FromApp({
                       }
                     </div>
                   ))}
-                </>
-              ) : sidebarView === 'nav' ? (
-                <>
-                  <p style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", color: INK3, padding: "2px 8px 10px", opacity: .5 }}>Recent</p>
-                  {searchHistory.length === 0
-                    ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>No recent searches</p>
-                    : searchHistory.slice(0, 10).map(h => (
-                        <div key={h.id} className="fr-hi"
-                          style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
-                          onContextMenu={e => e.preventDefault()}
-                          onClick={() => {
-                            if (wasLongPress.current) { wasLongPress.current = false; return }
-                            sendMessage(h.query); setSidebar(false)
-                          }}
-                          onPointerDown={e => {
-                            wasLongPress.current = false
-                            const { clientX, clientY } = e
-                            longPressTimer.current = setTimeout(() => {
-                              wasLongPress.current = true
-                              const menuW = 220; const menuH = 120
-                              const above = clientY + 8 + menuH > window.innerHeight
-                              const y = Math.max(8, above ? clientY - menuH - 4 : clientY + 8)
-                              const x = Math.max(8, Math.min(clientX, window.innerWidth - menuW - 8))
-                              ctxMenuOpenAt.current = Date.now()
-                              setCtxMenu({ id: h.id, query: h.query, x, y, above })
-                            }, 550)
-                          }}
-                          onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                          onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null } }}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                          {renameId === h.id
-                            ? <input ref={renameRef} value={renameVal}
-                                onClick={e => e.stopPropagation()}
-                                onChange={e => setRenameVal(e.target.value)}
-                                onBlur={() => { if (renameVal.trim()) renameHistoryEntry(h.id, renameVal.trim()); setRenameId(null) }}
-                                onKeyDown={e => {
-                                  e.stopPropagation()
-                                  if (e.key === 'Enter') { if (renameVal.trim()) renameHistoryEntry(h.id, renameVal.trim()); setRenameId(null) }
-                                  if (e.key === 'Escape') setRenameId(null)
-                                }}
-                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `1px solid ${INK3}`,
-                                  fontFamily: SANS, fontSize: 16, color: INK, outline: 'none', padding: '1px 0', minWidth: 0,
-                                  transform: 'scale(0.8125)', transformOrigin: 'left center' }}
-                              />
-                            : <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.query}</span>
-                          }
-                        </div>
-                      ))
-                  }
                 </>
               ) : (
                 <>
@@ -4399,7 +4284,7 @@ export default function FromApp({
           {/* Explore uses the normal scrolling body (not the fixed `.home` layout,
               which disables scroll and adds the big top padding). */}
           <div className={`fr-body${hasConversation || showExplore ? '' : ' home'}`}
-            ref={exploreScrollRef}
+            ref={stylistScrollRef}
             onTouchStart={showExplore ? (e => {
               if (e.currentTarget.scrollTop <= 0 && !pullRefreshing) {
                 pullStartY.current = e.touches[0].clientY; pulling.current = true
@@ -4500,44 +4385,6 @@ export default function FromApp({
             }
 
 
-            {/* Loading — skeleton image grid */}
-            {(loading || productsLoading) && (
-              <div className="fr-grid">
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <div key={i} className="fr-card">
-                    <div style={{
-                      aspectRatio: '3/4',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      background: '#EEEEEE',
-                    }}>
-                      {/* Shimmer: fade from base color → light → base color — no dark edges */}
-                      <div style={{
-                        position: 'absolute', top: 0, bottom: 0,
-                        width: '60%',
-                        background: 'linear-gradient(90deg, #EEEEEE 0%, #F4F4F4 35%, #F6F6F6 50%, #F4F4F4 65%, #EEEEEE 100%)',
-                        animation: `sk-sweep 2s ${i * 0.06}s ease-in-out infinite`,
-                        willChange: 'transform',
-                      }} />
-                    </div>
-                    {/* Meta placeholders — keep the card height stable while loading */}
-                    <div style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ height: 9, width: '85%', background: '#EEEEEE', borderRadius: 2 }} />
-                      <div style={{ height: 9, width: '40%', background: '#EEEEEE', borderRadius: 2 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Empty state */}
-            {showEmpty && !loading && !showExplore && (
-              <div style={{ padding: "48px 20px", textAlign: "center" }}>
-                <p style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 300, fontStyle: "italic", color: INK3 }}>Nothing found</p>
-                <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, letterSpacing: ".1em", display: "block", marginTop: 6, opacity: .6 }}>Try a different search</span>
-              </div>
-            )}
-
             {/* Explore — random Instagram-style product feed */}
             {showExplore && (
               exploreFeed.length > 0 ? (
@@ -4592,59 +4439,272 @@ export default function FromApp({
               </div>
             )}
 
-            {/* Product grid */}
-            {(hasConversation || showExplore) && !loading && !productsLoading && searchProducts.length > 0 && (
-              <>
-                <div className="fr-grid">
-                  {searchProducts.map(p => {
-                    const cardColor = cardColors[p.id] ?? getProductColors(p)[0] ?? null
-                    const colorImgs = getColorVariantImages(p, cardColor)
-                    const cardImgs = colorImgs.length > 0 ? colorImgs : getProductImages(p)
-                    return (
-                    <div key={p.id} className="fr-card">
-                      <div className="fr-cell"
-                        role="button" tabIndex={0}
-                        {...makePressHandlers((x, y) => {
-                          productWasLong.current = true
-                          const menuW = 200; const menuH = 160
-                          const above = y + 8 + menuH > window.innerHeight
-                          const my = Math.max(8, above ? y - menuH - 4 : y + 8)
-                          const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
-                          ctxMenuOpenAt.current = Date.now()
-                          setProductCtxMenu({ product: p, x: mx, y: my, above })
-                        })}
-                        onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                        <CardCarousel
-                          key={cardColor ?? 'default'}
-                          images={cardImgs}
-                          onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
-                        />
-                      </div>
-                      <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)}
-                        activeColor={cardColor} onSelectColor={c => setCardColors(m => ({ ...m, [p.id]: c }))} />
-                    </div>
-                    )
-                  })}
-                </div>
-                {lastProductMsg?.loadingMore && !productsLoading && (
-                  <div className="fr-grid" style={{ marginTop: 26 }}>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="fr-card">
-                        <div className="fr-cell" style={{ background: '#EEEEEE', overflow: 'hidden' }}>
-                          <div style={{ position:'absolute',top:0,bottom:0,width:'60%',
-                            background:'linear-gradient(90deg,#EEEEEE 0%,#F4F4F4 35%,#F6F6F6 50%,#F4F4F4 65%,#EEEEEE 100%)',
-                            animation:`sk-sweep 2s ${i * 0.1}s ease-in-out infinite`,willChange:'transform' }} />
+            {/* Fabrics conversation — the one shopping surface, no separate grid search */}
+            {hasConversation && !showExplore && (
+              <div style={{ padding: '4px 20px 0' }}>
+                {/* Pinned products — pieces the shopper attached to ask about */}
+                {stylistProducts.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, padding: '0 0 16px', overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+                    {stylistProducts.map(p => (
+                      <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 80 }}>
+                        <div onClick={() => setSelected(p)} style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
+                          {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                         </div>
-                        <div style={{ padding: '9px 4px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ height: 9, width: '85%', background: '#EEEEEE', borderRadius: 2 }} />
-                          <div style={{ height: 9, width: '40%', background: '#EEEEEE', borderRadius: 2 }} />
-                        </div>
+                        <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                        <div style={{ fontFamily: SANS, fontSize: 9, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                        {stylistProducts.length > 1 && (
+                          <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
-                <div ref={sentinelRef} style={{ height: 1 }} />
-              </>
+
+                {/* Your wardrobe — persistent pieces the shopper owns */}
+                {wardrobeImages.length > 0 && (
+                  <div style={{ padding: '0 0 16px' }}>
+                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 7 }}>Your wardrobe · {wardrobeImages.length}</div>
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+                      {wardrobeImages.map((img, idx) => (
+                        <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
+                          <div style={{ width: 58, height: 72, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                            <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          </div>
+                          <button type="button" onClick={() => setWardrobeImages(prev => prev.filter((_, i) => i !== idx))}
+                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: INK, border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                            <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Conversation thread */}
+                {stylistMsgs.map((m, i) => (
+                  <div key={i} style={{ marginBottom: 22, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    {m.role === 'user' && m.images && m.images.length > 0 && (
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
+                        {m.images.map((url, ii) => (
+                          <div key={ii} style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                            <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ maxWidth: '88%', fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
+                      padding: m.role === 'user' ? '9px 14px' : 0,
+                      background: m.role === 'user' ? INK : 'transparent',
+                      color: m.role === 'user' ? '#fff' : INK2,
+                      borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
+                      whiteSpace: 'pre-wrap' }}>
+                      {m.role === 'assistant'
+                        ? (m.busy
+                            ? <span className="fr-shine">{m.content}</span>
+                            : renderStylistText(m.content, stylistProducts, liveRates, (p) => setSelected(p)))
+                        : m.content}
+                    </div>
+                    {m.comparison && m.comparison.rows.length > 0 && (
+                      <div style={{ marginTop: 10, width: '100%', maxWidth: 480, border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', borderBottom: `1px solid ${BRD}` }}>
+                          <div style={{ width: 88, flexShrink: 0 }} />
+                          {stylistProducts.map((p, ci) => (
+                            <div key={p.id} style={{ flex: 1, padding: '8px 4px', textAlign: 'center', borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
+                              <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, color: INK2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 3px', lineHeight: 1.3 }}>
+                                {p.title.replace(/^\d[\d\s\-–—]*/, '').trim().split(' ').slice(0, 3).join(' ') || `${ci + 1}`}
+                              </div>
+                              {m.comparison!.pick?.index === ci && (
+                                <div style={{ display: 'inline-block', fontFamily: SANS, fontSize: 7, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#fff', marginTop: 4, background: INK, borderRadius: 3, padding: '2px 5px' }}>★ Pick</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {m.comparison.rows.map((row, ri) => (
+                          <div key={ri} style={{ display: 'flex', borderBottom: ri < m.comparison!.rows.length - 1 ? `1px solid ${BRD}` : 'none' }}>
+                            <div style={{ width: 88, flexShrink: 0, padding: '9px 10px', fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.03em', textTransform: 'uppercase', color: INK3 }}>{row.label}</div>
+                            {stylistProducts.map((p, ci) => (
+                              <div key={ci} style={{ flex: 1, padding: '9px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 12, color: INK2, borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
+                                {row.values[ci] ?? '—'}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                        {m.comparison.pick?.reason && stylistProducts[m.comparison.pick.index] && (
+                          <div style={{ padding: '10px 12px', fontFamily: SANS, fontSize: 12, color: INK2, lineHeight: 1.5, background: 'rgba(44,18,6,0.03)', borderTop: `1px solid ${BRD}` }}>
+                            <strong style={{ fontWeight: 600 }}>{stylistProducts[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (
+                      <div style={{ marginTop: 10, width: '100%' }}>
+                        <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Found for you</div>
+                        <div className="fr-grid">
+                          {m.foundProducts.map(p => {
+                            const cardColor = cardColors[p.id] ?? getProductColors(p)[0] ?? null
+                            const colorImgs = getColorVariantImages(p, cardColor)
+                            const cardImgs = colorImgs.length > 0 ? colorImgs : getProductImages(p)
+                            return (
+                              <div key={p.id} className="fr-card">
+                                <div className="fr-cell"
+                                  role="button" tabIndex={0}
+                                  {...makePressHandlers((x, y) => {
+                                    productWasLong.current = true
+                                    const menuW = 200; const menuH = 160
+                                    const above = y + 8 + menuH > window.innerHeight
+                                    const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                                    const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
+                                    ctxMenuOpenAt.current = Date.now()
+                                    setProductCtxMenu({ product: p, x: mx, y: my, above })
+                                  })}
+                                  onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
+                                  <CardCarousel
+                                    key={cardColor ?? 'default'}
+                                    images={cardImgs}
+                                    onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                                  />
+                                </div>
+                                <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)}
+                                  activeColor={cardColor} onSelectColor={c => setCardColors(cm => ({ ...cm, [p.id]: c }))} />
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {m.searchQuery && !m.hasNoMore && (
+                          <button type="button" onClick={() => loadMoreStylistProducts(i)} disabled={m.loadingMore}
+                            style={{ marginTop: 14, width: '100%', padding: '11px', borderRadius: 12, border: `1px solid ${BRD}`,
+                              background: 'transparent', fontFamily: SANS, fontSize: 12, fontWeight: 500, letterSpacing: '.04em',
+                              textTransform: 'uppercase', color: INK2, cursor: m.loadingMore ? 'default' : 'pointer', opacity: m.loadingMore ? .5 : 1 }}>
+                            {m.loadingMore ? 'Finding more…' : 'See more'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {m.role === 'assistant' && m.outfitSlots && m.outfitSlots.length > 0 && (
+                      <div style={{ marginTop: 12, width: '100%', maxWidth: 480 }}>
+                        <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Complete outfit</div>
+                        {(() => {
+                          // Dedup first so the total uses the same products as the cards.
+                          const seenIds = new Set<string>()
+                          const bests = m.outfitSlots!.map(slot => {
+                            const b = slot.products.find(p => !seenIds.has(p.id)) ?? slot.products[0]
+                            if (b) seenIds.add(b.id)
+                            return b ?? null
+                          })
+
+                          // Total: convert every slot to the shopper's display currency
+                          // before summing so mixed-currency outfits add up correctly.
+                          const displayCurrency = shopperContext.currency || 'USD'
+                          const total = bests.reduce((sum, p) => {
+                            if (!p) return sum
+                            return sum + convertCurrencyAmount(p.price, p.base_currency ?? p.currency, displayCurrency, liveRates)
+                          }, 0)
+
+                          const slots = bests.map((best, si) => {
+                            if (!best) return null
+                            const slot = m.outfitSlots![si]
+                            const slotLabel = slot.slotCategory ?? (() => {
+                              const t = `${slot.query} ${best.title} ${(best.tags || []).join(' ')}`.toLowerCase()
+                              if (/shoe|sneaker|loafer|boot|sandal|trainer|oxford|derby|moccasin|footwear|slip.on|espadrille|pump|heel|clog/.test(t)) return 'Shoes'
+                              if (/\bjacket\b|blazer|\bcoat\b|overcoat|parka|windbreaker|trench|bomber/.test(t)) return 'Outer'
+                              if (/trouser|pant|\bjean\b|denim|chino|\bshort\b|skirt|legging/.test(t)) return 'Bottom'
+                              if (/dress|jumpsuit|romper|overall|dungaree/.test(t)) return 'Dress'
+                              if (/belt|watch|\bbag\b|tote|\bhat\b|\bcap\b|scarf|\btie\b|sock|bracelet|necklace|sunglasses/.test(t)) return 'Accessory'
+                              return 'Top'
+                            })()
+                            const isSaved = savedIds.has(best.id)
+                            return (
+                              <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}
+                                onClick={() => setSelected(best)}>
+                                <div style={{ height: 110, overflow: 'hidden', background: BG2, position: 'relative' }}>
+                                  {getProductImages(best)[0] && <img src={getProductImages(best)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                  <div style={{ position: 'absolute', top: 6, left: 6, background: INK, color: '#fff', fontFamily: SANS, fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 20, letterSpacing: '.05em' }}>
+                                    {slotLabel}
+                                  </div>
+                                  <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
+                                    onClick={e => { e.stopPropagation(); toggleSaved(best) }}
+                                    style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
+                                      background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
+                                    {isSaved ? (
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                    ) : (
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                                    )}
+                                  </button>
+                                </div>
+                                <div style={{ padding: '7px 8px' }}>
+                                  <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.title}</div>
+                                  <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(best.price, best.currency, best.base_currency, liveRates)}</div>
+                                  {(() => { const { colors: sc } = displaySwatches(best); return sc.length > 0 ? (
+                                    <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
+                                      {sc.slice(0, 6).map(c => (
+                                        <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(best, c)[0] ?? getProductImages(best)[0]} size={9} shape="square" selected={false} available={true} />
+                                      ))}
+                                    </div>
+                                  ) : null })()}
+                                </div>
+                              </div>
+                            )
+                          })
+                          return (
+                            <>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>{slots}</div>
+                              {total > 0 && (
+                                <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: INK2, textAlign: 'right' }}>
+                                  Total outfit: {formatMoney(total, displayCurrency, displayCurrency, liveRates)}
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {stylistLoading && (
+                  stylistLoadingPhases.length === 0 ? (
+                    <div style={{ padding: '10px 2px 14px', display: 'flex', gap: 5, alignItems: 'center' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0s infinite' }} />
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0.22s infinite' }} />
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0.44s infinite' }} />
+                    </div>
+                  ) : (
+                    <div style={{ padding: '6px 2px 14px' }}>
+                      <div key={`main-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .22s ease' }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: INK, display: 'inline-block', flexShrink: 0, animation: 'fr-bounce 1.1s 0s infinite' }} />
+                        <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 500 }}>
+                          {stylistLoadingPhases[stylistLoadingStep]?.main ?? 'Thinking…'}
+                        </span>
+                      </div>
+                      {stylistSubVis && stylistLoadingPhases[stylistLoadingStep]?.sub && (
+                        <div key={`sub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, paddingLeft: 3, animation: 'fadeUp .2s ease' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                            <div style={{ width: 1, height: 7, background: 'rgba(44,18,6,0.15)' }} />
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: INK3, display: 'inline-block' }} />
+                          </div>
+                          <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
+                            {stylistLoadingPhases[stylistLoadingStep]?.sub}
+                          </span>
+                        </div>
+                      )}
+                      {stylistSubSubVis && stylistLoadingPhases[stylistLoadingStep]?.subsub && (
+                        <div key={`subsub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 12, animation: 'fadeUp .2s ease' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                            <div style={{ width: 1, height: 6, background: 'rgba(44,18,6,0.10)' }} />
+                            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(44,18,6,0.25)', display: 'inline-block' }} />
+                          </div>
+                          <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.7 }}>
+                            {stylistLoadingPhases[stylistLoadingStep]?.subsub}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
             )}
 
             <div style={{ height: 12 }} />
@@ -4692,12 +4752,12 @@ export default function FromApp({
                   )}
 
                   {/* Image strip — appears above search bar when images attached */}
-                  {uploadedImages.length > 0 && (
+                  {stylistImages.length > 0 && (
                     <div style={{
                       display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 12px 0',
                       scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
                     }}>
-                      {uploadedImages.map((img, idx) => (
+                      {stylistImages.map((img, idx) => (
                         <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
                           <img src={img.url} alt="" style={{
                             width: 72, height: 72, borderRadius: 10, objectFit: 'cover',
@@ -4706,7 +4766,7 @@ export default function FromApp({
                           {/* Remove button */}
                           <button
                             type="button"
-                            onClick={() => removeUpload(idx)}
+                            onClick={() => setStylistImages(prev => prev.filter((_, i) => i !== idx))}
                             style={{
                               position: 'absolute', top: -6, right: -6,
                               width: 20, height: 20, borderRadius: '50%',
@@ -4737,22 +4797,19 @@ export default function FromApp({
                     {/* Paperclip — opens the device's native attach menu directly */}
                     <div style={{ position: 'relative' }}>
                     <button ref={attachBtnSearchRef} type="button" className="fr-icon-btn" onClick={() => {
-                      setAttachContext('search'); attachPhotoRef.current?.click()
+                      attachPhotoRef.current?.click()
                     }}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                       </svg>
                     </button>
                     </div>
-                    {/* Fabrics pill */}
-                    <button type="button" onClick={() => setStylistOpen(true)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5,
-                        padding: '4px 9px 4px 7px', borderRadius: 20,
-                        border: `1px solid rgba(44,18,6,.18)`, background: 'transparent',
-                        cursor: 'pointer', flexShrink: 0 }}>
-                      <FabricsIcon size={13} stroke={INK2} strokeWidth={1.05}/>
-                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 400,
-                        color: INK, letterSpacing: '.01em', lineHeight: 1 }}>Fabrics</span>
+                    {/* Wardrobe — add pieces the shopper owns to build outfits around */}
+                    <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={wardrobeImages.length >= 8}
+                      onClick={() => { wardrobeFileRef.current?.click() }} title="Add your wardrobe pieces">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="4" y="2.5" width="16" height="18.5" rx="1.5"/><line x1="12" y1="2.5" x2="12" y2="21"/><line x1="9.6" y1="9" x2="9.6" y2="12.5"/><line x1="14.4" y1="9" x2="14.4" y2="12.5"/><line x1="6.5" y1="21" x2="6.5" y2="23"/><line x1="17.5" y1="21" x2="17.5" y2="23"/>
+                      </svg>
                     </button>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
@@ -4782,70 +4839,6 @@ export default function FromApp({
 
           {/* ── Sheet overlay — tap/click outside to close on all devices ── */}
           <div className={`fr-sheet-ov ${selectedProduct ? "vis" : ""}`} onClick={() => setSelected(null)} />
-
-          {/* ── History long-press context menu — Apple Liquid Glass ── */}
-          {ctxMenu && (
-            <>
-              {/* Dismiss — invisible tap target, no blur or dim on background */}
-              <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 500) return; setCtxMenu(null) }}
-                style={{ position: 'fixed', inset: 0, zIndex: 9000 }} />
-
-              {/* Glass menu — no backdrop-filter so nothing behind it blurs */}
-              <div style={{
-                position: 'fixed',
-                left: ctxMenu.x, top: ctxMenu.y,
-                zIndex: 9001,
-                width: 160,
-                borderRadius: 12,
-                overflow: 'hidden',
-                background: 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(245,245,248,0.94) 100%)',
-                boxShadow: '0 0 0 0.5px rgba(255,255,255,0.9), 0 12px 36px rgba(0,0,0,0.18), 0 3px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
-                border: '0.5px solid rgba(180,180,190,0.35)',
-                animation: 'ctxIn 0.22s cubic-bezier(0.34,1.36,0.64,1)',
-                transformOrigin: ctxMenu.above ? 'bottom left' : 'top left',
-              }}>
-                {/* Specular sweep */}
-                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-                  background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
-
-                {/* Rename */}
-                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; setRenameId(ctxMenu.id); setRenameVal(ctxMenu.query); setCtxMenu(null) }}
-                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
-                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
-                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
-                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
-                  onPointerUp={e => (e.currentTarget.style.background = '')}
-                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Rename</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                </div>
-
-                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
-
-                {/* Delete */}
-                <div onClick={() => { if (Date.now() - ctxMenuOpenAt.current < 350) return; deleteHistoryEntry(ctxMenu.id); setCtxMenu(null) }}
-                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
-                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
-                    fontSize: 14, fontWeight: 400, color: '#FF3B30' }}
-                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.08)')}
-                  onPointerUp={e => (e.currentTarget.style.background = '')}
-                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>Delete</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                  </svg>
-                </div>
-              </div>
-            </>
-          )}
 
           {/* ── Fabrics history context menu ── */}
           {stylistCtxMenu && (
@@ -4934,371 +4927,6 @@ export default function FromApp({
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0, opacity: .5 }}><polyline points="9 18 15 12 9 6"/></svg>
                     </div>
                   ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Stylist sheet — conversational AI over specific product(s) ── */}
-          {stylistOpen && (
-            <div onClick={() => setStylistOpen(false)}
-              style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100dvh', zIndex: 9990, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: isMedium ? 'center' : 'flex-end', justifyContent: 'center', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as React.CSSProperties}>
-              <div onClick={e => e.stopPropagation()}
-                style={isMedium ? {
-                  width: 'min(880px, 92vw)', height: 'min(720px, 88vh)',
-                  background: '#fff', borderRadius: 20,
-                  display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                  boxShadow: '0 24px 80px rgba(0,0,0,.22), 0 8px 24px rgba(0,0,0,.12)',
-                  animation: 'fadeScale .3s cubic-bezier(.32,.72,0,1)',
-                } : {
-                  width: '100%', maxWidth: 680, margin: '0 auto',
-                  background: '#fff', borderRadius: '18px 18px 0 0',
-                  display: 'flex', flexDirection: 'column', maxHeight: '90dvh',
-                  animation: 'sheetUp .34s cubic-bezier(.32,.72,0,1)',
-                }}>
-
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px', borderBottom: `1px solid ${BRD}`, flexShrink: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <FabricsIcon size={15} stroke={INK} strokeWidth={1.1}/>
-                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Fabrics</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {stylistMsgs.length > 0 && (
-                      <button onClick={() => { setStylistMsgs([]); setStylistProducts([]); setStylistImages([]); setWardrobeImages([]); stylistSessionId.current = null }} title="New conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                      </button>
-                    )}
-                    <button onClick={() => setStylistOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: INK3, lineHeight: 0 }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Pinned products */}
-                <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto', flexShrink: 0, borderBottom: `1px solid ${BRD}`, scrollbarWidth: 'none' } as React.CSSProperties}>
-                  {stylistProducts.map(p => (
-                    <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 80 }}>
-                      <div onClick={() => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(p) }} style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
-                        {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                      </div>
-                      <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                      <div style={{ fontFamily: SANS, fontSize: 9, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
-                      {stylistProducts.length > 1 && (
-                        <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Your wardrobe — persistent pieces the shopper owns */}
-                {wardrobeImages.length > 0 && (
-                  <div style={{ flexShrink: 0, padding: '10px 16px', borderBottom: `1px solid ${BRD}` }}>
-                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 7 }}>Your wardrobe · {wardrobeImages.length}</div>
-                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-                      {wardrobeImages.map((img, idx) => (
-                        <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
-                          <div style={{ width: 58, height: 72, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
-                            <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                          </div>
-                          <button type="button" onClick={() => setWardrobeImages(prev => prev.filter((_, i) => i !== idx))}
-                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: INK, border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
-                            <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Conversation */}
-                <div ref={stylistScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', WebkitOverflowScrolling: 'touch', minHeight: 130 } as React.CSSProperties}>
-                  {stylistMsgs.length === 0 && !stylistLoading && (
-                    <div>
-                      <p style={{ fontFamily: SERIF, fontSize: 18, color: INK3, lineHeight: 1.4, marginBottom: 12 }}>
-                        {wardrobeImages.length > 0
-                          ? `Ask me to build a full outfit around ${wardrobeImages.length > 1 ? 'these pieces' : 'this piece'}.`
-                          : stylistProducts.length > 0 ? `Ask anything about ${stylistProducts.length > 1 ? 'these pieces' : 'this piece'}.` : 'Ask me anything about style.'}
-                      </p>
-                      <p style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(44,18,6,0.4)', lineHeight: 1.5 }}>
-                        {wardrobeImages.length > 0
-                          ? 'I can see what you own — ask me to complete the outfit with bottoms, shoes and a layer, find what’s missing, or style combinations.'
-                          : 'Get outfit ideas, styling advice, and recommendations — or tap the wardrobe icon to add photos of your own clothes and build outfits around them.'}
-                      </p>
-                    </div>
-                  )}
-                  {stylistMsgs.map((m, i) => (
-                    <div key={i} style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      {m.role === 'user' && m.images && m.images.length > 0 && (
-                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
-                          {m.images.map((url, ii) => (
-                            <div key={ii} style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
-                              <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ maxWidth: '88%', fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
-                        padding: m.role === 'user' ? '9px 14px' : 0,
-                        background: m.role === 'user' ? INK : 'transparent',
-                        color: m.role === 'user' ? '#fff' : INK2,
-                        borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
-                        whiteSpace: 'pre-wrap' }}>
-                        {m.role === 'assistant'
-                          ? (m.busy
-                              ? <span className="fr-shine">{m.content}</span>
-                              : renderStylistText(m.content, stylistProducts, liveRates, (p) => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(p) }))
-                          : m.content}
-                      </div>
-                      {m.comparison && m.comparison.rows.length > 0 && (
-                        <div style={{ marginTop: 10, width: '100%', border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>
-                          <div style={{ display: 'flex', borderBottom: `1px solid ${BRD}` }}>
-                            <div style={{ width: 88, flexShrink: 0 }} />
-                            {stylistProducts.map((p, ci) => (
-                              <div key={p.id} style={{ flex: 1, padding: '8px 4px', textAlign: 'center', borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
-                                <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, color: INK2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 3px', lineHeight: 1.3 }}>
-                                  {p.title.replace(/^\d[\d\s\-–—]*/, '').trim().split(' ').slice(0, 3).join(' ') || `${ci + 1}`}
-                                </div>
-                                {m.comparison!.pick?.index === ci && (
-                                  <div style={{ display: 'inline-block', fontFamily: SANS, fontSize: 7, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#fff', marginTop: 4, background: INK, borderRadius: 3, padding: '2px 5px' }}>★ Pick</div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                          {m.comparison.rows.map((row, ri) => (
-                            <div key={ri} style={{ display: 'flex', borderBottom: ri < m.comparison!.rows.length - 1 ? `1px solid ${BRD}` : 'none' }}>
-                              <div style={{ width: 88, flexShrink: 0, padding: '9px 10px', fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.03em', textTransform: 'uppercase', color: INK3 }}>{row.label}</div>
-                              {stylistProducts.map((p, ci) => (
-                                <div key={ci} style={{ flex: 1, padding: '9px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 12, color: INK2, borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
-                                  {row.values[ci] ?? '—'}
-                                </div>
-                              ))}
-                            </div>
-                          ))}
-                          {m.comparison.pick?.reason && stylistProducts[m.comparison.pick.index] && (
-                            <div style={{ padding: '10px 12px', fontFamily: SANS, fontSize: 12, color: INK2, lineHeight: 1.5, background: 'rgba(44,18,6,0.03)', borderTop: `1px solid ${BRD}` }}>
-                              <strong style={{ fontWeight: 600 }}>{stylistProducts[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (
-                        <div style={{ marginTop: 10, width: '100%' }}>
-                          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Found for you</div>
-                          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
-                            {m.foundProducts.map(p => {
-                              const { colors: pc } = displaySwatches(p)
-                              const isSaved = savedIds.has(p.id)
-                              return (
-                                <div key={p.id} onClick={() => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(p) }}
-                                  style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
-                                  <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2, position: 'relative' }}>
-                                    {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                    <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
-                                      onClick={e => { e.stopPropagation(); toggleSaved(p) }}
-                                      style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
-                                        background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
-                                      {isSaved ? (
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                                      ) : (
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                                      )}
-                                    </button>
-                                  </div>
-                                  <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                                  <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
-                                  {pc.length > 0 && (
-                                    <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
-                                      {pc.slice(0, 5).map(c => (
-                                        <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={9} shape="square" selected={false} available={true} />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                      {m.role === 'assistant' && m.outfitSlots && m.outfitSlots.length > 0 && (
-                        <div style={{ marginTop: 12, width: '100%' }}>
-                          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Complete outfit</div>
-                          {(() => {
-                            // Dedup first so the total uses the same products as the cards.
-                            const seenIds = new Set<string>()
-                            const bests = m.outfitSlots!.map(slot => {
-                              const b = slot.products.find(p => !seenIds.has(p.id)) ?? slot.products[0]
-                              if (b) seenIds.add(b.id)
-                              return b ?? null
-                            })
-
-                            // Total: convert every slot to the shopper's display currency
-                            // before summing so mixed-currency outfits add up correctly.
-                            const displayCurrency = shopperContext.currency || 'USD'
-                            const total = bests.reduce((sum, p) => {
-                              if (!p) return sum
-                              return sum + convertCurrencyAmount(p.price, p.base_currency ?? p.currency, displayCurrency, liveRates)
-                            }, 0)
-
-                            const slots = bests.map((best, si) => {
-                              if (!best) return null
-                              const slot = m.outfitSlots![si]
-                              const slotLabel = slot.slotCategory ?? (() => {
-                                const t = `${slot.query} ${best.title} ${(best.tags || []).join(' ')}`.toLowerCase()
-                                if (/shoe|sneaker|loafer|boot|sandal|trainer|oxford|derby|moccasin|footwear|slip.on|espadrille|pump|heel|clog/.test(t)) return 'Shoes'
-                                if (/\bjacket\b|blazer|\bcoat\b|overcoat|parka|windbreaker|trench|bomber/.test(t)) return 'Outer'
-                                if (/trouser|pant|\bjean\b|denim|chino|\bshort\b|skirt|legging/.test(t)) return 'Bottom'
-                                if (/dress|jumpsuit|romper|overall|dungaree/.test(t)) return 'Dress'
-                                if (/belt|watch|\bbag\b|tote|\bhat\b|\bcap\b|scarf|\btie\b|sock|bracelet|necklace|sunglasses/.test(t)) return 'Accessory'
-                                return 'Top'
-                              })()
-                              const isSaved = savedIds.has(best.id)
-                              return (
-                                <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}
-                                  onClick={() => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(best) }}>
-                                  <div style={{ height: 110, overflow: 'hidden', background: BG2, position: 'relative' }}>
-                                    {getProductImages(best)[0] && <img src={getProductImages(best)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                    <div style={{ position: 'absolute', top: 6, left: 6, background: INK, color: '#fff', fontFamily: SANS, fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 20, letterSpacing: '.05em' }}>
-                                      {slotLabel}
-                                    </div>
-                                    <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
-                                      onClick={e => { e.stopPropagation(); toggleSaved(best) }}
-                                      style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
-                                        background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
-                                      {isSaved ? (
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                                      ) : (
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                                      )}
-                                    </button>
-                                  </div>
-                                  <div style={{ padding: '7px 8px' }}>
-                                    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.title}</div>
-                                    <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(best.price, best.currency, best.base_currency, liveRates)}</div>
-                                    {(() => { const { colors: sc } = displaySwatches(best); return sc.length > 0 ? (
-                                      <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
-                                        {sc.slice(0, 6).map(c => (
-                                          <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(best, c)[0] ?? getProductImages(best)[0]} size={9} shape="square" selected={false} available={true} />
-                                        ))}
-                                      </div>
-                                    ) : null })()}
-                                  </div>
-                                </div>
-                              )
-                            })
-                            return (
-                              <>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>{slots}</div>
-                                {total > 0 && (
-                                  <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: INK2, textAlign: 'right' }}>
-                                    Total outfit: {formatMoney(total, displayCurrency, displayCurrency, liveRates)}
-                                  </div>
-                                )}
-                              </>
-                            )
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {stylistLoading && (
-                    stylistLoadingPhases.length === 0 ? (
-                      // Conversational message — simple typing dots, no search animation
-                      <div style={{ padding: '10px 2px 14px', display: 'flex', gap: 5, alignItems: 'center' }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0s infinite' }} />
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0.22s infinite' }} />
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0.44s infinite' }} />
-                      </div>
-                    ) : (
-                      <div style={{ padding: '6px 2px 14px' }}>
-                        {/* Main phase — key forces re-mount/fade on step change */}
-                        <div key={`main-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .22s ease' }}>
-                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: INK, display: 'inline-block', flexShrink: 0, animation: 'fr-bounce 1.1s 0s infinite' }} />
-                          <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 500 }}>
-                            {stylistLoadingPhases[stylistLoadingStep]?.main ?? 'Thinking…'}
-                          </span>
-                        </div>
-                        {/* Sub */}
-                        {stylistSubVis && stylistLoadingPhases[stylistLoadingStep]?.sub && (
-                          <div key={`sub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, paddingLeft: 3, animation: 'fadeUp .2s ease' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                              <div style={{ width: 1, height: 7, background: 'rgba(44,18,6,0.15)' }} />
-                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: INK3, display: 'inline-block' }} />
-                            </div>
-                            <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
-                              {stylistLoadingPhases[stylistLoadingStep]?.sub}
-                            </span>
-                          </div>
-                        )}
-                        {/* Sub-sub */}
-                        {stylistSubSubVis && stylistLoadingPhases[stylistLoadingStep]?.subsub && (
-                          <div key={`subsub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 12, animation: 'fadeUp .2s ease' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                              <div style={{ width: 1, height: 6, background: 'rgba(44,18,6,0.10)' }} />
-                              <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(44,18,6,0.25)', display: 'inline-block' }} />
-                            </div>
-                            <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.7 }}>
-                              {stylistLoadingPhases[stylistLoadingStep]?.subsub}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  )}
-                </div>
-
-                {/* Input */}
-                <div style={{ flexShrink: 0, padding: '10px 14px calc(10px + env(safe-area-inset-bottom, 0px))' }}>
-                  <input ref={stylistFileRef} type="file" accept="image/*,*/*" multiple style={{ display: 'none' }} onChange={handleStylistFile} />
-                  <input ref={wardrobeFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleWardrobeFile} />
-                  {/* Attached image strip */}
-                  {stylistImages.length > 0 && (
-                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 8, scrollbarWidth: 'none' } as React.CSSProperties}>
-                      {stylistImages.map((img, idx) => (
-                        <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
-                          <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
-                            <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                          </div>
-                          <button type="button" onClick={() => setStylistImages(prev => prev.filter((_, i) => i !== idx))}
-                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: INK, border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
-                            <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {/* Bar pill — matches main search bar */}
-                  <div style={{ background: BG, borderRadius: 22, padding: '10px 10px 8px 14px', boxShadow: '0 4px 20px rgba(44,18,6,.08), 0 1px 4px rgba(44,18,6,.05), inset 0 1px 0 rgba(255,255,255,.98), inset 0 -0.5px 0 rgba(44,18,6,.04)' }}>
-                    {/* Row 1: text */}
-                    <input value={stylistInput} onChange={e => setStylistInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendStylist(stylistInput) } }}
-                      placeholder={wardrobeImages.length > 0 ? 'Build an outfit, find what’s missing…' : stylistImages.length > 0 ? 'Ask about your photos…' : 'Ask Fabrics…'}
-                      style={{ width: '100%', fontFamily: SANS, fontSize: 15, color: INK, caretColor: INK, background: 'transparent', border: 'none', outline: 'none', padding: 0, lineHeight: 1.5 }} />
-                    {/* Row 2: actions */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={wardrobeImages.length >= 8}
-                          onClick={() => { wardrobeFileRef.current?.click() }} title="Add your wardrobe pieces">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="4" y="2.5" width="16" height="18.5" rx="1.5"/><line x1="12" y1="2.5" x2="12" y2="21"/><line x1="9.6" y1="9" x2="9.6" y2="12.5"/><line x1="14.4" y1="9" x2="14.4" y2="12.5"/><line x1="6.5" y1="21" x2="6.5" y2="23"/><line x1="17.5" y1="21" x2="17.5" y2="23"/>
-                          </svg>
-                        </button>
-                      </div>
-                      <button type="button" className="fr-send-btn" onClick={() => sendStylist(stylistInput)} disabled={(!stylistInput.trim() && stylistImages.length === 0 && wardrobeImages.length === 0) || stylistLoading}
-                        style={{ background: (stylistInput.trim() || stylistImages.length > 0 || wardrobeImages.length > 0) && !stylistLoading ? INK : 'rgba(44,18,6,.18)', cursor: (stylistInput.trim() || stylistImages.length > 0 || wardrobeImages.length > 0) && !stylistLoading ? 'pointer' : 'default', boxShadow: (stylistInput.trim() || stylistImages.length > 0 || wardrobeImages.length > 0) && !stylistLoading ? '0 4px 14px rgba(44,18,6,.35),0 1px 4px rgba(44,18,6,.2),inset 0 1px 0 rgba(255,255,255,.12)' : 'none' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -5844,10 +5472,10 @@ export default function FromApp({
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
 
-                {/* Ask your stylist — opens the conversational stylist sheet */}
+                {/* Ask Fabrics — pins the product into the one ongoing conversation */}
                 <div onClick={() => {
                     if (Date.now() - ctxMenuOpenAt.current < 350) return
-                    if (stylistOpen && stylistMsgs.length > 0) {
+                    if (stylistMsgs.length > 0) {
                       addStylistProduct(productCtxMenu.product)
                     } else {
                       addBarProduct(productCtxMenu.product)

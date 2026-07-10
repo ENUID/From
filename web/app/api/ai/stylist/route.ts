@@ -703,6 +703,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
             comparison: null,
             foundProducts: results.slice(0, SEARCH_RESULT_CAP),
             outfitSlots: null,
+            searchQuery: compiled.args.searchQuery,
           })
         } catch (e) {
           console.error('[stylist] fast-path search error:', e)
@@ -917,7 +918,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       }
     }
 
-    return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, outfitSlots })
+    return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, outfitSlots, searchQuery: searchQuery || undefined })
   } catch (e) {
     console.error('[stylist] error:', e)
     if (isRateLimited(e)) {
