@@ -1707,28 +1707,77 @@ function stylistTotalMsFor(phases: StylistLoadingPhase[]): number {
   return Math.min(STYLIST_STEPS_MAX_MS, Math.max(STYLIST_STEPS_MIN_MS, STYLIST_STEPS_MIN_MS + totalLines * 220))
 }
 
-// ── Step icons — one distinct glyph per operation, not a generic dot ─────────
+// ── Step icons ───────────────────────────────────────────────────────────────
+// A single bespoke visual language, not a generic icon-font set — every glyph
+// here is built from the same thread / needle / weave vocabulary as the
+// FabricsIcon mark, so the tracker reads as something only FROM has, not a
+// reskinned Feather/Lucide set. Search is a thread loop with a needle for a
+// handle, not a magnifying glass; filter is a pin through narrowing pleats,
+// not funnel lines; curate is a finishing thread-loop, not an AI sparkle.
 function StylistStepIcon({ icon, size = 13 }: { icon: StylistLoadingIcon; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   switch (icon) {
     case 'read':
-      return <svg {...common}><path d="M4 5.5A2 2 0 0 1 6 3.5h6v17H6a2 2 0 0 1-2-2z"/><path d="M20 5.5A2 2 0 0 0 18 3.5h-6v17h6a2 2 0 0 0 2-2z"/><line x1="9" y1="8" x2="9" y2="8"/></svg>
+      // A needle at the head of a stitched line — tracing/reading the thread of the request.
+      return <svg {...common}>
+        <circle cx="17.2" cy="6.2" r="1.25" fill="currentColor" stroke="none" />
+        <path d="M16.2 7.2 13.6 9.8" />
+        <path d="M13.1 10.3c-2.6 3-5.7 3.4-8.3.5" strokeDasharray="1.9 2.1" />
+      </svg>
     case 'search':
-      return <svg {...common}><circle cx="10.5" cy="10.5" r="6.5"/><line x1="19.5" y1="19.5" x2="15.3" y2="15.3"/></svg>
+      // Thread wound in a loop, needle as the handle — search, not a glass lens.
+      return <svg {...common}>
+        <circle cx="10" cy="10" r="6.3" />
+        <path d="M14.5 14.5 19.6 19.6" />
+        <circle cx="20.3" cy="20.3" r="1.05" fill="currentColor" stroke="none" />
+      </svg>
     case 'filter':
-      return <svg {...common}><path d="M3 5h18M6.5 12h11M10.5 19h3"/></svg>
+      // A pin through narrowing pleats — fabric being tailored down, not funnel lines.
+      return <svg {...common}>
+        <circle cx="12" cy="3.3" r="1.05" fill="currentColor" stroke="none" />
+        <path d="M12 4.3v15.8" />
+        <path d="M4.5 7.6h15M7.5 12.5h9M10.5 17.4h3" />
+      </svg>
     case 'compare':
-      return <svg {...common}><path d="M12 3v18"/><path d="M6 7 3 13a3 3 0 0 0 6 0z"/><path d="M18 7l-3 6a3 3 0 0 0 6 0z"/><path d="M4 7h5M15 7h5"/></svg>
+      // A balance scale with two swatches on the pans, not generic scale-cups.
+      return <svg {...common}>
+        <path d="M12 3v16.3" />
+        <path d="M9 20h6" />
+        <path d="M5 7.2h5M14 7.2h5" />
+        <rect x="3.2" y="7.2" width="4.9" height="3.7" rx="1" />
+        <rect x="15.9" y="7.2" width="4.9" height="3.7" rx="1" />
+      </svg>
     case 'palette':
-      return <svg {...common}><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.9 1.1-1.8-.3-.6-.1-1.4.6-1.6A9 9 0 0 0 21 9.5 6.5 6.5 0 0 0 12 3z"/><circle cx="8" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
+      // Three graduated thread ends — a colour story, not a paint palette.
+      return <svg {...common}>
+        <circle cx="5.8" cy="17.2" r="1.95" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="11.6" r="2.55" fill="currentColor" stroke="none" />
+        <circle cx="18.3" cy="6" r="3.05" fill="currentColor" stroke="none" />
+      </svg>
     case 'fabric':
-      return <svg {...common}><path d="M5.4 7.1 Q12 4.5 18.6 7.1 L18.6 15.3 Q16.4 18.5 14 15.9 Q11.6 13.3 9.2 15.9 Q6.9 18.4 5.4 15.3 Z"/></svg>
+      // A woven swatch — plain-weave crosshatch, not a generic cloth drape.
+      return <svg {...common}>
+        <rect x="4" y="4" width="16" height="16" rx="2.2" />
+        <path d="M4 12h16M12 4v16" />
+      </svg>
     case 'value':
-      return <svg {...common}><path d="M12.6 3.3a1 1 0 0 1 .7-.3H19a1 1 0 0 1 1 1v5.7a1 1 0 0 1-.3.7l-9 9a1 1 0 0 1-1.4 0l-5.7-5.7a1 1 0 0 1 0-1.4z"/><circle cx="16.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+      // A price tag on a thread loop instead of a punched hole.
+      return <svg {...common}>
+        <path d="M12.6 3.3a1 1 0 0 1 .7-.3H19a1 1 0 0 1 1 1v5.7a1 1 0 0 1-.3.7l-9 9a1 1 0 0 1-1.4 0l-5.7-5.7a1 1 0 0 1 0-1.4z" />
+        <circle cx="16.4" cy="7.6" r="1.3" />
+      </svg>
     case 'outfit':
-      return <svg {...common}><path d="M12 4a2 2 0 1 1 2 2"/><path d="M12 6 2 12l2 3 8-4.5L20 15l2-3z"/><path d="M6.5 12 5 20h14l-1.5-8"/></svg>
+      // A garment on a hanger, hook curled like a thread end.
+      return <svg {...common}>
+        <path d="M12 4.2a1.8 1.8 0 1 1 1.8 1.8" />
+        <path d="M12 6 2.5 11.8l1.6 2.7L12 10l7.9 4.5 1.6-2.7z" />
+        <path d="M6.5 12 5 20.5h14L17.5 12" />
+      </svg>
     case 'curate':
-      return <svg {...common}><path d="M12 3l1.4 4.4L18 9l-4.6 1.6L12 15l-1.4-4.4L6 9l4.6-1.6z"/><path d="M19 15l.7 2.1L22 18l-2.3.9L19 21l-.7-2.1L16 18l2.3-.9z"/></svg>
+      // A finishing thread loop — the completed, curated result — not an AI sparkle.
+      return <svg {...common}>
+        <path d="M6.3 12c0-2.1 1.6-3.4 3.1-3.4 1.6 0 2.1 1.3 2.6 3.4.5 2.1 1 3.4 2.6 3.4 1.5 0 3.1-1.3 3.1-3.4S16.1 8.6 14.6 8.6c-1.6 0-2.1 1.3-2.6 3.4-.5 2.1-1 3.4-2.6 3.4-1.5 0-3.1-1.3-3.1-3.4z" />
+      </svg>
   }
 }
 
