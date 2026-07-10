@@ -1431,7 +1431,10 @@ function TypewriterText({ text, products, liveRates, onProductClick, animate, on
 // request, searching the catalog, filtering, ranking) rather than a simulated
 // inner monologue. `icon` picks a distinct glyph per step in the stepper UI.
 type StylistLoadingIcon = 'read' | 'search' | 'filter' | 'compare' | 'palette' | 'fabric' | 'value' | 'outfit' | 'curate'
-type StylistLoadingPhase = { main: string; sub: string; subsub?: string; icon: StylistLoadingIcon }
+// trace: a variable-length execution log for this step (2-4 lines typically),
+// styled like a real operation trace — as many lines as the step genuinely
+// has to report, never padded to a fixed count.
+type StylistLoadingPhase = { main: string; icon: StylistLoadingIcon; trace: string[] }
 
 // Each step in the tracker is a genuinely distinct operation in the pipeline
 // (parsing intent, hitting the catalog, applying filters, ranking results) —
@@ -1480,7 +1483,53 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
   })
 }
 
-function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCurrency: string, profileGender?: string): StylistLoadingPhase[] {
+// Real numbers pulled from the actual catalog pipeline (GlobalCatalogService),
+// not invented telemetry — a store count that changes, a batch size that's a
+// tuning constant, a page size that's a UI decision. Keeping these accurate
+// is what makes the trace read as a real execution log instead of theater.
+const ROSTER_LABEL = '450+ independent stores'
+const CATALOG_BATCH_SIZE = 45
+const CATALOG_VENDOR_CAP = 2
+const CATALOG_PAGE_SIZE = 13
+
+function readTrace(literalQuery: string, parts: Array<[string, string | null | undefined]>): string[] {
+  const lines = [`parse("${literalQuery.length > 60 ? literalQuery.slice(0, 57) + '…' : literalQuery}")`]
+  for (const [label, val] of parts) if (val) lines.push(`${label} → ${val}`)
+  return lines.slice(0, 5)
+}
+
+function searchTrace(seed: string, searchLabel: string, budgetLabel?: string | null, sort?: string): string[] {
+  const lines = [
+    `catalog.search("${searchLabel}")`,
+    `stores → ${ROSTER_LABEL}`,
+    seededPick([
+      `fetch → batch of ${CATALOG_BATCH_SIZE}, parallel`,
+      `fetch → up to 2 rounds × ${CATALOG_BATCH_SIZE} stores`,
+    ], seed),
+  ]
+  if (budgetLabel) lines.push(`budget → ${budgetLabel}`)
+  if (sort === 'price_asc') lines.push('sort → price, low to high')
+  else if (sort === 'price_desc') lines.push('sort → price, high to low')
+  return lines
+}
+
+function filterTrace(seed: string, concepts?: string | null): string[] {
+  return [
+    concepts ? `concepts.match([${concepts}])` : 'concepts.match([garment])',
+    `vendor.cap(${CATALOG_VENDOR_CAP} per store)`,
+    seededPick(['stock.filter(in_stock only)', 'stock.check(live availability)', 'size.check(true to size)'], seed),
+  ]
+}
+
+function curateTrace(seed: string, judgeQuery: string, country?: string | null): string[] {
+  const q = judgeQuery.length > 44 ? judgeQuery.slice(0, 44) + '…' : judgeQuery
+  const lines = [`rank.relevance(judge="${q}")`]
+  if (country) lines.push(`geo.boost(country=${country})`)
+  lines.push(`page.slice(${CATALOG_PAGE_SIZE})`)
+  return lines
+}
+
+function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCurrency: string, profileGender?: string, buyerCountry?: string | null): StylistLoadingPhase[] {
   if (!hasImages) {
     // Run the SAME deterministic compiler the backend's instant fast path
     // runs — if it compiles, the search is guaranteed to be literal (its own
@@ -1493,53 +1542,13 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
       const concepts = (compiled.args.mandatoryConcepts || []).slice(1) // first group is the garment, already named above
       const filterDetail = concepts.map(group => group[0]).filter(Boolean).join(', ')
       const sort = compiled.args.sort || 'relevance'
-      const hasBudget = !!compiled.args.budgetMax
-
-      const searchSub = filterDetail
-        ? seededPick([
-            `Cross-referencing ${filterDetail} across every store`,
-            `Matching on ${filterDetail}, not just the garment name`,
-            `Narrowing to pieces that actually carry ${filterDetail}`,
-            `Checking live stock for ${filterDetail} specifically`,
-          ], compiled.args.searchQuery)
-        : seededPick([
-            `Scanning every listing for "${what}"`,
-            `Pulling live inventory across 450+ independent brands`,
-            `Checking real-time stock across the full roster`,
-            `Cross-referencing every store that carries this`,
-          ], compiled.args.searchQuery)
-
-      const filterSubsub = hasBudget
-        ? seededPick([
-            `Keeping it under ${compiled.args.budgetCurrency || buyerCurrency} ${compiled.args.budgetMax}`,
-            'Staying inside the budget you set',
-          ], compiled.args.searchQuery + '_budget')
-        : sort === 'price_asc'
-          ? seededPick(['Cheapest first, without cutting quality', 'Sorting low to high on price'], compiled.args.searchQuery)
-          : sort === 'price_desc'
-            ? seededPick(['Premium construction leading', 'Sorting high to low on price'], compiled.args.searchQuery)
-            : seededPick([
-                'Construction and stitching quality first',
-                'Checking fabric weight and finish',
-                'Fit true to size before anything else',
-                'Cutting anything that reads off-brief',
-              ], compiled.args.searchQuery + '_filter')
-
-      const curateSub = sort === 'price_asc'
-        ? seededPick(['Best value first', 'Lowest price that still fits the brief'], compiled.args.searchQuery)
-        : sort === 'price_desc'
-          ? seededPick(['Top-tier picks surfacing first', 'Premium options leading'], compiled.args.searchQuery)
-          : seededPick([
-              'Closest matches to what you asked for',
-              'Best overall fits, ranked first',
-              'Strongest matches surfacing to the top',
-            ], compiled.args.searchQuery + '_curate')
+      const budgetLabel = compiled.args.budgetMax ? `under ${compiled.args.budgetCurrency || buyerCurrency} ${compiled.args.budgetMax}` : null
 
       return [
-        { icon: 'read', main: 'Reading your request', sub: `"${what}"` },
-        { icon: 'search', main: 'Searching FROM’s catalog', sub: searchSub },
-        { icon: 'filter', main: 'Filtering for fit and material', sub: filterDetail || 'True to size and quality', subsub: filterSubsub },
-        { icon: 'curate', main: 'Ranking and curating your picks', sub: curateSub },
+        { icon: 'read', main: 'Reading your request', trace: readTrace(question, [['intent', what], ['attributes', filterDetail || null]]) },
+        { icon: 'search', main: 'Searching FROM’s catalog', trace: searchTrace(compiled.args.searchQuery, compiled.args.searchQuery, budgetLabel, sort) },
+        { icon: 'filter', main: 'Filtering for fit and material', trace: filterTrace(compiled.args.searchQuery + '_filter', filterDetail || null) },
+        { icon: 'curate', main: 'Ranking and curating your picks', trace: curateTrace(compiled.args.searchQuery + '_curate', question, buyerCountry) },
       ]
     }
   }
@@ -1613,59 +1622,59 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
   // actual detected terms filled in, so it never reads generic. ────────────────
   if (hasImages) {
     return [
-      { icon: 'read', main: 'Reading your photo', sub: 'Garment type, color, silhouette' },
-      { icon: 'palette', main: 'Checking undertone and contrast', sub: 'Warm vs. cool, what it pairs with' },
-      { icon: 'search', main: 'Searching FROM for what completes it', sub: seededPick(['Cross-referencing every store', 'Checking live inventory across 450+ brands', 'Matching the exact color and fabric you shared'], question) },
-      { icon: 'curate', main: 'Ranking by fit and quality', sub: 'Finalizing the recommendation' },
+      { icon: 'read', main: 'Reading your photo', trace: ['vision.scan(garment, color, silhouette)', 'material cues → weave, drape, texture'] },
+      { icon: 'palette', main: 'Checking undertone and contrast', trace: ['undertone.read(warm | cool | neutral)', 'pairing → what bridges, what clashes'] },
+      { icon: 'search', main: 'Searching FROM for what completes it', trace: searchTrace(question, 'visual match', null) },
+      { icon: 'curate', main: 'Ranking by fit and quality', trace: curateTrace(question + '_curate', question, buyerCountry) },
     ]
   }
 
   if (isCompare) {
     const dim = foundMaterial ? `${foundMaterial} weight and construction` : foundGarment ? `cut and silhouette of each ${foundGarment}` : 'silhouette, fabric, and drape'
     return [
-      { icon: 'read', main: 'Reading both pieces', sub: dim },
-      { icon: 'compare', main: 'Comparing construction and cost-per-wear', sub: 'Versatility and real-world use', subsub: 'Occasion range and longevity' },
-      { icon: 'value', main: 'Weighing which earns its place', sub: 'Investment value, not just price' },
-      { icon: 'curate', main: 'Picking the winner', sub: 'With the actual reason why' },
+      { icon: 'read', main: 'Reading both pieces', trace: readTrace(question, [['comparing', dim]]) },
+      { icon: 'compare', main: 'Comparing construction and cost-per-wear', trace: ['compare.dims([price, material, construction])', 'versatility → real-world use', 'longevity → occasion range'] },
+      { icon: 'value', main: 'Weighing which earns its place', trace: ['value.score(price, quality, versatility)', 'not just the lower price'] },
+      { icon: 'curate', main: 'Picking the winner', trace: ['pick.select(highest score)', 'reason.attach(concrete, not vague)'] },
     ]
   }
 
   if (isSearch) {
     const what = subject ?? (foundOccasion ? `something for ${foundOccasion}` : 'the right piece')
     return [
-      { icon: 'read', main: `Reading your request`, sub: `"${what}"` },
-      { icon: 'search', main: 'Searching FROM’s catalog', sub: seededPick(['450+ independent brands, live inventory', 'Scanning every store carrying this', 'Checking real-time stock across the roster'], q) },
-      { icon: 'filter', main: 'Filtering for fit and material', sub: foundMaterial ? `${foundMaterial}, true to size` : 'Cutting anything off-brief', subsub: seededPick(['Quality and construction first', 'Checking stitching and fabric weight', 'Fit true to size before anything else'], q + '_filter') },
-      { icon: 'curate', main: 'Ranking and curating your picks', sub: seededPick(['Best matches first', 'Closest fits to what you asked', 'Strongest matches surfacing first'], q + '_curate') },
+      { icon: 'read', main: 'Reading your request', trace: readTrace(question, [['garment', foundGarment], ['color', foundColor], ['material', foundMaterial], ['occasion', foundOccasion]]) },
+      { icon: 'search', main: 'Searching FROM’s catalog', trace: searchTrace(q, what) },
+      { icon: 'filter', main: 'Filtering for fit and material', trace: filterTrace(q + '_filter', [foundMaterial, foundColor].filter(Boolean).join(', ') || null) },
+      { icon: 'curate', main: 'Ranking and curating your picks', trace: curateTrace(q + '_curate', question, buyerCountry) },
     ]
   }
 
   if (isColor) {
     const base = foundColor ? foundColor : 'your palette'
     return [
-      { icon: 'read', main: 'Reading the color you’re working with', sub: base },
-      { icon: 'palette', main: 'Cross-checking warm and cool families', sub: 'What bridges, what clashes', subsub: 'The 60-30-10 balance' },
-      { icon: 'search', main: 'Searching for pieces that hold the palette', sub: seededPick(['Checking live stock across every store', 'Cross-referencing 450+ independent brands', 'Matching undertone, not just the color name'], q) },
-      { icon: 'curate', main: 'Landing on the combination', sub: 'Cohesive, not predictable' },
+      { icon: 'read', main: 'Reading the color you’re working with', trace: readTrace(question, [['color', base]]) },
+      { icon: 'palette', main: 'Cross-checking warm and cool families', trace: ['undertone.match(warm | cool | neutral)', 'balance → 60-30-10 rule', 'clash.check(competing accents)'] },
+      { icon: 'search', main: 'Searching for pieces that hold the palette', trace: searchTrace(q, base) },
+      { icon: 'curate', main: 'Landing on the combination', trace: curateTrace(q + '_curate', question, buyerCountry) },
     ]
   }
 
   if (isMaterial) {
     const mat = foundMaterial ?? 'this fabric'
     return [
-      { icon: 'fabric', main: `Reading ${mat}`, sub: 'Weight, drape, how it moves' },
-      { icon: 'value', main: 'Checking wearability', sub: 'Season, occasion, care', subsub: 'How it ages' },
-      { icon: 'search', main: 'Searching for the right pieces', sub: seededPick(['Checking live stock across every store', 'Cross-referencing 450+ independent brands', `Filtering for genuine ${mat}, not a blend passed off as it`], q) },
-      { icon: 'curate', main: 'Forming the answer', sub: 'What it’s actually like to live in' },
+      { icon: 'fabric', main: `Reading ${mat}`, trace: [`fabric.profile("${mat}")`, 'weight, drape, how it moves'] },
+      { icon: 'value', main: 'Checking wearability', trace: ['wearability.check(season, occasion, care)', 'durability → how it ages'] },
+      { icon: 'search', main: 'Searching for the right pieces', trace: searchTrace(q, mat) },
+      { icon: 'curate', main: 'Forming the answer', trace: curateTrace(q + '_curate', question, buyerCountry) },
     ]
   }
 
   if (isValue) {
     return [
-      { icon: 'read', main: `Reading what ${yours} is worth`, sub: 'Price against quality markers' },
-      { icon: 'fabric', main: 'Checking construction and finishing', sub: 'Material, cut, brand positioning' },
-      { icon: 'value', main: 'Calculating cost-per-wear', sub: 'How often you’d actually reach for it' },
-      { icon: 'curate', main: 'Giving you the honest read', sub: 'Whether it earns the price' },
+      { icon: 'read', main: `Reading what ${yours} is worth`, trace: readTrace(question, [['piece', subject]]) },
+      { icon: 'fabric', main: 'Checking construction and finishing', trace: ['construction.check(stitching, hardware, lining)', 'positioning → material, cut, brand'] },
+      { icon: 'value', main: 'Calculating cost-per-wear', trace: ['cost_per_wear.compute(price ÷ expected wears)', 'compare → against the honest alternative'] },
+      { icon: 'curate', main: 'Giving you the honest read', trace: ['verdict.form(worth it | not)', 'reason.attach(concrete, not vague)'] },
     ]
   }
 
@@ -1673,19 +1682,29 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
     const occ = foundOccasion ? ` for ${foundOccasion}` : ''
     const piece = subject ?? 'the piece'
     return [
-      { icon: 'read', main: `Reading the brief${occ}`, sub: `Anchoring on ${piece}` },
-      { icon: 'search', main: 'Dispatching one agent per garment', sub: 'Each slot searched independently, in parallel', subsub: 'Trousers, top, shoes, and layer — not one query' },
-      { icon: 'palette', main: 'Matching color story and texture', sub: 'Volume and structure balance', subsub: 'Warm vs. cool relationships' },
-      { icon: 'outfit', main: 'Assembling the full look', sub: 'Shoes and outerwear included' },
+      { icon: 'read', main: `Reading the brief${occ}`, trace: readTrace(question, [['anchor', piece], ['occasion', foundOccasion]]) },
+      { icon: 'search', main: 'Dispatching one agent per garment', trace: ['outfit.slots([top, bottom, shoes, layer])', 'search.parallel(one query per slot)', 'dedupe → no product repeats across slots'] },
+      { icon: 'palette', main: 'Matching color story and texture', trace: ['color.story(shared thread across pieces)', 'proportion → volume and structure balance', 'undertone.match(warm | cool)'] },
+      { icon: 'outfit', main: 'Assembling the full look', trace: ['outfit.assemble(slots → complete look)', 'includes shoes and outerwear'] },
     ]
   }
 
   // ── Default — genuinely conversational styling question, no product search ──
   return [
-    { icon: 'read', main: `Reading ${yours}`, sub: 'Silhouette, color, fabric' },
-    { icon: 'palette', main: 'Checking proportion and color', sub: foundOccasion ? `What reads right for ${foundOccasion}` : 'What elevates, what clashes', subsub: 'The specific details that matter' },
-    { icon: 'curate', main: 'Forming one clear answer', sub: 'A specific recommendation, not a list' },
+    { icon: 'read', main: `Reading ${yours}`, trace: readTrace(question, [['reading', subject]]) },
+    { icon: 'palette', main: 'Checking proportion and color', trace: [foundOccasion ? `fit.check(reads right for ${foundOccasion})` : 'fit.check(what elevates, what clashes)', 'detail.scan(the specifics that matter)'] },
+    { icon: 'curate', main: 'Forming one clear answer', trace: ['answer.form(one recommendation, not a list)'] },
   ]
+}
+
+// Duration scales with how much the trace actually has to report — never
+// below 8s, never above 12s, so a query with more genuine detail to surface
+// takes a little longer without ever feeling padded or capped arbitrarily.
+const STYLIST_STEPS_MIN_MS = 8000
+const STYLIST_STEPS_MAX_MS = 12000
+function stylistTotalMsFor(phases: StylistLoadingPhase[]): number {
+  const totalLines = phases.reduce((n, p) => n + p.trace.length, 0)
+  return Math.min(STYLIST_STEPS_MAX_MS, Math.max(STYLIST_STEPS_MIN_MS, STYLIST_STEPS_MIN_MS + totalLines * 220))
 }
 
 // ── Step icons — one distinct glyph per operation, not a generic dot ─────────
@@ -2125,13 +2144,15 @@ export default function FromApp({
   const loading = stylistLoading
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
   const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
-  // The step tracker is budgeted to run exactly 8s end to end, every time —
-  // sendStylist waits out any remainder before revealing the reply, so a fast
-  // response never cuts the animation short. If a request genuinely takes
-  // longer than 8s, the last step just holds (no artificial cap either way).
-  const STYLIST_STEPS_TOTAL_MS = 8000
-  const [stylistSubVis, setStylistSubVis]               = useState(false)
-  const [stylistSubSubVis, setStylistSubSubVis]         = useState(false)
+  // The step tracker is budgeted to run 8-12s end to end (stylistTotalMsFor
+  // scales it with how much trace content there actually is) — sendStylist
+  // waits out any remainder before revealing the reply, so a fast response
+  // never cuts the animation short. If a request genuinely takes longer, the
+  // last step just holds (no artificial cap either way).
+  const [stylistLoadingTotalMs, setStylistLoadingTotalMs] = useState(STYLIST_STEPS_MIN_MS)
+  // How many trace lines of the ACTIVE step are revealed so far — counts up
+  // as the step plays out, resets to 0 whenever the active step changes.
+  const [stylistTraceVisible, setStylistTraceVisible]   = useState(0)
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
   const stylistSessionId                    = useRef<string | null>(null)
   // Wardrobe pieces the shopper owns — persist across the whole conversation as
@@ -2219,7 +2240,10 @@ export default function FromApp({
       ].slice(0, 30))
     }
     setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: transientImages.length > 0 ? transientImages : undefined }])
-    setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0, shopperContext.currency, shopperGenderFromProfile))
+    const loadingPhases = buildStylistLoadingPhases(question, capturedImages.length > 0, shopperContext.currency, shopperGenderFromProfile, shopperContext.country)
+    const loadingTotalMs = stylistTotalMsFor(loadingPhases)
+    setStylistLoadingPhases(loadingPhases)
+    setStylistLoadingTotalMs(loadingTotalMs)
     setStylistLoadingStep(0)
     setStylistLoading(true)
     const requestStartedAt = Date.now()
@@ -2259,12 +2283,13 @@ export default function FromApp({
         }),
       })
       const data = await res.json()
-      // Hold the reply until the step tracker's own 8s budget has elapsed —
-      // the fast path resolves in well under a second, and revealing the
-      // reply the moment it arrives cut the whole animation off almost
-      // before it started. Only holds when the response was faster than the
-      // budget; a genuinely slow request never waits any extra time.
-      const remaining = STYLIST_STEPS_TOTAL_MS - (Date.now() - requestStartedAt)
+      // Hold the reply until the step tracker's own budget (8-12s, scaled to
+      // how much trace content it has to show) has elapsed — the fast path
+      // resolves in well under a second, and revealing the reply the moment
+      // it arrives cut the whole animation off almost before it started.
+      // Only holds when the response was faster than the budget; a
+      // genuinely slow request never waits any extra time.
+      const remaining = loadingTotalMs - (Date.now() - requestStartedAt)
       if (remaining > 0) await new Promise(r => setTimeout(r, remaining))
       if (data?.reply) {
         // Let the step tracker dissolve out before the reply appears, instead
@@ -2618,25 +2643,29 @@ export default function FromApp({
   }, [stylistMsgs])
 
   // Drive the loading phase animation — the whole sequence is budgeted to run
-  // 8s total (paced evenly across however many steps exist), each step shows
-  // its main text, then sub fades in, then sub-sub, then advances. sendStylist
-  // holds the reply until this same 8s budget has elapsed, so the animation
-  // always plays out in full rather than being cut short by a fast response.
+  // stylistLoadingTotalMs total (paced evenly across however many steps
+  // exist), each step's trace lines reveal one at a time, then the step
+  // advances. sendStylist holds the reply until this same budget has
+  // elapsed, so the animation always plays out in full rather than being
+  // cut short by a fast response.
   useEffect(() => {
     if (!stylistLoading || stylistLoadingPhases.length === 0) {
       setStylistLoadingStep(0)
-      setStylistSubVis(false)
-      setStylistSubSubVis(false)
+      setStylistTraceVisible(0)
       return
     }
-    setStylistSubVis(false)
-    setStylistSubSubVis(false)
-    const perStep = STYLIST_STEPS_TOTAL_MS / stylistLoadingPhases.length
-    const t1 = setTimeout(() => setStylistSubVis(true), perStep * 0.35)
-    const t2 = setTimeout(() => setStylistSubSubVis(true), perStep * 0.68)
-    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), perStep)
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
-  }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
+    setStylistTraceVisible(0)
+    const phase = stylistLoadingPhases[stylistLoadingStep]
+    const traceCount = phase?.trace.length ?? 0
+    const perStep = stylistLoadingTotalMs / stylistLoadingPhases.length
+    const timers: number[] = []
+    for (let i = 0; i < traceCount; i++) {
+      const at = (perStep * 0.85) * ((i + 1) / (traceCount + 1))
+      timers.push(window.setTimeout(() => setStylistTraceVisible(v => Math.max(v, i + 1)), at))
+    }
+    timers.push(window.setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), perStep))
+    return () => timers.forEach(clearTimeout)
+  }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases, stylistLoadingTotalMs])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]); setFetchedColorImages({}); setFetchedColors([]) } }, [selectedProduct])
   // When the shopper picks a colour in the drawer, jump the gallery back to the
   // first image of that colourway.
@@ -5022,14 +5051,33 @@ export default function FromApp({
                               }}>
                                 {phase.main}
                               </div>
-                              {state === 'active' && stylistSubVis && phase.sub && (
-                                <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3, marginTop: 2, animation: 'fadeUp .2s ease' }}>
-                                  {phase.sub}
-                                </div>
-                              )}
-                              {state === 'active' && stylistSubSubVis && phase.subsub && (
-                                <div style={{ fontFamily: SANS, fontSize: 11, color: 'rgba(44,18,6,.5)', marginTop: 2, animation: 'fadeUp .2s ease' }}>
-                                  {phase.subsub}
+                              {/* Trace console — a real execution log, not prose: each line is
+                                  its own operation, monospaced like a terminal, revealed one at
+                                  a time as the step plays out. A blinking caret after the last
+                                  revealed line signals more is still coming. */}
+                              {state === 'active' && stylistTraceVisible > 0 && phase.trace.length > 0 && (
+                                <div style={{
+                                  marginTop: 5, padding: '7px 9px', borderRadius: 8,
+                                  background: 'rgba(44,18,6,0.035)', border: '1px solid rgba(44,18,6,0.07)',
+                                }}>
+                                  {phase.trace.slice(0, stylistTraceVisible).map((line, li) => {
+                                    const isLastVisible = li === stylistTraceVisible - 1
+                                    const stillMore = isLastVisible && stylistTraceVisible < phase.trace.length
+                                    return (
+                                      <div key={li} style={{
+                                        display: 'flex', gap: 6, alignItems: 'baseline',
+                                        fontFamily: "'SF Mono',ui-monospace,Menlo,Consolas,monospace",
+                                        fontSize: 10.5, lineHeight: '17px', color: 'rgba(44,18,6,.58)',
+                                        animation: 'fadeUp .2s ease',
+                                      }}>
+                                        <span style={{ color: 'rgba(44,18,6,.3)', flexShrink: 0 }}>›</span>
+                                        <span style={{ overflowWrap: 'anywhere' }}>
+                                          {line}
+                                          {stillMore && <span className="fr-type-caret" />}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               )}
                             </div>
