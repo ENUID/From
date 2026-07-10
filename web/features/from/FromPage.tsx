@@ -1908,10 +1908,8 @@ export default function FromApp({
   }
   const [isWide, setIsWide]             = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false)
   const [isMedium, setIsMedium]         = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : false)
-  // Attach input — the paperclip clicks this directly, opening the device's
-  // own native picker (Photo Library / Take Photo / Choose Files / Drive).
-  const attachPhotoRef  = useRef<HTMLInputElement>(null)
-  const attachBtnSearchRef  = useRef<HTMLButtonElement>(null)
+  // Attach button — opens the device's native picker (Photo Library / Take
+  // Photo / Choose Files / Drive) directly onto the wardrobe strip.
   const attachBtnFabricsRef = useRef<HTMLButtonElement>(null)
   const [windowWidth, setWindowWidth]   = useState(0)   // 0 = pre-mount; computed after hydration
   const [keyboardOffset, setKeyboardOffset] = useState(0)
@@ -1956,7 +1954,6 @@ export default function FromApp({
   const [stylistSubVis, setStylistSubVis]               = useState(false)
   const [stylistSubSubVis, setStylistSubSubVis]         = useState(false)
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
-  const stylistFileRef                      = useRef<HTMLInputElement>(null)
   const stylistSessionId                    = useRef<string | null>(null)
   const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
   // Wardrobe pieces the shopper owns — persist across the whole conversation as
@@ -1993,33 +1990,8 @@ export default function FromApp({
   }
   function renameStylistEntry(id: string, newLabel: string) { setStylistHistory(prev => prev.map(e => e.id === id ? { ...e, label: newLabel } : e)) }
 
-  const handleStylistFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    files.slice(0, 8 - stylistImages.length).forEach(file => {
-      const reader = new FileReader()
-      reader.onload = ev => {
-        const dataUrl = ev.target?.result as string
-        const img = new window.Image()
-        img.onload = () => {
-          const MAX = 768
-          const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
-          const canvas = document.createElement('canvas')
-          canvas.width  = Math.round(img.width * ratio)
-          canvas.height = Math.round(img.height * ratio)
-          canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-          const compressed = canvas.toDataURL('image/jpeg', 0.82)
-          setStylistImages(prev => prev.length < 8 ? [...prev, { url: compressed }] : prev)
-        }
-        img.src = dataUrl
-      }
-      reader.readAsDataURL(file)
-    })
-    if (stylistFileRef.current) stylistFileRef.current.value = ''
-  }
-
-  // Wardrobe attach — same compression as handleStylistFile, but lands in the
-  // persistent wardrobeImages strip instead of the one-off attach.
+  // Wardrobe attach — the one photo-attach flow. Compresses client-side and
+  // lands in the persistent wardrobeImages strip, shown for the whole conversation.
   const handleWardrobeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
@@ -2275,7 +2247,7 @@ export default function FromApp({
   // the "similar items" panel on the product detail sheet.
   const lastProductMsg = [...stylistMsgs].reverse().find(m => m.role === 'assistant' && (m.foundProducts?.length || m.outfitSlots?.length))
   const searchProducts: Product[] = (lastProductMsg?.foundProducts || []).filter((p: Product) => p.in_stock)
-  const canSend   = input.trim().length > 0 || stylistImages.length > 0 || barProducts.length > 0
+  const canSend   = input.trim().length > 0 || wardrobeImages.length > 0 || barProducts.length > 0
   const hasName   = userName.length > 0
 
   // Fetch live exchange rates on mount — server caches for 1 h so this is cheap
@@ -2522,19 +2494,17 @@ export default function FromApp({
     // Visual search: photos go straight into Fabrics' own vision flow — one
     // model call that reasons about the photo directly, instead of the old
     // two-call round-trip (describe the photo as text, then search on that).
-    if (stylistImages.length > 0) {
+    if (wardrobeImages.length > 0) {
       const text = input.trim()
       setShowExplore(false); setActiveBrand(null)
       sendStylist(text)
-      setInputHint(null)
-      if (attachPhotoRef.current) attachPhotoRef.current.value = ''
+      setInput(''); setInputHint(null)
       return
     }
 
     const q = input.trim(); if (!q) return
     setShowExplore(false); setActiveBrand(null)
-    sendStylist(q); setInputHint(null)
-    if (attachPhotoRef.current) attachPhotoRef.current.value = ''
+    sendStylist(q); setInput(''); setInputHint(null)
   }
   const saveName = () => {
     const n = nameInput.trim()
@@ -3364,10 +3334,7 @@ export default function FromApp({
         button{cursor:pointer;} a{color:inherit;}
       `}</style>
 
-      {/* Shared attach input — paperclip opens the device's native picker directly */}
-      <input ref={attachPhotoRef}  type="file" accept="image/*,video/*" multiple style={{ display:'none' }}
-        onChange={handleStylistFile} />
-      {/* Wardrobe — persistent pieces the shopper owns, for outfit-building */}
+      {/* Attach input — the one photo picker, persistent wardrobe pieces for outfit-building */}
       <input ref={wardrobeFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleWardrobeFile} />
 
       {/* ── Mandatory account gate ── */}
@@ -4462,25 +4429,6 @@ export default function FromApp({
                   </div>
                 )}
 
-                {/* Your wardrobe — persistent pieces the shopper owns */}
-                {wardrobeImages.length > 0 && (
-                  <div style={{ padding: '0 0 16px' }}>
-                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 7 }}>Your wardrobe · {wardrobeImages.length}</div>
-                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-                      {wardrobeImages.map((img, idx) => (
-                        <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
-                          <div style={{ width: 58, height: 72, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
-                            <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                          </div>
-                          <button type="button" onClick={() => setWardrobeImages(prev => prev.filter((_, i) => i !== idx))}
-                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: INK, border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
-                            <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {/* Conversation thread */}
                 {stylistMsgs.map((m, i) => (
@@ -4541,33 +4489,36 @@ export default function FromApp({
                     {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (
                       <div style={{ marginTop: 10, width: '100%' }}>
                         <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Found for you</div>
-                        <div className="fr-grid">
+                        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
                           {m.foundProducts.map(p => {
-                            const cardColor = cardColors[p.id] ?? getProductColors(p)[0] ?? null
-                            const colorImgs = getColorVariantImages(p, cardColor)
-                            const cardImgs = colorImgs.length > 0 ? colorImgs : getProductImages(p)
+                            const { colors: pc } = displaySwatches(p)
+                            const isSaved = savedIds.has(p.id)
                             return (
-                              <div key={p.id} className="fr-card">
-                                <div className="fr-cell"
-                                  role="button" tabIndex={0}
-                                  {...makePressHandlers((x, y) => {
-                                    productWasLong.current = true
-                                    const menuW = 200; const menuH = 160
-                                    const above = y + 8 + menuH > window.innerHeight
-                                    const my = Math.max(8, above ? y - menuH - 4 : y + 8)
-                                    const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
-                                    ctxMenuOpenAt.current = Date.now()
-                                    setProductCtxMenu({ product: p, x: mx, y: my, above })
-                                  })}
-                                  onKeyDown={e => e.key === 'Enter' && setSelected(p)}>
-                                  <CardCarousel
-                                    key={cardColor ?? 'default'}
-                                    images={cardImgs}
-                                    onOpen={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
-                                  />
+                              <div key={p.id} onClick={() => setSelected(p)}
+                                style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
+                                <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2, position: 'relative' }}>
+                                  {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                  <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
+                                    onClick={e => { e.stopPropagation(); toggleSaved(p) }}
+                                    style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
+                                      background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
+                                    {isSaved ? (
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                    ) : (
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                                    )}
+                                  </button>
                                 </div>
-                                <ProductMeta p={p} rates={liveRates} saved={savedIds.has(p.id)} onSave={() => toggleSaved(p)} onOpen={() => setSelected(p)}
-                                  activeColor={cardColor} onSelectColor={c => setCardColors(cm => ({ ...cm, [p.id]: c }))} />
+                                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                                <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                                {pc.length > 0 && (
+                                  <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                                    {pc.slice(0, 5).map(c => (
+                                      <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={9} shape="square" selected={false} available={true} />
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             )
                           })}
@@ -4751,13 +4702,13 @@ export default function FromApp({
                     </div>
                   )}
 
-                  {/* Image strip — appears above search bar when images attached */}
-                  {stylistImages.length > 0 && (
+                  {/* Image strip — appears above search bar when photos are attached */}
+                  {wardrobeImages.length > 0 && (
                     <div style={{
                       display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 12px 0',
                       scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
                     }}>
-                      {stylistImages.map((img, idx) => (
+                      {wardrobeImages.map((img, idx) => (
                         <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
                           <img src={img.url} alt="" style={{
                             width: 72, height: 72, borderRadius: 10, objectFit: 'cover',
@@ -4766,7 +4717,7 @@ export default function FromApp({
                           {/* Remove button */}
                           <button
                             type="button"
-                            onClick={() => setStylistImages(prev => prev.filter((_, i) => i !== idx))}
+                            onClick={() => setWardrobeImages(prev => prev.filter((_, i) => i !== idx))}
                             style={{
                               position: 'absolute', top: -6, right: -6,
                               width: 20, height: 20, borderRadius: '50%',
@@ -4794,23 +4745,15 @@ export default function FromApp({
                   {/* Row 2: actions */}
                   <div className="fr-bar-btm">
 
-                    {/* Paperclip — opens the device's native attach menu directly */}
+                    {/* Attach — one button, wardrobe icon: add photos (of what you own, or want to find) */}
                     <div style={{ position: 'relative' }}>
-                    <button ref={attachBtnSearchRef} type="button" className="fr-icon-btn" onClick={() => {
-                      attachPhotoRef.current?.click()
-                    }}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                      </svg>
-                    </button>
-                    </div>
-                    {/* Wardrobe — add pieces the shopper owns to build outfits around */}
                     <button ref={attachBtnFabricsRef} type="button" className="fr-icon-btn" disabled={wardrobeImages.length >= 8}
-                      onClick={() => { wardrobeFileRef.current?.click() }} title="Add your wardrobe pieces">
+                      onClick={() => { wardrobeFileRef.current?.click() }} title="Add photos">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="4" y="2.5" width="16" height="18.5" rx="1.5"/><line x1="12" y1="2.5" x2="12" y2="21"/><line x1="9.6" y1="9" x2="9.6" y2="12.5"/><line x1="14.4" y1="9" x2="14.4" y2="12.5"/><line x1="6.5" y1="21" x2="6.5" y2="23"/><line x1="17.5" y1="21" x2="17.5" y2="23"/>
                       </svg>
                     </button>
+                    </div>
                     <div className="fr-bar-right">
                       {/* Send with spring */}
                       <div style={{ transform: `scale(${sendScale})`, willChange: "transform" }}
