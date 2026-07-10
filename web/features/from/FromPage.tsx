@@ -4605,7 +4605,16 @@ export default function FromApp({
                             const { colors: pc } = displaySwatches(p)
                             const isSaved = savedIds.has(p.id)
                             return (
-                              <div key={p.id} onClick={() => setSelected(p)}
+                              <div key={p.id} onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                                {...makePressHandlers((x, y) => {
+                                  productWasLong.current = true
+                                  const menuW = 200; const menuH = 160
+                                  const above = y + 8 + menuH > window.innerHeight
+                                  const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                                  const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
+                                  ctxMenuOpenAt.current = Date.now()
+                                  setProductCtxMenu({ product: p, x: mx, y: my, above })
+                                })}
                                 style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
                                 <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                   {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
@@ -4679,7 +4688,16 @@ export default function FromApp({
                             const isSaved = savedIds.has(best.id)
                             return (
                               <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}
-                                onClick={() => setSelected(best)}>
+                                onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(best) }}
+                                {...makePressHandlers((x, y) => {
+                                  productWasLong.current = true
+                                  const menuW = 200; const menuH = 160
+                                  const above = y + 8 + menuH > window.innerHeight
+                                  const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                                  const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
+                                  ctxMenuOpenAt.current = Date.now()
+                                  setProductCtxMenu({ product: best, x: mx, y: my, above })
+                                })}>
                                 <div style={{ height: 110, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                   {getProductImages(best)[0] && <img src={getProductImages(best)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                   <div style={{ position: 'absolute', top: 6, left: 6, background: INK, color: '#fff', fontFamily: SANS, fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 20, letterSpacing: '.05em' }}>
