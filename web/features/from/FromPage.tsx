@@ -1976,14 +1976,27 @@ export default function FromApp({
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
   const STYLIST_HISTORY_LS = 'from:stylist-history'
+  // Tracks which session (if any) is currently open — an explicit empty
+  // string means "fresh/new chat", distinct from "no marker written yet"
+  // (a first-ever visit, or a page from before this existed), which falls
+  // back to the old behavior of opening the most recent session.
+  const STYLIST_ACTIVE_SESSION_LS = 'from:stylist-active-session'
   const stylistSessionLS = (id: string) => `from:stylist-session:${id}`
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>(() => {
-    // Restore most-recent session messages on first render
     try {
-      const hist = JSON.parse(localStorage.getItem('from:stylist-history') || '[]') as StylistHistoryEntry[]
-      if (hist.length > 0) {
-        const raw = localStorage.getItem(`from:stylist-session:${hist[0].id}`)
+      const activeId = localStorage.getItem(STYLIST_ACTIVE_SESSION_LS)
+      if (activeId === '') return [] // explicit "new chat" was the last action
+      if (activeId) {
+        const raw = localStorage.getItem(stylistSessionLS(activeId))
         if (raw) return JSON.parse(raw) as StylistMsg[]
+      }
+      if (activeId === null) {
+        // No marker ever written — pre-existing behavior for old sessions.
+        const hist = JSON.parse(localStorage.getItem('from:stylist-history') || '[]') as StylistHistoryEntry[]
+        if (hist.length > 0) {
+          const raw = localStorage.getItem(`from:stylist-session:${hist[0].id}`)
+          if (raw) return JSON.parse(raw) as StylistMsg[]
+        }
       }
     } catch {}
     return []
@@ -2103,6 +2116,7 @@ export default function FromApp({
     if (isNewSession) {
       const sessionId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
       stylistSessionId.current = sessionId
+      try { localStorage.setItem(STYLIST_ACTIVE_SESSION_LS, sessionId) } catch {}
       setStylistHistory(prev => [
         { id: sessionId, label: question.slice(0, 80), createdAt: Date.now() },
         ...prev,
@@ -2452,11 +2466,18 @@ export default function FromApp({
   // Keep the stylist conversation scrolled to the latest message
   useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading])
 
-  // Restore session ID from the most-recent history entry on mount
+  // Restore the session ID that was actually active, matching stylistMsgs'
+  // own restore logic above — not just "always the most recent one".
   useEffect(() => {
-    if (stylistHistory.length > 0 && !stylistSessionId.current) {
-      stylistSessionId.current = stylistHistory[0].id
-    }
+    if (stylistSessionId.current) return
+    try {
+      const activeId = localStorage.getItem(STYLIST_ACTIVE_SESSION_LS)
+      if (activeId === '') return // fresh/new chat — stays null
+      if (activeId) { stylistSessionId.current = activeId; return }
+      if (activeId === null && stylistHistory.length > 0) {
+        stylistSessionId.current = stylistHistory[0].id
+      }
+    } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -2630,6 +2651,9 @@ export default function FromApp({
   const handleReset = () => {
     setStylistMsgs([]); setStylistProducts([]); setWardrobeImages([])
     stylistSessionId.current = null
+    // Mark "fresh chat" explicitly so a refresh doesn't silently snap back
+    // to whatever session was last active.
+    try { localStorage.setItem(STYLIST_ACTIVE_SESSION_LS, '') } catch {}
     setInput(''); setInputHint(null); setActiveBrand(null)
   }
 
@@ -3184,7 +3208,7 @@ export default function FromApp({
         .fr-content{flex:1;min-height:0;position:relative;overflow:hidden;}
 
         /* ── Body ── */
-        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:calc(max(80px, env(safe-area-inset-bottom, 0px) + 72px));overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
+        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-bottom:calc(max(140px, env(safe-area-inset-bottom, 0px) + 130px));overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
         .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
         /* ── Search bar wrap ── */
@@ -4238,6 +4262,7 @@ export default function FromApp({
                             setStylistMsgs(raw ? JSON.parse(raw) as StylistMsg[] : [])
                           } catch { setStylistMsgs([]) }
                           stylistSessionId.current = h.id
+                          try { localStorage.setItem(STYLIST_ACTIVE_SESSION_LS, h.id) } catch {}
                           setStylistProducts([])
                         }
                         setSidebar(false)
@@ -4292,7 +4317,7 @@ export default function FromApp({
                     ? <p style={{ fontFamily: SANS, fontSize: 13, color: INK3, padding: "4px 8px", opacity: .4 }}>Nothing saved yet</p>
                     : savedProducts.map(p => (
                         <div key={p.id} className="fr-hi"
-                          style={{ gap: 10, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                          style={{ gap: 10, userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
                           {...makePressHandlers((x, y) => {
                             wasLongPress.current = true
                             const menuW = 190; const menuH = 90
@@ -4695,7 +4720,7 @@ export default function FromApp({
                                       ctxMenuOpenAt.current = Date.now()
                                       setProductCtxMenu({ product: p, x: mx, y: my, above })
                                     })}
-                                    style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
+                                    style={{ flexShrink: 0, width: 100, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
                                     <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                       {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                       <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
@@ -4769,7 +4794,7 @@ export default function FromApp({
                             })()
                             const isSaved = savedIds.has(best.id)
                             return (
-                              <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}
+                              <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
                                 onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(best) }}
                                 {...makePressHandlers((x, y) => {
                                   productWasLong.current = true
