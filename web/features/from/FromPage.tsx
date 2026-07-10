@@ -1433,6 +1433,22 @@ function TypewriterText({ text, products, liveRates, onProductClick, animate, on
 type StylistLoadingIcon = 'read' | 'search' | 'filter' | 'compare' | 'palette' | 'fabric' | 'value' | 'outfit' | 'curate'
 type StylistLoadingPhase = { main: string; sub: string; subsub?: string; icon: StylistLoadingIcon }
 
+// Each step in the tracker is a genuinely distinct operation in the pipeline
+// (parsing intent, hitting the catalog, applying filters, ranking results) —
+// naming the operation as its own agent makes that real division of labor
+// legible instead of reading as one undifferentiated "loading" spinner.
+const AGENT_NAME_BY_ICON: Record<StylistLoadingIcon, string> = {
+  read: 'Intent Agent',
+  search: 'Catalog Agent',
+  filter: 'Fit Agent',
+  compare: 'Comparison Agent',
+  palette: 'Color Agent',
+  fabric: 'Fabric Agent',
+  value: 'Value Agent',
+  outfit: 'Outfit Agent',
+  curate: 'Curation Agent',
+}
+
 // Same gender-default logic as the backend (applyGenderDefault in the stylist
 // route) — mirrored client-side purely so the DISPLAYED "reading your
 // request" text matches what will actually be searched, not a guess.
@@ -1646,7 +1662,7 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
     const piece = subject ?? 'the piece'
     return [
       { icon: 'read', main: `Reading the brief${occ}`, sub: `Anchoring on ${piece}` },
-      { icon: 'search', main: 'Searching FROM for each piece', sub: seededPick(['Checking live stock across every store', 'Cross-referencing 450+ independent brands', 'Pulling one candidate per garment category'], q) },
+      { icon: 'search', main: 'Dispatching one agent per garment', sub: 'Each slot searched independently, in parallel', subsub: 'Trousers, top, shoes, and layer — not one query' },
       { icon: 'palette', main: 'Matching color story and texture', sub: 'Volume and structure balance', subsub: 'Warm vs. cool relationships' },
       { icon: 'outfit', main: 'Assembling the full look', sub: 'Shoes and outerwear included' },
     ]
@@ -4978,6 +4994,15 @@ export default function FromApp({
                             </div>
                             {/* Label + detail */}
                             <div style={{ paddingBottom: isLast ? 0 : 16, minWidth: 0, opacity: state === 'done' ? .6 : 1, transition: 'opacity .3s ease' }}>
+                              {state !== 'upcoming' && (
+                                <div style={{
+                                  fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase',
+                                  color: state === 'active' ? INK3 : 'rgba(44,18,6,.32)', marginBottom: 1,
+                                  animation: state === 'active' ? 'fadeUp .2s ease' : undefined,
+                                }}>
+                                  {AGENT_NAME_BY_ICON[phase.icon]}
+                                </div>
+                              )}
                               <div style={{
                                 fontFamily: SANS, fontSize: state === 'done' ? 12 : 13, fontWeight: state === 'active' ? 600 : 500, lineHeight: '22px',
                                 color: state === 'upcoming' ? 'rgba(44,18,6,.34)' : state === 'done' ? INK3 : INK,
