@@ -1995,6 +1995,12 @@ export default function FromApp({
   const [stylistCtxMenu, setStylistCtxMenu]     = useState<{ id: string; label: string; x: number; y: number; above: boolean } | null>(null)
   const stylistRenameRef = useRef<HTMLInputElement>(null)
   const [stylistInput, setStylistInput]       = useState('')
+  // Editing a previously-sent message — text and attached photos can be
+  // changed, but no new photos can be added mid-edit. Saving truncates the
+  // conversation from that point and re-asks with the edited version.
+  const [editingMsgIndex, setEditingMsgIndex] = useState<number | null>(null)
+  const [editText, setEditText]               = useState('')
+  const [editImages, setEditImages]           = useState<string[]>([])
   const [stylistLoading, setStylistLoading]   = useState(false)
   // The home page IS the one conversation now — every "is a request in
   // flight" check in the UI reads Fabrics' own loading state.
@@ -2171,6 +2177,27 @@ export default function FromApp({
   const openStylistWith = (products: Product[], query: string) => {
     setStylistProducts(products)
     sendStylist(query, products)
+  }
+
+  // ── Edit a sent message ───────────────────────────────────────────────────
+  // Text is freely editable; attached photos can only be removed, never
+  // added, during an edit — attaching something new is a fresh message.
+  function startEditMsg(i: number, m: StylistMsg) {
+    if (stylistLoading) return
+    setEditingMsgIndex(i)
+    setEditText(m.content)
+    setEditImages(m.images || [])
+  }
+  function cancelEditMsg() {
+    setEditingMsgIndex(null)
+  }
+  function saveEditMsg(i: number) {
+    const text = editText.trim()
+    if (!text && editImages.length === 0) return
+    const truncated = stylistMsgs.slice(0, i)
+    setStylistMsgs(truncated)
+    setEditingMsgIndex(null)
+    sendStylist(text, stylistProducts, truncated, editImages.map(url => ({ url })))
   }
 
   // "See more" on a result strip — re-runs the same query excluding what's
@@ -4491,30 +4518,82 @@ export default function FromApp({
                 {/* Conversation thread */}
                 {stylistMsgs.map((m, i) => (
                   <div key={i} style={{ marginBottom: 22, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                    {m.role === 'user' && m.images && m.images.length > 0 && (
-                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
-                        {m.images.map((url, ii) => (
-                          <div key={ii} style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
-                            <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    {m.role === 'user' && editingMsgIndex === i ? (
+                      <div style={{ width: '100%', maxWidth: 340 }}>
+                        {editImages.length > 0 && (
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6 }}>
+                            {editImages.map((url, ii) => (
+                              <div key={ii} style={{ position: 'relative', flexShrink: 0 }}>
+                                <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                </div>
+                                {/* Remove only — an edit can drop a photo, never add a new one */}
+                                <button type="button" onClick={() => setEditImages(prev => prev.filter((_, x) => x !== ii))}
+                                  style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: INK, border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                                  <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                                </button>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
+                        <textarea value={editText} onChange={e => setEditText(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditMsg(i) } if (e.key === 'Escape') cancelEditMsg() }}
+                          autoFocus rows={2}
+                          style={{ width: '100%', fontFamily: SANS, fontSize: 14, lineHeight: 1.55, color: INK,
+                            background: BG2, border: `1px solid ${BRD}`, borderRadius: 12, padding: '9px 14px',
+                            resize: 'none', outline: 'none' }} />
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
+                          <button type="button" onClick={cancelEditMsg}
+                            style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 500, color: INK3, background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px' }}>
+                            Cancel
+                          </button>
+                          <button type="button" onClick={() => saveEditMsg(i)} disabled={!editText.trim() && editImages.length === 0}
+                            style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 600, color: '#fff', background: INK, border: 'none',
+                              borderRadius: 20, cursor: 'pointer', padding: '7px 14px', opacity: (!editText.trim() && editImages.length === 0) ? .5 : 1 }}>
+                            Save &amp; resend
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        {m.role === 'user' && m.images && m.images.length > 0 && (
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
+                            {m.images.map((url, ii) => (
+                              <div key={ii} style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
+                                <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, maxWidth: '88%' }}>
+                          {m.role === 'user' && (
+                            <button type="button" onClick={() => startEditMsg(i, m)} title="Edit message"
+                              style={{ order: 0, flexShrink: 0, width: 22, height: 22, padding: 0, border: 'none', background: 'none',
+                                cursor: 'pointer', color: INK3, opacity: .5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                            </button>
+                          )}
+                          <div style={{ fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
+                            padding: m.role === 'user' ? '9px 14px' : 0,
+                            background: m.role === 'user' ? INK : 'transparent',
+                            color: m.role === 'user' ? '#fff' : INK2,
+                            borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
+                            whiteSpace: 'pre-wrap', minWidth: 0 }}>
+                            {m.role === 'assistant'
+                              ? (m.busy
+                                  ? <span className="fr-shine">{m.content}</span>
+                                  : <TypewriterText text={m.content} products={stylistProducts} liveRates={liveRates}
+                                      onProductClick={(p) => setSelected(p)}
+                                      animate={i >= initialStylistMsgCount.current && !typedStylistIndices.current.has(i)}
+                                      onDone={() => { typedStylistIndices.current.add(i) }} />)
+                              : m.content}
+                          </div>
+                        </div>
+                      </>
                     )}
-                    <div style={{ maxWidth: '88%', fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
-                      padding: m.role === 'user' ? '9px 14px' : 0,
-                      background: m.role === 'user' ? INK : 'transparent',
-                      color: m.role === 'user' ? '#fff' : INK2,
-                      borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
-                      whiteSpace: 'pre-wrap' }}>
-                      {m.role === 'assistant'
-                        ? (m.busy
-                            ? <span className="fr-shine">{m.content}</span>
-                            : <TypewriterText text={m.content} products={stylistProducts} liveRates={liveRates}
-                                onProductClick={(p) => setSelected(p)}
-                                animate={i >= initialStylistMsgCount.current && !typedStylistIndices.current.has(i)}
-                                onDone={() => { typedStylistIndices.current.add(i) }} />)
-                        : m.content}
-                    </div>
                     {m.comparison && m.comparison.rows.length > 0 && (
                       <div style={{ marginTop: 10, width: '100%', maxWidth: 480, border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', borderBottom: `1px solid ${BRD}` }}>
