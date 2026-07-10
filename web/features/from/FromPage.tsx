@@ -1443,6 +1443,15 @@ function withProfileGenderForDisplay(q: string, profileGender?: string): string 
   return word ? `${word} ${q}` : q
 }
 
+// Deterministic-but-varied pick — same query always renders the same way (no
+// layout jitter on a re-render), but two different queries land on different
+// phrasing instead of the exact same boilerplate line every time.
+function seededPick<T>(arr: T[], seed: string): T {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  return arr[h % arr.length]
+}
+
 function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCurrency: string, profileGender?: string): StylistLoadingPhase[] {
   if (!hasImages) {
     // Run the SAME deterministic compiler the backend's instant fast path
@@ -1453,14 +1462,56 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
     const compiled = compileIntent(withProfileGenderForDisplay(question, profileGender), buyerCurrency)
     if (compiled) {
       const what = compiled.summary || compiled.args.searchQuery
-      const filterDetail = (compiled.args.mandatoryConcepts || [])
-        .slice(1) // first group is the garment itself, already named above
-        .map(group => group[0]).filter(Boolean).join(', ')
+      const concepts = (compiled.args.mandatoryConcepts || []).slice(1) // first group is the garment, already named above
+      const filterDetail = concepts.map(group => group[0]).filter(Boolean).join(', ')
+      const sort = compiled.args.sort || 'relevance'
+      const hasBudget = !!compiled.args.budgetMax
+
+      const searchSub = filterDetail
+        ? seededPick([
+            `Cross-referencing ${filterDetail} across every store`,
+            `Matching on ${filterDetail}, not just the garment name`,
+            `Narrowing to pieces that actually carry ${filterDetail}`,
+            `Checking live stock for ${filterDetail} specifically`,
+          ], compiled.args.searchQuery)
+        : seededPick([
+            `Scanning every listing for "${what}"`,
+            `Pulling live inventory across 450+ independent brands`,
+            `Checking real-time stock across the full roster`,
+            `Cross-referencing every store that carries this`,
+          ], compiled.args.searchQuery)
+
+      const filterSubsub = hasBudget
+        ? seededPick([
+            `Keeping it under ${compiled.args.budgetCurrency || buyerCurrency} ${compiled.args.budgetMax}`,
+            'Staying inside the budget you set',
+          ], compiled.args.searchQuery + '_budget')
+        : sort === 'price_asc'
+          ? seededPick(['Cheapest first, without cutting quality', 'Sorting low to high on price'], compiled.args.searchQuery)
+          : sort === 'price_desc'
+            ? seededPick(['Premium construction leading', 'Sorting high to low on price'], compiled.args.searchQuery)
+            : seededPick([
+                'Construction and stitching quality first',
+                'Checking fabric weight and finish',
+                'Fit true to size before anything else',
+                'Cutting anything that reads off-brief',
+              ], compiled.args.searchQuery + '_filter')
+
+      const curateSub = sort === 'price_asc'
+        ? seededPick(['Best value first', 'Lowest price that still fits the brief'], compiled.args.searchQuery)
+        : sort === 'price_desc'
+          ? seededPick(['Top-tier picks surfacing first', 'Premium options leading'], compiled.args.searchQuery)
+          : seededPick([
+              'Closest matches to what you asked for',
+              'Best overall fits, ranked first',
+              'Strongest matches surfacing to the top',
+            ], compiled.args.searchQuery + '_curate')
+
       return [
         { icon: 'read', main: 'Reading your request', sub: `"${what}"` },
-        { icon: 'search', main: 'Searching FROM’s catalog', sub: '450+ independent brands, live inventory' },
-        { icon: 'filter', main: 'Filtering for fit and material', sub: filterDetail || 'True to size and quality', subsub: 'Quality and construction first' },
-        { icon: 'curate', main: 'Ranking and curating your picks', sub: 'Best matches first' },
+        { icon: 'search', main: 'Searching FROM’s catalog', sub: searchSub },
+        { icon: 'filter', main: 'Filtering for fit and material', sub: filterDetail || 'True to size and quality', subsub: filterSubsub },
+        { icon: 'curate', main: 'Ranking and curating your picks', sub: curateSub },
       ]
     }
   }
@@ -1536,7 +1587,7 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
     return [
       { icon: 'read', main: 'Reading your photo', sub: 'Garment type, color, silhouette' },
       { icon: 'palette', main: 'Checking undertone and contrast', sub: 'Warm vs. cool, what it pairs with' },
-      { icon: 'search', main: 'Searching FROM for what completes it', sub: '450+ independent brands' },
+      { icon: 'search', main: 'Searching FROM for what completes it', sub: seededPick(['Cross-referencing every store', 'Checking live inventory across 450+ brands', 'Matching the exact color and fabric you shared'], question) },
       { icon: 'curate', main: 'Ranking by fit and quality', sub: 'Finalizing the recommendation' },
     ]
   }
@@ -1555,9 +1606,9 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
     const what = subject ?? (foundOccasion ? `something for ${foundOccasion}` : 'the right piece')
     return [
       { icon: 'read', main: `Reading your request`, sub: `"${what}"` },
-      { icon: 'search', main: 'Searching FROM’s catalog', sub: '450+ independent brands, live inventory' },
-      { icon: 'filter', main: 'Filtering for fit and material', sub: foundMaterial ? `${foundMaterial}, true to size` : 'Cutting anything off-brief', subsub: 'Quality and construction first' },
-      { icon: 'curate', main: 'Ranking and curating your picks', sub: 'Best matches first' },
+      { icon: 'search', main: 'Searching FROM’s catalog', sub: seededPick(['450+ independent brands, live inventory', 'Scanning every store carrying this', 'Checking real-time stock across the roster'], q) },
+      { icon: 'filter', main: 'Filtering for fit and material', sub: foundMaterial ? `${foundMaterial}, true to size` : 'Cutting anything off-brief', subsub: seededPick(['Quality and construction first', 'Checking stitching and fabric weight', 'Fit true to size before anything else'], q + '_filter') },
+      { icon: 'curate', main: 'Ranking and curating your picks', sub: seededPick(['Best matches first', 'Closest fits to what you asked', 'Strongest matches surfacing first'], q + '_curate') },
     ]
   }
 
@@ -1566,7 +1617,7 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
     return [
       { icon: 'read', main: 'Reading the color you’re working with', sub: base },
       { icon: 'palette', main: 'Cross-checking warm and cool families', sub: 'What bridges, what clashes', subsub: 'The 60-30-10 balance' },
-      { icon: 'search', main: 'Searching for pieces that hold the palette', sub: '450+ independent brands' },
+      { icon: 'search', main: 'Searching for pieces that hold the palette', sub: seededPick(['Checking live stock across every store', 'Cross-referencing 450+ independent brands', 'Matching undertone, not just the color name'], q) },
       { icon: 'curate', main: 'Landing on the combination', sub: 'Cohesive, not predictable' },
     ]
   }
@@ -1576,7 +1627,7 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
     return [
       { icon: 'fabric', main: `Reading ${mat}`, sub: 'Weight, drape, how it moves' },
       { icon: 'value', main: 'Checking wearability', sub: 'Season, occasion, care', subsub: 'How it ages' },
-      { icon: 'search', main: 'Searching for the right pieces', sub: '450+ independent brands' },
+      { icon: 'search', main: 'Searching for the right pieces', sub: seededPick(['Checking live stock across every store', 'Cross-referencing 450+ independent brands', `Filtering for genuine ${mat}, not a blend passed off as it`], q) },
       { icon: 'curate', main: 'Forming the answer', sub: 'What it’s actually like to live in' },
     ]
   }
@@ -1595,7 +1646,7 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
     const piece = subject ?? 'the piece'
     return [
       { icon: 'read', main: `Reading the brief${occ}`, sub: `Anchoring on ${piece}` },
-      { icon: 'search', main: 'Searching FROM for each piece', sub: '450+ independent brands' },
+      { icon: 'search', main: 'Searching FROM for each piece', sub: seededPick(['Checking live stock across every store', 'Cross-referencing 450+ independent brands', 'Pulling one candidate per garment category'], q) },
       { icon: 'palette', main: 'Matching color story and texture', sub: 'Volume and structure balance', subsub: 'Warm vs. cool relationships' },
       { icon: 'outfit', main: 'Assembling the full look', sub: 'Shoes and outerwear included' },
     ]
@@ -2046,6 +2097,11 @@ export default function FromApp({
   const loading = stylistLoading
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
   const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
+  // The step tracker is budgeted to run exactly 8s end to end, every time —
+  // sendStylist waits out any remainder before revealing the reply, so a fast
+  // response never cuts the animation short. If a request genuinely takes
+  // longer than 8s, the last step just holds (no artificial cap either way).
+  const STYLIST_STEPS_TOTAL_MS = 8000
   const [stylistSubVis, setStylistSubVis]               = useState(false)
   const [stylistSubSubVis, setStylistSubSubVis]         = useState(false)
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
@@ -2070,9 +2126,6 @@ export default function FromApp({
   })
   const removeStylistProduct = (id: string) => {
     setStylistProducts(prev => prev.filter(p => p.id !== id))
-  }
-  const addStylistProduct = (p: Product) => {
-    setStylistProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 8) ? prev : [...prev, p])
   }
   function deleteStylistEntry(id: string) {
     setStylistHistory(prev => prev.filter(e => e.id !== id))
@@ -2141,6 +2194,7 @@ export default function FromApp({
     setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0, shopperContext.currency, shopperGenderFromProfile))
     setStylistLoadingStep(0)
     setStylistLoading(true)
+    const requestStartedAt = Date.now()
     try {
       const payloadProducts = products.map(p => ({
         id: p.id, title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
@@ -2177,6 +2231,13 @@ export default function FromApp({
         }),
       })
       const data = await res.json()
+      // Hold the reply until the step tracker's own 8s budget has elapsed —
+      // the fast path resolves in well under a second, and revealing the
+      // reply the moment it arrives cut the whole animation off almost
+      // before it started. Only holds when the response was faster than the
+      // budget; a genuinely slow request never waits any extra time.
+      const remaining = STYLIST_STEPS_TOTAL_MS - (Date.now() - requestStartedAt)
+      if (remaining > 0) await new Promise(r => setTimeout(r, remaining))
       if (data?.reply) {
         // Let the step tracker dissolve out before the reply appears, instead
         // of an instant swap — a clean handoff, not a jump cut.
@@ -2530,10 +2591,9 @@ export default function FromApp({
 
   // Drive the loading phase animation — the whole sequence is budgeted to run
   // 8s total (paced evenly across however many steps exist), each step shows
-  // its main text, then sub fades in, then sub-sub, then advances. If the
-  // real response arrives sooner, the sequence just stops where it is —
-  // never padded/faked to fill time. If it takes longer, the last step holds.
-  const STYLIST_STEPS_TOTAL_MS = 8000
+  // its main text, then sub fades in, then sub-sub, then advances. sendStylist
+  // holds the reply until this same 8s budget has elapsed, so the animation
+  // always plays out in full rather than being cut short by a fast response.
   useEffect(() => {
     if (!stylistLoading || stylistLoadingPhases.length === 0) {
       setStylistLoadingStep(0)
@@ -4744,7 +4804,7 @@ export default function FromApp({
                                       setProductCtxMenu({ product: p, x: mx, y: my, above })
                                     })}
                                     style={{ flexShrink: 0, width: 100, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
-                                    <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2, position: 'relative' }}>
+                                    <div style={{ width: 100, height: 160, borderRadius: 10, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                       {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                       <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
                                         onClick={e => { e.stopPropagation(); toggleSaved(p) }}
@@ -5703,14 +5763,18 @@ export default function FromApp({
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
                   background: 'linear-gradient(140deg, rgba(255,255,255,0.6) 0%, transparent 45%)' }} />
 
-                {/* Ask Fabrics — pins the product into the one ongoing conversation */}
+                {/* Ask Fabrics — attaches the product to the input bar (visible,
+                    focused, hinted) whether or not a conversation is already
+                    open. Previously this appended straight into stylistProducts
+                    when mid-conversation with zero feedback — no focus, no hint,
+                    and the pinned chip rendered at the very TOP of the scrolling
+                    thread where it was invisible after a few messages, plus it
+                    silently stuck around to get attached to the next unrelated
+                    question. Routing through the same barProducts path the
+                    empty-state flow already uses fixes both. */}
                 <div onClick={() => {
                     if (Date.now() - ctxMenuOpenAt.current < 350) return
-                    if (stylistMsgs.length > 0) {
-                      addStylistProduct(productCtxMenu.product)
-                    } else {
-                      addBarProduct(productCtxMenu.product)
-                    }
+                    addBarProduct(productCtxMenu.product)
                     setProductCtxMenu(null)
                   }}
                   style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
