@@ -1381,6 +1381,50 @@ function renderStylistText(
   )
 }
 
+// ── Typewriter reveal — assistant replies type in like Claude, instead of
+// appearing all at once. Reveals whole words (and whole [PRODUCT:N] tokens,
+// atomically, so a card never flickers through as raw bracket text) rather
+// than characters, which reads more natural at conversational speed. ────────
+function TypewriterText({ text, products, liveRates, onProductClick, animate, onDone }: {
+  text: string
+  products: Product[]
+  liveRates: ExchangeRates
+  onProductClick: (p: Product) => void
+  animate: boolean
+  onDone?: () => void
+}): React.ReactNode {
+  const tokens = useMemo(() => text.match(/\[PRODUCT:\d+\]|\S+|\s+/g) || [], [text])
+  const [count, setCount] = useState(animate ? 0 : tokens.length)
+
+  useEffect(() => {
+    if (!animate) { setCount(tokens.length); return }
+    setCount(0)
+    let i = 0
+    let done = false
+    const id = setInterval(() => {
+      i += 2
+      if (i >= tokens.length) {
+        i = tokens.length
+        clearInterval(id)
+        if (!done) { done = true; onDone?.() }
+      }
+      setCount(i)
+    }, 16)
+    return () => clearInterval(id)
+    // Deliberately keyed on the text itself, not `animate`/`onDone` — a reply
+    // is written once and never mutates, so this should run exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text])
+
+  const revealed = tokens.slice(0, count).join('')
+  return (
+    <>
+      {renderStylistText(revealed, products, liveRates, onProductClick)}
+      {animate && count < tokens.length && <span className="fr-type-caret" />}
+    </>
+  )
+}
+
 // ── Stylist loading phases — query-aware thinking animation ──────────────────
 type StylistLoadingPhase = { main: string; sub: string; subsub?: string }
 
@@ -1940,6 +1984,12 @@ export default function FromApp({
   const [stylistHistory, setStylistHistory] = useState<StylistHistoryEntry[]>(() => {
     try { return JSON.parse(localStorage.getItem('from:stylist-history') || '[]') } catch { return [] }
   })
+  // Messages already on screen at mount (restored history) render instantly;
+  // only messages that arrive during THIS session get the typewriter reveal.
+  const initialStylistMsgCount = useRef(stylistMsgs.length)
+  // Indices whose typewriter reveal has already finished — an unrelated
+  // re-render (e.g. a sibling message loading) must not restart them.
+  const typedStylistIndices = useRef<Set<number>>(new Set())
   const [stylistRenameId, setStylistRenameId]   = useState<string | null>(null)
   const [stylistRenameVal, setStylistRenameVal] = useState('')
   const [stylistCtxMenu, setStylistCtxMenu]     = useState<{ id: string; label: string; x: number; y: number; above: boolean } | null>(null)
@@ -2512,7 +2562,8 @@ export default function FromApp({
     localStorage.setItem('from_user_name', n)
     setIsEditing(false)
   }
-  const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doSearch() } }
+  // Enter sends (like every chat app); Shift+Enter drops to a new line.
+  const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSearch() } }
   const handleReset = () => {
     setStylistMsgs([]); setStylistProducts([]); setStylistImages([]); setWardrobeImages([])
     stylistSessionId.current = null
@@ -3329,6 +3380,13 @@ export default function FromApp({
         @keyframes glassSweep{0%{transform:translateX(-120%) skewX(-20deg);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateX(350%) skewX(-20deg);opacity:0;}}
         @keyframes glassFloat{0%,100%{transform:translateY(0px);}50%{transform:translateY(-4px);}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes fr-pill-in{from{opacity:0;transform:scale(0.85) translateX(-6px);}to{opacity:1;transform:scale(1) translateX(0);}}
+        @keyframes fr-pill-glow{0%,100%{box-shadow:0 0 0 0 rgba(44,18,6,0.16),inset 0 0 0 0 rgba(255,255,255,0.4);}50%{box-shadow:0 0 0 4px rgba(44,18,6,0.05),inset 0 0 10px 0 rgba(255,255,255,0.55);}}
+        @keyframes fr-pill-shimmer{0%{background-position:180% center;}100%{background-position:-180% center;}}
+        @keyframes fr-caret-blink{0%,55%{opacity:1;}56%,100%{opacity:0;}}
+        .fr-pill-active{animation:fr-pill-in .28s cubic-bezier(.32,.9,.4,1), fr-pill-glow 2.2s ease-in-out .28s infinite;}
+        .fr-pill-shine{background:linear-gradient(100deg,rgba(255,255,255,0) 35%,rgba(255,255,255,.5) 50%,rgba(255,255,255,0) 65%);background-size:220% 100%;animation:fr-pill-shimmer 1.8s linear infinite;}
+        .fr-type-caret{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:fr-caret-blink 1s step-start infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(44,18,6,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
         button{cursor:pointer;} a{color:inherit;}
@@ -4451,7 +4509,10 @@ export default function FromApp({
                       {m.role === 'assistant'
                         ? (m.busy
                             ? <span className="fr-shine">{m.content}</span>
-                            : renderStylistText(m.content, stylistProducts, liveRates, (p) => setSelected(p)))
+                            : <TypewriterText text={m.content} products={stylistProducts} liveRates={liveRates}
+                                onProductClick={(p) => setSelected(p)}
+                                animate={i >= initialStylistMsgCount.current && !typedStylistIndices.current.has(i)}
+                                onDone={() => { typedStylistIndices.current.add(i) }} />)
                         : m.content}
                     </div>
                     {m.comparison && m.comparison.rows.length > 0 && (
@@ -4617,39 +4678,52 @@ export default function FromApp({
                 ))}
                 {stylistLoading && (
                   stylistLoadingPhases.length === 0 ? (
-                    <div style={{ padding: '10px 2px 14px', display: 'flex', gap: 5, alignItems: 'center' }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0s infinite' }} />
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0.22s infinite' }} />
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: INK3, display: 'inline-block', animation: 'fr-bounce 1.1s 0.44s infinite' }} />
+                    <div className="fr-pill-active" style={{
+                      position: 'relative', overflow: 'hidden', alignSelf: 'flex-start',
+                      padding: '8px 16px', borderRadius: 20, background: INK,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                      <span className="fr-pill-shine" style={{ position: 'absolute', inset: 0 }} />
+                      <span style={{ position: 'relative', width: 5, height: 5, borderRadius: '50%', background: '#fff', display: 'inline-block', animation: 'fr-bounce 1.1s 0s infinite' }} />
+                      <span style={{ position: 'relative', width: 5, height: 5, borderRadius: '50%', background: '#fff', display: 'inline-block', animation: 'fr-bounce 1.1s 0.22s infinite' }} />
+                      <span style={{ position: 'relative', width: 5, height: 5, borderRadius: '50%', background: '#fff', display: 'inline-block', animation: 'fr-bounce 1.1s 0.44s infinite' }} />
                     </div>
                   ) : (
-                    <div style={{ padding: '6px 2px 14px' }}>
-                      <div key={`main-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .22s ease' }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: INK, display: 'inline-block', flexShrink: 0, animation: 'fr-bounce 1.1s 0s infinite' }} />
-                        <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, fontWeight: 500 }}>
-                          {stylistLoadingPhases[stylistLoadingStep]?.main ?? 'Thinking…'}
-                        </span>
+                    <div style={{ padding: '4px 2px 14px' }}>
+                      {/* Progress pills — one per phase; active pill glows and shimmers,
+                          completed pills check off and dim, upcoming ones stay outlined. */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                        {stylistLoadingPhases.map((phase, pi) => {
+                          const state = pi < stylistLoadingStep ? 'done' : pi === stylistLoadingStep ? 'active' : 'upcoming'
+                          return (
+                            <div key={pi} className={state === 'active' ? 'fr-pill-active' : undefined}
+                              style={{
+                                position: 'relative', overflow: 'hidden',
+                                padding: '6px 12px', borderRadius: 20,
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                fontFamily: SANS, fontSize: 11.5, fontWeight: 500, whiteSpace: 'nowrap',
+                                background: state === 'active' ? INK : state === 'done' ? 'rgba(44,18,6,.06)' : 'transparent',
+                                color: state === 'active' ? '#fff' : state === 'done' ? INK3 : 'rgba(44,18,6,.32)',
+                                border: state === 'upcoming' ? '1px solid rgba(44,18,6,.14)' : 'none',
+                                transform: state === 'upcoming' ? 'scale(.96)' : 'scale(1)',
+                                transition: 'background .35s ease, color .35s ease, transform .35s ease, border-color .35s ease',
+                              }}>
+                              {state === 'active' && <span className="fr-pill-shine" style={{ position: 'absolute', inset: 0 }} />}
+                              {state === 'done' && (
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'relative', flexShrink: 0 }}><path d="M20 6L9 17l-5-5" /></svg>
+                              )}
+                              <span style={{ position: 'relative' }}>{phase.main.replace(/[…\s]+$/, '')}</span>
+                            </div>
+                          )
+                        })}
                       </div>
+                      {/* Detail line for the active phase */}
                       {stylistSubVis && stylistLoadingPhases[stylistLoadingStep]?.sub && (
-                        <div key={`sub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, paddingLeft: 3, animation: 'fadeUp .2s ease' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                            <div style={{ width: 1, height: 7, background: 'rgba(44,18,6,0.15)' }} />
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: INK3, display: 'inline-block' }} />
-                          </div>
-                          <span style={{ fontFamily: SANS, fontSize: 11, color: INK3 }}>
-                            {stylistLoadingPhases[stylistLoadingStep]?.sub}
-                          </span>
-                        </div>
-                      )}
-                      {stylistSubSubVis && stylistLoadingPhases[stylistLoadingStep]?.subsub && (
-                        <div key={`subsub-${stylistLoadingStep}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 12, animation: 'fadeUp .2s ease' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                            <div style={{ width: 1, height: 6, background: 'rgba(44,18,6,0.10)' }} />
-                            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(44,18,6,0.25)', display: 'inline-block' }} />
-                          </div>
-                          <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.7 }}>
-                            {stylistLoadingPhases[stylistLoadingStep]?.subsub}
-                          </span>
+                        <div key={`sub-${stylistLoadingStep}`} style={{ fontFamily: SANS, fontSize: 11.5, color: INK3, paddingLeft: 4, animation: 'fadeUp .2s ease' }}>
+                          {stylistLoadingPhases[stylistLoadingStep]?.sub}
+                          {stylistSubSubVis && stylistLoadingPhases[stylistLoadingStep]?.subsub && (
+                            <span style={{ opacity: .65 }}> · {stylistLoadingPhases[stylistLoadingStep]?.subsub}</span>
+                          )}
                         </div>
                       )}
                     </div>
