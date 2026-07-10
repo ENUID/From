@@ -453,9 +453,13 @@ async function geminiVisionChat(
 }
 
 // ── Wardrobe vision — Gemini primary, OpenRouter vision fallback ───────────────────────────────
-// Tries Gemini 2.0 Flash first (better clothing recognition). On 429 (rate
-// limit hit) or missing key, falls back seamlessly to the OpenRouter vision model.
-
+// Tries Gemini 2.0 Flash first (better clothing recognition). Falls back to
+// the OpenRouter vision model on ANY Gemini failure — not just a clean 429 or
+// missing key. It previously only fell back on those two specific cases and
+// re-threw everything else (a timeout, a 5xx, a malformed response), which
+// meant a transient Gemini hiccup killed the reply outright even though a
+// working fallback existed right below it — the exact "single failure can
+// never kill the reply" guarantee stylistChat already gives the text path.
 export async function wardrobeVisionChat(
   systemPrompt: string,
   question: string,
@@ -464,9 +468,8 @@ export async function wardrobeVisionChat(
 ): Promise<string> {
   try {
     return await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)
-  } catch (err: any) {
-    // 429 = Gemini rate limit, 0 = key not set — fall back to OpenRouter vision
-    if (err.status === 429 || err.status === 0) {
+  } catch (geminiErr: any) {
+    try {
       const imageParts = imageDataUrls.map(url => ({
         type: 'image_url' as const,
         image_url: { url, detail: 'low' as const },
@@ -476,8 +479,16 @@ export async function wardrobeVisionChat(
         systemPrompt,
         opts
       )
-      return (msg?.content ?? '').trim()
+      const content = (msg?.content ?? '').trim()
+      if (!content) throw new Error('empty content')
+      return content
+    } catch (fallbackErr: any) {
+      // Both failed — surface whichever looks like a rate limit so the route
+      // can show the warm "busy" message instead of a generic error; prefer
+      // Gemini's status since it was the primary attempt.
+      const err: any = new Error(`vision: gemini(${geminiErr.message}) | openrouter(${fallbackErr.message})`)
+      err.status = geminiErr.status === 429 ? 429 : fallbackErr.status
+      throw err
     }
-    throw err
   }
 }

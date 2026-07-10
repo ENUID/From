@@ -1089,11 +1089,25 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         `Shopper's current message: ${question}`,
       ].filter(Boolean).join('\n\n')
 
-      raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 1100, temperature: 0.3 })
-      // Provider tag is approximate — wardrobeVisionChat doesn't report back
-      // which of Gemini/Groq actually served the request without changing its
-      // return contract, so this is logged against the whole vision chain.
-      logAiUsage({ path: 'vision', provider: 'gemini-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: !!raw })
+      // Unlike the text branch below, this call had no try/catch at all — any
+      // failure (both Gemini AND the OpenRouter vision fallback rate-limited
+      // or erroring) fell all the way through to the outer catch-all and
+      // showed the shopper a generic "something went wrong on my end" with no
+      // indication it was a busy/rate-limit condition, and no retry framing.
+      try {
+        raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 1100, temperature: 0.3 })
+        // Provider tag is approximate — wardrobeVisionChat doesn't report back
+        // which of Gemini/Groq actually served the request without changing its
+        // return contract, so this is logged against the whole vision chain.
+        logAiUsage({ path: 'vision', provider: 'gemini-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: !!raw })
+      } catch (err) {
+        logAiUsage({ path: 'vision', provider: 'gemini-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: false })
+        console.error('[stylist] vision model call failed:', err)
+        if (isRateLimited(err)) {
+          return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
+        }
+        return NextResponse.json({ reply: "I couldn't read that photo just now. Give it another go in a moment?", comparison: null })
+      }
     } else {
       // Text-only path (no images).
       // Conversational messages use a short ~300-token prompt (avoids rate limits,
