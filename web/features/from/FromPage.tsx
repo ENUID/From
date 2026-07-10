@@ -1468,6 +1468,18 @@ function seededPick<T>(arr: T[], seed: string): T {
   return arr[h % arr.length]
 }
 
+// Client-side last-line guard, mirroring the server's own dedupeById — a
+// product id must never render twice in the same result set, regardless of
+// what produced the response.
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>()
+  return items.filter(p => {
+    if (!p?.id || seen.has(p.id)) return false
+    seen.add(p.id)
+    return true
+  })
+}
+
 function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCurrency: string, profileGender?: string): StylistLoadingPhase[] {
   if (!hasImages) {
     // Run the SAME deterministic compiler the backend's instant fast path
@@ -2266,7 +2278,7 @@ export default function FromApp({
         // base to USD — printing e.g. a ₹5,750 piece as "$5,750.00 · Live rate".
         const displayCur = shopperContext.currency || 'USD'
         const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
-        const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? data.foundProducts.map(withCur) : []
+        const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? dedupeById(data.foundProducts.map(withCur)) : []
         const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0
           ? data.outfitSlots.map((s: any) => ({ ...s, products: Array.isArray(s.products) ? s.products.map(withCur) : s.products }))
           : undefined
@@ -2338,7 +2350,7 @@ export default function FromApp({
       const data = await res.json()
       const displayCur = shopperContext.currency || 'USD'
       const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
-      const fresh: Product[] = Array.isArray(data?.foundProducts) ? data.foundProducts.map(withCur) : []
+      const fresh: Product[] = Array.isArray(data?.foundProducts) ? dedupeById(data.foundProducts.map(withCur)) : []
       setStylistMsgs(prev => prev.map((m, i) => {
         if (i !== messageIndex) return m
         const existingIds = new Set((m.foundProducts || []).map(p => p.id))

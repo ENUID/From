@@ -15,6 +15,21 @@ export const maxDuration = 60
 // server batch, so this cap doubles as the per-section product count.
 const SEARCH_RESULT_CAP = 13
 
+// Absolute last-line guard: no product id may appear twice in a single
+// foundProducts payload, whatever upstream produced it (fresh search, brand
+// fallback, or the persistent catalog-cache pool). Applied at every site that
+// builds a foundProducts response, right before the SEARCH_RESULT_CAP slice.
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>()
+  const out: T[] = []
+  for (const p of items) {
+    if (!p?.id || seen.has(p.id)) continue
+    seen.add(p.id)
+    out.push(p)
+  }
+  return out
+}
+
 // Resolve a registry domain to its display name for brand-fallback messaging.
 function brandNameOf(domain: string): string {
   const p = UCP_REGISTRY.find(s => s.domain.toLowerCase().trim() === domain.toLowerCase().trim())
@@ -823,7 +838,7 @@ export async function POST(req: NextRequest) {
           'relevance', buyerCurrency, { fastFirstPage: true, loadMore: true }, [],
           memorySummary,
         )
-        return NextResponse.json({ reply: '', comparison: null, foundProducts: results.slice(0, SEARCH_RESULT_CAP), outfitSlots: null })
+        return NextResponse.json({ reply: '', comparison: null, foundProducts: dedupeById(results).slice(0, SEARCH_RESULT_CAP), outfitSlots: null })
       } catch (e) {
         console.error('[stylist] load-more error:', e)
         return NextResponse.json({ foundProducts: [], comparison: null })
@@ -888,7 +903,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           return NextResponse.json({
             reply: compiledReplyText(compiled, results.length),
             comparison: null,
-            foundProducts: results.slice(0, SEARCH_RESULT_CAP),
+            foundProducts: dedupeById(results).slice(0, SEARCH_RESULT_CAP),
             outfitSlots: null,
             searchQuery: compiled.args.searchQuery,
           })
@@ -1050,7 +1065,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           question,
         )
         if (results.length > 0) {
-          foundProducts = results.slice(0, SEARCH_RESULT_CAP)
+          foundProducts = dedupeById(results).slice(0, SEARCH_RESULT_CAP)
         } else {
           // The query named a brand we can't reach (no UCP / not in roster) or
           // that had no match. Retry across the roster with the brand stripped
@@ -1065,7 +1080,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
             )
             const names = brands.map(brandNameOf).filter(Boolean).join(' & ')
             if (broad.length > 0) {
-              foundProducts = broad.slice(0, SEARCH_RESULT_CAP)
+              foundProducts = dedupeById(broad).slice(0, SEARCH_RESULT_CAP)
               reply2 = `${reply}${reply ? ' ' : ''}I couldn't pull anything from ${names} just now, so here are some similar pieces that fit what you're after.`.trim()
             } else {
               reply2 = `${reply}${reply ? ' ' : ''}I don't have ${names} in the FROM roster yet tell me the style or material you're drawn to and I'll find you a close match.`.trim()
@@ -1080,8 +1095,12 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     let outfitSlots: { query: string; slotCategory: string | null; products: any[] }[] | null = null
     if (outfitQueries && outfitQueries.length > 0) {
       try {
-        const usedProductIds = new Set<string>()
-        const slotResults = await Promise.all(
+        // Fetch every slot's candidates in parallel (speed), then pick
+        // sequentially (correctness) — picking inside the parallel map raced
+        // on usedProductIds, so two slots could both see it empty and both
+        // grab the same top product before either had marked it used. A
+        // shopper must never see the identical item in two outfit slots.
+        const slotCandidates = await Promise.all(
           outfitQueries.map(async (q) => {
             const slotCat = classifyQuerySlot(q)
             const concepts = buildMandatoryConcepts(q)
@@ -1090,24 +1109,22 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
               'relevance', buyerCurrency, { fastFirstPage: true }, [],
               memorySummary,
             )
-            // Pick the best product that (a) actually belongs to the intended slot
-            // category and (b) hasn't been used in a prior slot. Fall back to the
-            // raw top result only when no category-verified product is found.
-            let filtered = slotCat
-              ? results.filter(p => productMatchesSlot(p, slotCat))
-              : results
-            const deduped = filtered.filter(p => !usedProductIds.has(p.id))
-            // Tier 2: category-correct even if a prior slot already used it —
-            // was accidentally re-filtering by unused-ness again (always empty
-            // when deduped is), which skipped straight to raw, category-unverified
-            // `results` below and could hand a slot the wrong garment type.
-            const best = deduped.length > 0 ? deduped : filtered
-            const chosen = (best.length > 0 ? best : results).slice(0, 6)
-            if (chosen[0]) usedProductIds.add(chosen[0].id)
-            return { query: q, slotCategory: slotCat ? slotLabelFor(slotCat) : null, products: chosen }
+            const filtered = slotCat ? results.filter(p => productMatchesSlot(p, slotCat)) : results
+            return { query: q, slotCategory: slotCat ? slotLabelFor(slotCat) : null, filtered, results }
           })
         )
-        outfitSlots = slotResults
+        const usedProductIds = new Set<string>()
+        outfitSlots = slotCandidates.map(({ query, slotCategory, filtered, results }) => {
+          const unused = <T extends { id: string }>(arr: T[]) => arr.filter(p => !usedProductIds.has(p.id))
+          // Tier 1: category-correct AND unused. Tier 2: ANY unused product,
+          // even off-category, rather than ever repeating one already placed
+          // in another slot — a unique-but-imperfect pick beats a duplicate.
+          const deduped = unused(filtered)
+          const best = deduped.length > 0 ? deduped : unused(results)
+          const chosen = best.slice(0, 6)
+          if (chosen[0]) usedProductIds.add(chosen[0].id)
+          return { query, slotCategory, products: chosen }
+        })
       } catch (e) {
         console.error('[stylist] outfit search error:', e)
       }
