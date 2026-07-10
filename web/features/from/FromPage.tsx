@@ -3385,6 +3385,9 @@ export default function FromApp({
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(44,18,6,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
         button{cursor:pointer;} a{color:inherit;}
+        .fr-msg-edit-btn{opacity:0;transition:opacity .15s ease;}
+        .fr-msg-hover:hover .fr-msg-edit-btn,.fr-msg-hover:focus-within .fr-msg-edit-btn{opacity:.55;}
+        .fr-msg-edit-btn:hover{opacity:1 !important;}
       `}</style>
 
       {/* Attach input — the one photo picker, persistent wardrobe pieces for outfit-building */}
@@ -4533,17 +4536,7 @@ export default function FromApp({
                             ))}
                           </div>
                         )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, maxWidth: '88%' }}>
-                          {m.role === 'user' && (
-                            <button type="button" onClick={() => startEditMsg(i, m)} title="Edit message"
-                              style={{ order: 0, flexShrink: 0, width: 22, height: 22, padding: 0, border: 'none', background: 'none',
-                                cursor: 'pointer', color: INK3, opacity: .5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                              </svg>
-                            </button>
-                          )}
+                        <div className={m.role === 'user' ? 'fr-msg-hover' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
                           <div style={{ fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
                             padding: m.role === 'user' ? '9px 14px' : 0,
                             background: m.role === 'user' ? INK : 'transparent',
@@ -4559,6 +4552,16 @@ export default function FromApp({
                                       onDone={() => { typedStylistIndices.current.add(i) }} />)
                               : m.content}
                           </div>
+                          {m.role === 'user' && (
+                            <button type="button" onClick={() => startEditMsg(i, m)} title="Edit message" className="fr-msg-edit-btn"
+                              style={{ marginTop: 4, flexShrink: 0, width: 22, height: 22, padding: 0, border: 'none', background: 'none',
+                                cursor: 'pointer', color: INK3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </>
                     )}
