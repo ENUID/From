@@ -612,6 +612,26 @@ export async function POST(req: NextRequest) {
     const shopperProfile: string | undefined = typeof body?.shopperProfile === 'string' && body.shopperProfile.trim()
       ? body.shopperProfile.trim()
       : undefined
+
+    // ── Gender default ────────────────────────────────────────────────────
+    // A plain query like "linen shirt for a beach party" carries no gender
+    // word of its own — without this, it searches ungendered even when the
+    // shopper's profile says Male/Female. Deterministically prefix the
+    // shopper's own gender onto ungendered queries, UNLESS the message
+    // already names a gender or clearly refers to someone else (wife, her,
+    // etc.) — in that case leave it alone and let the actual words win.
+    const profileGenderWord: 'men' | 'women' | null = (() => {
+      const src = `${shopperProfile || ''} ${shopperGender || ''}`.toLowerCase()
+      if (/\bwomen\b/.test(src)) return 'women'
+      if (/\bmen\b/.test(src)) return 'men'
+      return null
+    })()
+    const GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|gender.neutral|wife|husband|girlfriend|boyfriend|sister|brother|daughter|son|her|his|him)\b/i
+    const applyGenderDefault = (q: string): string => {
+      if (!profileGenderWord || !q.trim()) return q
+      if (GENDER_TERM_RE.test(q)) return q
+      return `${profileGenderWord} ${q}`
+    }
     // Free-tier personalization signals — the old grid-search sent these
     // unconditionally (not premium-gated); Fabrics needs the same so free
     // shoppers don't lose all personalization now that it's the only surface.
@@ -688,8 +708,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     // products need the full conversational/vision path.
     if (images.length === 0 && products.length === 0) {
       const prevUserMessage = [...rawHistory].reverse().find(m => m.role === 'user')?.content || ''
-      let compiled = compileIntent(question, buyerCurrency)
-      if (!compiled && prevUserMessage) compiled = continueIntent(question, prevUserMessage, buyerCurrency)
+      const genderedQuestion = applyGenderDefault(question)
+      let compiled = compileIntent(genderedQuestion, buyerCurrency)
+      if (!compiled && prevUserMessage) compiled = continueIntent(genderedQuestion, prevUserMessage, buyerCurrency)
       if (compiled) {
         try {
           const results = await GlobalCatalogService.search(
@@ -838,8 +859,12 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     if (!raw) return NextResponse.json({ reply: "I missed that one, sorry. Try again?", comparison: null })
 
     const { reply: replyWithSearch, comparison } = parseReply(raw)
-    const { reply: replyWithOutfit, searchQuery } = parseSearchToken(replyWithSearch)
-    const { reply, outfitQueries } = parseOutfitToken(replyWithOutfit)
+    const { reply: replyWithOutfit, searchQuery: rawSearchQuery } = parseSearchToken(replyWithSearch)
+    const { reply, outfitQueries: rawOutfitQueries } = parseOutfitToken(replyWithOutfit)
+    // Deterministic safety net: if the model forgot to gender the query
+    // itself, the shopper's profile still wins rather than searching blind.
+    const searchQuery = rawSearchQuery ? applyGenderDefault(rawSearchQuery) : rawSearchQuery
+    const outfitQueries = rawOutfitQueries?.map(q => applyGenderDefault(q))
 
     let foundProducts: any[] | null = null
     let reply2 = reply
