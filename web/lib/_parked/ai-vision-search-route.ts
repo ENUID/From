@@ -1,3 +1,11 @@
+// ── PARKED, NOT LIVE ──────────────────────────────────────────────────────
+// This was `/api/ai/vision-search` — turned a shopper's photo into a text
+// search query for the old grid-search route. Fabrics now handles photos
+// natively in one model call (see `sendStylist` in FromPage.tsx), so this
+// two-call round-trip is no longer used anywhere. Moved OUT of `app/api/` so
+// Next.js no longer builds/serves it. Kept verbatim, not deleted, for
+// possible reuse. To resurrect: move back under `app/api/<name>/route.ts`.
+// ─────────────────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
 import { wardrobeVisionChat } from '@/lib/groq'
 

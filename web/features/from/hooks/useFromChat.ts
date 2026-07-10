@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -9,28 +9,9 @@ import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import { useSubscription } from '@/hooks/useSubscription'
 
-export interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  products?: Product[]
-  loadingMore?: boolean
-  hasNoMore?: boolean
-  searchQuery?: string
-  budgetMax?: number | null
-  budgetCurrency?: string
-  isClothing?: boolean
-  sort?: 'price_asc' | 'price_desc' | 'relevance'
-  suggestions?: string[]
-  productsLoading?: boolean   // true while SSE products event hasn't arrived yet
-}
-
-export type ConversationTurn = Pick<
-  Message,
-  'role' | 'content' | 'products' | 'searchQuery' | 'budgetMax' | 'budgetCurrency' | 'isClothing' | 'sort' | 'suggestions'
->
-
-export type View = 'discover' | 'history' | 'saved'
-
+// Kept only so web/features/from/components/DiscoverView.tsx (unmounted,
+// dead component) keeps compiling — the search-history feature itself now
+// lives in web/features/from/hooks/_parked/useLegacySearch.ts.
 export type SearchHistoryEntry = {
   id: string
   query: string
@@ -39,13 +20,6 @@ export type SearchHistoryEntry = {
 }
 
 const SAVED_KEY = 'from:saved-products'
-const HISTORY_KEY = 'from:search-history'
-const CHAT_REQUEST_TIMEOUT_MS = 28_000
-
-const INITIAL_MESSAGE: Message = {
-  role: 'assistant',
-  content: 'Search across connected independent stores in plain language. Describe the item, budget, material, or intended use to get started.',
-}
 
 function normalizeProductForCurrency(product: Product, currency: string): Product {
   return {
@@ -59,120 +33,34 @@ function normalizeProductsForCurrency(products: Product[], currency: string) {
   return products.map(product => normalizeProductForCurrency(product, currency))
 }
 
-function buildApiHistory(history: ConversationTurn[]) {
-  return history.map(turn => ({
-    role: turn.role,
-    content: turn.content,
-    products: (turn.products || []).map(product => ({
-      id: product.id,
-      title: product.title,
-      vendor: product.vendor,
-      price: product.price,
-      currency: product.currency || product.base_currency,
-    })),
-  }))
-}
-
 export function useFromChat(initialShopperContext: ShopperContext, initialRates: ExchangeRates) {
   const { data: session } = useSession()
   const userEmail = session?.user?.email ?? undefined
 
   const convexSavedProducts = useQuery(api.shop.getSavedProducts, userEmail ? { userEmail } : "skip")
-  const convexSearchHistory = useQuery(api.shop.getSearchHistory, userEmail ? { userEmail } : "skip")
-  const tasteProfileData = useQuery(api.tasteProfile.getTasteProfile, userEmail ? { userEmail } : "skip")
   const toggleConvexSaved = useMutation(api.shop.toggleSavedProduct)
-  const saveConvexHistory = useMutation(api.shop.saveSearchHistory)
-  const deleteConvexHistory = useMutation(api.shop.deleteSearchHistory)
 
   // Track locally-deleted IDs so any Convex re-sync cannot resurrect them this session.
-  const deletedHistoryIds = useRef<Set<string>>(new Set())
   const removedSavedIds   = useRef<Set<string>>(new Set())
 
   const { isPremium, canSearch, dailySearchesRemaining } = useSubscription()
 
-  // Gender from profile — used for all logged-in users, not just premium.
-  // Values: 'Men' | 'Women' | 'Both' | 'Non-binary' | '' (unset)
-  const shopperGender = useMemo(() => {
-    if (!tasteProfileData?.sizes) return undefined
-    const s = tasteProfileData.sizes as Record<string, string>
-    return s.gender || undefined
-  }, [tasteProfileData])
-
-  // Compact taste profile string injected into search & stylist APIs.
-  // Gender and sizes are available for all logged-in users; styles, budget, and
-  // wardrobe are premium-only (they require more personalisation infrastructure).
-  const tasteProfileText = useMemo(() => {
-    if (!tasteProfileData) return undefined
-    const parts: string[] = []
-    if (tasteProfileData.sizes) {
-      const s = tasteProfileData.sizes as Record<string, string>
-      const gender = s.gender || ''
-      // Gender first — drives default search gender prefix
-      if (gender) parts.push(`shops for: ${gender.toLowerCase()}`)
-      // Label sizes with gender so the AI knows e.g. "M" means women's M, not men's
-      const genderLabel = gender && gender !== 'Both' && gender !== 'Non-binary'
-        ? `${gender.toLowerCase()}'s `
-        : ''
-      const sizeStr = [
-        s.tops     && `tops ${s.tops}`,
-        s.bottoms  && `bottoms ${s.bottoms}`,
-        s.shoes    && `shoes ${s.shoes}`,
-      ].filter(Boolean).join(', ')
-      if (sizeStr) parts.push(`${genderLabel}sizes: ${sizeStr}`)
-    }
-    if (isPremium) {
-      if (tasteProfileData.styles?.length) parts.push(`styles: ${tasteProfileData.styles.join(', ')}`)
-      if (tasteProfileData.budgetMin !== undefined || tasteProfileData.budgetMax !== undefined) {
-        const min = tasteProfileData.budgetMin ?? 0
-        const max = tasteProfileData.budgetMax ?? 9999
-        parts.push(`budget: $${min}–${max === 9999 ? '∞' : '$' + max}`)
-      }
-      const wardrobe = (tasteProfileData as any).wardrobe
-      if (wardrobe?.summary) {
-        parts.push(`wardrobe: ${String(wardrobe.summary).slice(0, 200)}`)
-        if (Array.isArray(wardrobe.gaps) && wardrobe.gaps.length > 0) {
-          parts.push(`wardrobe gaps: ${wardrobe.gaps.slice(0, 4).join(', ')}`)
-        }
-      }
-    }
-    return parts.length > 0 ? parts.join(' | ') : undefined
-  }, [isPremium, tasteProfileData])
-
-  const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
-  const [history, setHistory] = useState<ConversationTurn[]>([])
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [activeView, setActiveView] = useState<View>('discover')
   const [savedProducts, setSavedProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
   const [shopperContext] = useState(initialShopperContext)
   const [rates] = useState(initialRates)
   const [showUpgradeSheet, setShowUpgradeSheet] = useState(false)
 
-  const hasConversation = messages.some(message => message.role === 'user')
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
-
   useEffect(() => {
     try {
       const savedRaw = window.localStorage.getItem(SAVED_KEY)
-      const historyRaw = window.localStorage.getItem(HISTORY_KEY)
       if (savedRaw) {
         const saved = JSON.parse(savedRaw) as Product[]
         setSavedProducts(normalizeProductsForCurrency(saved, shopperContext.currency))
       }
-      if (historyRaw) setSearchHistory(JSON.parse(historyRaw) as SearchHistoryEntry[])
     } catch {
       window.localStorage.removeItem(SAVED_KEY)
-      window.localStorage.removeItem(HISTORY_KEY)
     }
   }, [shopperContext.currency])
 
@@ -183,57 +71,13 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
     }
   }, [convexSavedProducts, shopperContext.currency])
 
-  useEffect(() => {
-    if (convexSearchHistory) {
-      setSearchHistory(convexSearchHistory.filter(h => !deletedHistoryIds.current.has(h.id)))
-    }
-  }, [convexSearchHistory])
-
   // Always persist to localStorage regardless of login state — deletions must
   // survive refresh even when the user is signed in and Convex is slow/unavailable.
   useEffect(() => {
     try { window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedProducts)) } catch {}
   }, [savedProducts])
 
-  useEffect(() => {
-    try { window.localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory)) } catch {}
-  }, [searchHistory])
-
   const savedIds = new Set(savedProducts.map(product => product.id))
-
-  function resetConversation() {
-    if (loading) return
-    setMessages([INITIAL_MESSAGE])
-    setHistory([])
-    setInput('')
-    setActiveView('discover')
-    setIsSidebarOpen(false)
-  }
-
-  function rememberSearch(query: string, resultCount: number) {
-    if (userEmail) {
-      saveConvexHistory({ userEmail, query, resultCount })
-    }
-    const entry: SearchHistoryEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      query,
-      createdAt: Date.now(),
-      resultCount,
-    }
-    setSearchHistory(previous => [entry, ...previous.filter(item => item.query !== query)].slice(0, 20))
-  }
-
-  function deleteHistoryEntry(id: string) {
-    deletedHistoryIds.current.add(id)
-    setSearchHistory(prev => prev.filter(item => item.id !== id))
-    // Persist the deletion server-side so it survives reload for signed-in users.
-    // The mutation ignores ids that aren't real Convex documents (local entries).
-    if (userEmail) deleteConvexHistory({ userEmail, id }).catch(() => {})
-  }
-
-  function renameHistoryEntry(id: string, newQuery: string) {
-    setSearchHistory(prev => prev.map(item => item.id === id ? { ...item, query: newQuery } : item))
-  }
 
   function toggleSaved(product: Product) {
     const isRemoving = savedProducts.some(item => item.id === product.id)
@@ -252,331 +96,20 @@ export function useFromChat(initialShopperContext: ShopperContext, initialRates:
 
   function clearSavedProducts() {
     setSavedProducts([])
-    if (userEmail) {
-      // Handle clearing convex saved products if necessary, but for now just local clear
-    }
-  }
-
-  async function sendMessage(text?: string, opts?: { skipHistory?: boolean }) {
-    const messageText = text ?? input.trim()
-    if (!messageText || loading) return
-
-    setActiveView('discover')
-    setInput('')
-    setLoading(true)
-    setMessages(previous => [...previous, { role: 'user', content: messageText }])
-
-    // The most recent search this conversation ran — lets the API continue a
-    // refinement ("blue colour" after "I need a shirt") instead of searching the
-    // modifier on its own.
-    const lastSearchQuery = [...messages].reverse()
-      .find(m => m.role === 'assistant' && typeof m.searchQuery === 'string' && m.searchQuery.trim())?.searchQuery
-
-    try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: messageText,
-          history: buildApiHistory(history),
-          savedProducts,
-          buyerCurrency: shopperContext.currency,
-          buyerCountry: shopperContext.country,
-          userName: typeof window !== 'undefined' ? (window.localStorage.getItem('from_user_name') || undefined) : undefined,
-          recentSearches: searchHistory.slice(0, 8).map(entry => entry.query),
-          tasteProfile: tasteProfileText,
-          shopperGender: shopperGender,
-          lastSearchQuery,
-        }),
-        signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
-      })
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        throw new Error((errData as any).error ?? 'Request failed')
-      }
-
-      const contentType = res.headers.get('content-type') ?? ''
-
-      if (contentType.includes('text/event-stream') && res.body) {
-        // SSE streaming path
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buf = ''
-        let assistantMsgAdded = false
-        let isFirstMsg = messages.filter(m => m.role === 'user').length === 1
-
-        const handleEvent = (data: any) => {
-          if (data.type === 'text') {
-            // LLM text arrived before products — show it immediately
-            setLoading(false)
-            assistantMsgAdded = true
-            setMessages(prev => [
-              ...prev,
-              {
-                role: 'assistant' as const,
-                content: data.text ?? '',
-                products: [],
-                suggestions: data.suggestions ?? [],
-                productsLoading: true,
-              },
-            ])
-          } else if (data.type === 'products') {
-            const products = Array.isArray(data.products)
-              ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
-              : []
-
-            if (!opts?.skipHistory && isFirstMsg) rememberSearch(messageText, products.length)
-
-            if (assistantMsgAdded) {
-              // Update the placeholder message with products
-              setMessages(prev => {
-                const idx = prev.reduceRight((found: number, m: Message, i: number) => found === -1 && m.role === 'assistant' ? i : found, -1)
-                if (idx === -1) return prev
-                return prev.map((m, i) => i === idx ? {
-                  ...m,
-                  content: data.text ?? m.content,
-                  products,
-                  searchQuery: data.searchQuery,
-                  budgetMax: data.budgetMax,
-                  budgetCurrency: data.budgetCurrency,
-                  isClothing: data.isClothing,
-                  sort: data.sort,
-                  suggestions: data.suggestions ?? m.suggestions ?? [],
-                  productsLoading: false,
-                } : m)
-              })
-              setHistory(prev => [
-                ...prev,
-                { role: 'user', content: messageText },
-                {
-                  role: 'assistant',
-                  content: data.text ?? '',
-                  products,
-                  searchQuery: data.searchQuery,
-                  budgetMax: data.budgetMax,
-                  budgetCurrency: data.budgetCurrency,
-                  isClothing: data.isClothing,
-                  sort: data.sort,
-                  suggestions: data.suggestions ?? [],
-                },
-              ])
-            } else {
-              // Products arrived without a prior text event (fast path)
-              setLoading(false)
-              assistantMsgAdded = true
-              setMessages(prev => [
-                ...prev,
-                {
-                  role: 'assistant' as const,
-                  content: data.text ?? '',
-                  products,
-                  searchQuery: data.searchQuery,
-                  budgetMax: data.budgetMax,
-                  budgetCurrency: data.budgetCurrency,
-                  isClothing: data.isClothing,
-                  sort: data.sort,
-                  suggestions: data.suggestions ?? [],
-                  productsLoading: false,
-                },
-              ])
-              setHistory(prev => [
-                ...prev,
-                { role: 'user', content: messageText },
-                {
-                  role: 'assistant',
-                  content: data.text ?? '',
-                  products,
-                  searchQuery: data.searchQuery,
-                  budgetMax: data.budgetMax,
-                  budgetCurrency: data.budgetCurrency,
-                  isClothing: data.isClothing,
-                  sort: data.sort,
-                  suggestions: data.suggestions ?? [],
-                },
-              ])
-            }
-          } else if (data.type === 'error') {
-            setLoading(false)
-            if (!assistantMsgAdded) {
-              assistantMsgAdded = true
-              setMessages(prev => [
-                ...prev,
-                { role: 'assistant' as const, content: data.message ?? 'Search failed. Please try again.', products: [] },
-              ])
-            }
-          }
-        }
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buf += decoder.decode(value, { stream: true })
-          const parts = buf.split('\n\n')
-          buf = parts.pop() ?? ''
-          for (const part of parts) {
-            for (const line of part.split('\n')) {
-              if (line.startsWith('data: ')) {
-                try { handleEvent(JSON.parse(line.slice(6))) } catch {}
-              }
-            }
-          }
-        }
-        // flush remaining buffer
-        if (buf.trim()) {
-          for (const line of buf.split('\n')) {
-            if (line.startsWith('data: ')) {
-              try { handleEvent(JSON.parse(line.slice(6))) } catch {}
-            }
-          }
-        }
-      } else {
-        // Fallback JSON path
-        const data = await res.json()
-        const products = Array.isArray(data.products)
-          ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
-          : []
-        const isFirstMsg = messages.filter(m => m.role === 'user').length === 1
-        if (!opts?.skipHistory && isFirstMsg) rememberSearch(messageText, products.length)
-        setMessages(previous => [
-          ...previous,
-          {
-            role: 'assistant',
-            content: data.text,
-            products,
-            searchQuery: data.searchQuery,
-            budgetMax: data.budgetMax,
-            budgetCurrency: data.budgetCurrency,
-            isClothing: data.isClothing,
-            sort: data.sort,
-            suggestions: data.suggestions,
-          },
-        ])
-        setHistory(previous => [
-          ...previous,
-          { role: 'user', content: messageText },
-          {
-            role: 'assistant',
-            content: data.text,
-            products,
-            searchQuery: data.searchQuery,
-            budgetMax: data.budgetMax,
-            budgetCurrency: data.budgetCurrency,
-            isClothing: data.isClothing,
-            sort: data.sort,
-            suggestions: data.suggestions,
-          },
-        ])
-      }
-    } catch (error: unknown) {
-      const timedOut = error instanceof Error && error.name === 'TimeoutError'
-      setMessages(previous => [
-        ...previous,
-        {
-          role: 'assistant',
-          content: timedOut
-            ? 'The search timed out. Please try again — it\'s usually faster after the first load.'
-            : 'The search request did not complete. Please try again in a moment.',
-        },
-      ])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function loadMoreProducts(messageIndex: number) {
-    const msg = messages[messageIndex]
-    if (!msg || loading || msg.loadingMore || msg.hasNoMore || !msg.searchQuery) return
-
-    setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: true } : m))
-
-    try {
-      const currentExcludeIds = (msg.products || []).map(p => p.id)
-
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: 'more',
-          searchQuery: msg.searchQuery,
-          budgetMax: msg.budgetMax,
-          budgetCurrency: msg.budgetCurrency,
-          buyerCurrency: shopperContext.currency,
-          buyerCountry: shopperContext.country,
-          isClothing: msg.isClothing,
-          sort: msg.sort,
-          history: buildApiHistory(history),
-          currentExcludeIds,
-          savedProducts,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Request failed')
-
-      let newProducts = Array.isArray(data.products)
-        ? normalizeProductsForCurrency(data.products as Product[], shopperContext.currency)
-        : []
-
-      setMessages(prev => prev.map((m, idx) => {
-        if (idx === messageIndex) {
-          const existingIds = new Set((m.products || []).map(p => p.id))
-          const uniqueNew = newProducts.filter(p => !existingIds.has(p.id))
-          return {
-            ...m,
-            products: [...(m.products || []), ...uniqueNew],
-            loadingMore: false,
-            hasNoMore: uniqueNew.length === 0
-          }
-        }
-        return m
-      }))
-
-      const historyIndex = messageIndex - 1
-      setHistory(prev => prev.map((h, idx) => {
-        if (idx === historyIndex) {
-          const existingIds = new Set((h.products || []).map(p => p.id))
-          const uniqueNew = newProducts.filter(p => !existingIds.has(p.id))
-          return {
-            ...h,
-            products: [...(h.products || []), ...uniqueNew]
-          }
-        }
-        return h
-      }))
-
-    } catch (e) {
-      console.error('Error loading more products:', e)
-      setMessages(prev => prev.map((m, idx) => idx === messageIndex ? { ...m, loadingMore: false } : m))
-    }
   }
 
   return {
-    messages,
     input,
     setInput,
-    loading,
-    activeView,
-    setActiveView,
     savedProducts,
     selectedProduct,
     setSelectedProduct,
-    searchHistory,
-    isSidebarOpen,
-    setIsSidebarOpen,
-    isMobile,
     shopperContext,
     rates,
-    hasConversation,
     savedIds,
-    resetConversation,
     toggleSaved,
     clearSavedProducts,
-    sendMessage,
-    loadMoreProducts,
-    deleteHistoryEntry,
-    renameHistoryEntry,
     isPremium,
-    shopperGender,
     dailySearchesRemaining,
     showUpgradeSheet,
     setShowUpgradeSheet,

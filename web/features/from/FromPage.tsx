@@ -1593,7 +1593,7 @@ export default function FromApp({
 
   const {
     input, setInput,
-    savedIds, savedProducts, searchHistory, shopperContext, rates,
+    savedIds, savedProducts, shopperContext, rates,
     toggleSaved,
     isPremium, dailySearchesRemaining,
     showUpgradeSheet, setShowUpgradeSheet,
@@ -2107,7 +2107,7 @@ export default function FromApp({
           savedProducts: savedProducts.slice(0, 12).map(p => ({
             title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
           })),
-          recentSearches: searchHistory.slice(0, 8).map(h => h.query),
+          recentSearches: stylistHistory.slice(0, 8).map(h => h.label),
         }),
       })
       const data = await res.json()

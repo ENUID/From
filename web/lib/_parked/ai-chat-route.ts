@@ -1,3 +1,14 @@
+// ── PARKED, NOT LIVE ──────────────────────────────────────────────────────
+// This was the home page's grid-search API route (`/api/ai/chat`) before FROM
+// unified onto a single conversational surface (Fabrics, `/api/ai/stylist`).
+// It is intentionally moved OUT of `app/api/` so Next.js no longer builds or
+// serves it as an endpoint — it is not reachable and nothing in the app calls
+// it. Kept verbatim (not deleted) because it's a complete, working grid
+// search/pagination pipeline (deterministic fast path + LLM tool-calling +
+// SSE streaming) that may be useful groundwork for a future, different
+// feature. To resurrect: move this file back under `app/api/<name>/route.ts`
+// and re-wire a client to call it.
+// ─────────────────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
 import { generateRobustAIResponse, generatePostToolReply, ChatMessage } from '@/lib/groq'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
