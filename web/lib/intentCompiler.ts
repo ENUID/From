@@ -105,6 +105,50 @@ const GENDER_TERMS: Record<'men' | 'women', string[]> = {
   women: ['women', "women's", 'womens', 'female', 'for her', 'feminine', 'ladies'],
 }
 
+// ── Layer 3: Occasion lexicon ──────────────────────────────────────────────────
+// canonical occasion → phrases that signal it in a raw message. Longest match
+// wins when a message names more than one (matched.length sort in compileIntent).
+const OCCASIONS: Record<string, string[]> = {
+  beach:     ['beach party', 'beach vacation', 'beach day', 'beach', 'seaside', 'poolside', 'pool party'],
+  resort:    ['resort wear', 'resort', 'holiday trip', 'vacation'],
+  wedding:   ['wedding guest', 'wedding'],
+  office:    ['work meeting', 'business casual', 'workwear', 'office', 'work'],
+  interview: ['job interview', 'interview'],
+  date:      ['date night', 'first date', 'date'],
+  party:     ['house party', 'going out', 'night out', 'party'],
+  blacktie:  ['black tie', 'gala', 'formal evening'],
+  cocktail:  ['cocktail party', 'cocktail'],
+  gym:       ['workout', 'training session', 'yoga class', 'gym'],
+  travel:    ['travel day', 'flight', 'airport', 'travel'],
+  brunch:    ['brunch'],
+  festival:  ['music festival', 'festival'],
+}
+
+// canonical occasion → catalog-facing descriptor words (search-query enrichment
+// + soft mandatoryConcepts ranking group — never a hard filter, occasion is a
+// styling nudge, not a strict attribute like garment/gender).
+const OCCASION_BOOST: Record<string, string[]> = {
+  beach:     ['beach', 'resort', 'lightweight', 'linen'],
+  resort:    ['resort', 'vacation', 'lightweight'],
+  wedding:   ['wedding guest', 'occasion wear', 'formal'],
+  office:    ['workwear', 'business casual', 'tailored'],
+  interview: ['business formal', 'tailored', 'polished'],
+  date:      ['date night', 'evening'],
+  party:     ['party', 'going out'],
+  blacktie:  ['black tie', 'formal', 'tuxedo'],
+  cocktail:  ['cocktail', 'semi-formal'],
+  gym:       ['activewear', 'athletic', 'performance'],
+  travel:    ['travel', 'comfortable', 'packable'],
+  brunch:    ['smart casual'],
+  festival:  ['festival'],
+}
+
+const OCCASION_LABEL: Record<string, string> = {
+  beach: 'the beach', resort: 'a resort trip', wedding: 'a wedding', office: 'the office',
+  interview: 'an interview', date: 'a date night', party: 'a party', blacktie: 'a black-tie event',
+  cocktail: 'a cocktail event', gym: 'the gym', travel: 'travel', brunch: 'brunch', festival: 'a festival',
+}
+
 // Words that signal the message is conversation, not a product search.
 const CONVERSATIONAL = /\b(compare|versus|vs\.?|which|what|how|why|can you|could you|would|should|tell me|explain|difference|better|goes? with|pairs? with|match(es)? with|style (this|it|them)|wear (this|it|with)|thoughts on|opinion|review|first one|second one|third one|that one|these|this one|hi|hello|hey|thanks|thank you|help)\b/i
 
@@ -185,6 +229,9 @@ export function compileIntent(message: string, buyerCurrency: string): CompiledI
 
   const colorHits = findInLexicon(q, COLORS)
   const materialHits = findInLexicon(q, MATERIALS)
+  const occasionHits = findInLexicon(q, OCCASIONS)
+  occasionHits.sort((a, b) => b.matched.length - a.matched.length)
+  const occasion = occasionHits[0]
   const aesthetics = matchStyles(raw)
 
   let gender: 'men' | 'women' | undefined
@@ -200,21 +247,24 @@ export function compileIntent(message: string, buyerCurrency: string): CompiledI
     : /\b(expensive|premium|luxury|highest|finest|best quality)\b/i.test(q) ? 'price_desc'
     : 'relevance'
 
-  // searchQuery: gender + color + material + garment — clean and specific
+  // searchQuery: gender + color + material + garment + occasion — clean and specific
   const queryParts: string[] = []
   if (gender) queryParts.push(gender)
   if (colorHits[0]) queryParts.push(colorHits[0].matched)
   if (materialHits[0]) queryParts.push(materialHits[0].matched)
   queryParts.push(garment.matched)
+  if (occasion) queryParts.push(OCCASION_BOOST[occasion.canonical][0])
   const searchQuery = queryParts.join(' ')
 
   // mandatoryConcepts: hard filters — garment always; color/material when explicit.
   // Gender goes last and, unlike color/material, is enforced as a genuine hard
   // reject downstream (GlobalCatalogService.requestedGenderFromConcepts) — a
-  // menswear search must never surface a bona fide women's item.
+  // menswear search must never surface a bona fide women's item. Occasion is a
+  // soft ranking group only (styling nudge, not a strict attribute).
   const mandatoryConcepts: string[][] = [garment.group.slice(0, 8)]
   if (colorHits[0]) mandatoryConcepts.push(colorHits[0].group)
   if (materialHits[0]) mandatoryConcepts.push(materialHits[0].group)
+  if (occasion) mandatoryConcepts.push(OCCASION_BOOST[occasion.canonical])
   if (gender === 'men') mandatoryConcepts.push(['men', "men's", 'mens', 'man', 'male'])
   if (gender === 'women') mandatoryConcepts.push(['women', "women's", 'womens', 'woman', 'ladies', 'female'])
 
@@ -230,7 +280,7 @@ export function compileIntent(message: string, buyerCurrency: string): CompiledI
   if (colorHits[0]) summaryParts.push(colorHits[0].canonical)
   if (materialHits[0]) summaryParts.push(materialHits[0].canonical)
   summaryParts.push(garment.canonical)
-  const summary = summaryParts.join(' ')
+  const summary = summaryParts.join(' ') + (occasion ? ` for ${OCCASION_LABEL[occasion.canonical]}` : '')
 
   return { args, aesthetics, summary }
 }
@@ -284,8 +334,9 @@ export function continueIntent(
   const hasMaterial = findInLexicon(q, MATERIALS).length > 0
   const hasBudget = !!parseBudget(raw, buyerCurrency).budgetMax
   const hasStyle = matchStyles(raw).length > 0
+  const hasOccasion = findInLexicon(q, OCCASIONS).length > 0
   const hasWord = REFINEMENT_WORDS.test(q)
-  if (!hasColor && !hasMaterial && !hasBudget && !hasStyle && !hasWord) return null
+  if (!hasColor && !hasMaterial && !hasBudget && !hasStyle && !hasOccasion && !hasWord) return null
 
   // Build the merged query: the new message first (so its attributes win), then
   // the previous query with any overridden attribute types stripped out.
