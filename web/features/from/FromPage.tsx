@@ -12,6 +12,7 @@ import type { Product } from '@/components/ProductCard'
 import { BRAND_NAMES, UCP_REGISTRY, cleanBrandToken } from '@/lib/stores'
 import { TAGLINES, shuffledIndices } from './taglines'
 import DOMPurify from 'dompurify'
+import { compileIntent } from '@/lib/intentCompiler'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const INK   = "#2C1206"   // dark brown
@@ -1432,7 +1433,38 @@ function TypewriterText({ text, products, liveRates, onProductClick, animate, on
 type StylistLoadingIcon = 'read' | 'search' | 'filter' | 'compare' | 'palette' | 'fabric' | 'value' | 'outfit' | 'curate'
 type StylistLoadingPhase = { main: string; sub: string; subsub?: string; icon: StylistLoadingIcon }
 
-function buildStylistLoadingPhases(question: string, hasImages: boolean): StylistLoadingPhase[] {
+// Same gender-default logic as the backend (applyGenderDefault in the stylist
+// route) — mirrored client-side purely so the DISPLAYED "reading your
+// request" text matches what will actually be searched, not a guess.
+const LOADING_GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|wife|husband|girlfriend|boyfriend|sister|brother|daughter|son|her|his|him)\b/i
+function withProfileGenderForDisplay(q: string, profileGender?: string): string {
+  if (!profileGender || !q.trim() || LOADING_GENDER_TERM_RE.test(q)) return q
+  const word = profileGender === 'Women' ? 'women' : profileGender === 'Men' ? 'men' : null
+  return word ? `${word} ${q}` : q
+}
+
+function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCurrency: string, profileGender?: string): StylistLoadingPhase[] {
+  if (!hasImages) {
+    // Run the SAME deterministic compiler the backend's instant fast path
+    // runs — if it compiles, the search is guaranteed to be literal (its own
+    // CONVERSATIONAL filter already excludes compare/styling-advice
+    // phrasing), so the terms shown here are exactly what gets searched, not
+    // a simulated guess.
+    const compiled = compileIntent(withProfileGenderForDisplay(question, profileGender), buyerCurrency)
+    if (compiled) {
+      const what = compiled.summary || compiled.args.searchQuery
+      const filterDetail = (compiled.args.mandatoryConcepts || [])
+        .slice(1) // first group is the garment itself, already named above
+        .map(group => group[0]).filter(Boolean).join(', ')
+      return [
+        { icon: 'read', main: 'Reading your request', sub: `"${what}"` },
+        { icon: 'search', main: 'Searching FROM’s catalog', sub: '450+ independent brands, live inventory' },
+        { icon: 'filter', main: 'Filtering for fit and material', sub: filterDetail || 'True to size and quality', subsub: 'Quality and construction first' },
+        { icon: 'curate', main: 'Ranking and curating your picks', sub: 'Best matches first' },
+      ]
+    }
+  }
+
   const q = question.toLowerCase()
 
   // ── Extract meaningful terms from the query ─────────────────────────────────
@@ -1977,6 +2009,10 @@ export default function FromApp({
   const [editText, setEditText]               = useState('')
   const [editImages, setEditImages]           = useState<string[]>([])
   const [stylistLoading, setStylistLoading]   = useState(false)
+  // True for a brief moment once the reply has arrived but before it's shown —
+  // lets the step tracker dissolve out cleanly instead of instantly swapping
+  // for the reply.
+  const [stylistDissolving, setStylistDissolving] = useState(false)
   // The home page IS the one conversation now — every "is a request in
   // flight" check in the UI reads Fabrics' own loading state.
   const loading = stylistLoading
@@ -2073,7 +2109,7 @@ export default function FromApp({
       ].slice(0, 30))
     }
     setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: transientImages.length > 0 ? transientImages : undefined }])
-    setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0))
+    setStylistLoadingPhases(buildStylistLoadingPhases(question, capturedImages.length > 0, shopperContext.currency, shopperGenderFromProfile))
     setStylistLoadingStep(0)
     setStylistLoading(true)
     try {
@@ -2113,6 +2149,10 @@ export default function FromApp({
       })
       const data = await res.json()
       if (data?.reply) {
+        // Let the step tracker dissolve out before the reply appears, instead
+        // of an instant swap — a clean handoff, not a jump cut.
+        setStylistDissolving(true)
+        await new Promise(r => setTimeout(r, 220))
         // Normalize currency the same way the search path does: the product's
         // own `currency` (from the store feed) is its NATIVE/base currency, and
         // we display in the buyer's currency. Without this, stylist products
@@ -2143,6 +2183,7 @@ export default function FromApp({
       setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching Fabrics. Give it another go in a moment.' }])
     } finally {
       setStylistLoading(false)
+      setStylistDissolving(false)
     }
   }
   // Pin products and ask about them — continues the one ongoing conversation
@@ -2424,16 +2465,32 @@ export default function FromApp({
     try { localStorage.setItem(STYLIST_HISTORY_LS, JSON.stringify(stylistHistory)) } catch {}
   }, [stylistHistory])
 
-  // Persist current session messages (text only — strip large product arrays)
+  // Persist the current session's full messages — including found products,
+  // outfit slots, and comparisons — so refreshing or reopening from history
+  // doesn't lose the actual results, only the text. Only the ACTIVE session
+  // is written here (others are loaded on demand from history), so this
+  // stays well within localStorage's quota even with a few dozen products.
   useEffect(() => {
     const id = stylistSessionId.current
     if (!id || stylistMsgs.length === 0) return
-    const slim = stylistMsgs.map(m => ({ role: m.role, content: m.content }))
-    try { localStorage.setItem(stylistSessionLS(id), JSON.stringify(slim)) } catch {}
+    try {
+      localStorage.setItem(stylistSessionLS(id), JSON.stringify(stylistMsgs))
+    } catch {
+      // Quota exceeded (rare — a very long session with many searches) —
+      // fall back to text-only so the conversation itself still survives.
+      try {
+        const slim = stylistMsgs.map(m => ({ role: m.role, content: m.content }))
+        localStorage.setItem(stylistSessionLS(id), JSON.stringify(slim))
+      } catch {}
+    }
   }, [stylistMsgs])
 
-  // Drive the loading phase animation — each step shows main text, then sub fades in,
-  // then sub-sub, then advances to the next phase. Resets cleanly when loading ends.
+  // Drive the loading phase animation — the whole sequence is budgeted to run
+  // 8s total (paced evenly across however many steps exist), each step shows
+  // its main text, then sub fades in, then sub-sub, then advances. If the
+  // real response arrives sooner, the sequence just stops where it is —
+  // never padded/faked to fill time. If it takes longer, the last step holds.
+  const STYLIST_STEPS_TOTAL_MS = 8000
   useEffect(() => {
     if (!stylistLoading || stylistLoadingPhases.length === 0) {
       setStylistLoadingStep(0)
@@ -2443,9 +2500,10 @@ export default function FromApp({
     }
     setStylistSubVis(false)
     setStylistSubSubVis(false)
-    const t1 = setTimeout(() => setStylistSubVis(true), 900)
-    const t2 = setTimeout(() => setStylistSubSubVis(true), 2300)
-    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), 6500)
+    const perStep = STYLIST_STEPS_TOTAL_MS / stylistLoadingPhases.length
+    const t1 = setTimeout(() => setStylistSubVis(true), perStep * 0.35)
+    const t2 = setTimeout(() => setStylistSubSubVis(true), perStep * 0.68)
+    const t3 = setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), perStep)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases.length])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]); setFetchedColorImages({}); setFetchedColors([]) } }, [selectedProduct])
@@ -3389,6 +3447,7 @@ export default function FromApp({
         @keyframes fr-step-glow{0%,100%{box-shadow:0 0 0 0 rgba(44,18,6,0.18);}50%{box-shadow:0 0 0 5px rgba(44,18,6,0.06);}}
         @keyframes fr-caret-blink{0%,55%{opacity:1;}56%,100%{opacity:0;}}
         .fr-step-active{animation:fr-step-in .25s cubic-bezier(.32,.9,.4,1), fr-step-glow 1.8s ease-in-out .25s infinite;}
+        .fr-step-pop{animation:fr-step-in .22s cubic-bezier(.32,.9,.4,1);}
         .fr-type-caret{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:fr-caret-blink 1s step-start infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(44,18,6,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
@@ -4768,7 +4827,8 @@ export default function FromApp({
                   </div>
                 ))}
                 {stylistLoading && (
-                  stylistLoadingPhases.length === 0 ? (
+                  <div style={{ opacity: stylistDissolving ? 0 : 1, transition: 'opacity .22s ease' }}>
+                  {stylistLoadingPhases.length === 0 ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 2px' }}>
                       <div className="fr-step-active" style={{ position: 'relative', width: 22, height: 22, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
                         <StylistStepIcon icon="read" size={12} />
@@ -4785,31 +4845,35 @@ export default function FromApp({
                         const isLast = pi === stylistLoadingPhases.length - 1
                         return (
                           <div key={pi} style={{ display: 'flex', gap: 10 }}>
-                            {/* Icon + connecting thread */}
+                            {/* Icon + connecting thread — keyed on state so each
+                                transition (upcoming→active→done) remounts and pops,
+                                reacting the instant it happens, not lagging behind. */}
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                              <div className={state === 'active' ? 'fr-step-active' : undefined}
+                              <div key={`${pi}-${state}`} className={state === 'active' ? 'fr-step-active' : 'fr-step-pop'}
                                 style={{
-                                  position: 'relative', width: 22, height: 22, borderRadius: '50%',
+                                  position: 'relative',
+                                  width: state === 'done' ? 16 : 22, height: state === 'done' ? 16 : 22,
+                                  borderRadius: '50%',
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  background: state === 'active' ? INK : state === 'done' ? 'rgba(44,18,6,.08)' : 'transparent',
-                                  color: state === 'active' ? '#fff' : state === 'done' ? INK2 : 'rgba(44,18,6,.3)',
+                                  background: state === 'active' ? INK : state === 'done' ? 'rgba(44,18,6,.05)' : 'transparent',
+                                  color: state === 'active' ? '#fff' : state === 'done' ? 'rgba(44,18,6,.4)' : 'rgba(44,18,6,.3)',
                                   border: state === 'upcoming' ? '1px solid rgba(44,18,6,.16)' : 'none',
-                                  transition: 'background .35s ease, color .35s ease',
+                                  transition: 'background .3s ease, color .3s ease, width .3s ease, height .3s ease',
                                 }}>
                                 {state === 'done'
-                                  ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                  ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                                   : <StylistStepIcon icon={phase.icon} size={12} />}
                               </div>
                               {!isLast && (
-                                <div style={{ width: 1, flex: 1, minHeight: 20, marginTop: 2, marginBottom: 2, background: state === 'done' ? 'rgba(44,18,6,.18)' : 'rgba(44,18,6,.08)', transition: 'background .35s ease' }} />
+                                <div style={{ width: 1, flex: 1, minHeight: 20, marginTop: 2, marginBottom: 2, background: state === 'done' ? 'rgba(44,18,6,.14)' : 'rgba(44,18,6,.08)', transition: 'background .3s ease' }} />
                               )}
                             </div>
                             {/* Label + detail */}
-                            <div style={{ paddingBottom: isLast ? 0 : 16, minWidth: 0 }}>
+                            <div style={{ paddingBottom: isLast ? 0 : 16, minWidth: 0, opacity: state === 'done' ? .6 : 1, transition: 'opacity .3s ease' }}>
                               <div style={{
-                                fontFamily: SANS, fontSize: 13, fontWeight: state === 'active' ? 600 : 500, lineHeight: '22px',
+                                fontFamily: SANS, fontSize: state === 'done' ? 12 : 13, fontWeight: state === 'active' ? 600 : 500, lineHeight: '22px',
                                 color: state === 'upcoming' ? 'rgba(44,18,6,.34)' : state === 'done' ? INK3 : INK,
-                                transition: 'color .35s ease',
+                                transition: 'color .3s ease, font-size .3s ease',
                               }}>
                                 {phase.main}
                               </div>
@@ -4828,7 +4892,8 @@ export default function FromApp({
                         )
                       })}
                     </div>
-                  )
+                  )}
+                  </div>
                 )}
               </div>
             )}

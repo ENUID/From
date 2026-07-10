@@ -339,6 +339,38 @@ function isNonFashion(p: UcpProduct): boolean {
   return (p.tags || []).some(t => NON_FASHION_TAGS.has(t.toLowerCase()))
 }
 
+// ─── Gender hard filter ─────────────────────────────────────────────────────
+// mandatoryConcepts' color/material groups are soft ranking signals — a
+// product missing "black" just ranks lower. Gender is different: a shopper
+// searching menswear should never be shown a bona fide women's item, full
+// stop. This hard-drops any product whose OWN gender signal clearly
+// conflicts with what was requested; unisex/ungendered products (most of
+// the catalog doesn't explicitly self-tag gender at all) are never rejected.
+const WOMEN_GENDER_RE = /\b(women'?s?|womens|ladies?|female)\b/i
+const MEN_GENDER_RE = /\b(men'?s?|mens|male|gentlemen)\b/i
+
+function productGenderSignal(p: UcpProduct): 'men' | 'women' | null {
+  const hay = `${p.title} ${(p.tags || []).join(' ')} ${(p as any).product_type || ''}`.toLowerCase()
+  const isWomen = WOMEN_GENDER_RE.test(hay)
+  const isMen = MEN_GENDER_RE.test(hay)
+  if (isWomen && !isMen) return 'women'
+  if (isMen && !isWomen) return 'men'
+  return null
+}
+
+// Which concept group (if any) names the requested gender? Only the
+// dedicated gender group ever contains these terms — garment/material/color
+// vocabularies don't — so this reads the shopper's actual request, not a
+// guess.
+function requestedGenderFromConcepts(groups: string[][]): 'men' | 'women' | null {
+  for (const g of groups) {
+    const joined = g.join(' ')
+    if (WOMEN_GENDER_RE.test(joined)) return 'women'
+    if (MEN_GENDER_RE.test(joined)) return 'men'
+  }
+  return null
+}
+
 // ─── EN→JA translation for Japanese-catalog stores ─────────────────────────────
 
 const EN_TO_JA: Record<string, string> = {
@@ -650,6 +682,16 @@ function applyFiltersAndSort(
 
   // Concept layer: drop off-garment items (when safe) and rank by concept fit.
   if (params.concepts && params.concepts.length > 0) {
+    // Gender is a hard filter, not a ranking signal — reject clear opposite-
+    // gender matches before the soft concept scoring below. Never let it
+    // empty the page (falls back to unfiltered in the pathological case
+    // where literally everything found is opposite-gender).
+    const requestedGender = requestedGenderFromConcepts(params.concepts)
+    if (requestedGender) {
+      const opposite = requestedGender === 'men' ? 'women' : 'men'
+      const genderSafe = out.filter(p => productGenderSignal(p) !== opposite)
+      if (genderSafe.length > 0) out = genderSafe
+    }
     out = applyConceptRelevance(out, params.concepts, 4)
   }
 

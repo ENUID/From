@@ -208,10 +208,15 @@ export function compileIntent(message: string, buyerCurrency: string): CompiledI
   queryParts.push(garment.matched)
   const searchQuery = queryParts.join(' ')
 
-  // mandatoryConcepts: hard filters — garment always; color/material when explicit
+  // mandatoryConcepts: hard filters — garment always; color/material when explicit.
+  // Gender goes last and, unlike color/material, is enforced as a genuine hard
+  // reject downstream (GlobalCatalogService.requestedGenderFromConcepts) — a
+  // menswear search must never surface a bona fide women's item.
   const mandatoryConcepts: string[][] = [garment.group.slice(0, 8)]
   if (colorHits[0]) mandatoryConcepts.push(colorHits[0].group)
   if (materialHits[0]) mandatoryConcepts.push(materialHits[0].group)
+  if (gender === 'men') mandatoryConcepts.push(['men', "men's", 'mens', 'man', 'male'])
+  if (gender === 'women') mandatoryConcepts.push(['women', "women's", 'womens', 'woman', 'ladies', 'female'])
 
   const args = SearchToolSchema.parse({
     searchQuery,
