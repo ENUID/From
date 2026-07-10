@@ -372,6 +372,63 @@ function requestedGenderFromConcepts(groups: string[][]): 'men' | 'women' | null
   return null
 }
 
+// ─── Size soft signal ───────────────────────────────────────────────────────
+// A confirmed size match nudges a product up; a confirmed unavailable variant
+// nudges it down — but this is NEVER a hard filter, unlike gender. Size label
+// formats vary too much across independent stores (S/M/L vs numeric vs UK/EU)
+// to safely exclude on a literal-text miss: a label that doesn't match almost
+// always means "this store labels sizes differently" or "doesn't expose
+// sizes at all," not "wrong size." Only a genuine, legible mismatch — the
+// product lists the shopper's exact size as an option, and that specific
+// variant is out of stock — demotes it. Everything else (can't tell) is left
+// exactly where relevance already ranked it.
+const SIZE_ALIASES: Record<string, string> = {
+  xs: 'xs', extrasmall: 'xs',
+  s: 's', small: 's',
+  m: 'm', medium: 'm',
+  l: 'l', large: 'l',
+  xl: 'xl', extralarge: 'xl',
+  xxl: 'xxl', '2xl': 'xxl', xxlarge: 'xxl',
+  xxxl: 'xxxl', '3xl': 'xxxl',
+}
+
+function normalizeSizeLabel(raw: string): string {
+  let cleaned = raw.toLowerCase().replace(/\b(us|uk|eu|eur|women'?s|men'?s)\b/g, '').replace(/[^a-z0-9]/g, '').trim()
+  // Denim/trouser waist sizes are commonly labeled "W32" or "32W" — a
+  // shopper stating a bare "32" should still match either form.
+  cleaned = cleaned.replace(/^w(?=\d)/, '').replace(/w$/, '')
+  return SIZE_ALIASES[cleaned] ?? cleaned
+}
+
+function productSizeSignal(p: UcpProduct, wantedSize: string): 'match' | 'mismatch' | 'unknown' {
+  const wanted = normalizeSizeLabel(wantedSize)
+  if (!wanted) return 'unknown'
+
+  const sizeOptionValues = (p.options || []).filter(o => /size/i.test(o.name)).flatMap(o => o.values)
+  if (sizeOptionValues.length === 0) return 'unknown' // product doesn't expose sizes at all — can't tell
+
+  const hasWanted = sizeOptionValues.some(v => normalizeSizeLabel(v) === wanted)
+  if (!hasWanted) return 'unknown' // this store just labels sizes differently — never guess mismatch from that alone
+
+  if (p.variants && p.variants.length > 0) {
+    const variant = p.variants.find(v => v.options.some(o => /size/i.test(o.name) && normalizeSizeLabel(o.label) === wanted))
+    if (variant) return variant.availability ? 'match' : 'mismatch'
+  }
+  return 'match' // the size is listed and we have no variant-level stock data to contradict it
+}
+
+// Reorders (never filters) by size signal: confirmed match first, confirmed
+// out-of-stock-in-that-size last, everything indeterminate stays exactly
+// where relevance already put it.
+function applySizePreference(products: UcpProduct[], wantedSize: string | null | undefined): UcpProduct[] {
+  if (!wantedSize) return products
+  const scored = products.map((p, i) => {
+    const sig = productSizeSignal(p, wantedSize)
+    return { p, i, score: sig === 'match' ? 1 : sig === 'mismatch' ? -1 : 0 }
+  })
+  return scored.sort((a, b) => b.score - a.score || a.i - b.i).map(s => s.p)
+}
+
 // ─── EN→JA translation for Japanese-catalog stores ─────────────────────────────
 
 const EN_TO_JA: Record<string, string> = {
@@ -741,6 +798,9 @@ export class GlobalCatalogService {
      *  style signals survive even when the fetch query is stripped down. The
      *  catalog fetch still uses the clean `query` so recall is never reduced. */
     rerankQuery?: string,
+    /** The shopper's stated size for whichever garment category this query is
+     *  (tops/bottoms/shoes) — a soft reorder signal only, see applySizePreference. */
+    preferredSize?: string | null,
   ): Promise<UcpProduct[]> {
     const rawQuery = query.trim()
     // For brand-only searches (brandDomains pre-supplied), allow empty rawQuery —
@@ -942,6 +1002,10 @@ export class GlobalCatalogService {
 
     // (Vendor diversity is applied INSIDE applyFiltersAndSort, before the page
     // slice — so the page is both full and diverse. No post-hoc cap needed.)
+
+    // Size preference — soft reorder only, applied last so it nudges within
+    // whatever relevance/geo order already exists rather than overriding it.
+    result = applySizePreference(result, preferredSize)
 
     return result
   }

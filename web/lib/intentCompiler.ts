@@ -153,7 +153,7 @@ const OCCASION_LABEL: Record<string, string> = {
 const CONVERSATIONAL = /\b(compare|versus|vs\.?|which|what|how|why|can you|could you|would|should|tell me|explain|difference|better|goes? with|pairs? with|match(es)? with|style (this|it|them)|wear (this|it|with)|thoughts on|opinion|review|first one|second one|third one|that one|these|this one|hi|hello|hey|thanks|thank you|help)\b/i
 
 // ── Budget parsing ─────────────────────────────────────────────────────────────
-function parseBudget(message: string, buyerCurrency: string): { budgetMax?: number; budgetCurrency?: string } {
+export function parseBudget(message: string, buyerCurrency: string): { budgetMax?: number; budgetCurrency?: string } {
   const m = message.toLowerCase().match(
     /(?:under|below|less than|up to|max(?:imum)?|budget(?: of)?|within|around|about)\s*([$€£¥₫])?\s*(\d+(?:[.,]\d+)?)\s*(k|m)?\s*(usd|eur|gbp|jpy|inr|vnd|aud|cad)?/
   ) || message.match(/([$€£¥₫])\s*(\d+(?:[.,]\d+)?)\s*(k|m)?/i)

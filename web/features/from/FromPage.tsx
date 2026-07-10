@@ -1791,6 +1791,15 @@ export default function FromApp({
     if (sizeStr) parts.push(`${genderLabel}sizes: ${sizeStr}`)
     return parts.length > 0 ? parts.join(' | ') : undefined
   }, [tasteProfileData, shopperGenderFromProfile])
+  // Structured sizes for the stylist request — used server-side as a real
+  // catalog ranking signal (GlobalCatalogService), not just prose the model
+  // reads. Kept separate from shopperProfileForStylist's formatted string so
+  // the backend never has to parse sizes back out of prose.
+  const shopperSizesForStylist = useMemo(() => {
+    if (!tasteProfileData?.sizes) return undefined
+    const s = tasteProfileData.sizes as Record<string, string>
+    return { tops: s.tops || undefined, bottoms: s.bottoms || undefined, shoes: s.shoes || undefined }
+  }, [tasteProfileData])
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
   const updateUserNameMutation = useMutation(api.users.updateUserName)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
@@ -2070,7 +2079,7 @@ export default function FromApp({
   // foundProductBatches sizes each "See more" fetch — e.g. [24, 24, 12] — so the
   // flat foundProducts list renders as one row per batch instead of one long
   // horizontally-scrolling line that keeps growing sideways forever.
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   // Guards against a shape mismatch from a pre-migration localStorage payload
   // (this app went through a chat-format architecture change) crashing the
@@ -2239,7 +2248,11 @@ export default function FromApp({
         ...prev,
       ].slice(0, 30))
     }
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: transientImages.length > 0 ? transientImages : undefined }])
+    // pinnedProducts only when THIS call explicitly attached one (productsArg,
+    // via "Ask Fabrics" or an edit-resend) — not the stylistProducts fallback,
+    // which persists across the whole session and would otherwise re-show a
+    // stale pin on every later, unrelated message too.
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: transientImages.length > 0 ? transientImages : undefined, pinnedProducts: productsArg && productsArg.length > 0 ? productsArg : undefined }])
     const loadingPhases = buildStylistLoadingPhases(question, capturedImages.length > 0, shopperContext.currency, shopperGenderFromProfile, shopperContext.country)
     const loadingTotalMs = stylistTotalMsFor(loadingPhases)
     setStylistLoadingPhases(loadingPhases)
@@ -2274,6 +2287,7 @@ export default function FromApp({
           memorySummary: stylistMemorySummary,
           shopperGender: shopperGenderFromProfile,
           shopperProfile: shopperProfileForStylist,
+          shopperSizes: shopperSizesForStylist,
           // Free-tier personalization — available to every shopper, not just
           // premium (memorySummary is premium-only).
           savedProducts: savedProducts.slice(0, 12).map(p => ({
@@ -4764,6 +4778,22 @@ export default function FromApp({
                             {m.images.map((url, ii) => (
                               <div key={ii} style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}` }}>
                                 <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* The specific product(s) this message was pinned to via "Ask
+                            Fabrics" — without this the sent bubble showed only the
+                            typed text with no sign of which item the question was
+                            actually about. */}
+                        {m.role === 'user' && m.pinnedProducts && m.pinnedProducts.length > 0 && (
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
+                            {m.pinnedProducts.map(p => (
+                              <div key={p.id} onClick={() => setSelected(p)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 4px', borderRadius: 20, background: BG2, border: `1px solid ${BRD}`, cursor: 'pointer' }}>
+                                <div style={{ width: 32, height: 40, borderRadius: 6, overflow: 'hidden', background: '#fff', flexShrink: 0 }}>
+                                  {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                </div>
+                                <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK2, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
                               </div>
                             ))}
                           </div>
