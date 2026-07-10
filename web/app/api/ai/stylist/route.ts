@@ -5,8 +5,14 @@ import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
+import { compileIntent, continueIntent, compiledReplyText } from '@/lib/intentCompiler'
 
 export const maxDuration = 60
+
+// Fabrics is now the one and only shopping surface — results need to feel
+// like real browsing, not a quick-answer teaser. (Was 12 when this was a
+// side-panel stylist only.)
+const SEARCH_RESULT_CAP = 24
 
 // Resolve a registry domain to its display name for brand-fallback messaging.
 function brandNameOf(domain: string): string {
@@ -606,6 +612,37 @@ export async function POST(req: NextRequest) {
     const shopperProfile: string | undefined = typeof body?.shopperProfile === 'string' && body.shopperProfile.trim()
       ? body.shopperProfile.trim()
       : undefined
+    // Free-tier personalization signals — the old grid-search sent these
+    // unconditionally (not premium-gated); Fabrics needs the same so free
+    // shoppers don't lose all personalization now that it's the only surface.
+    const savedProductsCtx: { title: string; vendor?: string; price?: number; currency?: string }[] =
+      Array.isArray(body?.savedProducts) ? body.savedProducts.slice(0, 12) : []
+    const recentSearches: string[] = Array.isArray(body?.recentSearches)
+      ? (body.recentSearches as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0).slice(0, 8)
+      : []
+
+    // ── Load-more mode: pure pagination re-fetch for a "see more" tap on an
+    // already-shown result strip. No LLM involved — reuses the exact query,
+    // excludes IDs already on screen. ─────────────────────────────────────────
+    if (mode === 'load-more') {
+      const loadMoreQuery: string = typeof body?.query === 'string' ? body.query.trim().slice(0, 200) : ''
+      const excludeIds: string[] = Array.isArray(body?.excludeIds)
+        ? (body.excludeIds as unknown[]).filter((x): x is string => typeof x === 'string').slice(0, 300)
+        : []
+      if (!loadMoreQuery) return NextResponse.json({ foundProducts: [], comparison: null })
+      try {
+        const concepts = buildMandatoryConcepts(loadMoreQuery)
+        const results = await GlobalCatalogService.search(
+          loadMoreQuery, undefined, excludeIds, countryCode, true, concepts,
+          'relevance', buyerCurrency, { fastFirstPage: true, loadMore: true }, [],
+          memorySummary,
+        )
+        return NextResponse.json({ reply: '', comparison: null, foundProducts: results.slice(0, SEARCH_RESULT_CAP), outfitSlots: null })
+      } catch (e) {
+        console.error('[stylist] load-more error:', e)
+        return NextResponse.json({ foundProducts: [], comparison: null })
+      }
+    }
 
     if (!question) {
       return NextResponse.json({ reply: null, comparison: null })
@@ -640,6 +677,38 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       )
       const { reply, wardrobeScan } = parseWardrobeToken(raw)
       return NextResponse.json({ reply, wardrobeScan: wardrobeScan ?? null, comparison: null })
+    }
+
+    // ── Instant fast path: deterministic compile for plain garment queries ──
+    // Skips the LLM entirely when the message is a clear, compilable product
+    // search — the same zero-latency mechanism that powered the old grid
+    // search, now centralized here so every plain query benefits, not just
+    // the ones that used to go through the separate search endpoint. Only
+    // applies to text-only messages with nothing pinned — images and pinned
+    // products need the full conversational/vision path.
+    if (images.length === 0 && products.length === 0) {
+      const prevUserMessage = [...rawHistory].reverse().find(m => m.role === 'user')?.content || ''
+      let compiled = compileIntent(question, buyerCurrency)
+      if (!compiled && prevUserMessage) compiled = continueIntent(question, prevUserMessage, buyerCurrency)
+      if (compiled) {
+        try {
+          const results = await GlobalCatalogService.search(
+            compiled.args.searchQuery, compiled.args.budgetMax, [], countryCode, true,
+            compiled.args.mandatoryConcepts || [], compiled.args.sort || 'relevance',
+            compiled.args.budgetCurrency || buyerCurrency, { fastFirstPage: true }, [],
+            memorySummary, question,
+          )
+          return NextResponse.json({
+            reply: compiledReplyText(compiled, results.length),
+            comparison: null,
+            foundProducts: results.slice(0, SEARCH_RESULT_CAP),
+            outfitSlots: null,
+          })
+        } catch (e) {
+          console.error('[stylist] fast-path search error:', e)
+          // Fall through to the LLM path below — never dead-end the shopper.
+        }
+      }
     }
 
     // ── Style vocabulary context ────────────────────────────────────────────
@@ -686,7 +755,18 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     const memoryBlock = memorySummary
       ? `SHOPPER MEMORY (from previous Fabrics sessions):\n${memorySummary}`
       : ''
-    const contextBlock = [genderBlock, memoryBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
+    // Free-tier personalization — saved products + recent searches, available
+    // to every shopper (not gated behind memorySummary, which is premium-only).
+    const personalLines: string[] = []
+    if (savedProductsCtx.length > 0) {
+      const summary = savedProductsCtx.map(p => `${p.title}${p.vendor ? ` by ${p.vendor}` : ''}`).join('; ')
+      personalLines.push(`Saved / favorited by the shopper: ${summary}. These reveal the styles, price range and brands they're drawn to.`)
+    }
+    if (recentSearches.length > 0) {
+      personalLines.push(`Recent searches (most recent first): ${recentSearches.map(q => `"${q}"`).join(', ')}. Infer their evolving taste, but follow the CURRENT request first.`)
+    }
+    const personalizationBlock = personalLines.length > 0 ? `SHOPPER SIGNALS:\n${personalLines.join('\n')}` : ''
+    const contextBlock = [genderBlock, memoryBlock, personalizationBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
 
     let raw = ''
 
@@ -778,7 +858,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           question,
         )
         if (results.length > 0) {
-          foundProducts = results.slice(0, 12)
+          foundProducts = results.slice(0, SEARCH_RESULT_CAP)
         } else {
           // The query named a brand we can't reach (no UCP / not in roster) or
           // that had no match. Retry across the roster with the brand stripped
@@ -793,7 +873,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
             )
             const names = brands.map(brandNameOf).filter(Boolean).join(' & ')
             if (broad.length > 0) {
-              foundProducts = broad.slice(0, 12)
+              foundProducts = broad.slice(0, SEARCH_RESULT_CAP)
               reply2 = `${reply}${reply ? ' ' : ''}I couldn't pull anything from ${names} just now, so here are some similar pieces that fit what you're after.`.trim()
             } else {
               reply2 = `${reply}${reply ? ' ' : ''}I don't have ${names} in the FROM roster yet tell me the style or material you're drawn to and I'll find you a close match.`.trim()

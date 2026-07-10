@@ -2121,6 +2121,12 @@ export default function FromApp({
           memorySummary: stylistMemorySummary,
           shopperGender: shopperGenderFromProfile,
           shopperProfile: shopperProfileForStylist,
+          // Free-tier personalization — available to every shopper, not just
+          // premium (memorySummary is premium-only).
+          savedProducts: savedProducts.slice(0, 12).map(p => ({
+            title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
+          })),
+          recentSearches: searchHistory.slice(0, 8).map(h => h.query),
         }),
       })
       const data = await res.json()
@@ -5087,11 +5093,23 @@ export default function FromApp({
                           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
                             {m.foundProducts.map(p => {
                               const { colors: pc } = displaySwatches(p)
+                              const isSaved = savedIds.has(p.id)
                               return (
                                 <div key={p.id} onClick={() => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(p) }}
                                   style={{ flexShrink: 0, width: 100, cursor: 'pointer' }}>
-                                  <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2 }}>
+                                  <div style={{ width: 100, height: 124, borderRadius: 10, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                     {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                    <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
+                                      onClick={e => { e.stopPropagation(); toggleSaved(p) }}
+                                      style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
+                                        background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
+                                      {isSaved ? (
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                      ) : (
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                                      )}
+                                    </button>
                                   </div>
                                   <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
                                   <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
@@ -5140,6 +5158,7 @@ export default function FromApp({
                                 if (/belt|watch|\bbag\b|tote|\bhat\b|\bcap\b|scarf|\btie\b|sock|bracelet|necklace|sunglasses/.test(t)) return 'Accessory'
                                 return 'Top'
                               })()
+                              const isSaved = savedIds.has(best.id)
                               return (
                                 <div key={si} style={{ border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}
                                   onClick={() => { setReopenStylistOnClose(true); setStylistOpen(false); setSelected(best) }}>
@@ -5148,6 +5167,17 @@ export default function FromApp({
                                     <div style={{ position: 'absolute', top: 6, left: 6, background: INK, color: '#fff', fontFamily: SANS, fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 20, letterSpacing: '.05em' }}>
                                       {slotLabel}
                                     </div>
+                                    <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
+                                      onClick={e => { e.stopPropagation(); toggleSaved(best) }}
+                                      style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
+                                        background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
+                                      {isSaved ? (
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                      ) : (
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                                      )}
+                                    </button>
                                   </div>
                                   <div style={{ padding: '7px 8px' }}>
                                     <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.title}</div>
