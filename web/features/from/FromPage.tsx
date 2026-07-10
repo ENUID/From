@@ -1529,30 +1529,71 @@ function curateTrace(seed: string, judgeQuery: string, country?: string | null):
   return lines
 }
 
-function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCurrency: string, profileGender?: string, buyerCountry?: string | null): StylistLoadingPhase[] {
-  if (!hasImages) {
-    // Run the SAME deterministic compiler the backend's instant fast path
-    // runs — if it compiles, the search is guaranteed to be literal (its own
-    // CONVERSATIONAL filter already excludes compare/styling-advice
-    // phrasing), so the terms shown here are exactly what gets searched, not
-    // a simulated guess.
-    const compiled = compileIntent(withProfileGenderForDisplay(question, profileGender), buyerCurrency)
-    if (compiled) {
-      const what = compiled.summary || compiled.args.searchQuery
-      const concepts = (compiled.args.mandatoryConcepts || []).slice(1) // first group is the garment, already named above
-      const filterDetail = concepts.map(group => group[0]).filter(Boolean).join(', ')
-      const sort = compiled.args.sort || 'relevance'
-      const budgetLabel = compiled.args.budgetMax ? `under ${compiled.args.budgetCurrency || buyerCurrency} ${compiled.args.budgetMax}` : null
+// Assembles a variable-length step list — 4 steps when a query has nothing
+// beyond a bare garment, up to 8 when color, material, occasion, and a
+// non-default sort are all genuinely present. Every optional step reflects
+// something the compiler/heuristics actually detected — never padded to
+// hit a target count, and never trimmed below the 4 real, always-true
+// operations (read, search, filter, curate).
+function buildDynamicPhases(opts: {
+  literalQuery: string
+  searchQuery: string
+  garment?: string | null
+  color?: string | null
+  material?: string | null
+  occasion?: string | null
+  gender?: string | null
+  budgetLabel?: string | null
+  sort?: string
+  judgeQuery: string
+  buyerCountry?: string | null
+}): StylistLoadingPhase[] {
+  const seed = opts.searchQuery
+  const phases: StylistLoadingPhase[] = []
 
-      return [
-        { icon: 'read', main: 'Reading your request', trace: readTrace(question, [['intent', what], ['attributes', filterDetail || null]]) },
-        { icon: 'search', main: 'Searching FROM’s catalog', trace: searchTrace(compiled.args.searchQuery, compiled.args.searchQuery, budgetLabel, sort) },
-        { icon: 'filter', main: 'Filtering for fit and material', trace: filterTrace(compiled.args.searchQuery + '_filter', filterDetail || null) },
-        { icon: 'curate', main: 'Ranking and curating your picks', trace: curateTrace(compiled.args.searchQuery + '_curate', question, buyerCountry) },
-      ]
-    }
+  phases.push({
+    icon: 'read', main: 'Reading your request',
+    trace: readTrace(opts.literalQuery, [
+      ['garment', opts.garment], ['color', opts.color], ['material', opts.material],
+      ['occasion', opts.occasion], ['gender', opts.gender],
+    ]),
+  })
+
+  if (opts.color) {
+    phases.push({
+      icon: 'palette', main: 'Cross-checking the color story',
+      trace: [`undertone.match(${opts.color})`, 'balance → 60-30-10 rule', seededPick(['clash.check(competing accents)', 'harmony.check(warm vs cool)'], seed + '_color')],
+    })
+  }
+  if (opts.material) {
+    phases.push({
+      icon: 'fabric', main: `Reading ${opts.material}`,
+      trace: [`fabric.profile("${opts.material}")`, 'weight, drape, how it moves'],
+    })
+  }
+  if (opts.occasion) {
+    phases.push({
+      icon: 'outfit', main: `Matching fit for ${opts.occasion}`,
+      trace: [`dresscode.read(${opts.occasion})`, 'formality.check(garment vs setting)'],
+    })
   }
 
+  phases.push({ icon: 'search', main: 'Searching FROM’s catalog', trace: searchTrace(seed, opts.searchQuery, opts.budgetLabel, opts.sort) })
+
+  if (opts.sort && opts.sort !== 'relevance') {
+    phases.push({
+      icon: 'value', main: opts.sort === 'price_asc' ? 'Sorting lowest price first' : 'Sorting premium picks first',
+      trace: [`sort.apply(${opts.sort === 'price_asc' ? 'price, low → high' : 'price, high → low'})`, 'quality.check(never cut for price alone)'],
+    })
+  }
+
+  phases.push({ icon: 'filter', main: 'Filtering for fit and material', trace: filterTrace(seed + '_filter', [opts.material, opts.color].filter(Boolean).join(', ') || null) })
+  phases.push({ icon: 'curate', main: 'Ranking and curating your picks', trace: curateTrace(seed + '_curate', opts.judgeQuery, opts.buyerCountry) })
+
+  return phases.slice(0, 8)
+}
+
+function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCurrency: string, profileGender?: string, buyerCountry?: string | null): StylistLoadingPhase[] {
   const q = question.toLowerCase()
 
   // ── Extract meaningful terms from the query ─────────────────────────────────
@@ -1612,6 +1653,27 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
   const isOutfit   = /\boutfit\b|\blook\b|\bstyle\b|\bocasion\b|\boccasion\b|\bwear\b|\bcasual\b|\bformal\b/.test(q)
   const isValue    = /\bprice\b|\bcost\b|\bworth\b|\bvalue\b|\bexpensive\b|\bcheap\b|\bbudget\b/.test(q)
 
+  if (!hasImages) {
+    // Run the SAME deterministic compiler the backend's instant fast path
+    // runs — if it compiles, the search is guaranteed to be literal (its own
+    // CONVERSATIONAL filter already excludes compare/styling-advice
+    // phrasing), so the terms shown here are exactly what gets searched, not
+    // a simulated guess. Reuses the color/material/occasion already detected
+    // above to decide which optional steps this particular query earns.
+    const compiled = compileIntent(withProfileGenderForDisplay(question, profileGender), buyerCurrency)
+    if (compiled) {
+      return buildDynamicPhases({
+        literalQuery: question,
+        searchQuery: compiled.args.searchQuery,
+        garment: foundGarment, color: foundColor, material: foundMaterial, occasion: foundOccasion,
+        budgetLabel: compiled.args.budgetMax ? `under ${compiled.args.budgetCurrency || buyerCurrency} ${compiled.args.budgetMax}` : null,
+        sort: compiled.args.sort || 'relevance',
+        judgeQuery: question,
+        buyerCountry,
+      })
+    }
+  }
+
   // No fashion signals → purely conversational message, use simple typing dots
   const hasFashionSignal = hasImages || foundGarment || foundMaterial || foundOccasion || foundColor ||
     isCompare || isSearch || isColor || isMaterial || isOutfit || isValue
@@ -1641,12 +1703,13 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
 
   if (isSearch) {
     const what = subject ?? (foundOccasion ? `something for ${foundOccasion}` : 'the right piece')
-    return [
-      { icon: 'read', main: 'Reading your request', trace: readTrace(question, [['garment', foundGarment], ['color', foundColor], ['material', foundMaterial], ['occasion', foundOccasion]]) },
-      { icon: 'search', main: 'Searching FROM’s catalog', trace: searchTrace(q, what) },
-      { icon: 'filter', main: 'Filtering for fit and material', trace: filterTrace(q + '_filter', [foundMaterial, foundColor].filter(Boolean).join(', ') || null) },
-      { icon: 'curate', main: 'Ranking and curating your picks', trace: curateTrace(q + '_curate', question, buyerCountry) },
-    ]
+    const sort = /\b(cheap|cheapest|affordable|budget|lowest)\b/.test(q) ? 'price_asc'
+      : /\b(expensive|premium|luxury|highest|finest)\b/.test(q) ? 'price_desc' : 'relevance'
+    return buildDynamicPhases({
+      literalQuery: question, searchQuery: what,
+      garment: foundGarment, color: foundColor, material: foundMaterial, occasion: foundOccasion,
+      sort, judgeQuery: question, buyerCountry,
+    })
   }
 
   if (isColor) {
@@ -2661,8 +2724,11 @@ export default function FromApp({
   }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (stylistRenameId && stylistRenameRef.current) { stylistRenameRef.current.focus(); stylistRenameRef.current.select() } }, [stylistRenameId])
-  // Keep the stylist conversation scrolled to the latest message
-  useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading])
+  // Keep the stylist conversation scrolled to the latest activity — not just
+  // new messages, but every step the tracker advances through and every
+  // trace line it reveals, so the growing step list never runs on ahead of
+  // what's actually visible on screen.
+  useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading, stylistLoadingStep, stylistTraceVisible])
 
   // Restore the session ID that was actually active, matching stylistMsgs'
   // own restore logic above — not just "always the most recent one".
