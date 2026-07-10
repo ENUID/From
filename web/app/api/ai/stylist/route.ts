@@ -1099,14 +1099,31 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         // Provider tag is approximate — wardrobeVisionChat doesn't report back
         // which of Gemini/Groq actually served the request without changing its
         // return contract, so this is logged against the whole vision chain.
-        logAiUsage({ path: 'vision', provider: 'gemini-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: !!raw })
+        logAiUsage({ path: 'vision', provider: 'gemini-openrouter-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: !!raw })
       } catch (err) {
-        logAiUsage({ path: 'vision', provider: 'gemini-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: false })
+        logAiUsage({ path: 'vision', provider: 'gemini-openrouter-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: false })
         console.error('[stylist] vision model call failed:', err)
         if (isRateLimited(err)) {
           return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
         }
         return NextResponse.json({ reply: "I couldn't read that photo just now. Give it another go in a moment?", comparison: null })
+      }
+
+      // Same self-heal the text path has below — it existed there but not
+      // here, so a photo of an item to find/buy could describe it in prose
+      // and never emit [SEARCH:]/[OUTFIT:], silently dead-ending "find this
+      // exact item" requests with no product cards and no recovery.
+      const hasVisionToken = /\[(SEARCH|OUTFIT|COMPARE|WARDROBE):/i.test(raw)
+      const describesVisionProduct = /\b(shirt|jacket|blazer|coat|trouser|pant|jean|dress|shoe|sneaker|boot|loafer|sandal|skirt|sweater|knit|linen|cotton|wool|silk|leather|denim)\b/i.test(raw)
+      if (raw && !hasVisionToken && describesVisionProduct) {
+        try {
+          const retryNudge = VISION_SYSTEM + `\n\n━━━ CORRECTION ━━━ Your last reply described clothing but did not include the required token. This time keep the lead-in to ONE short sentence and end the reply with [SEARCH: precise query] to find the exact item or closest match, or [OUTFIT: query1 | query2 | query3] for a full look — the token MUST be present, it is how the shopper actually sees and buys the pieces.`
+          const retryRaw = await wardrobeVisionChat(retryNudge, visionPrompt, images, { max_tokens: 1100, temperature: 0.2 })
+          if (retryRaw && /\[(SEARCH|OUTFIT|COMPARE|WARDROBE):/i.test(retryRaw)) raw = retryRaw
+        } catch (e) {
+          console.error('[stylist] vision token self-heal retry failed:', e)
+          // Keep the original text-only reply — never block the response over this.
+        }
       }
     } else {
       // Text-only path (no images).

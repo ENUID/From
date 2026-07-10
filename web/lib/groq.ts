@@ -59,6 +59,13 @@ const GROQ_DIRECT_API_KEY = process.env.GROQ_API_KEY ?? ''
 export const GROQ_DIRECT_SMART_MODEL = process.env.GROQ_SMART_MODEL ?? 'openai/gpt-oss-120b'
 export const GROQ_DIRECT_FAST_MODEL = process.env.GROQ_FAST_MODEL ?? 'openai/gpt-oss-20b'
 export const GROQ_DIRECT_CONFIGURED = !!GROQ_DIRECT_API_KEY
+// Groq's current vision-capable model (GPT-OSS above is text-only). The
+// text chain gets 3 fallback tiers (Gemini/OpenRouter → OpenRouter → Groq
+// direct); vision only ever had 2 (Gemini → OpenRouter's vision model) with
+// no Groq-direct tier at all — this closes that gap. Verify at
+// https://console.groq.com/docs/vision if this ever starts erroring and
+// override via GROQ_VISION_MODEL.
+export const GROQ_DIRECT_VISION_MODEL = process.env.GROQ_VISION_MODEL ?? 'meta-llama/llama-4-maverick-17b-128e-instruct'
 
 export type ChatMessage = {
   role: string
@@ -413,6 +420,55 @@ export async function groqVisionChat(
   }
 }
 
+// Despite the name, groqVisionChat above hits OpenRouter (AI_BASE/AI_API_KEY),
+// not Groq directly — same naming-kept-as-is situation as groqChat. This one
+// is the actual Groq-direct vision call, the third tier wardrobeVisionChat
+// was missing: the text chain gets Gemini/OpenRouter → OpenRouter → Groq
+// direct (3 tiers), but vision only ever had Gemini → OpenRouter (2) with no
+// Groq-direct fallback at all, despite GROQ_API_KEY already being configured
+// and used for text. When both Gemini and OpenRouter's shared free-tier pool
+// are dry — the pool every light-chat reply and utility call also draws
+// from — vision had nowhere left to go and just failed.
+async function groqDirectVisionChat(
+  messages: VisionMessage[],
+  system: string,
+  opts?: { max_tokens?: number; temperature?: number },
+  retryCount = 0
+): Promise<any> {
+  if (!GROQ_DIRECT_API_KEY) { const e: any = new Error('GROQ_API_KEY not set'); e.status = 0; throw e }
+  const allMessages: VisionMessage[] = [{ role: 'system', content: system }, ...messages]
+  const payload = {
+    model: GROQ_DIRECT_VISION_MODEL,
+    messages: allMessages,
+    temperature: opts?.temperature ?? 0.2,
+    max_tokens: opts?.max_tokens ?? 700,
+  }
+  try {
+    const res = await fetch(`${GROQ_DIRECT_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: headersFor(GROQ_DIRECT_BASE, GROQ_DIRECT_API_KEY),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (res.status === 429 && retryCount < 1) {
+      await new Promise(r => setTimeout(r, 3_000))
+      return groqDirectVisionChat(messages, system, opts, retryCount + 1)
+    }
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Groq direct vision HTTP ${res.status}: ${err}`)
+    }
+    const data = await res.json()
+    return data.choices?.[0]?.message
+  } catch (err: any) {
+    if (retryCount < 1 && !err.message?.includes('API key')) {
+      await new Promise(r => setTimeout(r, 2_000))
+      return groqDirectVisionChat(messages, system, opts, retryCount + 1)
+    }
+    throw err
+  }
+}
+
 // ── Gemini Flash vision ───────────────────────────────────────────────────────
 // Primary for wardrobe scans. Throws {status:429} on rate-limit so the caller
 // can fall back to the Groq-vision-replacement model without wrapping in a try/catch everywhere.
@@ -452,43 +508,54 @@ async function geminiVisionChat(
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 }
 
-// ── Wardrobe vision — Gemini primary, OpenRouter vision fallback ───────────────────────────────
-// Tries Gemini 2.0 Flash first (better clothing recognition). Falls back to
-// the OpenRouter vision model on ANY Gemini failure — not just a clean 429 or
-// missing key. It previously only fell back on those two specific cases and
-// re-threw everything else (a timeout, a 5xx, a malformed response), which
-// meant a transient Gemini hiccup killed the reply outright even though a
-// working fallback existed right below it — the exact "single failure can
-// never kill the reply" guarantee stylistChat already gives the text path.
+// ── Wardrobe vision — Gemini → OpenRouter → Groq direct ─────────────────────
+// Tries Gemini 2.0 Flash first (best clothing recognition), then OpenRouter's
+// vision model, then Groq direct — three independent providers/pools, same
+// "a single failure can never kill the reply" guarantee stylistChat gives
+// text. Falls back on ANY failure at each tier, not just a clean 429 or
+// missing key — a timeout or a malformed response gets the same treatment
+// as a rate limit, since either way the next tier is worth trying.
 export async function wardrobeVisionChat(
   systemPrompt: string,
   question: string,
   imageDataUrls: string[],
   opts?: { max_tokens?: number; temperature?: number }
 ): Promise<string> {
+  const errors: { name: string; err: any }[] = []
+
   try {
     return await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)
-  } catch (geminiErr: any) {
-    try {
-      const imageParts = imageDataUrls.map(url => ({
-        type: 'image_url' as const,
-        image_url: { url, detail: 'low' as const },
-      }))
-      const msg = await groqVisionChat(
-        [{ role: 'user', content: [{ type: 'text', text: question }, ...imageParts] }],
-        systemPrompt,
-        opts
-      )
-      const content = (msg?.content ?? '').trim()
-      if (!content) throw new Error('empty content')
-      return content
-    } catch (fallbackErr: any) {
-      // Both failed — surface whichever looks like a rate limit so the route
-      // can show the warm "busy" message instead of a generic error; prefer
-      // Gemini's status since it was the primary attempt.
-      const err: any = new Error(`vision: gemini(${geminiErr.message}) | openrouter(${fallbackErr.message})`)
-      err.status = geminiErr.status === 429 ? 429 : fallbackErr.status
-      throw err
-    }
+  } catch (err: any) {
+    errors.push({ name: 'gemini', err })
   }
+
+  const imageParts = imageDataUrls.map(url => ({
+    type: 'image_url' as const,
+    image_url: { url, detail: 'low' as const },
+  }))
+  const visionMessages: VisionMessage[] = [{ role: 'user', content: [{ type: 'text', text: question }, ...imageParts] }]
+
+  try {
+    const msg = await groqVisionChat(visionMessages, systemPrompt, opts)
+    const content = (msg?.content ?? '').trim()
+    if (!content) throw new Error('empty content')
+    return content
+  } catch (err: any) {
+    errors.push({ name: 'openrouter', err })
+  }
+
+  try {
+    const msg = await groqDirectVisionChat(visionMessages, systemPrompt, opts)
+    const content = (msg?.content ?? '').trim()
+    if (!content) throw new Error('empty content')
+    return content
+  } catch (err: any) {
+    errors.push({ name: 'groq-direct', err })
+  }
+
+  // All three failed — surface whichever looks like a rate limit so the
+  // route can show the warm "busy" message instead of a generic error.
+  const err: any = new Error(`vision: ${errors.map(e => `${e.name}(${e.err?.message})`).join(' | ')}`)
+  err.status = errors.find(e => e.err?.status === 429)?.err.status ?? errors[0]?.err?.status
+  throw err
 }

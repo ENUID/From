@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { geminiChat } from '@/lib/gemini'
 import {
-  CHAT_MODEL, FAST_MODEL, GROQ_DIRECT_SMART_MODEL, GROQ_DIRECT_FAST_MODEL, GROQ_DIRECT_CONFIGURED,
+  CHAT_MODEL, FAST_MODEL, GROQ_DIRECT_SMART_MODEL, GROQ_DIRECT_FAST_MODEL, GROQ_DIRECT_VISION_MODEL, GROQ_DIRECT_CONFIGURED,
   pingOpenRouter, pingGroqDirect,
 } from '@/lib/groq'
 import { ConvexHttpClient } from 'convex/browser'
@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
       openrouter_fast_model: FAST_MODEL,
       groq_direct_smart_model: GROQ_DIRECT_SMART_MODEL,
       groq_direct_fast_model: GROQ_DIRECT_FAST_MODEL,
+      groq_direct_vision_model: GROQ_DIRECT_VISION_MODEL,
     },
   }
 
@@ -79,9 +80,20 @@ export async function GET(req: NextRequest) {
     } catch (e) {
       out.groq_direct_fast = { ok: false, model: GROQ_DIRECT_FAST_MODEL, error: (e as Error).message?.slice(0, 300) ?? 'unknown' }
     }
+
+    // Groq-direct test — vision tier (the new 3rd fallback for wardrobe
+    // photo uploads; text-only ping, confirms the model id/auth are valid,
+    // not actual image handling).
+    try {
+      const r = await pingGroqDirect(GROQ_DIRECT_VISION_MODEL)
+      out.groq_direct_vision = { ok: true, model: GROQ_DIRECT_VISION_MODEL, reply: (r?.content ?? '').slice(0, 60) }
+    } catch (e) {
+      out.groq_direct_vision = { ok: false, model: GROQ_DIRECT_VISION_MODEL, error: (e as Error).message?.slice(0, 300) ?? 'unknown' }
+    }
   } else {
     out.groq_direct_smart = { ok: false, error: 'GROQ_API_KEY not set — fallback not configured' }
     out.groq_direct_fast = { ok: false, error: 'GROQ_API_KEY not set — fallback not configured' }
+    out.groq_direct_vision = { ok: false, error: 'GROQ_API_KEY not set — fallback not configured' }
   }
 
   // Usage summary — trailing 24h and trailing 1h, from the ai_usage events
