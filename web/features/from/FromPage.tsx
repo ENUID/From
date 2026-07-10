@@ -1425,8 +1425,12 @@ function TypewriterText({ text, products, liveRates, onProductClick, animate, on
   )
 }
 
-// ── Stylist loading phases — query-aware thinking animation ──────────────────
-type StylistLoadingPhase = { main: string; sub: string; subsub?: string }
+// ── Stylist loading phases — query-aware, operational progress steps ─────────
+// Perplexity-style: each step names what is actually happening (reading the
+// request, searching the catalog, filtering, ranking) rather than a simulated
+// inner monologue. `icon` picks a distinct glyph per step in the stepper UI.
+type StylistLoadingIcon = 'read' | 'search' | 'filter' | 'compare' | 'palette' | 'fabric' | 'value' | 'outfit' | 'curate'
+type StylistLoadingPhase = { main: string; sub: string; subsub?: string; icon: StylistLoadingIcon }
 
 function buildStylistLoadingPhases(question: string, hasImages: boolean): StylistLoadingPhase[] {
   const q = question.toLowerCase()
@@ -1493,141 +1497,109 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean): Stylis
     isCompare || isSearch || isColor || isMaterial || isOutfit || isValue
   if (!hasFashionSignal) return []
 
-  // ── Phase sets ───────────────────────────────────────────────────────────────
+  // ── Step sets — operational, specific, no filler. Each step names the real
+  // thing FROM is doing (reading, searching, filtering, ranking) with the
+  // actual detected terms filled in, so it never reads generic. ────────────────
   if (hasImages) {
     return [
-      { main: 'Taking in your photo…',
-        sub: 'Reading garments, silhouette, and color' },
-      { main: 'Feeling out the tones…',
-        sub: 'Warm and cool relationships', subsub: 'Undertone and contrast' },
-      { main: 'Finding what would complete this…',
-        sub: 'What the look is missing', subsub: 'Proportion and occasion register' },
-      { main: 'Putting the picture together…',
-        sub: 'A considered recommendation' },
+      { icon: 'read', main: 'Reading your photo', sub: 'Garment type, color, silhouette' },
+      { icon: 'palette', main: 'Checking undertone and contrast', sub: 'Warm vs. cool, what it pairs with' },
+      { icon: 'search', main: 'Searching FROM for what completes it', sub: '450+ independent brands' },
+      { icon: 'curate', main: 'Ranking by fit and quality', sub: 'Finalizing the recommendation' },
     ]
   }
 
   if (isCompare) {
-    const firstDim = foundMaterial
-      ? `${foundMaterial} weight and construction`
-      : foundGarment
-        ? `Cut and silhouette of each ${foundGarment}`
-        : 'Silhouette, fabric, and drape'
+    const dim = foundMaterial ? `${foundMaterial} weight and construction` : foundGarment ? `cut and silhouette of each ${foundGarment}` : 'silhouette, fabric, and drape'
     return [
-      { main: 'Sitting with both pieces…',
-        sub: firstDim },
-      { main: 'Weighing them against each other…',
-        sub: 'Versatility and real-world wearability', subsub: 'Occasion range and longevity' },
-      { main: `Thinking about when you'd reach for each one…`,
-        sub: 'Cost-per-wear and investment value', subsub: 'What earns its place' },
-      { main: 'Settling on a view…',
-        sub: 'The honest answer' },
+      { icon: 'read', main: 'Reading both pieces', sub: dim },
+      { icon: 'compare', main: 'Comparing construction and cost-per-wear', sub: 'Versatility and real-world use', subsub: 'Occasion range and longevity' },
+      { icon: 'value', main: 'Weighing which earns its place', sub: 'Investment value, not just price' },
+      { icon: 'curate', main: 'Picking the winner', sub: 'With the actual reason why' },
     ]
   }
 
   if (isSearch) {
     const what = subject ?? (foundOccasion ? `something for ${foundOccasion}` : 'the right piece')
-    const searchVariants: StylistLoadingPhase[][] = [
-      [
-        { main: `Looking for ${what}…`, sub: 'Moving through the catalog' },
-        { main: 'Filtering by what actually matters…', sub: 'Fabric, proportion, and versatility', subsub: 'Weeding out the noise' },
-        { main: 'Narrowing it down to the best…', sub: 'Quality and wearability first' },
-        { main: 'Selecting a shortlist…', sub: 'A few things worth considering' },
-      ],
-      [
-        { main: `Searching for ${what}…`, sub: 'Casting a wide net first' },
-        { main: "Cutting out what doesn't make sense…", sub: 'Material, cut, and occasion register' },
-        { main: "Ranking what's left by real quality…", sub: 'Construction and longevity' },
-        { main: 'Almost done…', sub: '' },
-      ],
+    return [
+      { icon: 'read', main: `Reading your request`, sub: `"${what}"` },
+      { icon: 'search', main: 'Searching FROM’s catalog', sub: '450+ independent brands, live inventory' },
+      { icon: 'filter', main: 'Filtering for fit and material', sub: foundMaterial ? `${foundMaterial}, true to size` : 'Cutting anything off-brief', subsub: 'Quality and construction first' },
+      { icon: 'curate', main: 'Ranking and curating your picks', sub: 'Best matches first' },
     ]
-    return searchVariants[Math.floor(Math.random() * searchVariants.length)]
   }
 
   if (isColor) {
-    const base = foundColor ? `${foundColor} as the base` : 'your palette'
+    const base = foundColor ? foundColor : 'your palette'
     return [
-      { main: `Thinking through ${base}…`,
-        sub: 'Tonal relationships and contrast' },
-      { main: 'Checking warm and cool families…',
-        sub: 'What bridges and what clashes', subsub: 'The 60-30-10 balance' },
-      { main: 'Finding combinations that actually hold…',
-        sub: 'Harmony without predictability' },
-      { main: 'Landing on the right palette…',
-        sub: 'Something cohesive and considered' },
+      { icon: 'read', main: 'Reading the color you’re working with', sub: base },
+      { icon: 'palette', main: 'Cross-checking warm and cool families', sub: 'What bridges, what clashes', subsub: 'The 60-30-10 balance' },
+      { icon: 'search', main: 'Searching for pieces that hold the palette', sub: '450+ independent brands' },
+      { icon: 'curate', main: 'Landing on the combination', sub: 'Cohesive, not predictable' },
     ]
   }
 
   if (isMaterial) {
     const mat = foundMaterial ?? 'this fabric'
     return [
-      { main: `Thinking about ${mat}…`,
-        sub: 'Weight, drape, and how it moves' },
-      { main: 'Reading the wearability…',
-        sub: 'Season, occasion, and care', subsub: 'How it ages' },
-      { main: 'Weighing the real-world feel…',
-        sub: 'Texture, structure, and visual weight', subsub: 'Comfort versus formality' },
-      { main: 'Forming a view…',
-        sub: 'What it is actually like to live in' },
+      { icon: 'fabric', main: `Reading ${mat}`, sub: 'Weight, drape, how it moves' },
+      { icon: 'value', main: 'Checking wearability', sub: 'Season, occasion, care', subsub: 'How it ages' },
+      { icon: 'search', main: 'Searching for the right pieces', sub: '450+ independent brands' },
+      { icon: 'curate', main: 'Forming the answer', sub: 'What it’s actually like to live in' },
     ]
   }
 
   if (isValue) {
     return [
-      { main: `Thinking about what ${yours} is worth…`,
-        sub: 'Price relative to quality markers' },
-      { main: 'Reading the construction…',
-        sub: 'Material, cut, and finishing', subsub: 'Brand positioning and longevity' },
-      { main: 'Calculating cost-per-wear…',
-        sub: `How often you would actually reach for it` },
-      { main: 'Weighing it up honestly…',
-        sub: 'Whether it earns its price' },
+      { icon: 'read', main: `Reading what ${yours} is worth`, sub: 'Price against quality markers' },
+      { icon: 'fabric', main: 'Checking construction and finishing', sub: 'Material, cut, brand positioning' },
+      { icon: 'value', main: 'Calculating cost-per-wear', sub: 'How often you’d actually reach for it' },
+      { icon: 'curate', main: 'Giving you the honest read', sub: 'Whether it earns the price' },
     ]
   }
 
   if (isOutfit || foundOccasion) {
-    const occ = foundOccasion ? `for ${foundOccasion}` : ''
+    const occ = foundOccasion ? ` for ${foundOccasion}` : ''
     const piece = subject ?? 'the piece'
-    const outfitVariants: StylistLoadingPhase[][] = [
-      [
-        { main: `Thinking about ${piece}${occ ? ` ${occ}` : ''}…`, sub: 'Silhouette, proportion, and occasion register' },
-        { main: 'Working through the layers…', sub: 'Color story and texture contrast', subsub: 'Volume and structure balance' },
-        { main: 'Considering what else belongs…', sub: 'Shoes, outerwear, and the finishing details' },
-        { main: 'Pulling the look together…', sub: '' },
-      ],
-      [
-        { main: `Building a look${occ ? ` ${occ}` : ''}…`, sub: 'Starting with the anchor piece' },
-        { main: 'Layering in colour and texture…', sub: 'Warm and cool relationships', subsub: 'Proportion and structure' },
-        { main: 'Finishing the details…', sub: 'Shoes and outerwear make or break it' },
-        { main: 'Almost there…', sub: '' },
-      ],
+    return [
+      { icon: 'read', main: `Reading the brief${occ}`, sub: `Anchoring on ${piece}` },
+      { icon: 'search', main: 'Searching FROM for each piece', sub: '450+ independent brands' },
+      { icon: 'palette', main: 'Matching color story and texture', sub: 'Volume and structure balance', subsub: 'Warm vs. cool relationships' },
+      { icon: 'outfit', main: 'Assembling the full look', sub: 'Shoes and outerwear included' },
     ]
-    return outfitVariants[Math.floor(Math.random() * outfitVariants.length)]
   }
 
-  // ── Default — two variants, picked at random to avoid feeling scripted ────────
-  const defaultVariants: StylistLoadingPhase[][] = [
-    [
-      { main: `Thinking about ${yours}…`,
-        sub: 'Silhouette, color, and fabric' },
-      { main: 'Reading the occasion and context…',
-        sub: foundOccasion ? `What reads right for ${foundOccasion}` : 'When and how you would reach for it' },
-      { main: 'Forming a point of view…',
-        sub: 'A specific answer, not a general one' },
-      { main: 'Nearly there…', sub: '' },
-    ],
-    [
-      { main: `Sitting with ${yours}…`,
-        sub: 'What the piece needs around it' },
-      { main: 'Thinking through proportion and colour…',
-        sub: foundOccasion ? `Register for ${foundOccasion}` : 'What elevates and what clashes',
-        subsub: 'The specific details that matter' },
-      { main: 'Working out the clearest answer…',
-        sub: 'One recommendation, with a reason' },
-      { main: 'Just about there…', sub: '' },
-    ],
+  // ── Default — genuinely conversational styling question, no product search ──
+  return [
+    { icon: 'read', main: `Reading ${yours}`, sub: 'Silhouette, color, fabric' },
+    { icon: 'palette', main: 'Checking proportion and color', sub: foundOccasion ? `What reads right for ${foundOccasion}` : 'What elevates, what clashes', subsub: 'The specific details that matter' },
+    { icon: 'curate', main: 'Forming one clear answer', sub: 'A specific recommendation, not a list' },
   ]
-  return defaultVariants[Math.floor(Math.random() * defaultVariants.length)]
+}
+
+// ── Step icons — one distinct glyph per operation, not a generic dot ─────────
+function StylistStepIcon({ icon, size = 13 }: { icon: StylistLoadingIcon; size?: number }) {
+  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  switch (icon) {
+    case 'read':
+      return <svg {...common}><path d="M4 5.5A2 2 0 0 1 6 3.5h6v17H6a2 2 0 0 1-2-2z"/><path d="M20 5.5A2 2 0 0 0 18 3.5h-6v17h6a2 2 0 0 0 2-2z"/><line x1="9" y1="8" x2="9" y2="8"/></svg>
+    case 'search':
+      return <svg {...common}><circle cx="10.5" cy="10.5" r="6.5"/><line x1="19.5" y1="19.5" x2="15.3" y2="15.3"/></svg>
+    case 'filter':
+      return <svg {...common}><path d="M3 5h18M6.5 12h11M10.5 19h3"/></svg>
+    case 'compare':
+      return <svg {...common}><path d="M12 3v18"/><path d="M6 7 3 13a3 3 0 0 0 6 0z"/><path d="M18 7l-3 6a3 3 0 0 0 6 0z"/><path d="M4 7h5M15 7h5"/></svg>
+    case 'palette':
+      return <svg {...common}><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.9 1.1-1.8-.3-.6-.1-1.4.6-1.6A9 9 0 0 0 21 9.5 6.5 6.5 0 0 0 12 3z"/><circle cx="8" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
+    case 'fabric':
+      return <svg {...common}><path d="M5.4 7.1 Q12 4.5 18.6 7.1 L18.6 15.3 Q16.4 18.5 14 15.9 Q11.6 13.3 9.2 15.9 Q6.9 18.4 5.4 15.3 Z"/></svg>
+    case 'value':
+      return <svg {...common}><path d="M12.6 3.3a1 1 0 0 1 .7-.3H19a1 1 0 0 1 1 1v5.7a1 1 0 0 1-.3.7l-9 9a1 1 0 0 1-1.4 0l-5.7-5.7a1 1 0 0 1 0-1.4z"/><circle cx="16.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+    case 'outfit':
+      return <svg {...common}><path d="M12 4a2 2 0 1 1 2 2"/><path d="M12 6 2 12l2 3 8-4.5L20 15l2-3z"/><path d="M6.5 12 5 20h14l-1.5-8"/></svg>
+    case 'curate':
+      return <svg {...common}><path d="M12 3l1.4 4.4L18 9l-4.6 1.6L12 15l-1.4-4.4L6 9l4.6-1.6z"/><path d="M19 15l.7 2.1L22 18l-2.3.9L19 21l-.7-2.1L16 18l2.3-.9z"/></svg>
+  }
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -2011,7 +1983,6 @@ export default function FromApp({
   const [stylistSubSubVis, setStylistSubSubVis]         = useState(false)
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
   const stylistSessionId                    = useRef<string | null>(null)
-  const [stylistImages, setStylistImages]   = useState<{ url: string }[]>([])
   // Wardrobe pieces the shopper owns — persist across the whole conversation as
   // context, so they can attach what they have and then ask Fabrics to build a
   // full outfit, find what's missing, or style combinations over many turns.
@@ -2075,7 +2046,7 @@ export default function FromApp({
 
   const sendStylist = async (q: string, productsArg?: Product[], historyArg?: StylistMsg[], imagesArg?: { url: string }[]) => {
     const hasWardrobe = wardrobeImages.length > 0
-    const images   = imagesArg ?? stylistImages
+    const images   = imagesArg ?? []
     const question = q.trim() || (
       hasWardrobe ? 'Build me a complete outfit around these pieces.'
       : images.length > 0 ? 'What would work well with these?'
@@ -2089,7 +2060,6 @@ export default function FromApp({
     // Wardrobe pieces persist as context every turn; one-off attaches don't.
     // Both are sent to the vision model so it can style what they actually own.
     const capturedImages = [...wardrobeImages.map(i => i.url), ...transientImages]
-    setStylistImages([])
     const isNewSession = history.length === 0
     if (isNewSession) {
       const sessionId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -2592,7 +2562,7 @@ export default function FromApp({
   // Enter sends (like every chat app); Shift+Enter drops to a new line.
   const kd = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSearch() } }
   const handleReset = () => {
-    setStylistMsgs([]); setStylistProducts([]); setStylistImages([]); setWardrobeImages([])
+    setStylistMsgs([]); setStylistProducts([]); setWardrobeImages([])
     stylistSessionId.current = null
     setInput(''); setInputHint(null); setActiveBrand(null)
   }
@@ -3407,12 +3377,10 @@ export default function FromApp({
         @keyframes glassSweep{0%{transform:translateX(-120%) skewX(-20deg);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateX(350%) skewX(-20deg);opacity:0;}}
         @keyframes glassFloat{0%,100%{transform:translateY(0px);}50%{transform:translateY(-4px);}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
-        @keyframes fr-pill-in{from{opacity:0;transform:scale(0.85) translateX(-6px);}to{opacity:1;transform:scale(1) translateX(0);}}
-        @keyframes fr-pill-glow{0%,100%{box-shadow:0 0 0 0 rgba(44,18,6,0.16),inset 0 0 0 0 rgba(255,255,255,0.4);}50%{box-shadow:0 0 0 4px rgba(44,18,6,0.05),inset 0 0 10px 0 rgba(255,255,255,0.55);}}
-        @keyframes fr-pill-shimmer{0%{background-position:180% center;}100%{background-position:-180% center;}}
+        @keyframes fr-step-in{from{opacity:0;transform:scale(0.7);}to{opacity:1;transform:scale(1);}}
+        @keyframes fr-step-glow{0%,100%{box-shadow:0 0 0 0 rgba(44,18,6,0.18);}50%{box-shadow:0 0 0 5px rgba(44,18,6,0.06);}}
         @keyframes fr-caret-blink{0%,55%{opacity:1;}56%,100%{opacity:0;}}
-        .fr-pill-active{animation:fr-pill-in .28s cubic-bezier(.32,.9,.4,1), fr-pill-glow 2.2s ease-in-out .28s infinite;}
-        .fr-pill-shine{background:linear-gradient(100deg,rgba(255,255,255,0) 35%,rgba(255,255,255,.5) 50%,rgba(255,255,255,0) 65%);background-size:220% 100%;animation:fr-pill-shimmer 1.8s linear infinite;}
+        .fr-step-active{animation:fr-step-in .25s cubic-bezier(.32,.9,.4,1), fr-step-glow 1.8s ease-in-out .25s infinite;}
         .fr-type-caret{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:fr-caret-blink 1s step-start infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(44,18,6,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
@@ -4757,54 +4725,64 @@ export default function FromApp({
                 ))}
                 {stylistLoading && (
                   stylistLoadingPhases.length === 0 ? (
-                    <div className="fr-pill-active" style={{
-                      position: 'relative', overflow: 'hidden', alignSelf: 'flex-start',
-                      padding: '8px 16px', borderRadius: 20, background: INK,
-                      display: 'flex', alignItems: 'center', gap: 6,
-                    }}>
-                      <span className="fr-pill-shine" style={{ position: 'absolute', inset: 0 }} />
-                      <span style={{ position: 'relative', width: 5, height: 5, borderRadius: '50%', background: '#fff', display: 'inline-block', animation: 'fr-bounce 1.1s 0s infinite' }} />
-                      <span style={{ position: 'relative', width: 5, height: 5, borderRadius: '50%', background: '#fff', display: 'inline-block', animation: 'fr-bounce 1.1s 0.22s infinite' }} />
-                      <span style={{ position: 'relative', width: 5, height: 5, borderRadius: '50%', background: '#fff', display: 'inline-block', animation: 'fr-bounce 1.1s 0.44s infinite' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 2px' }}>
+                      <div className="fr-step-active" style={{ position: 'relative', width: 22, height: 22, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
+                        <StylistStepIcon icon="read" size={12} />
+                      </div>
+                      <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>Reading your message</span>
                     </div>
                   ) : (
                     <div style={{ padding: '4px 2px 14px' }}>
-                      {/* Progress pills — one per phase; active pill glows and shimmers,
-                          completed pills check off and dim, upcoming ones stay outlined. */}
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                        {stylistLoadingPhases.map((phase, pi) => {
-                          const state = pi < stylistLoadingStep ? 'done' : pi === stylistLoadingStep ? 'active' : 'upcoming'
-                          return (
-                            <div key={pi} className={state === 'active' ? 'fr-pill-active' : undefined}
-                              style={{
-                                position: 'relative', overflow: 'hidden',
-                                padding: '6px 12px', borderRadius: 20,
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                fontFamily: SANS, fontSize: 11.5, fontWeight: 500, whiteSpace: 'nowrap',
-                                background: state === 'active' ? INK : state === 'done' ? 'rgba(44,18,6,.06)' : 'transparent',
-                                color: state === 'active' ? '#fff' : state === 'done' ? INK3 : 'rgba(44,18,6,.32)',
-                                border: state === 'upcoming' ? '1px solid rgba(44,18,6,.14)' : 'none',
-                                transform: state === 'upcoming' ? 'scale(.96)' : 'scale(1)',
-                                transition: 'background .35s ease, color .35s ease, transform .35s ease, border-color .35s ease',
-                              }}>
-                              {state === 'active' && <span className="fr-pill-shine" style={{ position: 'absolute', inset: 0 }} />}
-                              {state === 'done' && (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'relative', flexShrink: 0 }}><path d="M20 6L9 17l-5-5" /></svg>
+                      {/* Perplexity-style vertical step tracker — one row per operation,
+                          a distinct icon per step (not a generic dot), connected by a
+                          thread; the active step glows and reveals nested sub-detail. */}
+                      {stylistLoadingPhases.map((phase, pi) => {
+                        const state = pi < stylistLoadingStep ? 'done' : pi === stylistLoadingStep ? 'active' : 'upcoming'
+                        const isLast = pi === stylistLoadingPhases.length - 1
+                        return (
+                          <div key={pi} style={{ display: 'flex', gap: 10 }}>
+                            {/* Icon + connecting thread */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                              <div className={state === 'active' ? 'fr-step-active' : undefined}
+                                style={{
+                                  position: 'relative', width: 22, height: 22, borderRadius: '50%',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  background: state === 'active' ? INK : state === 'done' ? 'rgba(44,18,6,.08)' : 'transparent',
+                                  color: state === 'active' ? '#fff' : state === 'done' ? INK2 : 'rgba(44,18,6,.3)',
+                                  border: state === 'upcoming' ? '1px solid rgba(44,18,6,.16)' : 'none',
+                                  transition: 'background .35s ease, color .35s ease',
+                                }}>
+                                {state === 'done'
+                                  ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                  : <StylistStepIcon icon={phase.icon} size={12} />}
+                              </div>
+                              {!isLast && (
+                                <div style={{ width: 1, flex: 1, minHeight: 20, marginTop: 2, marginBottom: 2, background: state === 'done' ? 'rgba(44,18,6,.18)' : 'rgba(44,18,6,.08)', transition: 'background .35s ease' }} />
                               )}
-                              <span style={{ position: 'relative' }}>{phase.main.replace(/[…\s]+$/, '')}</span>
                             </div>
-                          )
-                        })}
-                      </div>
-                      {/* Detail line for the active phase */}
-                      {stylistSubVis && stylistLoadingPhases[stylistLoadingStep]?.sub && (
-                        <div key={`sub-${stylistLoadingStep}`} style={{ fontFamily: SANS, fontSize: 11.5, color: INK3, paddingLeft: 4, animation: 'fadeUp .2s ease' }}>
-                          {stylistLoadingPhases[stylistLoadingStep]?.sub}
-                          {stylistSubSubVis && stylistLoadingPhases[stylistLoadingStep]?.subsub && (
-                            <span style={{ opacity: .65 }}> · {stylistLoadingPhases[stylistLoadingStep]?.subsub}</span>
-                          )}
-                        </div>
-                      )}
+                            {/* Label + detail */}
+                            <div style={{ paddingBottom: isLast ? 0 : 16, minWidth: 0 }}>
+                              <div style={{
+                                fontFamily: SANS, fontSize: 13, fontWeight: state === 'active' ? 600 : 500, lineHeight: '22px',
+                                color: state === 'upcoming' ? 'rgba(44,18,6,.34)' : state === 'done' ? INK3 : INK,
+                                transition: 'color .35s ease',
+                              }}>
+                                {phase.main}
+                              </div>
+                              {state === 'active' && stylistSubVis && phase.sub && (
+                                <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3, marginTop: 2, animation: 'fadeUp .2s ease' }}>
+                                  {phase.sub}
+                                </div>
+                              )}
+                              {state === 'active' && stylistSubSubVis && phase.subsub && (
+                                <div style={{ fontFamily: SANS, fontSize: 11, color: 'rgba(44,18,6,.5)', marginTop: 2, animation: 'fadeUp .2s ease' }}>
+                                  {phase.subsub}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )
                 )}
