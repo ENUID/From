@@ -2272,21 +2272,20 @@ export default function FromApp({
   }
 
   const sendStylist = async (q: string, productsArg?: Product[], historyArg?: StylistMsg[], imagesArg?: { url: string }[]) => {
-    const hasWardrobe = wardrobeImages.length > 0
     const images   = imagesArg ?? []
     const question = q.trim() || (
-      hasWardrobe ? 'Build me a complete outfit around these pieces.'
-      : images.length > 0 ? 'What would work well with these?'
+      images.length > 0 ? 'Build me a complete outfit around these pieces.'
       : ''
     )
     const products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
     if (!question || stylistLoading) return
     setStylistInput('')
-    const transientImages = images.map(i => i.url)
-    // Wardrobe pieces persist as context every turn; one-off attaches don't.
-    // Both are sent to the vision model so it can style what they actually own.
-    const capturedImages = [...wardrobeImages.map(i => i.url), ...transientImages]
+    // A one-shot attach (wardrobe photo or any other image) — shown in the
+    // sent bubble and sent to the vision model. Not persisted beyond this
+    // one turn; the caller (doSearch) clears wardrobeImages right after
+    // calling this, same as any other attachment.
+    const capturedImages = images.map(i => i.url)
     const isNewSession = history.length === 0
     if (isNewSession) {
       const sessionId = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -2301,7 +2300,7 @@ export default function FromApp({
     // via "Ask Fabrics" or an edit-resend) — not the stylistProducts fallback,
     // which persists across the whole session and would otherwise re-show a
     // stale pin on every later, unrelated message too.
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: transientImages.length > 0 ? transientImages : undefined, pinnedProducts: productsArg && productsArg.length > 0 ? productsArg : undefined }])
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined, pinnedProducts: productsArg && productsArg.length > 0 ? productsArg : undefined }])
     const loadingPhases = buildStylistLoadingPhases(question, capturedImages.length > 0, shopperContext.currency, shopperGenderFromProfile, shopperContext.country)
     const loadingTotalMs = stylistTotalMsFor(loadingPhases)
     setStylistLoadingPhases(loadingPhases)
@@ -2830,10 +2829,16 @@ export default function FromApp({
     // Visual search: photos go straight into Fabrics' own vision flow — one
     // model call that reasons about the photo directly, instead of the old
     // two-call round-trip (describe the photo as text, then search on that).
+    // Attached as a one-shot image on THIS message (shows in the sent bubble,
+    // same as any photo attach) and cleared from the bar right after — it
+    // used to persist silently forever, which both looked stuck/broken (the
+    // thumbnail never left the input bar) and meant every later, unrelated
+    // message kept re-sending the same photo through the vision model.
     if (wardrobeImages.length > 0) {
       const text = input.trim()
       setShowExplore(false); setActiveBrand(null)
-      sendStylist(text)
+      sendStylist(text, undefined, undefined, wardrobeImages)
+      setWardrobeImages([])
       setInput(''); setInputHint(null)
       return
     }
