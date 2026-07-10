@@ -6,8 +6,41 @@ import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabe
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
 import { compileIntent, continueIntent, compiledReplyText, parseBudget } from '@/lib/intentCompiler'
+import { ConvexHttpClient } from 'convex/browser'
+import { api } from '@/convex/_generated/api'
 
 export const maxDuration = 60
+
+// ── Usage visibility ─────────────────────────────────────────────────────────
+// This app runs entirely on free-tier AI quotas shared across every request —
+// there was previously no way to see consumption anywhere except after the
+// fact, in a provider's own dashboard. Every exit point of this route logs an
+// estimated token count (chars/4 — a standard rough approximation, not exact
+// provider-reported usage) via the existing trackEvent/user_events pipeline.
+// Read back through getAiUsageSummary, surfaced in /api/ai/stylist/health.
+// Fire-and-forget: never awaited by the response, a logging failure never
+// affects the shopper-facing reply.
+const convexUsageClient = process.env.NEXT_PUBLIC_CONVEX_URL
+  ? new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
+  : null
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4)
+}
+
+function logAiUsage(info: {
+  path: 'fast' | 'llm-light' | 'llm-heavy' | 'vision' | 'refine' | 'load-more'
+  provider: string
+  estPromptTokens: number
+  estCompletionTokensCap: number
+  ok: boolean
+}) {
+  if (!convexUsageClient) return
+  convexUsageClient.mutation(api.users.trackEvent, {
+    event: 'ai_usage',
+    properties: info,
+  }).catch(() => {}) // best-effort — never let logging affect the actual response
+}
 
 // Fabrics is now the one and only shopping surface — results need to feel
 // like real browsing, not a quick-answer teaser. (Was 12 when this was a
@@ -965,6 +998,10 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
               refineNote = ` Nothing under ${compiled.args.budgetCurrency || buyerCurrency} ${compiled.args.budgetMax}, so here’s the closest without that cap.`
             }
           }
+          // Zero LLM tokens spent — logged for traffic-volume visibility,
+          // not budget consumption (compileIntent is the whole point of the
+          // fast path: it costs nothing from the shared free-tier pool).
+          logAiUsage({ path: 'fast', provider: 'none', estPromptTokens: 0, estCompletionTokensCap: 0, ok: true })
           return NextResponse.json({
             reply: compiledReplyText(compiled, results.length) + refineNote,
             comparison: null,
@@ -1053,6 +1090,10 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       ].filter(Boolean).join('\n\n')
 
       raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 1100, temperature: 0.3 })
+      // Provider tag is approximate — wardrobeVisionChat doesn't report back
+      // which of Gemini/Groq actually served the request without changing its
+      // return contract, so this is logged against the whole vision chain.
+      logAiUsage({ path: 'vision', provider: 'gemini-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: !!raw })
     } else {
       // Text-only path (no images).
       // Conversational messages use a short ~300-token prompt (avoids rate limits,
@@ -1067,10 +1108,13 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         ...history,
         { role: 'user' as const, content: question },
       ]
+      const promptTextForEstimate = combinedSystem + messages.map(m => m.content ?? '').join(' ')
       try {
         const msg = await stylistChat(messages, combinedSystem, { max_tokens: 1100, temperature: 0.4 }, heavy)
         raw = (msg?.content ?? '').trim()
+        logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: 'openrouter-or-groq', estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: 1100, ok: !!raw })
       } catch (err) {
+        logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: 'openrouter-or-groq', estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: 1100, ok: false })
         console.error('[stylist] model call failed:', err)
         if (isRateLimited(err)) {
           return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })

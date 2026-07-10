@@ -174,3 +174,60 @@ export const trackEvent = mutation({
     });
   },
 });
+
+/**
+ * Aggregates "ai_usage" events (logged via trackEvent from the stylist route
+ * — see logAiUsage in app/api/ai/stylist/route.ts) over a trailing window.
+ * Read by the secret-gated /api/ai/stylist/health endpoint so token/request
+ * consumption is actually visible somewhere, not just inferred from provider
+ * dashboards after the fact. Token counts are estimates (chars/4), not exact
+ * provider-reported usage — good enough to reason about headroom, not a
+ * billing-grade figure.
+ */
+export const getAiUsageSummary = query({
+  args: {
+    windowMs: v.optional(v.number()), // defaults to 24h
+  },
+  handler: async (ctx, args) => {
+    const since = Date.now() - (args.windowMs ?? 24 * 60 * 60 * 1000);
+    const events = await ctx.db
+      .query("user_events")
+      .withIndex("by_event", (q) => q.eq("event", "ai_usage"))
+      .filter((q) => q.gte(q.field("createdAt"), since))
+      .collect();
+
+    const byProvider: Record<string, { requests: number; estPromptTokens: number; estCompletionTokensCap: number; failures: number }> = {};
+    const byPath: Record<string, number> = {};
+    let totalRequests = 0;
+    let totalEstPromptTokens = 0;
+    let totalEstCompletionTokensCap = 0;
+
+    for (const e of events) {
+      const p = (e.properties ?? {}) as Record<string, any>;
+      const provider = String(p.provider ?? "unknown");
+      const path = String(p.path ?? "unknown");
+      const promptTokens = Number(p.estPromptTokens ?? 0);
+      const completionCap = Number(p.estCompletionTokensCap ?? 0);
+
+      totalRequests++;
+      totalEstPromptTokens += promptTokens;
+      totalEstCompletionTokensCap += completionCap;
+      byPath[path] = (byPath[path] ?? 0) + 1;
+
+      if (!byProvider[provider]) byProvider[provider] = { requests: 0, estPromptTokens: 0, estCompletionTokensCap: 0, failures: 0 };
+      byProvider[provider].requests++;
+      byProvider[provider].estPromptTokens += promptTokens;
+      byProvider[provider].estCompletionTokensCap += completionCap;
+      if (p.ok === false) byProvider[provider].failures++;
+    }
+
+    return {
+      windowMs: args.windowMs ?? 24 * 60 * 60 * 1000,
+      totalRequests,
+      totalEstPromptTokens,
+      totalEstCompletionTokensCap,
+      byProvider,
+      byPath,
+    };
+  },
+});
