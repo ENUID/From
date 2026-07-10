@@ -1974,6 +1974,21 @@ export default function FromApp({
   // horizontally-scrolling line that keeps growing sideways forever.
   type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
+  // Guards against a shape mismatch from a pre-migration localStorage payload
+  // (this app went through a chat-format architecture change) crashing the
+  // render the first time a returning user's browser is read back — falls
+  // back to a fresh, empty session instead of rendering garbled data.
+  function parseStylistMsgs(raw: string | null): StylistMsg[] {
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return []
+      const valid = parsed.every((m: any) =>
+        m && typeof m === 'object' && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
+      )
+      return valid ? (parsed as StylistMsg[]) : []
+    } catch { return [] }
+  }
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
   const STYLIST_HISTORY_LS = 'from:stylist-history'
   // Tracks which session (if any) is currently open — an explicit empty
@@ -1988,14 +2003,14 @@ export default function FromApp({
       if (activeId === '') return [] // explicit "new chat" was the last action
       if (activeId) {
         const raw = localStorage.getItem(stylistSessionLS(activeId))
-        if (raw) return JSON.parse(raw) as StylistMsg[]
+        if (raw) return parseStylistMsgs(raw)
       }
       if (activeId === null) {
         // No marker ever written — pre-existing behavior for old sessions.
         const hist = JSON.parse(localStorage.getItem('from:stylist-history') || '[]') as StylistHistoryEntry[]
         if (hist.length > 0) {
           const raw = localStorage.getItem(`from:stylist-session:${hist[0].id}`)
-          if (raw) return JSON.parse(raw) as StylistMsg[]
+          if (raw) return parseStylistMsgs(raw)
         }
       }
     } catch {}
@@ -2356,7 +2371,14 @@ export default function FromApp({
   // Most recent product results shown, for the Explore-cache persist effect and
   // the "similar items" panel on the product detail sheet.
   const lastProductMsg = [...stylistMsgs].reverse().find(m => m.role === 'assistant' && (m.foundProducts?.length || m.outfitSlots?.length))
-  const searchProducts: Product[] = (lastProductMsg?.foundProducts || []).filter((p: Product) => p.in_stock)
+  // Memoized on lastProductMsg (referentially stable across renders that don't
+  // touch stylistMsgs) — a fresh array here on every render would make the
+  // Explore-cache effect below re-fire and re-set state every render, an
+  // infinite loop whenever showExplore and a product result are true together.
+  const searchProducts: Product[] = useMemo(
+    () => (lastProductMsg?.foundProducts || []).filter((p: Product) => p.in_stock),
+    [lastProductMsg]
+  )
   const canSend   = input.trim().length > 0 || wardrobeImages.length > 0 || barProducts.length > 0
   const hasName   = userName.length > 0
 
@@ -3025,6 +3047,7 @@ export default function FromApp({
     if (!p || loading) return
     const q = buildMoreLikeQuery(p)
     setSelected(null)        // close the detail sheet
+    setShowExplore(false); setActiveBrand(null)   // result renders as a Fabrics reply, not inside Explore
     sendStylist(q)           // continues the one conversation with a fresh search
   }
 
@@ -4259,7 +4282,7 @@ export default function FromApp({
                           // Restore this session's messages from localStorage
                           try {
                             const raw = localStorage.getItem(stylistSessionLS(h.id))
-                            setStylistMsgs(raw ? JSON.parse(raw) as StylistMsg[] : [])
+                            setStylistMsgs(parseStylistMsgs(raw))
                           } catch { setStylistMsgs([]) }
                           stylistSessionId.current = h.id
                           try { localStorage.setItem(STYLIST_ACTIVE_SESSION_LS, h.id) } catch {}

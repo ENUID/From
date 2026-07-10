@@ -49,6 +49,7 @@ export type UcpProduct = {
   trust_score?: number
   relevance_score?: number
   relevance_reason?: string
+  product_type?: string
 }
 
 export type CatalogSearchDebug = {
@@ -350,7 +351,7 @@ const WOMEN_GENDER_RE = /\b(women'?s?|womens|ladies?|female)\b/i
 const MEN_GENDER_RE = /\b(men'?s?|mens|male|gentlemen)\b/i
 
 function productGenderSignal(p: UcpProduct): 'men' | 'women' | null {
-  const hay = `${p.title} ${(p.tags || []).join(' ')} ${(p as any).product_type || ''}`.toLowerCase()
+  const hay = `${p.title} ${(p.tags || []).join(' ')} ${p.product_type || ''}`.toLowerCase()
   const isWomen = WOMEN_GENDER_RE.test(hay)
   const isMen = MEN_GENDER_RE.test(hay)
   if (isWomen && !isMen) return 'women'
