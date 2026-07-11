@@ -1485,6 +1485,23 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
   })
 }
 
+// Every "Found for you" row shows 13 products — a fetch that comes back with
+// more (the server sends up to 4 rows' worth at once) renders as that many
+// separate rows instead of one long lump, matching how foundProductBatches
+// already renders one row per batch. A fetch with fewer than 13 just shows
+// one shorter row — never padded to a fixed row count.
+const PRODUCTS_PER_ROW = 13
+function chunkIntoRows(count: number): number[] {
+  const rows: number[] = []
+  let remaining = count
+  while (remaining > 0) {
+    const size = Math.min(PRODUCTS_PER_ROW, remaining)
+    rows.push(size)
+    remaining -= size
+  }
+  return rows
+}
+
 // Real numbers pulled from the actual catalog pipeline (GlobalCatalogService),
 // not invented telemetry — a store count that changes, a batch size that's a
 // tuning constant, a page size that's a UI decision. Keeping these accurate
@@ -2190,9 +2207,10 @@ export default function FromApp({
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
   type OutfitSlot = { query: string; slotCategory?: string | null; products: Product[] }
-  // foundProductBatches sizes each "See more" fetch — e.g. [24, 24, 12] — so the
-  // flat foundProducts list renders as one row per batch instead of one long
-  // horizontally-scrolling line that keeps growing sideways forever.
+  // foundProductBatches sizes each row — chunked into groups of PRODUCTS_PER_ROW
+  // (13) via chunkIntoRows, e.g. a 52-result fetch becomes [13, 13, 13, 13] — so
+  // the flat foundProducts list renders as several short rows instead of one
+  // long horizontally-scrolling line that keeps growing sideways forever.
   type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   // Guards against a shape mismatch from a pre-migration localStorage payload
@@ -2438,7 +2456,7 @@ export default function FromApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductBatches: newProducts.length > 0 ? [newProducts.length] : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductBatches: newProducts.length > 0 ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined }])
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
           fetch('/api/ai/stylist-memory', {
@@ -2510,7 +2528,7 @@ export default function FromApp({
         return {
           ...m,
           foundProducts: [...(m.foundProducts || []), ...uniqueNew],
-          foundProductBatches: uniqueNew.length > 0 ? [...(m.foundProductBatches || []), uniqueNew.length] : m.foundProductBatches,
+          foundProductBatches: uniqueNew.length > 0 ? [...(m.foundProductBatches || []), ...chunkIntoRows(uniqueNew.length)] : m.foundProductBatches,
           loadingMore: false, hasNoMore: uniqueNew.length === 0,
         }
       }))
