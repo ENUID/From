@@ -145,7 +145,8 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
           Discern
         </span>
         <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.42), fontWeight: 400,
-          letterSpacing: '0.08em', color: 'rgba(0,0,0,0.4)', lineHeight: 1 }}>
+          letterSpacing: '0.08em', color: 'rgba(0,0,0,0.4)', lineHeight: 1,
+          position: 'relative', top: Math.round(size * -0.08) }}>
           | Early Access
         </span>
       </span>
