@@ -1,5 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authProofValidator, verifyAuthProof } from "./lib/authProof";
+import { verifyAdminSecret } from "./lib/adminAuth";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -13,8 +15,9 @@ async function getUserByEmail(ctx: any, email: string) {
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 export const getSubscription = query({
-  args: { userEmail: v.string() },
+  args: { userEmail: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return null;
     const user = await getUserByEmail(ctx, args.userEmail);
     if (!user) return null;
     return ctx.db
@@ -25,8 +28,9 @@ export const getSubscription = query({
 });
 
 export const isPremium = query({
-  args: { userEmail: v.string() },
+  args: { userEmail: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return false;
     const user = await getUserByEmail(ctx, args.userEmail);
     if (!user) return false;
     const sub = await ctx.db
@@ -42,8 +46,9 @@ export const isPremium = query({
 });
 
 export const getDailySearchCount = query({
-  args: { userEmail: v.string() },
+  args: { userEmail: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return 0;
     const user = await getUserByEmail(ctx, args.userEmail);
     if (!user) return 0;
     const startOfDay = new Date();
@@ -59,8 +64,9 @@ export const getDailySearchCount = query({
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
 export const ensureFreeSubscription = mutation({
-  args: { userEmail: v.string() },
+  args: { userEmail: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return null;
     const user = await getUserByEmail(ctx, args.userEmail);
     if (!user) return null;
     const existing = await ctx.db
@@ -127,9 +133,13 @@ export const cancelSubscriptionByStripeCustomer = mutation({
 
 // ── Community allowlist (admin-managed free Community access) ─────────────────
 
+// Only ever checked for the CALLER's own email (see app/api/community/me),
+// so this uses the same self-identity authProof as everything else above —
+// not the admin secret, which is for managing OTHER users' access below.
 export const isOnAllowlist = query({
-  args: { email: v.string() },
+  args: { email: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.email))) return false;
     const entry = await ctx.db
       .query("community_allowlist")
       .withIndex("by_email", (q: any) => q.eq("email", args.email.toLowerCase().trim()))
@@ -138,16 +148,25 @@ export const isOnAllowlist = query({
   },
 })
 
+// These three manage OTHER users' access, not the caller's own — there's no
+// "self" to prove, so they're gated by the same admin secret
+// app/api/admin/community-access/route.ts already checks, now ALSO
+// re-verified here. Previously these had no argument-level check at all:
+// the route's ADMIN_SECRET gate was trivially bypassable by calling Convex
+// directly (it's a public endpoint), letting anyone grant themselves free
+// premium/community access.
 export const listAllowlist = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { adminSecret: v.string() },
+  handler: async (ctx, args) => {
+    if (!verifyAdminSecret(args.adminSecret)) return []
     return ctx.db.query("community_allowlist").order("desc").collect()
   },
 })
 
 export const grantAllowlistAccess = mutation({
-  args: { email: v.string(), note: v.optional(v.string()) },
+  args: { email: v.string(), note: v.optional(v.string()), adminSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyAdminSecret(args.adminSecret)) throw new Error("Unauthorized")
     const email = args.email.toLowerCase().trim()
     const existing = await ctx.db
       .query("community_allowlist")
@@ -159,8 +178,9 @@ export const grantAllowlistAccess = mutation({
 })
 
 export const revokeAllowlistAccess = mutation({
-  args: { email: v.string() },
+  args: { email: v.string(), adminSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyAdminSecret(args.adminSecret)) throw new Error("Unauthorized")
     const email = args.email.toLowerCase().trim()
     const entry = await ctx.db
       .query("community_allowlist")
@@ -173,8 +193,9 @@ export const revokeAllowlistAccess = mutation({
 })
 
 export const setStripeCustomerId = mutation({
-  args: { userEmail: v.string(), stripeCustomerId: v.string() },
+  args: { userEmail: v.string(), stripeCustomerId: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) throw new Error("Unauthorized");
     const user = await getUserByEmail(ctx, args.userEmail);
     if (!user) throw new Error("User not found");
     const sub = await ctx.db

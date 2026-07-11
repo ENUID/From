@@ -5,6 +5,7 @@ import { useSession, signIn, signOut } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useDiscernChat } from './hooks/useDiscernChat'
+import { useConvexAuthProof } from '@/hooks/useConvexAuthProof'
 import { formatMoney, convertCurrencyAmount } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
@@ -1909,6 +1910,7 @@ export default function DiscernApp({
   // ── Auth (optional — profile view only) ─────────────────────────────────────
   const { status: authStatus, data: session } = useSession()
   const onboardEmail = session?.user?.email ?? undefined
+  const authProof = useConvexAuthProof(onboardEmail)
 
   // Feature flag: gate the whole app behind sign-in. Set `false` to let anyone
   // use Discern directly without an account.
@@ -1917,14 +1919,14 @@ export default function DiscernApp({
   // ── Stylist memory (Fabrics persistent context) ─────────────────────────────
   const stylistMemoryData = useQuery(
     api.stylistMemory.getStylistMemory,
-    onboardEmail ? { userEmail: onboardEmail } : 'skip'
+    onboardEmail && authProof ? { userEmail: onboardEmail, authProof } : 'skip'
   )
   const stylistMemorySummary = stylistMemoryData?.summary ?? undefined
 
   // ── Taste profile (onboarding) ──────────────────────────────────────────────
   const tasteProfileData = useQuery(
     api.tasteProfile.getTasteProfile,
-    onboardEmail ? { userEmail: onboardEmail } : 'skip'
+    onboardEmail && authProof ? { userEmail: onboardEmail, authProof } : 'skip'
   )
   // Gender from profile — passed to AI so all search/styling defaults to it.
   // Values: 'Men' | 'Women' | 'Both' | 'Non-binary'. undefined = not set.
@@ -1971,7 +1973,7 @@ export default function DiscernApp({
   const deleteSyncedStylistSession = useMutation(api.stylistSessions.deleteStylistSession)
   const remoteStylistSessions = useQuery(
     api.stylistSessions.listStylistSessions,
-    onboardEmail ? { userEmail: onboardEmail } : 'skip'
+    onboardEmail && authProof ? { userEmail: onboardEmail, authProof } : 'skip'
   )
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [settingsView, setSettingsView]         = useState<'main' | 'profile'>('main')
@@ -2048,6 +2050,10 @@ export default function DiscernApp({
 
   async function saveProfile() {
     if (!onboardEmail || profileSaving) return
+    if (!authProof) {
+      setProfileError("Couldn't reach the server. Please try again in a moment.")
+      return
+    }
     setProfileSaving(true)
     setProfileError('')
     // Never let the button hang on "Saving…" — if the Convex client can't reach
@@ -2066,9 +2072,9 @@ export default function DiscernApp({
       if (profileGender) sizes.gender = profileGender
       // Profile write first — this auto-provisions the user row if needed, so the
       // name update below (and everything else) can rely on the user existing.
-      await withTimeout(upsertProfile({ userEmail: onboardEmail, sizes: Object.keys(sizes).length ? sizes : undefined }))
+      await withTimeout(upsertProfile({ userEmail: onboardEmail, sizes: Object.keys(sizes).length ? sizes : undefined, authProof }))
       if (profileName.trim()) {
-        await withTimeout(updateUserNameMutation({ email: onboardEmail, name: profileName.trim() }))
+        await withTimeout(updateUserNameMutation({ email: onboardEmail, name: profileName.trim(), authProof }))
       }
       setProfileSaving(false)
       setSettingsView('main')
@@ -2088,6 +2094,7 @@ export default function DiscernApp({
     if (!onboardEmail) { setShowOnboarding(false); return }
     const BUDGET_RANGES = [[0, 50], [50, 150], [150, 400], [400, 9999]]
     try {
+      if (!authProof) throw new Error('auth proof not ready')
       const hasSizes = onboardSizes.tops || onboardSizes.bottoms || onboardSizes.shoes
       const sizesObj = (onboardGender || hasSizes)
         ? { ...onboardSizes, ...(onboardGender ? { gender: onboardGender } : {}) }
@@ -2098,6 +2105,7 @@ export default function DiscernApp({
         budgetMin: (!skip && selectedBudget !== null) ? BUDGET_RANGES[selectedBudget][0] : undefined,
         budgetMax: (!skip && selectedBudget !== null) ? BUDGET_RANGES[selectedBudget][1] : undefined,
         sizes: skip ? undefined : sizesObj,
+        authProof,
       })
     } catch { /* ignore */ }
     setShowOnboarding(false)
@@ -2359,9 +2367,9 @@ export default function DiscernApp({
   function deleteStylistEntry(id: string) {
     setStylistHistory(prev => prev.filter(e => e.id !== id))
     try { localStorage.removeItem(stylistSessionLS(id)) } catch {}
-    if (onboardEmail) {
+    if (onboardEmail && authProof) {
       mergedRemoteSessionIds.current.add(id) // don't let the next pull resurrect what was just deleted
-      deleteSyncedStylistSession({ userEmail: onboardEmail, sessionId: id }).catch(() => {})
+      deleteSyncedStylistSession({ userEmail: onboardEmail, sessionId: id, authProof }).catch(() => {})
     }
     if (stylistSessionId.current === id) {
       setStylistMsgs([])
@@ -2373,10 +2381,10 @@ export default function DiscernApp({
     // The main push effect only fires on stylistMsgs changes, so a rename
     // alone (no new message) would otherwise sit unsynced until the next
     // message in that session — push it immediately here instead.
-    if (onboardEmail) {
+    if (onboardEmail && authProof) {
       try {
         const raw = localStorage.getItem(stylistSessionLS(id))
-        if (raw) syncStylistSession({ userEmail: onboardEmail, sessionId: id, label: newLabel, messages: raw }).catch(() => {})
+        if (raw) syncStylistSession({ userEmail: onboardEmail, sessionId: id, label: newLabel, messages: raw, authProof }).catch(() => {})
       } catch {}
     }
   }
@@ -2847,11 +2855,11 @@ export default function DiscernApp({
     // Push to Convex so the same account sees this session on another
     // device — fire-and-forget, never blocks the local (already-persisted)
     // experience if the write fails or the shopper isn't signed in.
-    if (onboardEmail) {
+    if (onboardEmail && authProof) {
       const label = stylistHistory.find(h => h.id === id)?.label || toSync[0]?.content?.slice(0, 80) || 'Conversation'
-      syncStylistSession({ userEmail: onboardEmail, sessionId: id, label, messages: JSON.stringify(toSync) }).catch(() => {})
+      syncStylistSession({ userEmail: onboardEmail, sessionId: id, label, messages: JSON.stringify(toSync), authProof }).catch(() => {})
     }
-  }, [stylistMsgs])
+  }, [stylistMsgs, authProof])
 
   // Pull side of cross-device sync: backfill any session Convex has for this
   // account that this particular device/browser doesn't have locally yet —

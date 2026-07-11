@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authProofValidator, verifyAuthProof } from "./lib/authProof";
 
 // Cross-device sync for Fabrics conversation threads. Previously these lived
 // only in localStorage (from:stylist-history / from:stylist-session:*), so a
@@ -8,6 +9,12 @@ import { v } from "convex/values";
 // keeps localStorage as its fast, offline-first read/write path and layers
 // this on top: pushes each session here after every change (when signed in),
 // and pulls on mount to backfill any sessions this device doesn't have yet.
+//
+// SECURITY: every function here requires authProof (see lib/authProof.ts) —
+// this is real conversation content (styling requests, sizes, wardrobe
+// details) plus a destructive delete, so it's the most sensitive of the
+// per-user Convex tables. args.userEmail is never trusted on its own; it
+// must match the independently-verified proof or the call is rejected.
 
 async function getUserByEmail(ctx: any, email: string) {
   return ctx.db
@@ -31,8 +38,9 @@ async function getOrCreateUser(ctx: any, email: string) {
 // Most recent 30 sessions, newest first — same cap the client already
 // applies to its own localStorage history list.
 export const listStylistSessions = query({
-  args: { userEmail: v.string() },
+  args: { userEmail: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return [];
     const user = await getUserByEmail(ctx, args.userEmail);
     if (!user) return [];
     const rows = await ctx.db
@@ -52,8 +60,10 @@ export const upsertStylistSession = mutation({
     sessionId: v.string(),
     label: v.string(),
     messages: v.string(),
+    authProof: authProofValidator,
   },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return;
     const user = await getOrCreateUser(ctx, args.userEmail);
     if (!user) return;
     const existing = await ctx.db
@@ -73,8 +83,9 @@ export const upsertStylistSession = mutation({
 });
 
 export const deleteStylistSession = mutation({
-  args: { userEmail: v.string(), sessionId: v.string() },
+  args: { userEmail: v.string(), sessionId: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return;
     const user = await getUserByEmail(ctx, args.userEmail);
     if (!user) return;
     const existing = await ctx.db

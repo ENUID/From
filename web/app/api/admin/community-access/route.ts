@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     const id = await getConvex().mutation(anyApi.subscriptions.grantAllowlistAccess, {
       email: email.toLowerCase().trim(),
       note: typeof note === 'string' && note ? note : undefined,
+      adminSecret: process.env.ADMIN_SECRET!,
     })
     return NextResponse.json({ ok: true, id, email: email.toLowerCase().trim() })
   } catch (e: any) {
@@ -50,6 +51,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const id = await getConvex().mutation(anyApi.subscriptions.revokeAllowlistAccess, {
       email: email.toLowerCase().trim(),
+      adminSecret: process.env.ADMIN_SECRET!,
     })
     return NextResponse.json({ ok: true, removed: !!id })
   } catch (e: any) {
@@ -66,7 +68,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, authed: true })
   }
   try {
-    const list = await getConvex().query(anyApi.subscriptions.listAllowlist, {})
+    const list = await getConvex().query(anyApi.subscriptions.listAllowlist, {
+      adminSecret: process.env.ADMIN_SECRET!,
+    })
     return NextResponse.json({ ok: true, count: list.length, list })
   } catch (e: any) {
     return NextResponse.json({ error: 'Convex error', detail: e?.message ?? String(e) }, { status: 500 })

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { groqChat, FAST_MODEL } from '@/lib/groq'
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '@/convex/_generated/api'
+import { signAuthProof } from '@/lib/convexAuthProof'
 
 export const runtime = 'nodejs'
 
@@ -37,9 +38,16 @@ export async function POST(req: NextRequest) {
     const summary: string = (compression?.content ?? '').trim()
     if (!summary || summary.length < 20) return NextResponse.json({ ok: false })
 
+    const authProof = signAuthProof(session.user.email)
+    if (!authProof) {
+      console.error('[stylist-memory] CONVEX_AUTH_SECRET is not configured')
+      return NextResponse.json({ ok: false }, { status: 500 })
+    }
+
     await convex.mutation(api.stylistMemory.upsertStylistMemory, {
       userEmail: session.user.email,
       summary,
+      authProof,
     })
 
     return NextResponse.json({ ok: true })

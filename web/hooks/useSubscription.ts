@@ -4,14 +4,16 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery } from 'convex/react'
 import { api } from '../convex/_generated/api'
+import { useConvexAuthProof } from './useConvexAuthProof'
 
 export function useSubscription() {
   const { data: session } = useSession()
   const userEmail = session?.user?.email ?? undefined
+  const authProof = useConvexAuthProof(userEmail)
 
   const subscription = useQuery(
     api.subscriptions.getSubscription,
-    userEmail ? { userEmail } : 'skip'
+    userEmail && authProof ? { userEmail, authProof } : 'skip'
   )
 
   // Allowlist check via the API route — checks BOTH the COMMUNITY_EMAILS env

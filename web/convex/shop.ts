@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authProofValidator, verifyAuthProof } from "./lib/authProof";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Saved Products
@@ -9,8 +10,10 @@ export const toggleSavedProduct = mutation({
   args: {
     userEmail: v.string(),
     product: v.any(),
+    authProof: authProofValidator,
   },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) throw new Error("Unauthorized");
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.userEmail))
@@ -42,8 +45,9 @@ export const toggleSavedProduct = mutation({
 });
 
 export const getSavedProducts = query({
-  args: { userEmail: v.string() },
+  args: { userEmail: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return [];
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.userEmail))
@@ -70,8 +74,10 @@ export const saveSearchHistory = mutation({
     userEmail: v.string(),
     query: v.string(),
     resultCount: v.number(),
+    authProof: authProofValidator,
   },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return;
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.userEmail))
@@ -89,8 +95,9 @@ export const saveSearchHistory = mutation({
 });
 
 export const deleteSearchHistory = mutation({
-  args: { userEmail: v.string(), id: v.string() },
+  args: { userEmail: v.string(), id: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return;
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.userEmail))
@@ -112,8 +119,9 @@ export const deleteSearchHistory = mutation({
 });
 
 export const getSearchHistory = query({
-  args: { userEmail: v.string() },
+  args: { userEmail: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.userEmail))) return [];
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.userEmail))

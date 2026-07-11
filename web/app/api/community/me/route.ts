@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
+import { signAuthProof } from '@/lib/convexAuthProof'
 
 // Returns whether the signed-in user has Community (Fabrics) access via the
 // admin allowlist. Checks TWO sources so it works even if the database is
@@ -27,9 +28,10 @@ export async function GET() {
   // Source 2 — Convex table (best-effort; never blocks the env path)
   try {
     const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
-    if (convexUrl) {
+    const authProof = signAuthProof(email)
+    if (convexUrl && authProof) {
       const convex = new ConvexHttpClient(convexUrl)
-      const onList = await convex.query(anyApi.subscriptions.isOnAllowlist, { email })
+      const onList = await convex.query(anyApi.subscriptions.isOnAllowlist, { email, authProof })
       if (onList === true) return NextResponse.json({ allowed: true, via: 'convex' })
     }
   } catch {

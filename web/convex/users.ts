@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authProofValidator, verifyAuthProof } from "./lib/authProof";
 
 /**
  * Ensures a user exists in the database. Called during NextAuth sign-in.
@@ -133,8 +134,9 @@ export const recordIdentity = mutation({
 });
 
 export const updateUserName = mutation({
-  args: { email: v.string(), name: v.string() },
+  args: { email: v.string(), name: v.string(), authProof: authProofValidator },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.email))) throw new Error("Unauthorized");
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase().trim()))

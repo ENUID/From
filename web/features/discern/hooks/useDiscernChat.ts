@@ -8,6 +8,7 @@ import { Product } from '@/components/ProductCard'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import { useSubscription } from '@/hooks/useSubscription'
+import { useConvexAuthProof } from '@/hooks/useConvexAuthProof'
 
 // Kept only so web/features/discern/components/DiscoverView.tsx (unmounted,
 // dead component) keeps compiling — the search-history feature itself now
@@ -36,8 +37,9 @@ function normalizeProductsForCurrency(products: Product[], currency: string) {
 export function useDiscernChat(initialShopperContext: ShopperContext, initialRates: ExchangeRates) {
   const { data: session } = useSession()
   const userEmail = session?.user?.email ?? undefined
+  const authProof = useConvexAuthProof(userEmail)
 
-  const convexSavedProducts = useQuery(api.shop.getSavedProducts, userEmail ? { userEmail } : "skip")
+  const convexSavedProducts = useQuery(api.shop.getSavedProducts, userEmail && authProof ? { userEmail, authProof } : "skip")
   const toggleConvexSaved = useMutation(api.shop.toggleSavedProduct)
 
   // Track locally-deleted IDs so any Convex re-sync cannot resurrect them this session.
@@ -83,8 +85,8 @@ export function useDiscernChat(initialShopperContext: ShopperContext, initialRat
     const isRemoving = savedProducts.some(item => item.id === product.id)
     if (isRemoving) removedSavedIds.current.add(product.id)
     else removedSavedIds.current.delete(product.id)
-    if (userEmail) {
-      toggleConvexSaved({ userEmail, product })
+    if (userEmail && authProof) {
+      toggleConvexSaved({ userEmail, product, authProof })
     }
     setSavedProducts(previous => {
       const normalizedProduct = normalizeProductForCurrency(product, shopperContext.currency)

@@ -19,6 +19,7 @@ import { api } from '@convex/_generated/api'
 import { Product } from '@/components/ProductCard'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
+import { useConvexAuthProof } from '@/hooks/useConvexAuthProof'
 
 export interface Message {
   role: 'user' | 'assistant'
@@ -84,8 +85,9 @@ function buildApiHistory(history: ConversationTurn[]) {
 export function useLegacySearch(initialShopperContext: ShopperContext, initialRates: ExchangeRates, savedProducts: Product[]) {
   const { data: session } = useSession()
   const userEmail = session?.user?.email ?? undefined
+  const authProof = useConvexAuthProof(userEmail)
 
-  const convexSearchHistory = useQuery(api.shop.getSearchHistory, userEmail ? { userEmail } : "skip")
+  const convexSearchHistory = useQuery(api.shop.getSearchHistory, userEmail && authProof ? { userEmail, authProof } : "skip")
   const saveConvexHistory = useMutation(api.shop.saveSearchHistory)
   const deleteConvexHistory = useMutation(api.shop.deleteSearchHistory)
 
@@ -128,8 +130,8 @@ export function useLegacySearch(initialShopperContext: ShopperContext, initialRa
   }
 
   function rememberSearch(query: string, resultCount: number) {
-    if (userEmail) {
-      saveConvexHistory({ userEmail, query, resultCount })
+    if (userEmail && authProof) {
+      saveConvexHistory({ userEmail, query, resultCount, authProof })
     }
     const entry: SearchHistoryEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -143,7 +145,7 @@ export function useLegacySearch(initialShopperContext: ShopperContext, initialRa
   function deleteHistoryEntry(id: string) {
     deletedHistoryIds.current.add(id)
     setSearchHistory(prev => prev.filter(item => item.id !== id))
-    if (userEmail) deleteConvexHistory({ userEmail, id }).catch(() => {})
+    if (userEmail && authProof) deleteConvexHistory({ userEmail, id, authProof }).catch(() => {})
   }
 
   function renameHistoryEntry(id: string, newQuery: string) {
