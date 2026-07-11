@@ -46,7 +46,7 @@ function logAiUsage(info: {
 // like real browsing, not a quick-answer teaser. (Was 12 when this was a
 // side-panel stylist only.) 52 = 4 rows of 13 — the client chunks whatever
 // comes back here into 13-per-row "Found for you" strips (PRODUCTS_PER_ROW
-// in FromPage.tsx), so a fetch that returns fewer just shows fewer rows.
+// in DiscernPage.tsx), so a fetch that returns fewer just shows fewer rows.
 const SEARCH_RESULT_CAP = 52
 
 // Absolute last-line guard: no product id may appear twice in a single

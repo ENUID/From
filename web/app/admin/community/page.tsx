@@ -9,7 +9,7 @@ interface Entry {
   grantedAt: number
 }
 
-const STORAGE_KEY = 'from_admin_secret'
+const STORAGE_KEY = 'discern_admin_secret'
 
 // Fetch with a hard timeout so the UI can never hang silently — if the
 // server/Convex doesn't answer in time, we surface a clear error instead.

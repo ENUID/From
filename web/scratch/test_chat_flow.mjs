@@ -12,7 +12,7 @@ const { SEARCH_TOOL_DEF } = await import('../lib/ai/schema.js');
 const { GlobalCatalogService } = await import('../lib/services/GlobalCatalogService.js');
 const { UCP_REGISTRY } = await import('../lib/stores.js');
 
-const SYSTEM_PROMPT = `You are a high-end AI shopping assistant named "From". Your mission is to help users discover unique items from independent Shopify stores via the Universal Commerce Protocol.
+const SYSTEM_PROMPT = `You are a high-end AI shopping assistant named "Discern". Your mission is to help users discover unique items from independent Shopify stores via the Universal Commerce Protocol.
 
 PERSONALITY & TONE:
 - Be warm, charming, and highly empathetic. Act like a passionate personal shopper or a boutique curator who genuinely cares about the user's style and needs.

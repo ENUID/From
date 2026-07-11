@@ -47,7 +47,7 @@ export default function DiscoverView({
     <div className="flex-1 grid content-center gap-6 md:gap-10 max-w-[800px] mx-auto py-5 md:py-10 text-center">
       <div className="fade-in">
         <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--m-green)] font-semibold mb-2.5 md:mb-4">
-          From
+          Discern
         </div>
         <h1 className="font-serif text-[42px] md:text-[clamp(42px,6vw,76px)] leading-[0.96] font-light text-[var(--ink)] mb-3.5 md:mb-5 tracking-[-0.04em]">
           Search by intent,
@@ -55,7 +55,7 @@ export default function DiscoverView({
           not by ads.
         </h1>
         <p className="max-w-[540px] text-[14px] md:text-[15.5px] text-[var(--ink3)] leading-[1.7] font-light mx-auto">
-          From matches items from verified independent stores. Describe what you need, the context, budget, or style, and discover unique finds.
+          Discern matches items from verified independent stores. Describe what you need, the context, budget, or style, and discover unique finds.
         </p>
         <p className="mt-3 text-[12.5px] md:text-[13px] text-[var(--m-green)] tracking-[0.04em]">
           Prices shown in {shopperContext.currency} for shoppers in {shopperContext.country}.

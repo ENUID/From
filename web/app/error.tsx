@@ -29,7 +29,7 @@ export default function Error({
         Something went wrong
       </p>
       <h1 style={{ fontSize: 22, fontWeight: 400, color: '#2C1206', marginBottom: 20, fontFamily: "'Cormorant Garamond', Georgia, serif" }}>
-        From couldn&apos;t load
+        Discern couldn&apos;t load
       </h1>
       <button
         onClick={reset}

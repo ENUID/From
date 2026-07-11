@@ -25,11 +25,13 @@ const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
 
-// ── One-time localStorage migration: from: → discern: (the FROM → Discern
+// ── One-time localStorage migration: from → discern (the FROM → Discern
 // rebrand) ───────────────────────────────────────────────────────────────────
-// Every browser key this app has ever written — explore cache, stylist
-// history, every individual session blob, saved products, size-guide unit —
-// was prefixed "from:". Runs at module load, before any component's useState
+// Every browser key this app has ever written was brand-prefixed: the "from:"
+// colon namespace (explore cache, stylist history, every individual session
+// blob, saved products, size-guide unit) plus two underscore-style keys
+// (from_user_name — the shopper's display name; from_admin_secret handled on
+// its own page). Runs at module load, before any component's useState
 // initializer reads localStorage, so every read below sees the migrated key
 // immediately. Copies forward only (never deletes the old key, and never
 // overwrites an already-migrated new key), so it's safe to run on every page
@@ -37,14 +39,18 @@ const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
 function migrateBrandedLocalStorage() {
   if (typeof window === 'undefined') return
   try {
-    const keys = Object.keys(localStorage).filter(k => k.startsWith('from:'))
-    for (const oldKey of keys) {
-      const newKey = 'discern:' + oldKey.slice('from:'.length)
+    const copy = (oldKey: string, newKey: string) => {
       if (localStorage.getItem(newKey) === null) {
         const val = localStorage.getItem(oldKey)
         if (val !== null) localStorage.setItem(newKey, val)
       }
     }
+    // The "from:" colon namespace — generic, covers every key of that shape.
+    for (const oldKey of Object.keys(localStorage).filter(k => k.startsWith('from:'))) {
+      copy(oldKey, 'discern:' + oldKey.slice('from:'.length))
+    }
+    // The one underscore-style user-data key this page owns.
+    copy('from_user_name', 'discern_user_name')
   } catch {}
 }
 migrateBrandedLocalStorage()
@@ -2100,7 +2106,7 @@ export default function DiscernApp({
   // ── UI state ────────────────────────────────────────────────────────────────
   const [userName, setUserName]       = useState(() => {
     if (typeof window === 'undefined') return ""
-    return localStorage.getItem('from_user_name') || ""
+    return localStorage.getItem('discern_user_name') || ""
   })
   const [isEditingName, setIsEditing] = useState(false)
   const [nameInput, setNameInput]     = useState("")
@@ -3017,7 +3023,7 @@ export default function DiscernApp({
   const saveName = () => {
     const n = nameInput.trim()
     setUserName(n)
-    localStorage.setItem('from_user_name', n)
+    localStorage.setItem('discern_user_name', n)
     setIsEditing(false)
   }
   // Enter sends (like every chat app); Shift+Enter drops to a new line.
@@ -3332,7 +3338,7 @@ export default function DiscernApp({
     return variantImg ?? (sheetColors.length === 1 ? sheetImages[0] : undefined)
   }
   const checkoutUrl   = selectedProduct ? getCheckoutUrl(selectedProduct, selectedSize, effectiveColor) : '#'
-  // Open the brand's checkout in a centered popup window so From stays open
+  // Open the brand's checkout in a centered popup window so Discern stays open
   // behind it. (The brand's checkout lives on its own domain and blocks being
   // embedded in an iframe, so a popup window is as close to in-app as possible.)
   const openCheckout = (url: string) => {
