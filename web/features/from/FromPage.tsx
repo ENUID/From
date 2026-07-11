@@ -1485,12 +1485,12 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
   })
 }
 
-// Every "Found for you" row shows 8 products — a fetch that comes back with
+// Every "Found for you" row shows 13 products — a fetch that comes back with
 // more (the server sends up to 4 rows' worth at once) renders as that many
 // separate rows instead of one long lump, matching how foundProductBatches
-// already renders one row per batch. A fetch with fewer than 8 just shows
+// already renders one row per batch. A fetch with fewer than 13 just shows
 // one shorter row — never padded to a fixed row count.
-const PRODUCTS_PER_ROW = 8
+const PRODUCTS_PER_ROW = 13
 function chunkIntoRows(count: number): number[] {
   const rows: number[] = []
   let remaining = count
