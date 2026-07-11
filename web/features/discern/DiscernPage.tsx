@@ -3942,8 +3942,8 @@ export default function DiscernApp({
                   {otpError && <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 12 }}>{otpError}</div>}
                   <button type="submit" disabled={otpSending || !otpEmail.trim()}
                     style={{ width: '100%', padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none',
-                      cursor: otpSending ? 'default' : 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, letterSpacing: '.08em',
-                      textTransform: 'uppercase', opacity: otpSending || !otpEmail.trim() ? 0.5 : 1 }}>
+                      cursor: otpSending ? 'default' : 'pointer', fontFamily: SANS, fontSize: 14, fontWeight: 500,
+                      opacity: otpSending || !otpEmail.trim() ? 0.5 : 1 }}>
                     {otpSending ? 'Sending…' : 'Continue with email'}
                   </button>
                 </form>
