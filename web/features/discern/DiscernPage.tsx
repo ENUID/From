@@ -102,97 +102,6 @@ function useLight(elRef: React.RefObject<HTMLDivElement | null>) {
   return pos
 }
 
-// ── Logo colour palette — full-spectrum, dark→mid→light per hue ───────────────
-const LOGO_PALETTE: string[] = [
-  // Reds — dark to light
-  "#5C0A0A","#7A1010","#991616","#B81C1C","#D32020","#E03030","#C0392B","#E74C3C",
-  "#F1948A","#F5B7B1","#FADADD","#FF6B6B","#FF4444","#CC0000","#880000",
-  // Burnt oranges / brick
-  "#5E1F00","#7A2900","#99380A","#B84E14","#C0572B","#CC6633","#D4784A","#E8895A",
-  "#F0A070","#F5BBA0","#A0522D","#8B4513","#6B2D0F",
-  // Oranges
-  "#7A3800","#9C4800","#C05A00","#E06600","#F07000","#FF8C00","#FF9F1C","#FFB347",
-  "#FFC870","#FFD9A0","#FF6600","#E55300","#C24200",
-  // Amber / gold
-  "#7A5200","#9C6800","#B87D00","#D49200","#E8A800","#F5B800","#FFC200","#FFD000",
-  "#FFE066","#FFF0A0","#DAA520","#B8860B","#8B6914",
-  // Yellows
-  "#7A6A00","#9C8800","#C0A800","#D4BC00","#E8D000","#F5E000","#FFEF00","#FFF176",
-  "#FFFC8A","#FFFFAA","#E6CC00","#CCAA00","#AA8800",
-  // Yellow-green / chartreuse
-  "#4A5500","#5C6A00","#6E8000","#849600","#9AAC00","#AABF00","#C0D400","#D0E800",
-  "#DEF060","#EEF8A0","#8DB600","#7A9900","#5C7A00",
-  // Olive / moss
-  "#2E3A0A","#3A4A0E","#485A14","#566A1C","#647A24","#728A2E","#80993A","#90A84A",
-  "#A8BC6E","#C0D08E","#556B2F","#6B8E23","#4A6020",
-  // Greens — dark
-  "#0A2E0A","#0E3A12","#124A18","#165A20","#1A6A28","#1E7A30","#228A38","#269A40",
-  "#2EAA4A","#3ABA56","#145214","#006400","#004D00",
-  // Greens — vivid
-  "#007A1F","#009926","#00B82E","#00CC33","#00E03A","#00F542","#2ECC71","#27AE60",
-  "#1ABC9C","#16A085","#52BE80","#82E0AA","#A9DFBF",
-  // Greens — light / mint
-  "#3CB371","#4CAF70","#5EC970","#70D880","#90E490","#B0EEB0","#C8F5C8","#E0FAE0",
-  "#98FB98","#90EE90","#7CFC00","#ADFF2F","#6BFF6B",
-  // Teal / cyan-green
-  "#00332E","#004D44","#006655","#007A66","#009980","#00B399","#00CCB0","#00E5C5",
-  "#26A69A","#4DB6AC","#4ECDC4","#80CBC4","#A5D6D3",
-  // Teals — mid
-  "#006666","#008080","#009999","#00AAAA","#00BBBB","#00CCCC","#00DDDD","#33BBBB",
-  "#55CCCC","#88DDDD","#AAEAEA","#CCF0F0","#20B2AA",
-  // Cyan
-  "#005A6E","#007A90","#0099B2","#00AABF","#00BBCC","#00CCDD","#00DDEE","#00EEEE",
-  "#00FFFF","#66FFFF","#99FFFF","#00CED1","#008B8B",
-  // Sky blues
-  "#003A5C","#00527A","#006699","#007AB8","#0088CC","#009ADE","#00AAEE","#33BBFF",
-  "#66CCFF","#99DDFF","#CCF0FF","#4FC3F7","#29B6F6",
-  // Blues — dark to vivid
-  "#0A0A6E","#10107A","#181899","#2020B8","#2828CC","#3030DD","#3838EE","#4444FF",
-  "#5555FF","#6666FF","#0000CD","#0000FF","#1E3A8A",
-  // Blues — mid
-  "#1A4080","#1E52A0","#2464B8","#2A76CC","#3080D4","#3B9BDE","#4AA4E8","#5BBBF5",
-  "#6EC6FF","#87D0FF","#A0DAFF","#2196F3","#1976D2",
-  // Indigo / violet-blue
-  "#1A0A5C","#28147A","#381E99","#4828B8","#5A32CC","#6B3CDD","#7A4AEE","#8A58FF",
-  "#6610F2","#5C00D2","#4B0082","#7B2FBE","#9B59B6",
-  // Purples
-  "#3A0A5C","#4E107A","#641699","#7A1CB8","#9022CC","#A028D8","#B030E0","#C040EE",
-  "#8B008B","#9400D3","#9B30FF","#C071FF","#DA90FF",
-  // Violet / magentas
-  "#5C0A4A","#7A1062","#991678","#B81C8E","#D022A4","#E028B0","#EE40C0","#F55CCE",
-  "#FF00FF","#FF22EE","#FF44DD","#FF66CC","#FF88BB",
-  // Pinks
-  "#7A0A40","#991450","#B81E62","#CC2872","#DD3380","#EE4490","#FF55A0","#FF70B0",
-  "#FF8EBF","#FFA0CC","#FFB5D8","#FFC8E4","#FF69B4",
-  // Rose / hot pink
-  "#8B0040","#A8004E","#C5005C","#E0006A","#FF1493","#FF4488","#FF6699","#FF88AA",
-  "#FF99BB","#FFAAC4","#FFBBCC","#FFC5D5","#DC143C",
-  // Warm neutrals / earthy
-  "#3C2010","#52300A","#6B400E","#845016","#9C6020","#B4722C","#C88040","#D99058",
-  "#E8A070","#F0B88A","#F5C89A","#F8D8B0","#8B4513",
-  // Terracotta / rust
-  "#7A2210","#9A2C14","#B83818","#CC4422","#DD5530","#E8663E","#F0774E","#F78860",
-  "#FA9A72","#FCAC84","#FDBE96","#FECDB0","#CD5C5C",
-  // Muted / desaturated accents
-  "#4A3A30","#6A5040","#8A6A56","#AA8070","#C09080","#D0A898","#E0BCB0","#EDD0CA",
-  "#6D4C41","#795548","#8D6E63","#A1887F","#BCAAA4",
-  // Deep jewel tones
-  "#1B0030","#2D004D","#3D0066","#1A0033","#002244","#001A33","#002B1A","#1A2600",
-  "#330011","#220022","#001133","#002233","#1A1A00",
-  // Bright neons (still readable on white via darker variants)
-  "#CC0066","#CC3300","#CC6600","#CCCC00","#00CC00","#00CCCC","#0066CC","#6600CC",
-  "#CC00CC","#FF0044","#FF4400","#AACC00","#00AACC",
-]
-
-// Shuffle deterministically (seeded Fisher-Yates so order is stable across renders)
-function seededShuffle(arr: string[]): string[] {
-  const a = [...arr]; let seed = 0x9e3779b9
-  const rng = () => { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return (seed >>> 0) / 0x100000000 }
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1));[a[i], a[j]] = [a[j], a[i]] }
-  return a
-}
-const SHUFFLED_PALETTE = seededShuffle(LOGO_PALETTE)
-
 // ── Discern wordmark ─────────────────────────────────────────────────────────────
 // Fabrics mark — a fanned set of fabric swatches pinned at the base, the way a
 // stylist flips through a swatch book to choose materials. Original to Fabrics.
@@ -222,7 +131,7 @@ function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: 
 function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
   const markSize = Math.round(size * 1.05)
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.25), userSelect: 'none', transition: 'color 2.4s ease' }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.25), userSelect: 'none' }}>
       <img
         src="/discern-mark-color.png"
         alt="Discern"
@@ -233,6 +142,10 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
       <span style={{ fontFamily: GEIST, fontSize: size, fontWeight: 500, color,
         letterSpacing: '0.015em', lineHeight: 1 }}>
         Discern
+      </span>
+      <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.42), fontWeight: 400,
+        letterSpacing: '0.08em', color: 'rgba(0,0,0,0.4)', lineHeight: 1 }}>
+        | Early Access
       </span>
     </span>
   )
@@ -2181,7 +2094,6 @@ export default function DiscernApp({
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem('discern:explore') || '[]') } catch { return [] }
   })
-  const [logoIdx, setLogoIdx] = useState(0)
   const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   const [bagCtxMenu, setBagCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   // ── Email OTP sign-in state ─────────────────────────────────────────────────
@@ -2805,10 +2717,6 @@ export default function DiscernApp({
     }
   }, [showExplore, searchProducts])
 
-  useEffect(() => {
-    const id = setInterval(() => setLogoIdx(i => (i + 1) % SHUFFLED_PALETTE.length), 11000)
-    return () => clearInterval(id)
-  }, [])
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (stylistRenameId && stylistRenameRef.current) { stylistRenameRef.current.focus(); stylistRenameRef.current.select() } }, [stylistRenameId])
   // Keep the stylist conversation scrolled to the latest activity — not just
@@ -4285,7 +4193,7 @@ export default function DiscernApp({
               display: "flex", alignItems: "center", justifyContent: "space-between",
               flexShrink: 0,
             }}>
-              <DiscernLogo size={24} color={SHUFFLED_PALETTE[logoIdx]} />
+              <DiscernLogo size={24} color="#000000" />
               <div
                 onClick={() => setSettingsOpen(true)}
                 style={{
@@ -4761,7 +4669,7 @@ export default function DiscernApp({
                 <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
               </button>
               <div onClick={() => { handleReset(); setShowExplore(false) }} style={{ cursor: 'pointer' }}>
-                <DiscernLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
+                <DiscernLogo size={22} color="#000000" />
               </div>
             </div>
             {/* Right: compose / new chat */}
