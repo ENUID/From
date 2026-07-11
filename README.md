@@ -1,14 +1,14 @@
-# From 🌌
+# Discern 🌌
 
-**From** is an AI Shopping OS, **YOU** describes what you want, and AI Agents finds the best, trusted, quality products from Brand/Stores. Agents search, compare, buy, and receive products, with tryons, comparison, agentic checkout, tracking and more all handled in a single chat.
+**Discern** is an AI Shopping OS, **YOU** describes what you want, and AI Agents finds the best, trusted, quality products from Brand/Stores. Agents search, compare, buy, and receive products, with tryons, comparison, agentic checkout, tracking and more all handled in a single chat.
 
 ## 🚀 Live Demo
-- **From**: [https://from.enuid.com](https://from.enuid.com)
+- **Discern**: [https://discern.enuid.com](https://discern.enuid.com)
 - **Brand/Store Integration**: [https://store.enuid.com](https://store.enuid.com)
 
 ## ✨ Features
 - **Intent-Based Search**: Buyers can search for products using natural language (e.g., "Handmade leather boots under $200").
-- **Subdomain Routing**: Dedicated spaces for Buyers (`from.`) and Merchants (`store.`).
+- **Subdomain Routing**: Dedicated spaces for Buyers (`discern.`) and Merchants (`store.`).
 - **Smart Catalog Sync**: Automated product synchronization from Shopify with vector embedding for semantic search.
 - **Premium UI**: Minimalist, human-centric design with smooth transitions and intent-focused layout.
 

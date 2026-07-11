@@ -6,5 +6,13 @@
   "crons": [
     { "path": "/api/cron/brand-health", "schedule": "0 8 * * *" },
     { "path": "/api/cron/style-signals", "schedule": "0 6 */2 * *" }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "from.enuid.com" }],
+      "destination": "https://discern.enuid.com/:path*",
+      "permanent": true
+    }
   ]
 }
