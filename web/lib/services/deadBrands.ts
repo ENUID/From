@@ -20,14 +20,15 @@ let loading = false
 
 function refresh(): void {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
-  if (!url) return
+  const serverSecret = process.env.CONVEX_AUTH_SECRET
+  if (!url || !serverSecret) return
   if (loading || Date.now() - lastLoad < REFRESH_MS) return
   loading = true
   lastLoad = Date.now()
   try {
     const convex = new ConvexHttpClient(url)
     convex
-      .query(anyApi.brandHealth.getPrunedDomains, { minDown: 3 })
+      .query(anyApi.brandHealth.getPrunedDomains, { minDown: 3, serverSecret })
       .then((domains: unknown) => {
         if (Array.isArray(domains)) {
           pruned = new Set(domains.map((d) => String(d).toLowerCase().trim()))

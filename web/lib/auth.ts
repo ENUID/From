@@ -62,10 +62,13 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Email and code required')
         }
         try {
+          const serverSecret = process.env.CONVEX_AUTH_SECRET
+          if (!serverSecret) throw new Error('Authentication is not configured')
           const convex = getConvex()
           const valid = await convex.mutation(api.verificationCodes.verifyAndConsumeCode, {
             email: credentials.email.toLowerCase().trim(),
             code: credentials.code.trim(),
+            serverSecret,
           })
           if (!valid) throw new Error('Invalid or expired code')
           await convex.mutation(api.users.ensureUser, {
@@ -73,6 +76,7 @@ export const authOptions: NextAuthOptions = {
           })
           const user = await convex.query(api.users.getUserByEmail, {
             email: credentials.email.toLowerCase().trim(),
+            serverSecret,
           }) as any
           return { id: user?._id ?? credentials.email, name: user?.name ?? null, email: credentials.email.toLowerCase().trim() }
         } catch (err: any) {
@@ -136,9 +140,11 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === 'google' && user.email) {
           try {
             const convex = getConvex()
-            const convexUser = await convex.query(api.users.getUserByEmail, {
+            const serverSecret = process.env.CONVEX_AUTH_SECRET
+            const convexUser = serverSecret ? await convex.query(api.users.getUserByEmail, {
               email: user.email.toLowerCase().trim(),
-            }) as any
+              serverSecret,
+            }) as any : null
             token.id = convexUser?._id ?? user.id ?? token.sub
           } catch {
             token.id = user.id ?? token.id ?? token.sub

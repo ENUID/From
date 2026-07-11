@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
+import { signAuthProof } from '@/lib/convexAuthProof'
 
 // Lazily construct at request time — never at module load. A module-level
 // `new ConvexHttpClient(undefined)` throws during `next build` when
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const email = session?.user?.email
     if (!email) return NextResponse.json({ ok: false }, { status: 401 })
+    const authProof = signAuthProof(email)
+    if (!authProof) {
+      console.error('[identify] CONVEX_AUTH_SECRET is not configured')
+      return NextResponse.json({ ok: false }, { status: 500 })
+    }
 
     const body = await req.json().catch(() => ({}))
     const { consentAnalytics, consentLocation, lat, lng } = body
@@ -74,6 +80,7 @@ export async function POST(req: NextRequest) {
       email,
       consentAnalytics: consentAnalytics ?? false,
       consentLocation: consentLocation ?? false,
+      authProof,
     })
 
     // Save identity data if analytics consent given
@@ -91,6 +98,7 @@ export async function POST(req: NextRequest) {
         os,
         language,
         ipAddress: ip !== '0.0.0.0' ? ip : undefined,
+        authProof,
       })
     }
 

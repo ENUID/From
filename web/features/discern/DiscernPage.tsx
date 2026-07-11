@@ -1997,7 +1997,7 @@ export default function DiscernApp({
   const [selectedBudget, setSelectedBudget]     = useState<number | null>(null)
 
   // Show consent sheet first (once, on first sign-in), then onboarding
-  const userRecord = useQuery(api.users.getUserByEmail, onboardEmail ? { email: onboardEmail } : 'skip')
+  const userRecord = useQuery(api.users.getUserByEmail, onboardEmail && authProof ? { email: onboardEmail, authProof } : 'skip')
   useEffect(() => {
     if (authStatus !== 'authenticated') return
     if (userRecord === undefined) return // still loading
@@ -3428,6 +3428,7 @@ export default function DiscernApp({
     try {
       flagQualitySignal({
         userEmail: onboardEmail,
+        authProof: onboardEmail ? (authProof ?? undefined) : undefined,
         query: String(q).slice(0, 200),
         productId: p.id,
         productTitle: p.title,

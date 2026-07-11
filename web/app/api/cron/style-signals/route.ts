@@ -11,12 +11,18 @@ export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET || secret !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  if (!process.env.CONVEX_AUTH_SECRET) {
+    return NextResponse.json({ error: 'Not configured' }, { status: 503 })
+  }
 
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
   try {
     const cutoff = Date.now() - 48 * 60 * 60 * 1000
-    const recentSearches = await convex.query(anyApi.searchHistory.getRecentSearches, { cutoff })
+    const recentSearches = await convex.query(anyApi.searchHistory.getRecentSearches, {
+      cutoff,
+      serverSecret: process.env.CONVEX_AUTH_SECRET,
+    })
 
     if (!recentSearches || recentSearches.length === 0) {
       return NextResponse.json({ ok: true, message: 'No recent searches', concepts: [] })

@@ -1,18 +1,23 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { verifyServerSecret } from "./lib/serverAuth";
 
 /**
  * Record one daily probe outcome for a brand. Accumulates consecutiveDown so a
  * persistently-unreachable store can be auto-pruned from search; a healthy
- * probe resets it so recovered stores rejoin automatically.
+ * probe resets it so recovered stores rejoin automatically. Gated so an
+ * outside caller can't forge probe results to sabotage which stores get
+ * pruned from search.
  */
 export const recordProbe = mutation({
   args: {
     domain: v.string(),
     healthy: v.boolean(),
     productCount: v.number(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized");
     const domain = args.domain.toLowerCase().trim();
     const existing = await ctx.db
       .query("brand_health")
@@ -35,8 +40,9 @@ export const recordProbe = mutation({
 
 /** Domains down for at least `minDown` consecutive probes — auto-prune list. */
 export const getPrunedDomains = query({
-  args: { minDown: v.optional(v.number()) },
+  args: { minDown: v.optional(v.number()), serverSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return [];
     const threshold = args.minDown ?? 3;
     const rows = await ctx.db.query("brand_health").collect();
     return rows
@@ -47,8 +53,9 @@ export const getPrunedDomains = query({
 
 /** Full persisted health snapshot for the admin report. */
 export const getAllHealth = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { serverSecret: v.string() },
+  handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return [];
     const rows = await ctx.db.query("brand_health").collect();
     return rows.sort((a, b) => b.consecutiveDown - a.consecutiveDown);
   },

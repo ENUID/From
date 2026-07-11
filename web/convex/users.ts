@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authProofValidator, verifyAuthProof } from "./lib/authProof";
+import { verifyServerSecret } from "./lib/serverAuth";
 
 /**
  * Ensures a user exists in the database. Called during NextAuth sign-in.
@@ -71,9 +72,20 @@ export const createUser = mutation({
   },
 });
 
+// Called both from our own server (the login flow, before any session
+// exists — verified via serverSecret) and from the client fetching the
+// signed-in shopper's own record (verified via authProof). Either is
+// sufficient; a request needs to hold one or the other, never neither.
 export const getUserByEmail = query({
-  args: { email: v.string() },
+  args: {
+    email: v.string(),
+    authProof: v.optional(authProofValidator),
+    serverSecret: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const serverOk = verifyServerSecret(args.serverSecret);
+    const selfOk = !serverOk && (await verifyAuthProof(args.authProof, args.email));
+    if (!serverOk && !selfOk) return null;
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase().trim()))
@@ -90,8 +102,10 @@ export const recordConsent = mutation({
     email: v.string(),
     consentAnalytics: v.boolean(),
     consentLocation: v.boolean(),
+    authProof: authProofValidator,
   },
   handler: async (ctx, args) => {
+    if (!(await verifyAuthProof(args.authProof, args.email))) throw new Error("Unauthorized");
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase().trim()))
@@ -120,9 +134,11 @@ export const recordIdentity = mutation({
     os: v.optional(v.string()),
     language: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
+    authProof: authProofValidator,
   },
   handler: async (ctx, args) => {
-    const { email, ...rest } = args;
+    if (!(await verifyAuthProof(args.authProof, args.email))) throw new Error("Unauthorized");
+    const { email, authProof, ...rest } = args;
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", email.toLowerCase().trim()))

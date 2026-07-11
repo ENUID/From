@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
 
   const domains = UCP_REGISTRY.map(s => s.domain.toLowerCase().trim())
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
-  const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null
+  const serverSecret = process.env.CONVEX_AUTH_SECRET
+  const convex = convexUrl && serverSecret ? new ConvexHttpClient(convexUrl) : null
 
   async function probe(domain: string): Promise<{ healthy: boolean; products: number }> {
     const payload = {
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
       await Promise.all(
         batch.map((domain, j) =>
           convex.mutation(anyApi.brandHealth.recordProbe, {
-            domain, healthy: outcomes[j].healthy, productCount: outcomes[j].products,
+            domain, healthy: outcomes[j].healthy, productCount: outcomes[j].products, serverSecret: serverSecret!,
           }).catch(() => null),
         ),
       )

@@ -1,12 +1,21 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { verifyServerSecret } from "./lib/serverAuth";
 
 const CODE_TTL_MS = 15 * 60 * 1000 // 15 minutes
 const RATE_LIMIT_MS = 60 * 1000     // 1 code per minute per email
 
+// These three mutations are the entire trust foundation of email-OTP login —
+// whoever can call createCode can set the OTP for ANY email address to a
+// value of their own choosing, then sign in as that person. They must only
+// ever be reachable from our own server (app/api/auth/send-code/route.ts and
+// lib/auth.ts), never directly from a browser, hence the serverSecret gate
+// rather than authProof (no session/identity exists yet at this point in the
+// login flow — that's the whole point of this endpoint).
 export const createCode = mutation({
-  args: { email: v.string(), code: v.string() },
+  args: { email: v.string(), code: v.string(), serverSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized")
     const email = args.email.toLowerCase().trim()
     const now = Date.now()
 
@@ -43,8 +52,9 @@ export const createCode = mutation({
 })
 
 export const deleteCode = mutation({
-  args: { email: v.string() },
+  args: { email: v.string(), serverSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized")
     const email = args.email.toLowerCase().trim()
     const existing = await ctx.db
       .query("verification_codes")
@@ -55,8 +65,9 @@ export const deleteCode = mutation({
 })
 
 export const verifyAndConsumeCode = mutation({
-  args: { email: v.string(), code: v.string() },
+  args: { email: v.string(), code: v.string(), serverSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return false
     const email = args.email.toLowerCase().trim()
     const now = Date.now()
 

@@ -1,14 +1,21 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authProofValidator, verifyAuthProof } from "./lib/authProof";
+import { verifyAdminSecret } from "./lib/adminAuth";
 
 /**
  * Record a shopper's relevance feedback on a search result. Anonymous-friendly:
  * userEmail is optional. This is the learning loop's raw signal — reviewed
- * periodically to tune the reranker and mismatch thresholds.
+ * periodically to tune the reranker and mismatch thresholds. authProof is
+ * optional too (unlike the identity-bound functions elsewhere) so feedback
+ * never blocks — but a userEmail is only ever attributed to the record if
+ * its matching proof actually checks out, otherwise it's dropped rather
+ * than trusted at face value.
  */
 export const flagResult = mutation({
   args: {
     userEmail: v.optional(v.string()),
+    authProof: v.optional(authProofValidator),
     query: v.string(),
     productId: v.string(),
     productTitle: v.optional(v.string()),
@@ -18,7 +25,7 @@ export const flagResult = mutation({
   },
   handler: async (ctx, args) => {
     let userId = undefined;
-    if (args.userEmail) {
+    if (args.userEmail && (await verifyAuthProof(args.authProof, args.userEmail))) {
       const user = await ctx.db
         .query("users")
         .filter((q) => q.eq(q.field("email"), args.userEmail))
@@ -41,8 +48,12 @@ export const flagResult = mutation({
 
 /** Recent quality signals for review/tuning (admin/analytics use). */
 export const getRecentSignals = query({
-  args: { signal: v.optional(v.union(v.literal("bad_match"), v.literal("good_match"))) },
+  args: {
+    signal: v.optional(v.union(v.literal("bad_match"), v.literal("good_match"))),
+    adminSecret: v.string(),
+  },
   handler: async (ctx, args) => {
+    if (!verifyAdminSecret(args.adminSecret)) return [];
     const rows = args.signal
       ? await ctx.db
           .query("quality_signals")

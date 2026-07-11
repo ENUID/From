@@ -1,13 +1,15 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { verifyServerSecret } from "./lib/serverAuth";
 
 // Matches the in-memory cache TTL — entries older than this are never served.
 const TTL_MS = 15 * 60 * 1000;
 
 /** Return a cached product snapshot for this key if still fresh, else null. */
 export const get = query({
-  args: { key: v.string() },
+  args: { key: v.string(), serverSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return null;
     const row = await ctx.db
       .query("search_cache")
       .withIndex("by_key", (q) => q.eq("key", args.key))
@@ -20,8 +22,9 @@ export const get = query({
 
 /** Upsert a fresh snapshot. Best-effort; callers ignore failures. */
 export const set = mutation({
-  args: { key: v.string(), products: v.string() },
+  args: { key: v.string(), products: v.string(), serverSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return { ok: false };
     const existing = await ctx.db
       .query("search_cache")
       .withIndex("by_key", (q) => q.eq("key", args.key))

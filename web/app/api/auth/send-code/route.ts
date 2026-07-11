@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
     console.error('[send-code] NEXT_PUBLIC_CONVEX_URL is not set')
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }
+  if (!process.env.CONVEX_AUTH_SECRET) {
+    console.error('[send-code] CONVEX_AUTH_SECRET is not set')
+    return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+  }
 
   // Normalize and validate the Convex URL — a .convex.site URL or trailing
   // slash makes /api/mutation 404 with an empty body (empty Error message).
@@ -66,6 +70,7 @@ export async function POST(req: NextRequest) {
       const result = await convex.mutation(api.verificationCodes.createCode, {
         email: normalizedEmail,
         code,
+        serverSecret: process.env.CONVEX_AUTH_SECRET,
       }) as any
       if (result?.ok === false && result.reason === 'rate_limited') {
         const wait = result.retryAfterSec ?? 60
@@ -108,7 +113,7 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error('[send-code] Resend error:', error)
       // Delete the code we just created so the user can retry immediately
-      try { await convex.mutation(api.verificationCodes.deleteCode, { email: normalizedEmail }) } catch {}
+      try { await convex.mutation(api.verificationCodes.deleteCode, { email: normalizedEmail, serverSecret: process.env.CONVEX_AUTH_SECRET! }) } catch {}
       const msg = (error as any)?.message ?? JSON.stringify(error)
       return NextResponse.json({ error: `Email could not be sent. Check your Resend configuration. (${msg})` }, { status: 500 })
     }

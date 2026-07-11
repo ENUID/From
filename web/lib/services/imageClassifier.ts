@@ -40,6 +40,9 @@ function client(): ConvexHttpClient | null {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
   return url ? new ConvexHttpClient(url) : null
 }
+function serverSecret(): string | undefined {
+  return process.env.CONVEX_AUTH_SECRET
+}
 function keyFor(urls: string[]): string {
   return createHash('sha1').update(urls.join('\n')).digest('hex')
 }
@@ -61,10 +64,11 @@ function visionThumb(src: string): string {
 
 async function readCache(key: string): Promise<string[] | null> {
   const c = client()
-  if (!c) return null
+  const secret = serverSecret()
+  if (!c || !secret) return null
   try {
     const row = (await Promise.race([
-      c.query(anyApi.imageOrder.get, { key }),
+      c.query(anyApi.imageOrder.get, { key, serverSecret: secret }),
       new Promise(resolve => setTimeout(() => resolve(null), READ_TIMEOUT_MS)),
     ])) as { order?: string } | null
     if (!row?.order) return null
@@ -77,9 +81,10 @@ async function readCache(key: string): Promise<string[] | null> {
 
 async function writeCache(key: string, order: string[]): Promise<void> {
   const c = client()
-  if (!c) return
+  const secret = serverSecret()
+  if (!c || !secret) return
   try {
-    await c.mutation(anyApi.imageOrder.set, { key, order: JSON.stringify(order) })
+    await c.mutation(anyApi.imageOrder.set, { key, order: JSON.stringify(order), serverSecret: secret })
   } catch {
     /* cache writes are never critical */
   }
