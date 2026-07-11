@@ -139,15 +139,13 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
         height={markSize}
         style={{ display: 'block', objectFit: 'contain', flexShrink: 0, borderRadius: Math.round(markSize * 0.22) }}
       />
-      <span style={{ display: 'flex', flexDirection: 'column', gap: Math.round(size * 0.06) }}>
-        <span style={{ fontFamily: GEIST, fontSize: size, fontWeight: 500, color,
-          letterSpacing: '0.015em', lineHeight: 1 }}>
-          Discern
-        </span>
-        <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.36), fontWeight: 400,
-          letterSpacing: '0.08em', color: 'rgba(0,0,0,0.4)', lineHeight: 1 }}>
-          | Early Access
-        </span>
+      <span style={{ fontFamily: GEIST, fontSize: size, fontWeight: 500, color,
+        letterSpacing: '0.015em', lineHeight: 1 }}>
+        Discern
+      </span>
+      <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.42), fontWeight: 400,
+        letterSpacing: '0.08em', color: 'rgba(0,0,0,0.4)', lineHeight: 1 }}>
+        | Early Access
       </span>
     </span>
   )
