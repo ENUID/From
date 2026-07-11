@@ -231,8 +231,8 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
         style={{ display: 'block', objectFit: 'contain', flexShrink: 0, borderRadius: Math.round(markSize * 0.22) }}
       />
       <span style={{ fontFamily: GEIST, fontSize: size, fontWeight: 500, color,
-        letterSpacing: '0.01em', lineHeight: 1 }}>
-        DISCERN
+        letterSpacing: '0.015em', lineHeight: 1 }}>
+        Discern
       </span>
     </span>
   )
