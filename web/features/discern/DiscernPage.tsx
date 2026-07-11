@@ -133,7 +133,7 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.25), userSelect: 'none' }}>
       <img
-        src="/discern-mark-color.png"
+        src="/discern-mark-v2.png"
         alt="Discern"
         width={markSize}
         height={markSize}
