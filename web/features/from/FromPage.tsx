@@ -1485,12 +1485,12 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
   })
 }
 
-// Every "Found for you" row shows 13 products — a fetch that comes back with
+// Every "Found for you" row shows 8 products — a fetch that comes back with
 // more (the server sends up to 4 rows' worth at once) renders as that many
 // separate rows instead of one long lump, matching how foundProductBatches
-// already renders one row per batch. A fetch with fewer than 13 just shows
+// already renders one row per batch. A fetch with fewer than 8 just shows
 // one shorter row — never padded to a fixed row count.
-const PRODUCTS_PER_ROW = 13
+const PRODUCTS_PER_ROW = 8
 function chunkIntoRows(count: number): number[] {
   const rows: number[] = []
   let remaining = count
@@ -5030,27 +5030,27 @@ export default function FromApp({
                                       ctxMenuOpenAt.current = Date.now()
                                       setProductCtxMenu({ product: p, x: mx, y: my, above })
                                     })}
-                                    style={{ flexShrink: 0, width: 100, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
-                                    <div style={{ width: 100, height: 160, borderRadius: 10, overflow: 'hidden', background: BG2, position: 'relative' }}>
+                                    style={{ flexShrink: 0, width: 140, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
+                                    <div style={{ width: 140, height: 224, borderRadius: 12, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                       {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                       <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
                                         onClick={e => { e.stopPropagation(); toggleSaved(p) }}
-                                        style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
+                                        style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
                                           background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
                                           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
                                         {isSaved ? (
-                                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                                         ) : (
-                                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                                         )}
                                       </button>
                                     </div>
-                                    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                                    <div style={{ fontFamily: SANS, fontSize: 10, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                                    <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, color: INK, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                                    <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                                     {pc.length > 0 && (
-                                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                                      <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
                                         {pc.slice(0, 5).map(c => (
-                                          <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={9} shape="square" selected={false} available={true} />
+                                          <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={10} shape="square" selected={false} available={true} />
                                         ))}
                                       </div>
                                     )}

@@ -66,11 +66,11 @@ const STORE_TIMEOUT_MS = 5000   // many Shopify MCP endpoints take 2.5–4s; a t
                                 // timeout silently drops them and starves results
 const BATCH_SIZE = 45          // stores queried in parallel per round
 const MAX_ROUNDS_PER_CALL = 2  // up to 90 stores fetched per search() call
-// 52 = 4 rows of 13 in the "Found for you" strip (SEARCH_RESULT_CAP in the
+// 32 = 4 rows of 8 in the "Found for you" strip (SEARCH_RESULT_CAP in the
 // stylist route slices to the same number) — both the first page and every
 // "See more" tap fill 4 full rows when the catalog has enough matches.
-const INITIAL_LIMIT = 52
-const LOAD_MORE_LIMIT = 52
+const INITIAL_LIMIT = 32
+const LOAD_MORE_LIMIT = 32
 const CACHE_TTL_MS = 15 * 60 * 1000
 const MAX_CACHE_ENTRIES = 300
 const ZERO_DECIMAL_CURRENCIES = new Set(['VND', 'JPY', 'KRW'])
