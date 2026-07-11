@@ -1,4 +1,4 @@
-export const metadata = { title: 'Privacy Policy — FROM' }
+export const metadata = { title: 'Privacy Policy — Discern' }
 
 export default function PrivacyPage() {
   return (
@@ -17,13 +17,13 @@ export default function PrivacyPage() {
       — Power your personalised taste profile and wardrobe memory<br />
       — Improve search relevance and AI recommendations<br />
       — Send you transactional emails (OTP codes, price drop alerts if enabled)<br />
-      — Understand how FROM is used so we can improve it</p>
+      — Understand how Discern is used so we can improve it</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>3. What we never do</h2>
       <p>We never sell your personal data to third parties. We never use your data for advertising targeting on other platforms. We never share your data with brands unless you explicitly contact them.</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>4. Third-party services</h2>
-      <p>FROM uses the following services that may process your data under their own policies:<br />
+      <p>Discern uses the following services that may process your data under their own policies:<br />
       — <strong>Convex</strong> — database hosting (US)<br />
       — <strong>Groq</strong> — AI inference (your search queries are processed by Groq; they are not stored for training)<br />
       — <strong>Google</strong> — optional sign-in, and AI inference for the Fabrics stylist and image-based search (Gemini); inputs are not stored for training<br />

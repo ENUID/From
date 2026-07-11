@@ -6,7 +6,7 @@ import { api } from '@/convex/_generated/api'
 
 export const runtime = 'nodejs'
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'FROM <noreply@from.enuid.com>'
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Discern <noreply@discern.enuid.com>'
 
 function generateCode(): string {
   return String(randomInt(100000, 1000000))
@@ -17,10 +17,10 @@ function codeEmail(code: string): string {
 <html>
 <body style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:420px;margin:0 auto;padding:40px 24px;color:#2C1206;background:#fff">
   <div style="margin-bottom:28px">
-    <span style="font-size:20px;font-weight:400;letter-spacing:0.04em">FROM</span>
+    <span style="font-size:20px;font-weight:400;letter-spacing:0.04em">Discern</span>
   </div>
   <h2 style="font-size:22px;font-weight:400;margin:0 0 10px;letter-spacing:0.01em">Your sign-in code</h2>
-  <p style="font-size:14px;color:#9B7060;margin:0 0 28px;line-height:1.6">Enter this code to sign in to FROM. It expires in 15 minutes.</p>
+  <p style="font-size:14px;color:#9B7060;margin:0 0 28px;line-height:1.6">Enter this code to sign in to Discern. It expires in 15 minutes.</p>
   <div style="background:#F7F4F2;border-radius:12px;padding:20px;text-align:center;margin-bottom:28px">
     <span style="font-size:36px;font-weight:700;letter-spacing:0.25em;color:#2C1206">${code}</span>
   </div>
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
-      subject: `${code} — your FROM sign-in code`,
+      subject: `${code} — your Discern sign-in code`,
       html: codeEmail(code),
     })
 

@@ -155,7 +155,7 @@ async function llmRelevanceScores(
   const matched = matchStyles(query)
   const vocabBlock = vocabPromptBlock(matched)
 
-  const system = `You are the relevance engine behind FROM — a curated independent fashion platform. Your job: score how well each product actually satisfies the shopper's intent. Think like a seasoned boutique buyer, not a keyword matcher.
+  const system = `You are the relevance engine behind Discern — a curated independent fashion platform. Your job: score how well each product actually satisfies the shopper's intent. Think like a seasoned boutique buyer, not a keyword matcher.
 ${vocabBlock}${profileLine}
 SCORING RUBRIC (0–100). Apply in strict order — a low score at any step caps the total:
 1. GARMENT CATEGORY (0–30 pts): Is it the item type they asked for? Completely wrong category (homeware, book, candle when they want a shirt) → 0–5. Adjacent but not quite right → 10–15. Correct → 25–30.

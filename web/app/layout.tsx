@@ -7,28 +7,28 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 export const metadata: Metadata = {
-  title: 'FROM — AI Shopping Agent',
-  description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
-  metadataBase: new URL('https://from.enuid.com'),
+  title: 'Discern — AI Shopping Agent',
+  description: 'Describe what you want to wear. Discern\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
+  metadataBase: new URL('https://discern.enuid.com'),
   openGraph: {
-    title: 'FROM — AI Shopping Agent',
-    description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
-    url: 'https://from.enuid.com',
-    siteName: 'FROM',
+    title: 'Discern — AI Shopping Agent',
+    description: 'Describe what you want to wear. Discern\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
+    url: 'https://discern.enuid.com',
+    siteName: 'Discern',
     images: [
       {
         url: '/og.jpg',
         width: 1100,
         height: 880,
-        alt: 'FROM',
+        alt: 'Discern',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FROM — AI Shopping Agent',
-    description: 'Describe what you want to wear. FROM\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
+    title: 'Discern — AI Shopping Agent',
+    description: 'Describe what you want to wear. Discern\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
     images: ['/og.jpg'],
   },
 }

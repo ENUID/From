@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Browser diagnostic: open https://from.enuid.com/api/featured?cc=IN to see the
+// Browser diagnostic: open https://discern.enuid.com/api/featured?cc=IN to see the
 // pipeline counts (sampled/fetched/kept/returned) and a sample of brand domains.
 export async function GET(req: NextRequest) {
   try {

@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
       payment_method_types: ['card'],
       customer_email: session.user.email,
       line_items: [{ price: COMMUNITY_PRICE_ID, quantity: 1 }],
-      success_url: `${process.env.NEXTAUTH_URL ?? 'https://from.enuid.com'}/?upgraded=1`,
-      cancel_url: `${process.env.NEXTAUTH_URL ?? 'https://from.enuid.com'}/`,
+      success_url: `${process.env.NEXTAUTH_URL ?? 'https://discern.enuid.com'}/?upgraded=1`,
+      cancel_url: `${process.env.NEXTAUTH_URL ?? 'https://discern.enuid.com'}/`,
       metadata: { userEmail: session.user.email },
     })
 

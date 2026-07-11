@@ -158,7 +158,7 @@ export const authOptions: NextAuthOptions = {
       if (url.startsWith(baseUrl)) return url
       try {
         const { hostname } = new URL(url)
-        if (hostname === 'from.enuid.com' || hostname.endsWith('.enuid.com')) return url
+        if (hostname === 'discern.enuid.com' || hostname.endsWith('.enuid.com')) return url
       } catch {}
       return `${baseUrl}/`
     },

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { useFromChat } from './hooks/useFromChat'
+import { useDiscernChat } from './hooks/useDiscernChat'
 import { formatMoney, convertCurrencyAmount } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
@@ -24,6 +24,30 @@ const BG2   = "#FFFFFF"   // white (no beige anywhere — separation comes from 
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
+
+// ── One-time localStorage migration: from: → discern: (the FROM → Discern
+// rebrand) ───────────────────────────────────────────────────────────────────
+// Every browser key this app has ever written — explore cache, stylist
+// history, every individual session blob, saved products, size-guide unit —
+// was prefixed "from:". Runs at module load, before any component's useState
+// initializer reads localStorage, so every read below sees the migrated key
+// immediately. Copies forward only (never deletes the old key, and never
+// overwrites an already-migrated new key), so it's safe to run on every page
+// load and can't lose data even if it partially ran before.
+function migrateBrandedLocalStorage() {
+  if (typeof window === 'undefined') return
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('from:'))
+    for (const oldKey of keys) {
+      const newKey = 'discern:' + oldKey.slice('from:'.length)
+      if (localStorage.getItem(newKey) === null) {
+        const val = localStorage.getItem(oldKey)
+        if (val !== null) localStorage.setItem(newKey, val)
+      }
+    }
+  } catch {}
+}
+migrateBrandedLocalStorage()
 
 // ── Spring physics hook ───────────────────────────────────────────────────────
 // Runs a damped spring in a RAF loop; returns live animated value.
@@ -161,7 +185,7 @@ function seededShuffle(arr: string[]): string[] {
 }
 const SHUFFLED_PALETTE = seededShuffle(LOGO_PALETTE)
 
-// ── FROM wordmark ─────────────────────────────────────────────────────────────
+// ── Discern wordmark ─────────────────────────────────────────────────────────────
 // Fabrics mark — a fanned set of fabric swatches pinned at the base, the way a
 // stylist flips through a swatch book to choose materials. Original to Fabrics.
 function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: { size?: number; stroke?: string; strokeWidth?: number }) {
@@ -187,12 +211,12 @@ function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: 
   )
 }
 
-function FromLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
+function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.25), userSelect: 'none', transition: 'color 2.4s ease' }}>
       <span style={{ fontFamily: SEASON, fontSize: size, fontWeight: 400, color,
-        letterSpacing: '0.03em', lineHeight: 1 }}>
-        FROM
+        letterSpacing: '0.01em', lineHeight: 1 }}>
+        DISCERN
       </span>
       <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.52), fontWeight: 300,
         letterSpacing: '0.15em', color: 'rgba(44,18,6,0.42)', lineHeight: 1 }}>
@@ -1597,7 +1621,7 @@ function buildDynamicPhases(opts: {
     })
   }
 
-  phases.push({ icon: 'search', main: 'Searching FROM’s catalog', trace: searchTrace(seed, opts.searchQuery, opts.budgetLabel, opts.sort) })
+  phases.push({ icon: 'search', main: 'Searching Discern’s catalog', trace: searchTrace(seed, opts.searchQuery, opts.budgetLabel, opts.sort) })
 
   if (opts.sort && opts.sort !== 'relevance') {
     phases.push({
@@ -1699,13 +1723,13 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
   if (!hasFashionSignal) return []
 
   // ── Step sets — operational, specific, no filler. Each step names the real
-  // thing FROM is doing (reading, searching, filtering, ranking) with the
+  // thing Discern is doing (reading, searching, filtering, ranking) with the
   // actual detected terms filled in, so it never reads generic. ────────────────
   if (hasImages) {
     return [
       { icon: 'read', main: 'Reading your photo', trace: ['vision.scan(garment, color, silhouette)', 'material cues → weave, drape, texture'] },
       { icon: 'palette', main: 'Checking undertone and contrast', trace: ['undertone.read(warm | cool | neutral)', 'pairing → what bridges, what clashes'] },
-      { icon: 'search', main: 'Searching FROM for what completes it', trace: searchTrace(question, 'visual match', null) },
+      { icon: 'search', main: 'Searching Discern for what completes it', trace: searchTrace(question, 'visual match', null) },
       { icon: 'curate', main: 'Ranking by fit and quality', trace: curateTrace(question + '_curate', question, buyerCountry) },
     ]
   }
@@ -1792,7 +1816,7 @@ function stylistTotalMsFor(phases: StylistLoadingPhase[]): number {
 // ── Step icons ───────────────────────────────────────────────────────────────
 // A single bespoke visual language, not a generic icon-font set — every glyph
 // here is built from the same thread / needle / weave vocabulary as the
-// FabricsIcon mark, so the tracker reads as something only FROM has, not a
+// FabricsIcon mark, so the tracker reads as something only Discern has, not a
 // reskinned Feather/Lucide set. Search is a thread loop with a needle for a
 // handle, not a magnifying glass; filter is a pin through narrowing pleats,
 // not funnel lines; curate is a finishing thread-loop, not an AI sparkle.
@@ -1864,7 +1888,7 @@ function StylistStepIcon({ icon, size = 13 }: { icon: StylistLoadingIcon; size?:
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function FromApp({
+export default function DiscernApp({
   initialShopperContext, initialRates,
 }: { initialShopperContext: ShopperContext; initialRates: ExchangeRates }) {
 
@@ -1874,14 +1898,14 @@ export default function FromApp({
     toggleSaved,
     isPremium, dailySearchesRemaining,
     showUpgradeSheet, setShowUpgradeSheet,
-  } = useFromChat(initialShopperContext, initialRates)
+  } = useDiscernChat(initialShopperContext, initialRates)
 
   // ── Auth (optional — profile view only) ─────────────────────────────────────
   const { status: authStatus, data: session } = useSession()
   const onboardEmail = session?.user?.email ?? undefined
 
   // Feature flag: gate the whole app behind sign-in. Set `false` to let anyone
-  // use FROM directly without an account.
+  // use Discern directly without an account.
   const REQUIRE_LOGIN = true
 
   // ── Stylist memory (Fabrics persistent context) ─────────────────────────────
@@ -2115,7 +2139,7 @@ export default function FromApp({
   // instant, and paginated with infinite scroll.
   const [exploreFeed, setExploreFeed]   = useState<Product[]>(() => {
     if (typeof window === 'undefined') return []
-    try { return JSON.parse(localStorage.getItem('from:explore-feed') || '[]') } catch { return [] }
+    try { return JSON.parse(localStorage.getItem('discern:explore-feed') || '[]') } catch { return [] }
   })
   const [exploreFeedLoading, setExploreFeedLoading] = useState(false)
   const [exploreHasMore, setExploreHasMore] = useState(true)
@@ -2136,7 +2160,7 @@ export default function FromApp({
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null)
   const [exploreCache, setExploreCache] = useState<Product[]>(() => {
     if (typeof window === 'undefined') return []
-    try { return JSON.parse(localStorage.getItem('from:explore') || '[]') } catch { return [] }
+    try { return JSON.parse(localStorage.getItem('discern:explore') || '[]') } catch { return [] }
   })
   const [logoIdx, setLogoIdx] = useState(0)
   const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
@@ -2158,7 +2182,7 @@ export default function FromApp({
       const map: Record<string, string> = {
         Configuration: 'Google sign-in is not configured. Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel.',
         OAuthSignin: 'Could not start Google sign-in. Try again.',
-        OAuthCallback: 'Google sign-in failed. Make sure the redirect URI in Google Console is exactly: https://from.enuid.com/api/auth/callback/google',
+        OAuthCallback: 'Google sign-in failed. Make sure the redirect URI in Google Console is exactly: https://discern.enuid.com/api/auth/callback/google',
         OAuthAccountNotLinked: 'This email is already registered with a different sign-in method. Use email OTP instead.',
         AccessDenied: 'Sign-in was denied.',
         Verification: 'The sign-in link has expired or already been used.',
@@ -2238,13 +2262,13 @@ export default function FromApp({
     } catch { return [] }
   }
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
-  const STYLIST_HISTORY_LS = 'from:stylist-history'
+  const STYLIST_HISTORY_LS = 'discern:stylist-history'
   // Tracks which session (if any) is currently open — an explicit empty
   // string means "fresh/new chat", distinct from "no marker written yet"
   // (a first-ever visit, or a page from before this existed), which falls
   // back to the old behavior of opening the most recent session.
-  const STYLIST_ACTIVE_SESSION_LS = 'from:stylist-active-session'
-  const stylistSessionLS = (id: string) => `from:stylist-session:${id}`
+  const STYLIST_ACTIVE_SESSION_LS = 'discern:stylist-active-session'
+  const stylistSessionLS = (id: string) => `discern:stylist-session:${id}`
   const [stylistMsgs, setStylistMsgs]       = useState<StylistMsg[]>(() => {
     try {
       const activeId = localStorage.getItem(STYLIST_ACTIVE_SESSION_LS)
@@ -2255,9 +2279,9 @@ export default function FromApp({
       }
       if (activeId === null) {
         // No marker ever written — pre-existing behavior for old sessions.
-        const hist = JSON.parse(localStorage.getItem('from:stylist-history') || '[]') as StylistHistoryEntry[]
+        const hist = JSON.parse(localStorage.getItem('discern:stylist-history') || '[]') as StylistHistoryEntry[]
         if (hist.length > 0) {
-          const raw = localStorage.getItem(`from:stylist-session:${hist[0].id}`)
+          const raw = localStorage.getItem(`discern:stylist-session:${hist[0].id}`)
           if (raw) return parseStylistMsgs(raw)
         }
       }
@@ -2265,7 +2289,7 @@ export default function FromApp({
     return []
   })
   const [stylistHistory, setStylistHistory] = useState<StylistHistoryEntry[]>(() => {
-    try { return JSON.parse(localStorage.getItem('from:stylist-history') || '[]') } catch { return [] }
+    try { return JSON.parse(localStorage.getItem('discern:stylist-history') || '[]') } catch { return [] }
   })
   // Messages already on screen at mount (restored history) render instantly;
   // only messages that arrive during THIS session get the typewriter reveal.
@@ -2758,7 +2782,7 @@ export default function FromApp({
     if (showExplore && searchProducts.length > 0) {
       const toSave = searchProducts.filter(p => p.in_stock).slice(0, 20)
       setExploreCache(toSave)
-      try { localStorage.setItem('from:explore', JSON.stringify(toSave)) } catch {}
+      try { localStorage.setItem('discern:explore', JSON.stringify(toSave)) } catch {}
     }
   }, [showExplore, searchProducts])
 
@@ -3113,7 +3137,7 @@ export default function FromApp({
       if (fresh.length) {
         setExploreFeed(fresh)
         setExploreHasMore(true)
-        try { localStorage.setItem('from:explore-feed', JSON.stringify(fresh.slice(0, 80))) } catch {}
+        try { localStorage.setItem('discern:explore-feed', JSON.stringify(fresh.slice(0, 80))) } catch {}
       }
     } catch { /* keep whatever is cached */ }
     finally { setExploreFeedLoading(false); exploreBusyRef.current = false; fillExploreBuffer() }
@@ -3139,7 +3163,7 @@ export default function FromApp({
       const fresh = await fetchExplorePages(1)
       if (fresh.length) {
         setExploreFeed(fresh)
-        try { localStorage.setItem('from:explore-feed', JSON.stringify(fresh.slice(0, 80))) } catch {}
+        try { localStorage.setItem('discern:explore-feed', JSON.stringify(fresh.slice(0, 80))) } catch {}
       }
     } catch { /* keep current feed on failure */ }
     finally {
@@ -3401,7 +3425,7 @@ export default function FromApp({
 
   // Restore/persist unit preference across products
   useEffect(() => {
-    const s = localStorage.getItem('from:sg-unit')
+    const s = localStorage.getItem('discern:sg-unit')
     if (s === 'in' || s === 'cm') setSgDisplayUnit(s)
   }, [])
 
@@ -3423,7 +3447,7 @@ export default function FromApp({
   }, [selectedProduct?.id, sheetSizeTable])
 
   useEffect(() => {
-    if (sgDisplayUnit) localStorage.setItem('from:sg-unit', sgDisplayUnit)
+    if (sgDisplayUnit) localStorage.setItem('discern:sg-unit', sgDisplayUnit)
   }, [sgDisplayUnit])
 
   // AI-clean the product description — strips marketing fluff, CTAs, shipping text
@@ -3847,7 +3871,7 @@ export default function FromApp({
 
             {/* Logo */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
-              <FromLogo size={28} color="#000000" />
+              <DiscernLogo size={28} color="#000000" />
             </div>
 
             <div style={{ fontFamily: SERIF, fontSize: 'clamp(22px,4vw,32px)', fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.2, letterSpacing: '-.01em', whiteSpace: 'nowrap' }}>
@@ -3947,7 +3971,7 @@ export default function FromApp({
             )}
 
             <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 22, lineHeight: 1.7, opacity: 0.75 }}>
-              By continuing you agree to FROM's{' '}
+              By continuing you agree to Discern's{' '}
               <a href="/terms" target="_blank" rel="noopener" style={{ color: INK3, textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</a>
               {' '}and{' '}
               <a href="/privacy" target="_blank" rel="noopener" style={{ color: INK3, textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</a>.
@@ -3971,7 +3995,7 @@ export default function FromApp({
             )}
             <div style={{ fontFamily: SERIF, fontSize: 'clamp(22px,3.5vw,26px)', fontWeight: 500, color: INK, marginBottom: 6 }}>A quick word on data</div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, lineHeight: 1.65, marginBottom: 26 }}>
-              FROM uses data only to make your experience better: smarter searches, better recommendations. We never sell it or share it. Choose what you're comfortable with.
+              Discern uses data only to make your experience better: smarter searches, better recommendations. We never sell it or share it. Choose what you're comfortable with.
             </div>
 
             {/* Toggle rows */}
@@ -4170,13 +4194,13 @@ export default function FromApp({
                 {[
                   {
                     label: 'Data & Consent',
-                    sub: 'Manage what FROM can collect',
+                    sub: 'Manage what Discern can collect',
                     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
                     action: () => { setSettingsOpen(false); setConsentFromSettings(true); setShowConsent(true) },
                   },
                   {
                     label: 'Privacy Policy',
-                    sub: 'How FROM handles your data',
+                    sub: 'How Discern handles your data',
                     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK2} strokeWidth="1.7" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
                     href: '/privacy',
                   },
@@ -4236,13 +4260,13 @@ export default function FromApp({
           {/* ── Sidebar ── */}
           <div className={`fr-sb ${sidebarOpen ? "open" : ""}`}>
 
-            {/* Header: From logo + avatar */}
+            {/* Header: Discern logo + avatar */}
             <div style={{
               padding: "clamp(22px,5vw,30px) 20px 14px",
               display: "flex", alignItems: "center", justifyContent: "space-between",
               flexShrink: 0,
             }}>
-              <FromLogo size={24} color={SHUFFLED_PALETTE[logoIdx]} />
+              <DiscernLogo size={24} color={SHUFFLED_PALETTE[logoIdx]} />
               <div
                 onClick={() => setSettingsOpen(true)}
                 style={{
@@ -4718,7 +4742,7 @@ export default function FromApp({
                 <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
               </button>
               <div onClick={() => { handleReset(); setShowExplore(false) }} style={{ cursor: 'pointer' }}>
-                <FromLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
+                <DiscernLogo size={22} color={SHUFFLED_PALETTE[logoIdx]} />
               </div>
             </div>
             {/* Right: compose / new chat */}
@@ -5791,7 +5815,7 @@ export default function FromApp({
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                   <div>
-                    <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>FROM Community</div>
+                    <div style={{ fontFamily: SEASON, fontSize: 24, color: INK, letterSpacing: '0.02em', lineHeight: 1.1 }}>Discern Community</div>
                     <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, marginTop: 5 }}>$20 / month. Cancel anytime.</div>
                   </div>
                   <button onClick={() => setShowUpgradeSheet(false)}
@@ -5804,7 +5828,7 @@ export default function FromApp({
 
                 {/* Community pitch */}
                 <p style={{ fontFamily: SANS, fontSize: 13, color: INK2, lineHeight: 1.7, marginBottom: 20, fontWeight: 300 }}>
-                  FROM is built independently — no VC, no team. One person building the shopping OS independent fashion deserved. $20/month gets you unlimited AI search, taste memory, Fabrics stylist, and everything else FROM ships — with no algorithm tax.
+                  Discern is built independently — no VC, no team. One person building the shopping OS independent fashion deserved. $20/month gets you unlimited AI search, taste memory, Fabrics stylist, and everything else Discern ships — with no algorithm tax.
                 </p>
 
                 {/* Benefits */}
@@ -5895,7 +5919,7 @@ export default function FromApp({
                     </div>
                     <div style={{ fontFamily: SANS, fontSize: 12, color: INK3, marginTop: 5, lineHeight: 1.5 }}>
                       {onboardingStep === 0
-                        ? 'FROM shows the right clothes by default — no filtering every search'
+                        ? 'Discern shows the right clothes by default — no filtering every search'
                         : 'Fabrics uses this to advise on fit without asking every time'}
                     </div>
                   </div>

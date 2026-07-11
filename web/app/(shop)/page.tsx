@@ -1,5 +1,5 @@
 import { cookies, headers } from 'next/headers'
-import FromPage from '@/features/from/FromPage'
+import DiscernPage from '@/features/discern/DiscernPage'
 import {
   SHOPPER_COUNTRY_COOKIE,
   SHOPPER_CURRENCY_COOKIE,
@@ -21,7 +21,7 @@ export default async function Page() {
   const rates = await getExchangeRates()
 
   return (
-    <FromPage
+    <DiscernPage
       initialShopperContext={shopperContext}
       initialRates={rates}
     />

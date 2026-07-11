@@ -16,7 +16,7 @@ import { api } from '@/convex/_generated/api'
 //
 // Secret-gated (no API keys are ever returned — only booleans + error text).
 // Open on the live site:
-//   https://from.enuid.com/api/ai/stylist/health?secret=YOUR_CRON_SECRET
+//   https://discern.enuid.com/api/ai/stylist/health?secret=YOUR_CRON_SECRET
 export const maxDuration = 30
 export const dynamic = 'force-dynamic'
 

@@ -84,8 +84,8 @@ function headersFor(base: string, apiKey: string) {
   // OpenRouter uses these for attribution + per-app rate-limit tiering.
   // Optional, but recommended — a harmless no-op against Groq's own API.
   if (base.includes('openrouter.ai')) {
-    headers['HTTP-Referer'] = process.env.OPENROUTER_SITE_URL ?? 'https://from.enuid.com'
-    headers['X-Title'] = 'FROM'
+    headers['HTTP-Referer'] = process.env.OPENROUTER_SITE_URL ?? 'https://discern.enuid.com'
+    headers['X-Title'] = 'Discern'
   }
   return headers
 }

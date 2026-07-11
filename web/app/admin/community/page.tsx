@@ -163,7 +163,7 @@ export default function AdminCommunityPage() {
     return (
       <div style={{ ...st.page, ...st.center }}>
         <div style={st.card}>
-          <div style={st.title}>FROM Admin</div>
+          <div style={st.title}>Discern Admin</div>
           <div style={st.sub}>Community access manager</div>
           <input
             type="password"

@@ -8,17 +8,17 @@
 //
 // This file is NOT imported anywhere and does not run. It's kept as a
 // reference snapshot — exactly the JSX that used to live inline in
-// `FromPage.tsx` — for a future, different feature that wants a dedicated
+// `DiscernPage.tsx` — for a future, different feature that wants a dedicated
 // browsable grid again. `// @ts-nocheck` is deliberate: this component
-// depends on ~15 pieces of FromPage-local state, refs, and helper
+// depends on ~15 pieces of DiscernPage-local state, refs, and helper
 // components (CardCarousel, ProductMeta, makePressHandlers, etc.) that
 // aren't exported/typed for standalone reuse. To resurrect: copy the JSX
 // back into a live component, thread in real implementations for every
 // prop below (see the destructured names), and wire a `.fr-grid`/`.fr-card`
-// CSS block (still defined in FromPage.tsx) alongside it.
+// CSS block (still defined in DiscernPage.tsx) alongside it.
 //
 // Companion parked pieces: web/lib/_parked/ai-chat-route.ts (backend),
-// web/features/from/hooks/_parked/useLegacySearch.ts (state/actions).
+// web/features/discern/hooks/_parked/useLegacySearch.ts (state/actions).
 // ─────────────────────────────────────────────────────────────────────────
 
 export default function LegacySearchGrid(props: {

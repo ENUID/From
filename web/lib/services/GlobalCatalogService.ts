@@ -1,5 +1,5 @@
 /**
- * FROM Catalog Search — queries each curated brand's own Shopify store catalog.
+ * Discern Catalog Search — queries each curated brand's own Shopify store catalog.
  *
  * Data source: every brand in the registry exposes a Universal Commerce Protocol
  * MCP endpoint at  https://{domain}/api/mcp  (search_catalog tool). We query the

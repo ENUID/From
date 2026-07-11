@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ShopperContext } from "@/lib/shopperContext"
-import { SearchHistoryEntry } from '../hooks/useFromChat'
+import { SearchHistoryEntry } from '../hooks/useDiscernChat'
 
 export default function DiscoverView({
   shopperContext,

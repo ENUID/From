@@ -52,7 +52,7 @@ export default function HeroPrompt() {
           border: `1px solid ${BRD2}`, boxShadow: '0 10px 40px rgba(44,18,6,.08)',
           textAlign: 'left', WebkitTapHighlightColor: 'transparent',
         }}
-        aria-label="Enter FROM and start searching"
+        aria-label="Enter Discern and start searching"
       >
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
           <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
@@ -70,7 +70,7 @@ export default function HeroPrompt() {
           letterSpacing: '.1em', textTransform: 'uppercase', WebkitTapHighlightColor: 'transparent',
         }}
       >
-        Enter FROM
+        Enter Discern
       </button>
       <style>{`@keyframes fromCaret { 50% { opacity: 0 } }`}</style>
     </div>

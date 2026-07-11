@@ -9,9 +9,9 @@ import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
 import { useSubscription } from '@/hooks/useSubscription'
 
-// Kept only so web/features/from/components/DiscoverView.tsx (unmounted,
+// Kept only so web/features/discern/components/DiscoverView.tsx (unmounted,
 // dead component) keeps compiling — the search-history feature itself now
-// lives in web/features/from/hooks/_parked/useLegacySearch.ts.
+// lives in web/features/discern/hooks/_parked/useLegacySearch.ts.
 export type SearchHistoryEntry = {
   id: string
   query: string
@@ -19,7 +19,7 @@ export type SearchHistoryEntry = {
   resultCount: number
 }
 
-const SAVED_KEY = 'from:saved-products'
+const SAVED_KEY = 'discern:saved-products'
 
 function normalizeProductForCurrency(product: Product, currency: string): Product {
   return {
@@ -33,7 +33,7 @@ function normalizeProductsForCurrency(products: Product[], currency: string) {
   return products.map(product => normalizeProductForCurrency(product, currency))
 }
 
-export function useFromChat(initialShopperContext: ShopperContext, initialRates: ExchangeRates) {
+export function useDiscernChat(initialShopperContext: ShopperContext, initialRates: ExchangeRates) {
   const { data: session } = useSession()
   const userEmail = session?.user?.email ?? undefined
 
