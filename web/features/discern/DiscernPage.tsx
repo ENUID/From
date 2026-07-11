@@ -218,10 +218,21 @@ function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: 
   )
 }
 
+// Mark aspect ratio (935×809 source, background removed / cropped tight).
+const MARK_RATIO = 935 / 809
+
 function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
+  const markHeight = Math.round(size * 0.92)
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.25), userSelect: 'none', transition: 'color 2.4s ease' }}>
-      <span style={{ fontFamily: SEASON, fontSize: size, fontWeight: 400, color,
+    <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.22), userSelect: 'none', transition: 'color 2.4s ease' }}>
+      <img
+        src="/discern-mark.png"
+        alt="Discern"
+        width={Math.round(markHeight * MARK_RATIO)}
+        height={markHeight}
+        style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+      />
+      <span style={{ fontFamily: SERIF, fontSize: size, fontWeight: 500, color,
         letterSpacing: '0.01em', lineHeight: 1 }}>
         DISCERN
       </span>
