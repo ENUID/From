@@ -86,7 +86,7 @@ export function useDiscernChat(initialShopperContext: ShopperContext, initialRat
     if (isRemoving) removedSavedIds.current.add(product.id)
     else removedSavedIds.current.delete(product.id)
     if (userEmail && authProof) {
-      toggleConvexSaved({ userEmail, product, authProof })
+      toggleConvexSaved({ userEmail, product, authProof }).catch(() => {})
     }
     setSavedProducts(previous => {
       const normalizedProduct = normalizeProductForCurrency(product, shopperContext.currency)
