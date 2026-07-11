@@ -7,7 +7,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 export const metadata: Metadata = {
-  title: 'Discern — AI Shopping Agent',
+  title: 'Discern | Decide better',
   description: 'Describe what you want to wear. Discern\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
   metadataBase: new URL('https://discern.enuid.com'),
   openGraph: {
