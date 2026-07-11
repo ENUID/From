@@ -1934,6 +1934,15 @@ export default function FromApp({
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
   const updateUserNameMutation = useMutation(api.users.updateUserName)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
+  // Cross-device Fabrics history sync — see convex/stylistSessions.ts. Every
+  // local session change pushes here (when signed in); on mount, any remote
+  // session this device doesn't have gets pulled in to backfill the sidebar.
+  const syncStylistSession = useMutation(api.stylistSessions.upsertStylistSession)
+  const deleteSyncedStylistSession = useMutation(api.stylistSessions.deleteStylistSession)
+  const remoteStylistSessions = useQuery(
+    api.stylistSessions.listStylistSessions,
+    onboardEmail ? { userEmail: onboardEmail } : 'skip'
+  )
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [settingsView, setSettingsView]         = useState<'main' | 'profile'>('main')
   const [profileName, setProfileName]           = useState('')
@@ -2320,12 +2329,27 @@ export default function FromApp({
   function deleteStylistEntry(id: string) {
     setStylistHistory(prev => prev.filter(e => e.id !== id))
     try { localStorage.removeItem(stylistSessionLS(id)) } catch {}
+    if (onboardEmail) {
+      mergedRemoteSessionIds.current.add(id) // don't let the next pull resurrect what was just deleted
+      deleteSyncedStylistSession({ userEmail: onboardEmail, sessionId: id }).catch(() => {})
+    }
     if (stylistSessionId.current === id) {
       setStylistMsgs([])
       stylistSessionId.current = null
     }
   }
-  function renameStylistEntry(id: string, newLabel: string) { setStylistHistory(prev => prev.map(e => e.id === id ? { ...e, label: newLabel } : e)) }
+  function renameStylistEntry(id: string, newLabel: string) {
+    setStylistHistory(prev => prev.map(e => e.id === id ? { ...e, label: newLabel } : e))
+    // The main push effect only fires on stylistMsgs changes, so a rename
+    // alone (no new message) would otherwise sit unsynced until the next
+    // message in that session — push it immediately here instead.
+    if (onboardEmail) {
+      try {
+        const raw = localStorage.getItem(stylistSessionLS(id))
+        if (raw) syncStylistSession({ userEmail: onboardEmail, sessionId: id, label: newLabel, messages: raw }).catch(() => {})
+      } catch {}
+    }
+  }
 
   // Wardrobe attach — the one photo-attach flow. Compresses client-side and
   // lands in the persistent wardrobeImages strip, shown for the whole conversation.
@@ -2778,6 +2802,7 @@ export default function FromApp({
   useEffect(() => {
     const id = stylistSessionId.current
     if (!id || stylistMsgs.length === 0) return
+    let toSync = stylistMsgs
     try {
       localStorage.setItem(stylistSessionLS(id), JSON.stringify(stylistMsgs))
     } catch {
@@ -2786,9 +2811,41 @@ export default function FromApp({
       try {
         const slim = stylistMsgs.map(m => ({ role: m.role, content: m.content }))
         localStorage.setItem(stylistSessionLS(id), JSON.stringify(slim))
+        toSync = slim as StylistMsg[]
       } catch {}
     }
+    // Push to Convex so the same account sees this session on another
+    // device — fire-and-forget, never blocks the local (already-persisted)
+    // experience if the write fails or the shopper isn't signed in.
+    if (onboardEmail) {
+      const label = stylistHistory.find(h => h.id === id)?.label || toSync[0]?.content?.slice(0, 80) || 'Conversation'
+      syncStylistSession({ userEmail: onboardEmail, sessionId: id, label, messages: JSON.stringify(toSync) }).catch(() => {})
+    }
   }, [stylistMsgs])
+
+  // Pull side of cross-device sync: backfill any session Convex has for this
+  // account that this particular device/browser doesn't have locally yet —
+  // e.g. signing into the same account on a new phone or a different
+  // browser. Never overwrites a session already known locally (a remote
+  // write could theoretically be stale versus one still in flight here);
+  // mergedRemoteSessionIds ensures each remote session is only merged once
+  // rather than re-processing the whole list on every render.
+  const mergedRemoteSessionIds = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!remoteStylistSessions || remoteStylistSessions.length === 0) return
+    const missing = remoteStylistSessions.filter(r =>
+      !mergedRemoteSessionIds.current.has(r.sessionId) && !stylistHistory.some(h => h.id === r.sessionId)
+    )
+    if (missing.length === 0) return
+    missing.forEach(r => {
+      mergedRemoteSessionIds.current.add(r.sessionId)
+      try { localStorage.setItem(stylistSessionLS(r.sessionId), r.messages) } catch {}
+    })
+    setStylistHistory(prev => {
+      const additions = missing.map(r => ({ id: r.sessionId, label: r.label, createdAt: r.createdAt }))
+      return [...prev, ...additions].sort((a, b) => b.createdAt - a.createdAt).slice(0, 30)
+    })
+  }, [remoteStylistSessions, stylistHistory])
 
   // Drive the loading phase animation — the whole sequence is budgeted to run
   // stylistLoadingTotalMs total (paced evenly across however many steps

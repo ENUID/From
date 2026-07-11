@@ -1,0 +1,86 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+
+// Cross-device sync for Fabrics conversation threads. Previously these lived
+// only in localStorage (from:stylist-history / from:stylist-session:*), so a
+// shopper signed into the same account on a second device saw none of their
+// history. This mirrors that same per-session shape in Convex — the client
+// keeps localStorage as its fast, offline-first read/write path and layers
+// this on top: pushes each session here after every change (when signed in),
+// and pulls on mount to backfill any sessions this device doesn't have yet.
+
+async function getUserByEmail(ctx: any, email: string) {
+  return ctx.db
+    .query("users")
+    .withIndex("by_email", (q: any) => q.eq("email", email.toLowerCase().trim()))
+    .first();
+}
+
+async function getOrCreateUser(ctx: any, email: string) {
+  const normalized = email.toLowerCase().trim();
+  const existing = await getUserByEmail(ctx, normalized);
+  if (existing) return existing;
+  const id = await ctx.db.insert("users", {
+    email: normalized,
+    role: "buyer",
+    createdAt: Date.now(),
+  });
+  return ctx.db.get(id);
+}
+
+// Most recent 30 sessions, newest first — same cap the client already
+// applies to its own localStorage history list.
+export const listStylistSessions = query({
+  args: { userEmail: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getUserByEmail(ctx, args.userEmail);
+    if (!user) return [];
+    const rows = await ctx.db
+      .query("stylist_sessions")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .collect();
+    return rows
+      .sort((a: any, b: any) => b.updatedAt - a.updatedAt)
+      .slice(0, 30)
+      .map((r: any) => ({ sessionId: r.sessionId, label: r.label, messages: r.messages, createdAt: r.createdAt, updatedAt: r.updatedAt }));
+  },
+});
+
+export const upsertStylistSession = mutation({
+  args: {
+    userEmail: v.string(),
+    sessionId: v.string(),
+    label: v.string(),
+    messages: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getOrCreateUser(ctx, args.userEmail);
+    if (!user) return;
+    const existing = await ctx.db
+      .query("stylist_sessions")
+      .withIndex("by_user_session", (q: any) => q.eq("userId", user._id).eq("sessionId", args.sessionId))
+      .first();
+    const now = Date.now();
+    if (existing) {
+      await ctx.db.patch(existing._id, { label: args.label, messages: args.messages, updatedAt: now });
+    } else {
+      await ctx.db.insert("stylist_sessions", {
+        userId: user._id, sessionId: args.sessionId, label: args.label, messages: args.messages,
+        createdAt: now, updatedAt: now,
+      });
+    }
+  },
+});
+
+export const deleteStylistSession = mutation({
+  args: { userEmail: v.string(), sessionId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getUserByEmail(ctx, args.userEmail);
+    if (!user) return;
+    const existing = await ctx.db
+      .query("stylist_sessions")
+      .withIndex("by_user_session", (q: any) => q.eq("userId", user._id).eq("sessionId", args.sessionId))
+      .first();
+    if (existing) await ctx.db.delete(existing._id);
+  },
+});

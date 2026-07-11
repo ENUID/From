@@ -156,4 +156,20 @@ export default defineSchema({
     order: v.string(),       // JSON array of URLs, on-body shots first
     createdAt: v.number(),
   }).index("by_key", ["key"]),
+
+  // Fabrics conversation threads — previously localStorage-only (from:stylist-
+  // history / from:stylist-session:*), meaning a signed-in shopper's actual
+  // conversations were stuck on whichever device created them. One row per
+  // session, mirroring the client's own per-session localStorage shape
+  // (sessionId is the same id the client already generates), so a device that
+  // signs in with the same account can pull sessions it doesn't have locally.
+  stylist_sessions: defineTable({
+    userId: v.id("users"),
+    sessionId: v.string(),
+    label: v.string(),
+    messages: v.string(),      // JSON-encoded StylistMsg[] — same shape as the localStorage blob
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_user_session", ["userId", "sessionId"]),
 });

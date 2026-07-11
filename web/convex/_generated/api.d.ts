@@ -13,6 +13,7 @@ import type * as qualitySignals from "../qualitySignals.js";
 import type * as searchCache from "../searchCache.js";
 import type * as shop from "../shop.js";
 import type * as stylistMemory from "../stylistMemory.js";
+import type * as stylistSessions from "../stylistSessions.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as tasteProfile from "../tasteProfile.js";
 import type * as users from "../users.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   searchCache: typeof searchCache;
   shop: typeof shop;
   stylistMemory: typeof stylistMemory;
+  stylistSessions: typeof stylistSessions;
   subscriptions: typeof subscriptions;
   tasteProfile: typeof tasteProfile;
   users: typeof users;
