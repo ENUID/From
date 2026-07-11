@@ -25,6 +25,7 @@ const BG2   = "#FFFFFF"   // white (no beige anywhere — separation comes from 
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
+const GEIST = "'Geist', 'DM Sans', system-ui, sans-serif"
 
 // ── One-time localStorage migration: from → discern (the FROM → Discern
 // rebrand) ───────────────────────────────────────────────────────────────────
@@ -229,13 +230,9 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
         height={markSize}
         style={{ display: 'block', objectFit: 'contain', flexShrink: 0, borderRadius: Math.round(markSize * 0.22) }}
       />
-      <span style={{ fontFamily: SERIF, fontSize: size, fontWeight: 500, color,
+      <span style={{ fontFamily: GEIST, fontSize: size, fontWeight: 500, color,
         letterSpacing: '0.01em', lineHeight: 1 }}>
         DISCERN
-      </span>
-      <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.52), fontWeight: 300,
-        letterSpacing: '0.15em', color: 'rgba(44,18,6,0.42)', lineHeight: 1 }}>
-        | BETA
       </span>
     </span>
   )
@@ -3898,12 +3895,12 @@ export default function DiscernApp({
             </div>
 
             <div style={{ fontFamily: SERIF, fontSize: 'clamp(22px,4vw,32px)', fontWeight: 500, color: INK, textAlign: 'center', lineHeight: 1.2, letterSpacing: '-.01em', whiteSpace: 'nowrap' }}>
-              {otpStep === 'code' ? 'Check your email' : 'Dress like you mean it.'}
+              {otpStep === 'code' ? 'Check your email' : 'Decide Better.'}
             </div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: INK3, textAlign: 'center', marginTop: 8, marginBottom: 24, lineHeight: 1.65, whiteSpace: 'pre-line' }}>
               {otpStep === 'code'
                 ? `We sent a 6-digit code to\n${otpEmail}`
-                : "The best-dressed people don't shop the obvious places.\nNeither will you."}
+                : "Describe what you're looking for.\nDiscern helps you decide what to buy."}
             </div>
 
             {authUrlError && (
@@ -3939,7 +3936,7 @@ export default function DiscernApp({
                     setOtpStep('code'); setOtpResendIn(60)
                   } catch (err: any) { setOtpError(err.message) } finally { setOtpSending(false) }
                 }}>
-                  <input type="email" value={otpEmail} placeholder="Email address" onChange={e => setOtpEmail(e.target.value)} autoComplete="email"
+                  <input type="email" value={otpEmail} placeholder="name@email.com" onChange={e => setOtpEmail(e.target.value)} autoComplete="email"
                     style={{ width: '100%', boxSizing: 'border-box', padding: '13px 16px', borderRadius: 12, marginBottom: 12,
                       border: `1px solid ${BRD}`, fontFamily: SANS, fontSize: 14, color: INK, background: BG2, outline: 'none' }} />
                   {otpError && <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 12 }}>{otpError}</div>}
@@ -3994,11 +3991,10 @@ export default function DiscernApp({
             )}
 
             <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, textAlign: 'center', marginTop: 22, lineHeight: 1.7, opacity: 0.75 }}>
-              By continuing you agree to Discern's{' '}
-              <a href="/terms" target="_blank" rel="noopener" style={{ color: INK3, textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms of Service</a>
+              By continuing, you agree to our{' '}
+              <a href="/terms" target="_blank" rel="noopener" style={{ color: INK3, textDecoration: 'underline', textUnderlineOffset: 2 }}>Terms</a>
               {' '}and{' '}
               <a href="/privacy" target="_blank" rel="noopener" style={{ color: INK3, textDecoration: 'underline', textUnderlineOffset: 2 }}>Privacy Policy</a>.
-              <br />We never sell your data or spam your inbox.
             </div>
           </div>
         </div>
