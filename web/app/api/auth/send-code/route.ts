@@ -6,7 +6,7 @@ import { api } from '@/convex/_generated/api'
 
 export const runtime = 'nodejs'
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Discern <noreply@discern.enuid.com>'
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Discern <no-reply@discern.enuid.com>'
 
 function generateCode(): string {
   return String(randomInt(100000, 1000000))
