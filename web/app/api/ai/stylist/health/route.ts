@@ -4,6 +4,7 @@ import {
   CHAT_MODEL, FAST_MODEL, GROQ_DIRECT_SMART_MODEL, GROQ_DIRECT_FAST_MODEL, GROQ_DIRECT_VISION_MODEL, GROQ_DIRECT_CONFIGURED,
   pingOpenRouter, pingGroqDirect,
 } from '@/lib/groq'
+import { CEREBRAS_MODEL, CEREBRAS_CONFIGURED, pingCerebras } from '@/lib/cerebras'
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '@/convex/_generated/api'
 
@@ -37,6 +38,8 @@ export async function GET(req: NextRequest) {
       groq_direct_smart_model: GROQ_DIRECT_SMART_MODEL,
       groq_direct_fast_model: GROQ_DIRECT_FAST_MODEL,
       groq_direct_vision_model: GROQ_DIRECT_VISION_MODEL,
+      cerebras_configured: CEREBRAS_CONFIGURED,
+      cerebras_model: CEREBRAS_MODEL,
     },
   }
 
@@ -94,6 +97,18 @@ export async function GET(req: NextRequest) {
     out.groq_direct_smart = { ok: false, error: 'GROQ_API_KEY not set — fallback not configured' }
     out.groq_direct_fast = { ok: false, error: 'GROQ_API_KEY not set — fallback not configured' }
     out.groq_direct_vision = { ok: false, error: 'GROQ_API_KEY not set — fallback not configured' }
+  }
+
+  // Cerebras test — 4th independent free-tier pool, isolated (no fallback)
+  if (CEREBRAS_CONFIGURED) {
+    try {
+      const r = await pingCerebras()
+      out.cerebras = { ok: true, model: CEREBRAS_MODEL, reply: (r?.content ?? '').slice(0, 60) }
+    } catch (e) {
+      out.cerebras = { ok: false, model: CEREBRAS_MODEL, error: (e as Error).message?.slice(0, 300) ?? 'unknown' }
+    }
+  } else {
+    out.cerebras = { ok: false, error: 'CEREBRAS_API_KEY not set — 4th fallback not configured' }
   }
 
   // Usage summary — trailing 24h and trailing 1h, from the ai_usage events

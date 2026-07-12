@@ -6,6 +6,7 @@ import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabe
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
 import { compileIntent, continueIntent, compiledReplyText, parseBudget } from '@/lib/intentCompiler'
+import { cerebrasChat } from '@/lib/cerebras'
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '@/convex/_generated/api'
 
@@ -244,7 +245,7 @@ async function stylistChat(
   system: string,
   opts?: { max_tokens?: number; temperature?: number },
   useGemini = false
-): Promise<{ role: string; content: string | null }> {
+): Promise<{ role: string; content: string | null; provider: string }> {
   const errors: string[] = []
 
   // Build an ordered list of every provider/model to try. Whatever the routing
@@ -265,19 +266,26 @@ async function stylistChat(
     name: `groq(${model})`,
     run: () => groqChat(messages, system, undefined, { ...opts, model }),
   }))
+  // Cerebras: a 4th free-tier pool, independent of OpenRouter/Gemini/Groq's
+  // caps. Its free tier's 8K context cap comfortably fits the light CHAT_SYSTEM
+  // path (and is worth trying FIRST there — near-instant, huge daily quota),
+  // but may not fit the full heavy SYSTEM prompt + contextBlock, so it only
+  // goes LAST in that chain — a strictly-additive safety net, never a
+  // regression, since a failure here just falls through like any other.
+  const cerebrasAttempt: Attempt = { name: 'cerebras', run: () => cerebrasChat(messages, system, opts) }
 
-  // Preferred provider leads; the other is the safety net behind it.
+  // Preferred provider leads; the rest are the safety net behind it.
   if (useGemini && hasGemini) {
-    attempts.push(geminiAttempt, ...groqAttempts)
+    attempts.push(geminiAttempt, ...groqAttempts, cerebrasAttempt)
   } else {
-    attempts.push(...groqAttempts)
+    attempts.push(cerebrasAttempt, ...groqAttempts)
     if (hasGemini) attempts.push(geminiAttempt)
   }
 
   for (const a of attempts) {
     try {
       const result = await a.run()
-      if (result?.content) return result
+      if (result?.content) return { ...result, provider: a.name }
       errors.push(`${a.name}: empty content`)
     } catch (err) {
       errors.push(`${a.name}: ${(err as Error).message}`)
@@ -919,6 +927,10 @@ export async function POST(req: NextRequest) {
     const images: string[] = Array.isArray(body?.images)
       ? (body.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.startsWith('data:image/') && x.length <= 6_000_000).slice(0, 8)
       : []
+    // Only used by mode:'wardrobe-scan' to persist the scan server-side —
+    // Convex independently re-verifies authProof, this route never trusts it.
+    const userEmail: string | undefined = typeof body?.userEmail === 'string' && body.userEmail.trim() ? body.userEmail.trim() : undefined
+    const authProof = body?.authProof
     const buyerCurrency: string = typeof body?.buyerCurrency === 'string'
       ? body.buyerCurrency.toUpperCase()
       : 'USD'
@@ -936,6 +948,12 @@ export async function POST(req: NextRequest) {
     // Full profile string: "shops for: women | women's sizes: tops M, bottoms 28, shoes 7"
     const shopperProfile: string | undefined = typeof body?.shopperProfile === 'string' && body.shopperProfile.trim()
       ? body.shopperProfile.trim()
+      : undefined
+    // Formatted wardrobe summary from a prior scan (taste_profile.wardrobe,
+    // client-derived same as shopperProfile) — was stored but never actually
+    // reached the prompt before this; see wardrobeBlock below.
+    const shopperWardrobe: string | undefined = typeof body?.shopperWardrobe === 'string' && body.shopperWardrobe.trim()
+      ? body.shopperWardrobe.trim()
       : undefined
     // Structured sizes (not parsed back out of shopperProfile's prose string)
     // — used as a real soft ranking signal in GlobalCatalogService, not just
@@ -1044,7 +1062,35 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         { max_tokens: 1400, temperature: 0.3 }
       )
       const { reply, wardrobeScan } = parseWardrobeToken(raw)
-      return NextResponse.json({ reply, wardrobeScan: wardrobeScan ?? null, comparison: null })
+
+      // Persist the scan so future turns (any conversation, not just this
+      // one) can reference it — see wardrobeBlock below. Best-effort: a
+      // save failure (bad authProof, Convex hiccup) never blocks the
+      // shopper from seeing their scan result this turn.
+      let saved = false
+      if (wardrobeScan && Array.isArray(wardrobeScan.items) && userEmail && authProof && convexUsageClient) {
+        try {
+          await convexUsageClient.mutation(api.tasteProfile.upsertWardrobeAnalysis, {
+            userEmail,
+            wardrobe: {
+              items: wardrobeScan.items.slice(0, 30).map((it: any) => ({
+                type: String(it?.type ?? '').slice(0, 60),
+                color: String(it?.color ?? '').slice(0, 60),
+                style: String(it?.style ?? '').slice(0, 60),
+                occasions: Array.isArray(it?.occasions) ? it.occasions.slice(0, 5).map((o: any) => String(o).slice(0, 40)) : [],
+              })),
+              summary: String(wardrobeScan.summary ?? '').slice(0, 500),
+              gaps: Array.isArray(wardrobeScan.gaps) ? wardrobeScan.gaps.slice(0, 5).map((g: any) => String(g).slice(0, 100)) : [],
+              analyzedAt: Date.now(),
+            },
+            authProof,
+          })
+          saved = true
+        } catch (e) {
+          console.error('[stylist] wardrobe-scan save failed:', e)
+        }
+      }
+      return NextResponse.json({ reply, wardrobeScan: wardrobeScan ?? null, wardrobeSaved: saved, comparison: null })
     }
 
     // ── Instant fast path: deterministic compile for plain garment queries ──
@@ -1163,6 +1209,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     const memoryBlock = memorySummary
       ? `SHOPPER MEMORY (from previous Fabrics sessions):\n${memorySummary}`
       : ''
+    const wardrobeBlock = shopperWardrobe
+      ? `SHOPPER'S KNOWN WARDROBE (from a photo scan Fabrics already did):\n${shopperWardrobe}\nUse this to spot real gaps and avoid recommending near-duplicates of what they already own — reference specific pieces by name when it's genuinely relevant, don't force it into every reply.`
+      : ''
     // Free-tier personalization — saved products + recent searches, available
     // to every shopper (not gated behind memorySummary, which is premium-only).
     const personalLines: string[] = []
@@ -1174,7 +1223,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       personalLines.push(`Recent searches (most recent first): ${recentSearches.map(q => `"${q}"`).join(', ')}. Infer their evolving taste, but follow the CURRENT request first.`)
     }
     const personalizationBlock = personalLines.length > 0 ? `SHOPPER SIGNALS:\n${personalLines.join('\n')}` : ''
-    const contextBlock = [genderBlock, memoryBlock, personalizationBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
+    const contextBlock = [genderBlock, memoryBlock, wardrobeBlock, personalizationBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
 
     let raw = ''
 
@@ -1253,7 +1302,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       try {
         const msg = await stylistChat(messages, combinedSystem, { max_tokens: 1100, temperature: 0.4 }, heavy)
         raw = (msg?.content ?? '').trim()
-        logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: 'openrouter-or-groq', estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: 1100, ok: !!raw })
+        logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: msg.provider, estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: 1100, ok: !!raw })
       } catch (err) {
         logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: 'openrouter-or-groq', estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: 1100, ok: false })
         console.error('[stylist] model call failed:', err)

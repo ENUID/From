@@ -1,8 +1,10 @@
 import { groqChat, FAST_MODEL } from '../groq'
+import { cerebrasChat } from '../cerebras'
 import type { UcpProduct } from './GlobalCatalogService'
 import { matchStyles, vocabPromptBlock } from '../styleVocabulary'
 import { decomposeQuery } from '../queryParser'
 import { getRelevanceAdjustment } from './relevanceAdjustments'
+import { readPersistentRerankCache, writePersistentRerankCache } from './persistentRerankCache'
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
 // LLM rerank is ON by default — set RELEVANCE_RERANK=off to disable.
@@ -188,21 +190,33 @@ Return an entry for EVERY index. No trailing text after the closing bracket.`
 
   const userMsg = `Query: "${query}"\n\nProducts:\n${productLines}`
 
+  // groqChat/cerebrasChat both return data.choices[0].message — the message
+  // object itself. Extract .content directly; do not drill into .choices again.
+  const extractContent = (r: any): string | null => {
+    if (typeof r === 'string') return r
+    return typeof r?.content === 'string' ? r.content : null
+  }
+  const withJudgeTimeout = (call: Promise<any>): Promise<string | null> => {
+    const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), TIMEOUT_MS))
+    return Promise.race([call.then(extractContent).catch(() => null), timeout])
+  }
+
   let raw: string | null = null
   try {
-    const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), TIMEOUT_MS))
-    const call = groqChat(
-      [{ role: 'user', content: userMsg }],
-      system,
-      undefined,
-      { temperature: 0, max_tokens: 1600, model: FAST_MODEL },
-    ).then((r: any) => {
-      // groqChat returns data.choices[0].message — the message object itself.
-      // Extract .content directly; do not drill into .choices again.
-      if (typeof r === 'string') return r
-      return typeof r?.content === 'string' ? r.content : null
-    }).catch(() => null)
-    raw = await Promise.race([call, timeout])
+    // Cerebras first — its free tier is a 4th, independent pool from
+    // OpenRouter/Groq-direct, and this prompt (compact per-product lines,
+    // capped RERANK_TOP_N candidates) comfortably fits its 8K free-tier
+    // context cap. Falls through to the existing groqChat judge on any
+    // failure/timeout/empty response — this is a pure addition, the
+    // pre-existing behavior is unchanged when Cerebras is unavailable.
+    raw = await withJudgeTimeout(
+      cerebrasChat([{ role: 'user', content: userMsg }], system, { temperature: 0, max_tokens: 1600 })
+    )
+    if (!raw) {
+      raw = await withJudgeTimeout(
+        groqChat([{ role: 'user', content: userMsg }], system, undefined, { temperature: 0, max_tokens: 1600, model: FAST_MODEL })
+      )
+    }
   } catch {
     return null
   }
@@ -259,23 +273,37 @@ export async function rerankByRelevance(
     return [...topN, ...rest]
   }
 
-  // Cache check
+  // Cache check — in-memory first (fastest, but wiped on every serverless
+  // cold start on Vercel), then the Convex-persisted cache (survives cold
+  // starts, several-hour TTL — this is what actually makes repeat/similar
+  // searches across different shoppers or instances skip the LLM judge
+  // entirely). Either hit applies the exact same reorder-and-attach-scores
+  // logic.
   const key = cacheKey(query, topN)
-  const cached = cache.get(key)
-  if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    const idxMap = new Map(products.map((p, i) => [p.id, i]))
-    const reordered = [...cached.ids]
+  const applyCachedOrder = (ids: string[], scores: Map<string, number>): UcpProduct[] => {
+    const reordered = ids
       .map(id => products.find(p => p.id === id))
       .filter(Boolean) as UcpProduct[]
-    // Attach cached scores
     for (const p of reordered) {
-      const s = cached.scores.get(p.id)
+      const s = scores.get(p.id)
       if (s !== undefined) (p as any).relevance_score = Math.round(s * 100)
     }
-    const seenIds = new Set(cached.ids)
+    const seenIds = new Set(ids)
     const remaining = products.filter(p => !seenIds.has(p.id))
-    void idxMap
     return [...reordered, ...remaining]
+  }
+
+  const cached = cache.get(key)
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return applyCachedOrder(cached.ids, cached.scores)
+  }
+
+  const persisted = await readPersistentRerankCache(key)
+  if (persisted) {
+    // Warm the in-memory cache too, so the next request on this same
+    // instance doesn't pay even the Convex round-trip.
+    cache.set(key, { ts: Date.now(), ids: persisted.ids, scores: persisted.scores })
+    return applyCachedOrder(persisted.ids, persisted.scores)
   }
 
   // Cost guard: if we're over the per-minute LLM budget, serve BM25 order.
@@ -321,6 +349,8 @@ export async function rerankByRelevance(
   const scoreMap = new Map<string, number>()
   for (const { p, final } of blended) scoreMap.set(p.id, final)
   cache.set(key, { ts: Date.now(), ids: reranked.map(p => p.id), scores: scoreMap })
+  // Fire-and-forget — never let the persisted-cache write delay the reply.
+  void writePersistentRerankCache(key, reranked.map(p => p.id), scoreMap)
 
   return [...reranked, ...rest]
 }

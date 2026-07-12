@@ -172,6 +172,23 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_key", ["key"]),
 
+  // Persistent rerank-judge cache — lets relevanceRerank.ts's LLM relevance
+  // scoring survive serverless cold starts, exact same problem/shape as
+  // search_cache above but for the LLM judge's per-product scores instead of
+  // raw catalog results. The in-memory version (relevanceRerank.ts's own
+  // `cache` Map) is wiped on every cold start, so on Vercel it rarely
+  // actually hits; this is the real token-savings mechanism — identical or
+  // near-identical searches across different shoppers/instances stop
+  // re-paying the LLM judge cost. Longer TTL than search_cache (read-time
+  // filtered, no separate expiry cron) since relevance ordering for a given
+  // query+candidate-set is stable over hours, not minutes.
+  rerank_cache: defineTable({
+    key: v.string(),         // hash of query + sorted candidate product ids (relevanceRerank.ts's cacheKey)
+    ids: v.string(),         // JSON-encoded string[] — reranked product id order
+    scores: v.string(),      // JSON-encoded Record<id, number> — final blended 0-1 score
+    createdAt: v.number(),
+  }).index("by_key", ["key"]),
+
   // Vision-classified image ordering — caches the model-shot-first ordering for
   // a product's photo set so the costly vision call runs once per product, ever.
   // Orderings are stable, so there is no TTL; the key is a hash of the URL set.

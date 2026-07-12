@@ -70,6 +70,14 @@ export const upsertTasteProfile = mutation({
   },
 });
 
+// A wardrobe key that treats near-identical items (case/whitespace aside) as
+// the same piece — two scans of the same navy blazer shouldn't produce two
+// rows just because a re-scan phrased "navy" as "Navy" or "smart casual" as
+// "Smart Casual".
+function wardrobeItemKey(item: { type: string; color: string; style: string }): string {
+  return `${item.type} ${item.color} ${item.style}`.toLowerCase().trim()
+}
+
 export const upsertWardrobeAnalysis = mutation({
   args: {
     userEmail: v.string(),
@@ -94,10 +102,35 @@ export const upsertWardrobeAnalysis = mutation({
       .query("taste_profile")
       .withIndex("by_user", (q: any) => q.eq("userId", user._id))
       .first();
+
+    // Merge, don't overwrite — a shopper scanning a second batch of photos
+    // (a different drawer, a different day) should ADD to what Fabrics
+    // knows about their wardrobe, not erase the first scan. Only the
+    // summary (always a fresh, current-state description) and analyzedAt
+    // are replaced wholesale; items/gaps accumulate with de-duplication.
+    const existingWardrobe = (existing as any)?.wardrobe as typeof args.wardrobe | undefined;
+    const mergedItems = existingWardrobe?.items ? [...existingWardrobe.items] : [];
+    const seenItemKeys = new Set(mergedItems.map(wardrobeItemKey));
+    for (const item of args.wardrobe.items) {
+      const key = wardrobeItemKey(item);
+      if (!seenItemKeys.has(key)) { seenItemKeys.add(key); mergedItems.push(item); }
+    }
+    const mergedGaps = Array.from(new Set([
+      ...(existingWardrobe?.gaps ?? []),
+      ...args.wardrobe.gaps,
+    ].map(g => g.trim()).filter(Boolean)));
+
+    const wardrobe = {
+      items: mergedItems.slice(0, 60), // generous cap — a real wardrobe, not an unbounded log
+      summary: args.wardrobe.summary,
+      gaps: mergedGaps.slice(0, 12),
+      analyzedAt: args.wardrobe.analyzedAt,
+    };
+
     if (existing) {
-      await ctx.db.patch(existing._id, { wardrobe: args.wardrobe, updatedAt: Date.now() });
+      await ctx.db.patch(existing._id, { wardrobe, updatedAt: Date.now() });
       return existing._id;
     }
-    return ctx.db.insert("taste_profile", { userId: user._id, wardrobe: args.wardrobe, updatedAt: Date.now() });
+    return ctx.db.insert("taste_profile", { userId: user._id, wardrobe, updatedAt: Date.now() });
   },
 });

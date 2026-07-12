@@ -1946,6 +1946,17 @@ export default function DiscernApp({
     const s = tasteProfileData.sizes as Record<string, string>
     return { tops: s.tops || undefined, bottoms: s.bottoms || undefined, shoes: s.shoes || undefined }
   }, [tasteProfileData])
+  // Formatted wardrobe summary for Fabrics — a prior "Scan my wardrobe" scan
+  // is stored (tasteProfileData.wardrobe) but was never actually threaded
+  // into the prompt; this is the fix. Kept short and prose-formatted, same
+  // discipline as shopperProfileForStylist.
+  const shopperWardrobeForStylist = useMemo(() => {
+    const w = (tasteProfileData as any)?.wardrobe
+    if (!w?.items?.length && !w?.summary) return undefined
+    const itemsLine = (w.items ?? []).slice(0, 20).map((it: any) => `${it.color} ${it.type} (${it.style})`).join(', ')
+    const gapsLine = w.gaps?.length ? `Known gaps: ${w.gaps.join(', ')}.` : ''
+    return [w.summary, itemsLine ? `Owns: ${itemsLine}.` : '', gapsLine].filter(Boolean).join(' ') || undefined
+  }, [tasteProfileData])
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
   const updateUserNameMutation = useMutation(api.users.updateUserName)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
@@ -2340,6 +2351,7 @@ export default function DiscernApp({
   // context, so they can attach what they have and then ask Fabrics to build a
   // full outfit, find what's missing, or style combinations over many turns.
   const [wardrobeImages, setWardrobeImages] = useState<{ url: string }[]>([])
+  const [wardrobeScanBusy, setWardrobeScanBusy] = useState(false)
   const wardrobeFileRef                     = useRef<HTMLInputElement>(null)
   // Products attached to the search bar — sending a query with these opens the stylist.
   const [barProducts, setBarProducts]       = useState<Product[]>([])
@@ -2409,6 +2421,32 @@ export default function DiscernApp({
     if (wardrobeFileRef.current) wardrobeFileRef.current.value = ''
   }
 
+  // Structured wardrobe analysis — distinct from just attaching photos to a
+  // normal chat message (which gets ad-hoc styling advice via the vision
+  // path, but nothing persisted). This calls mode:'wardrobe-scan', which
+  // extracts a structured item list and, when signed in, saves it via
+  // tasteProfile.upsertWardrobeAnalysis so future turns (any conversation,
+  // not just this one) can reference it — see shopperWardrobeForStylist.
+  const scanWardrobe = async () => {
+    if (wardrobeImages.length === 0 || wardrobeScanBusy) return
+    const imgs = wardrobeImages.map(img => img.url)
+    setWardrobeScanBusy(true)
+    setWardrobeImages([])
+    setStylistMsgs(prev => [...prev, { role: 'user', content: 'Scan my wardrobe', images: imgs }])
+    try {
+      const res = await fetch('/api/ai/stylist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'wardrobe-scan', images: imgs, userEmail: onboardEmail, authProof }),
+      })
+      const data = await res.json()
+      setStylistMsgs(prev => [...prev, { role: 'assistant', content: data?.reply || "I couldn't quite make out your wardrobe pieces — try clearer, well-lit photos?" }])
+    } catch {
+      setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong scanning your wardrobe. Please try again.' }])
+    } finally {
+      setWardrobeScanBusy(false)
+    }
+  }
+
   const sendStylist = async (q: string, productsArg?: Product[], historyArg?: StylistMsg[], imagesArg?: { url: string }[]) => {
     const images   = imagesArg ?? []
     const question = q.trim() || (
@@ -2474,6 +2512,7 @@ export default function DiscernApp({
           shopperGender: shopperGenderFromProfile,
           shopperProfile: shopperProfileForStylist,
           shopperSizes: shopperSizesForStylist,
+          shopperWardrobe: shopperWardrobeForStylist,
           // Free-tier personalization — available to every shopper, not just
           // premium (memorySummary is premium-only).
           savedProducts: savedProducts.slice(0, 12).map(p => ({
@@ -5438,6 +5477,15 @@ export default function DiscernApp({
                           </button>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {wardrobeImages.length > 0 && (
+                    <div style={{ padding: '6px 12px 0' }}>
+                      <button type="button" onClick={scanWardrobe} disabled={wardrobeScanBusy}
+                        style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 600, color: INK2, background: 'none', border: 'none',
+                          padding: 0, cursor: wardrobeScanBusy ? 'default' : 'pointer', opacity: wardrobeScanBusy ? .5 : 1, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                        {wardrobeScanBusy ? 'Scanning your wardrobe…' : 'Scan my wardrobe →'}
+                      </button>
                     </div>
                   )}
 
