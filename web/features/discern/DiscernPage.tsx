@@ -150,10 +150,29 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
         style={{ display: 'block', objectFit: 'contain', flexShrink: 0, borderRadius: Math.round(markSize * 0.22) }}
       />
       <span style={{ display: 'flex', alignItems: 'baseline', gap: Math.round(size * 0.2) }}>
-        <span style={{ fontFamily: WORDMARK, fontSize: Math.round(size * 0.95), fontWeight: 200, color,
-          letterSpacing: '0.04em', lineHeight: 1, textTransform: 'uppercase' }}>
-          Discern
-        </span>
+        {(() => {
+          const wordmarkSize = Math.round(size * 0.95)
+          // PP Gatwick only ships Ultralight (200) and Bold (700) here, no
+          // in-between weight file — Ultralight alone reads too thin at
+          // logo size, Bold reads too heavy. -webkit-text-stroke adds a
+          // hairline outline in the same color as the fill, visually
+          // thickening the strokes without switching weight entirely.
+          // Ratio (2.2% of font-size) tuned by rendering this font and the
+          // reference wordmark at matched scale side by side and picking
+          // the stroke width whose stem thickness actually matched, not by
+          // formula alone — a first pass computed from stem/cap-height
+          // measurements (~7%) rendered visibly too bold once tested at
+          // real logo size. Firefox ignores -webkit-text-stroke and shows
+          // unstroked Ultralight, a graceful (if slightly thinner) fallback.
+          const strokeWidth = Math.max(0.5, +(wordmarkSize * 0.022).toFixed(2))
+          return (
+            <span style={{ fontFamily: WORDMARK, fontSize: wordmarkSize, fontWeight: 200, color,
+              letterSpacing: '0.04em', lineHeight: 1,
+              WebkitTextStroke: `${strokeWidth}px ${color}` } as React.CSSProperties}>
+              DISCERN
+            </span>
+          )
+        })()}
         <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.42), fontWeight: 400,
           letterSpacing: '0.08em', color: 'rgba(0,0,0,0.4)', lineHeight: 1,
           position: 'relative', top: Math.round(size * -0.08) }}>
