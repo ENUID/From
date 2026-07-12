@@ -5499,7 +5499,7 @@ export default function DiscernApp({
                     <textarea ref={taRef} className="fr-ta" rows={1}
                       placeholder={inputHint ?? "What are you looking for?"}
                       value={input} onChange={e => setInput(e.target.value)}
-                      onKeyDown={kd} disabled={loading} />
+                      onKeyDown={kd} />
                   </div>
 
                   {/* Row 2: actions */}

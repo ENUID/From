@@ -272,7 +272,15 @@ async function stylistChat(
   // but may not fit the full heavy SYSTEM prompt + contextBlock, so it only
   // goes LAST in that chain — a strictly-additive safety net, never a
   // regression, since a failure here just falls through like any other.
-  const cerebrasAttempt: Attempt = { name: 'cerebras', run: () => cerebrasChat(messages, system, opts) }
+  // On the heavy path specifically, ask gpt-oss-120b to actually reason
+  // (reasoning_effort: 'high') before answering — real styling advice and
+  // outfit construction benefit from depth here, and unlike the reranker's
+  // tight judge timeout, this path already allows a full 25s round trip, so
+  // there's real room for it to think without risking a timeout.
+  const cerebrasAttempt: Attempt = {
+    name: 'cerebras',
+    run: () => cerebrasChat(messages, system, { ...opts, reasoning_effort: useGemini ? 'high' : 'low' }),
+  }
 
   // Preferred provider leads; the rest are the safety net behind it.
   if (useGemini && hasGemini) {

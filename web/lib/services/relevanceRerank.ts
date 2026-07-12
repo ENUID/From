@@ -206,11 +206,15 @@ Return an entry for EVERY index. No trailing text after the closing bracket.`
     // Cerebras first — its free tier is a 4th, independent pool from
     // OpenRouter/Groq-direct, and this prompt (compact per-product lines,
     // capped RERANK_TOP_N candidates) comfortably fits its 8K free-tier
-    // context cap. Falls through to the existing groqChat judge on any
-    // failure/timeout/empty response — this is a pure addition, the
-    // pre-existing behavior is unchanged when Cerebras is unavailable.
+    // context cap. reasoning_effort: 'medium' asks gpt-oss-120b to actually
+    // think through the rubric instead of pattern-matching keywords —
+    // Cerebras' hardware is fast enough that this still has a real shot at
+    // landing inside the judge timeout below. Falls through to the existing
+    // groqChat judge on any failure/timeout/empty response — this is a pure
+    // addition, the pre-existing behavior is unchanged when Cerebras is
+    // unavailable or too slow this particular request.
     raw = await withJudgeTimeout(
-      cerebrasChat([{ role: 'user', content: userMsg }], system, { temperature: 0, max_tokens: 1600 })
+      cerebrasChat([{ role: 'user', content: userMsg }], system, { temperature: 0, max_tokens: 1600, reasoning_effort: 'medium' })
     )
     if (!raw) {
       raw = await withJudgeTimeout(

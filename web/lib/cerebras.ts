@@ -19,9 +19,15 @@
 // (GROQ_DIRECT_SMART_MODEL in lib/groq.ts is the same model family via
 // Groq direct). Native context on Cerebras is 131K, well above what any
 // prompt here needs; the free-tier account cap above still applies
-// regardless of the model chosen. Supports a reasoning_effort param
-// (low/medium/high) if this ever needs tuning — not wired up here since no
-// other provider in this codebase exposes that knob.
+// regardless of the model chosen.
+//
+// gpt-oss-120b supports a standard reasoning_effort param (low/medium/high,
+// defaults to low) that trades latency for deeper chain-of-thought before
+// answering — no other provider in this codebase exposes this knob, so
+// callers opt in explicitly per call site rather than it being a blanket
+// default. Cerebras' wafer-scale hardware is what makes "high" viable at
+// all here — the same setting on a GPU-hosted endpoint would be far too
+// slow for a live request.
 //
 // Requires CEREBRAS_API_KEY (https://cloud.cerebras.ai — free signup, no
 // card). If unset, every call below throws immediately and the caller's
@@ -37,10 +43,17 @@ type CerebrasMessage = {
   name?: string
 }
 
+type CerebrasOpts = {
+  max_tokens?: number
+  temperature?: number
+  model?: string
+  reasoning_effort?: 'low' | 'medium' | 'high'
+}
+
 async function cerebrasCompletion(
   messages: CerebrasMessage[],
   system?: string,
-  opts?: { max_tokens?: number; temperature?: number; model?: string },
+  opts?: CerebrasOpts,
   retryCount = 0,
 ): Promise<any> {
   if (!CEREBRAS_API_KEY) throw new Error('CEREBRAS_API_KEY is not set. Get one at https://cloud.cerebras.ai and add it to .env.local / Vercel.')
@@ -49,12 +62,13 @@ async function cerebrasCompletion(
     ? [{ role: 'system', content: system }, ...messages]
     : messages
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     model: opts?.model ?? CEREBRAS_MODEL,
     messages: allMessages,
     temperature: opts?.temperature ?? 0.1,
     max_tokens: opts?.max_tokens ?? 1200,
   }
+  if (opts?.reasoning_effort) payload.reasoning_effort = opts.reasoning_effort
 
   try {
     const res = await fetch(`${CEREBRAS_BASE}/chat/completions`, {
@@ -99,7 +113,7 @@ async function cerebrasCompletion(
 export async function cerebrasChat(
   messages: CerebrasMessage[],
   system?: string,
-  opts?: { max_tokens?: number; temperature?: number; model?: string },
+  opts?: CerebrasOpts,
 ): Promise<any> {
   return cerebrasCompletion(messages, system, opts)
 }
