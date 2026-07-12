@@ -821,8 +821,12 @@ function ProductMeta({ p, rates, saved, onSave, onOpen, activeColor, onSelectCol
           onClick={e => { e.stopPropagation(); onSave() }}
           style={{ flexShrink: 0, width: 20, height: 20, marginTop: 1, padding: 0, border: 'none', background: 'none',
             cursor: 'pointer', color: INK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            {/* Handle drawn in white when filled — otherwise it's the same
+                color as the solid fill and disappears into a blank blob. */}
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" fill={saved ? 'currentColor' : 'none'} />
+            <line x1="3" y1="6" x2="21" y2="6" stroke={saved ? '#fff' : 'currentColor'} />
+            <path d="M16 10a4 4 0 0 1-8 0" stroke={saved ? '#fff' : 'currentColor'} />
           </svg>
         </button>
       </div>
@@ -2291,7 +2295,7 @@ export default function DiscernApp({
   // separately-ranked group per category instead of one ambiguous combined
   // search. When present, render each group as its own labeled strip instead
   // of the flat foundProducts list.
-  type FoundProductGroup = { label: string; products: Product[] }
+  type FoundProductGroup = { label: string; products: Product[]; query?: string; loadingMore?: boolean; hasNoMore?: boolean }
   // foundProductBatches sizes each row — chunked into groups of PRODUCTS_PER_ROW
   // (13) via chunkIntoRows, e.g. a 52-result fetch becomes [13, 13, 13, 13] — so
   // the flat foundProducts list renders as several short rows instead of one
@@ -2575,7 +2579,7 @@ export default function DiscernApp({
         const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
         const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? dedupeById(data.foundProducts.map(withCur)) : []
         const foundProductGroups: FoundProductGroup[] | undefined = Array.isArray(data.foundProductGroups) && data.foundProductGroups.length > 0
-          ? data.foundProductGroups.map((g: any) => ({ label: g.label, products: Array.isArray(g.products) ? dedupeById(g.products.map(withCur)) : [] })).filter((g: FoundProductGroup) => g.products.length > 0)
+          ? data.foundProductGroups.map((g: any) => ({ label: g.label, products: Array.isArray(g.products) ? dedupeById(g.products.map(withCur)) : [], query: typeof g.query === 'string' ? g.query : undefined })).filter((g: FoundProductGroup) => g.products.length > 0)
           : undefined
         const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0
           ? data.outfitSlots.map((s: any) => ({ ...s, products: Array.isArray(s.products) ? s.products.map(withCur) : s.products }))
@@ -2682,6 +2686,61 @@ export default function DiscernApp({
     }
   }
 
+  // Same "See more" mechanic as loadMoreStylistProducts, scoped to one
+  // category strip of a multi-category reply (e.g. "shirts and shorts" —
+  // the Tops strip and the Bottoms strip each get their own reasoned
+  // "See more" using that group's own category-scoped query, not the
+  // flat foundProducts field those messages don't have).
+  const loadMoreGroupProducts = async (messageIndex: number, groupIndex: number) => {
+    const msg = stylistMsgs[messageIndex]
+    const group = msg?.foundProductGroups?.[groupIndex]
+    if (!group || !group.query || group.loadingMore || group.hasNoMore) return
+    setStylistMsgs(prev => prev.map((m, i) => {
+      if (i !== messageIndex || !m.foundProductGroups) return m
+      return { ...m, foundProductGroups: m.foundProductGroups.map((g, gi) => gi === groupIndex ? { ...g, loadingMore: true } : g) }
+    }))
+    setLoadMoreStep(0)
+    const stepTimer = window.setInterval(() => {
+      setLoadMoreStep(s => Math.min(s + 1, LOAD_MORE_PHASES.length - 1))
+    }, STYLIST_STEP_INTERVAL_MS)
+    const startedAt = Date.now()
+    try {
+      const excludeIds = group.products.map(p => p.id)
+      const res = await fetch('/api/ai/stylist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'load-more', query: group.query, excludeIds,
+          buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country,
+        }),
+      })
+      const data = await res.json()
+      const elapsed = Date.now() - startedAt
+      if (elapsed < STYLIST_FLICKER_GUARD_MS) await new Promise(r => setTimeout(r, STYLIST_FLICKER_GUARD_MS - elapsed))
+      const displayCur = shopperContext.currency || 'USD'
+      const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
+      const fresh: Product[] = Array.isArray(data?.foundProducts) ? dedupeById(data.foundProducts.map(withCur)) : []
+      setStylistMsgs(prev => prev.map((m, i) => {
+        if (i !== messageIndex || !m.foundProductGroups) return m
+        return {
+          ...m,
+          foundProductGroups: m.foundProductGroups.map((g, gi) => {
+            if (gi !== groupIndex) return g
+            const existingIds = new Set(g.products.map(p => p.id))
+            const uniqueNew = fresh.filter(p => !existingIds.has(p.id))
+            return { ...g, products: [...g.products, ...uniqueNew], loadingMore: false, hasNoMore: uniqueNew.length === 0 }
+          }),
+        }
+      }))
+    } catch {
+      setStylistMsgs(prev => prev.map((m, i) => {
+        if (i !== messageIndex || !m.foundProductGroups) return m
+        return { ...m, foundProductGroups: m.foundProductGroups.map((g, gi) => gi === groupIndex ? { ...g, loadingMore: false } : g) }
+      }))
+    } finally {
+      window.clearInterval(stepTimer)
+    }
+  }
+
   // Shared "Found for you" product card — used both by the flat single-search
   // strip and by each labeled group when a request spans multiple categories
   // (foundProductGroups). Identical markup either way, so the two render
@@ -2712,8 +2771,10 @@ export default function DiscernApp({
                 not saved, filled when saved) — a "+" here read as ambiguous
                 (add to list? follow?) where a bag icon reads as exactly what
                 the action does, and matches the app's own "Bag it" language. */}
-            <svg width="13" height="13" viewBox="0 0 24 24" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" fill={isSaved ? 'currentColor' : 'none'} />
+              <line x1="3" y1="6" x2="21" y2="6" stroke={isSaved ? '#fff' : 'currentColor'} />
+              <path d="M16 10a4 4 0 0 1-8 0" stroke={isSaved ? '#fff' : 'currentColor'} />
             </svg>
           </button>
         </div>
@@ -5258,6 +5319,23 @@ export default function DiscernApp({
                             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
                               {group.products.map(p => renderFoundProductCard(p, m.searchQuery))}
                             </div>
+                            {group.query && !group.hasNoMore && (
+                              group.loadingMore ? (
+                                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 2px' }}>
+                                  <div className="fr-step-active" style={{ position: 'relative', width: 20, height: 20, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
+                                    <StylistStepIcon icon={LOAD_MORE_PHASES[loadMoreStep].icon} size={11} />
+                                  </div>
+                                  <span style={{ fontFamily: SANS, fontSize: 12, color: INK2 }}>{LOAD_MORE_PHASES[loadMoreStep].label}</span>
+                                </div>
+                              ) : (
+                                <button type="button" onClick={() => loadMoreGroupProducts(i, gi)}
+                                  style={{ marginTop: 10, width: '100%', padding: '9px', borderRadius: 10, border: `1px solid ${BRD}`,
+                                    background: 'transparent', fontFamily: SANS, fontSize: 11.5, fontWeight: 500, letterSpacing: '.04em',
+                                    textTransform: 'uppercase', color: INK2, cursor: 'pointer' }}>
+                                  See more {group.label.toLowerCase()}
+                                </button>
+                              )
+                            )}
                           </div>
                         ))}
                       </div>
@@ -5357,8 +5435,10 @@ export default function DiscernApp({
                                     style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
                                       background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
                                       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" fill={isSaved ? 'currentColor' : 'none'} />
+                                      <line x1="3" y1="6" x2="21" y2="6" stroke={isSaved ? '#fff' : 'currentColor'} />
+                                      <path d="M16 10a4 4 0 0 1-8 0" stroke={isSaved ? '#fff' : 'currentColor'} />
                                     </svg>
                                   </button>
                                 </div>
@@ -6282,27 +6362,6 @@ export default function DiscernApp({
                   <FabricsIcon size={14} stroke="rgba(60,60,67,0.6)" strokeWidth={1.05}/>
                 </div>
 
-                <div style={{ height: '0.5px', background: 'rgba(60,60,67,0.15)', position: 'relative', zIndex: 1 }} />
-
-                {/* Bag it / In your bag */}
-                <div onClick={() => {
-                    if (Date.now() - ctxMenuOpenAt.current < 350) return
-                    toggleSaved(productCtxMenu.product)
-                    setProductCtxMenu(null)
-                  }}
-                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer', gap: 8,
-                    fontFamily: '-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
-                    fontSize: 14, fontWeight: 400, color: '#1C1C1E' }}
-                  onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
-                  onPointerUp={e => (e.currentTarget.style.background = '')}
-                  onPointerLeave={e => (e.currentTarget.style.background = '')}>
-                  <span>{savedIds.has(productCtxMenu.product.id) ? 'In your bag ✓' : 'Bag it!'}</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill={savedIds.has(productCtxMenu.product.id) ? 'rgba(60,60,67,0.6)' : 'none'} stroke="rgba(60,60,67,0.6)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
-                  </svg>
-                </div>
-
               </div>
             </>
           )}
@@ -6397,8 +6456,10 @@ export default function DiscernApp({
                           </h2>
                           <button onClick={() => toggleSaved(selectedProduct)} aria-label={savedIds.has(selectedProduct.id) ? 'In your bag' : 'Bag it'}
                             style={{ background: 'transparent', border: 'none', padding: '2px 4px', cursor: 'pointer', flexShrink: 0, marginTop: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                            <svg width="19" height="19" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : 'none'} stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" fill={savedIds.has(selectedProduct.id) ? INK : 'none'} />
+                              <line x1="3" y1="6" x2="21" y2="6" stroke={savedIds.has(selectedProduct.id) ? '#fff' : INK} />
+                              <path d="M16 10a4 4 0 0 1-8 0" stroke={savedIds.has(selectedProduct.id) ? '#fff' : INK} />
                             </svg>
                             <span style={{ fontFamily: SANS, fontSize: 8.5, letterSpacing: '.09em', textTransform: 'uppercase', color: INK, lineHeight: 1 }}>
                               {savedIds.has(selectedProduct.id) ? 'Bagged' : 'Bag it'}
@@ -6626,8 +6687,10 @@ export default function DiscernApp({
                         </h2>
                         <button onClick={() => toggleSaved(selectedProduct)} aria-label={savedIds.has(selectedProduct.id) ? 'In your bag' : 'Bag it'}
                           style={{ background: "transparent", border: "none", padding: "2px 4px", cursor: "pointer", flexShrink: 0, marginTop: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                          <svg width="21" height="21" viewBox="0 0 24 24" fill={savedIds.has(selectedProduct.id) ? INK : "none"} stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+                          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" fill={savedIds.has(selectedProduct.id) ? INK : "none"} />
+                            <line x1="3" y1="6" x2="21" y2="6" stroke={savedIds.has(selectedProduct.id) ? '#fff' : INK} />
+                            <path d="M16 10a4 4 0 0 1-8 0" stroke={savedIds.has(selectedProduct.id) ? '#fff' : INK} />
                           </svg>
                           <span style={{ fontFamily: SANS, fontSize: 8.5, letterSpacing: ".09em", textTransform: "uppercase", color: INK, lineHeight: 1 }}>
                             {savedIds.has(selectedProduct.id) ? 'Bagged' : 'Bag it'}

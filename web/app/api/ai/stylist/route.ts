@@ -112,7 +112,7 @@ async function multiCategorySearch(
   buyerCurrency: string,
   memorySummary: string | undefined,
   preferredSize: string | null | undefined,
-): Promise<{ label: string; products: any[] }[] | null> {
+): Promise<{ label: string; products: any[]; query: string }[] | null> {
   const { garmentKeys } = decomposeQuery(fullQuery)
   // Group by SlotCategory (not by individual garment key) — "shirts and
   // t-shirts" is one "Tops" strip, not two identically-labeled ones. Every
@@ -162,10 +162,13 @@ async function multiCategorySearch(
         )
         const filtered = found.filter(p => productMatchesSlot(p, cat as any))
         const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, capFor(i))
-        return { label: slotLabelFor(cat as any), products: chosen }
+        // subQuery (not fullQuery) is what "See more" on this specific group
+        // re-runs, category-scoped, on the frontend — same reasoning as why
+        // rerankQuery uses it above.
+        return { label: slotLabelFor(cat as any), products: chosen, query: subQuery }
       } catch (e) {
         console.error('[stylist] multi-category search error:', e)
-        return { label: slotLabelFor(cat as any), products: [] }
+        return { label: slotLabelFor(cat as any), products: [], query: subQuery }
       }
     })
   )
@@ -1411,7 +1414,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     const outfitQueries = rawOutfitQueries?.map(q => applyGenderDefault(q))
 
     let foundProducts: any[] | null = null
-    let foundProductGroups: { label: string; products: any[] }[] | null = null
+    let foundProductGroups: { label: string; products: any[]; query: string }[] | null = null
     let reply2 = reply
     if (searchQuery) {
       try {
