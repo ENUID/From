@@ -14,12 +14,21 @@
 // so there's no speed reason to prefer a smaller model here the way there
 // might be on GPU-hosted providers.
 //
+// Default model: gpt-oss-120b — OpenAI's open-weight reasoning model,
+// already the trusted "smart tier" choice elsewhere in this codebase
+// (GROQ_DIRECT_SMART_MODEL in lib/groq.ts is the same model family via
+// Groq direct). Native context on Cerebras is 131K, well above what any
+// prompt here needs; the free-tier account cap above still applies
+// regardless of the model chosen. Supports a reasoning_effort param
+// (low/medium/high) if this ever needs tuning — not wired up here since no
+// other provider in this codebase exposes that knob.
+//
 // Requires CEREBRAS_API_KEY (https://cloud.cerebras.ai — free signup, no
 // card). If unset, every call below throws immediately and the caller's
 // existing fallback loop just moves on to the next provider.
 const CEREBRAS_BASE = process.env.CEREBRAS_BASE_URL ?? 'https://api.cerebras.ai/v1'
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY ?? ''
-export const CEREBRAS_MODEL = process.env.CEREBRAS_MODEL ?? 'llama-3.3-70b'
+export const CEREBRAS_MODEL = process.env.CEREBRAS_MODEL ?? 'gpt-oss-120b'
 export const CEREBRAS_CONFIGURED = !!CEREBRAS_API_KEY
 
 type CerebrasMessage = {
