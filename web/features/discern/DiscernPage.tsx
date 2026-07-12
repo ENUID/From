@@ -2270,7 +2270,8 @@ export default function DiscernApp({
   // (13) via chunkIntoRows, e.g. a 52-result fetch becomes [13, 13, 13, 13] — so
   // the flat foundProducts list renders as several short rows instead of one
   // long horizontally-scrolling line that keeps growing sideways forever.
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
+  type StylistUnderstood = { bullets: string[]; rationale: string }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean; understood?: StylistUnderstood }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   // Guards against a shape mismatch from a pre-migration localStorage payload
   // (this app went through a chat-format architecture change) crashing the
@@ -2523,6 +2524,10 @@ export default function DiscernApp({
         const displayCur = shopperContext.currency || 'USD'
         const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
         const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? dedupeById(data.foundProducts.map(withCur)) : []
+        const understood: StylistUnderstood | undefined =
+          data.understood && Array.isArray(data.understood.bullets) && data.understood.bullets.length > 0 && typeof data.understood.rationale === 'string'
+            ? { bullets: data.understood.bullets.slice(0, 5), rationale: data.understood.rationale }
+            : undefined
         const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0
           ? data.outfitSlots.map((s: any) => ({ ...s, products: Array.isArray(s.products) ? s.products.map(withCur) : s.products }))
           : undefined
@@ -2530,7 +2535,7 @@ export default function DiscernApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductBatches: newProducts.length > 0 ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductBatches: newProducts.length > 0 ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, understood }])
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
           fetch('/api/ai/stylist-memory', {
@@ -5109,6 +5114,21 @@ export default function DiscernApp({
                             <strong style={{ fontWeight: 600 }}>{stylistProducts[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
                           </div>
                         )}
+                      </div>
+                    )}
+                    {m.role === 'assistant' && m.understood && (
+                      <div style={{ marginTop: 14, width: '100%' }}>
+                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>You want</div>
+                        <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                          {m.understood.bullets.map((b, bi) => (
+                            <li key={bi} style={{ fontFamily: SANS, fontSize: 13.5, color: INK, lineHeight: 1.7, display: 'flex', gap: 8 }}>
+                              <span style={{ color: INK3 }}>•</span>{b}
+                            </li>
+                          ))}
+                        </ul>
+                        <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 14.5, color: INK2, marginTop: 10, lineHeight: 1.55 }}>
+                          {m.understood.rationale}
+                        </div>
                       </div>
                     )}
                     {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (

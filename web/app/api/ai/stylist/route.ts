@@ -238,6 +238,15 @@ type Comparison = {
   pick?: { index: number; reason: string }
 }
 
+// "Decision Engine" framing shown above a set of found products: a short
+// bulleted read-back of what the shopper asked for, plus one sentence on
+// the filtering logic behind the picks. Optional — only emitted alongside
+// [SEARCH:]/[OUTFIT:], never for chitchat or a plain comparison reply.
+type Understood = {
+  bullets: string[]
+  rationale: string
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function enrichHistory(messages: StylistMessage[]): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
   const out: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = []
@@ -570,6 +579,15 @@ Examples:
 "Find me something for a summer wedding" → "Linen is the move breathable and elegant." [SEARCH: men linen summer trousers]
 "Do you have anything from Our Legacy?" → "Their box-fit shirting is a quiet flex." [SEARCH: Our Legacy shirt]
 
+━━━ SHOWING YOUR REASONING (accompanies [SEARCH:] or [OUTFIT:] only) ━━━
+Whenever you emit [SEARCH:] or [OUTFIT:] for a real, specific request (not a vague "show me options"), also emit ONE [UNDERSTOOD: {...}] token, placed immediately before the [SEARCH:]/[OUTFIT:] token:
+[UNDERSTOOD: {"bullets":["Minimalist aesthetic","Everyday wear","Premium quality","Budget under $200","White leather sneakers"],"rationale":"I prioritized full-grain leather, versatile silhouettes, and comfort for daily wear, and favored brands with consistently high construction quality. I excluded trend-driven designs and anything with a track record of poor durability."}]
+Rules:
+• "bullets": 3-5 short phrases (≤6 words each) naming what you understood from the request — aesthetic, use-case, quality tier, budget, key attribute. Not full sentences.
+• "rationale": exactly 1-2 sentences explaining the filtering logic behind what you're about to show — what you prioritized, what you deliberately excluded. This is NOT the same as your opening reply sentence; write it fresh, focused purely on the selection logic.
+• Never emit [UNDERSTOOD:] without a [SEARCH:] or [OUTFIT:] in the same reply. Never emit it for chitchat, a comparison-only reply, or when just discussing products already shown.
+• Output it once, and only once, per reply.
+
 ━━━ VISUAL COMPARISON (2+ products, comparison/choice question only) ━━━
 After your text reply, output ONE comparison block at the very end, nothing after it:
 [COMPARE: {"rows":[{"label":"Price","values":["£40","£95"]},{"label":"Material","values":["Cotton","Linen"]}],"pick":{"index":1,"reason":"Better quality for the price"}}]
@@ -692,6 +710,48 @@ The shopper often shares pieces they already own (their wardrobe) and asks you t
    [OUTFIT: men dark navy slim trousers | men tan leather loafers | men camel unstructured wool blazer]
 4. In the sentences before the token, name WHY each piece works colour temperature, formality match, proportion. The pieces must combine into ONE cohesive look, not a random list.
 Use [OUTFIT: ...] (not [SEARCH: ...]) whenever they want a complete outfit or multiple complementary pieces; use [SEARCH: ...] only for a single item. Never output both tokens.`
+
+// ── Understood token ─────────────────────────────────────────────────────────
+// Mirrors [COMPARE:]'s brace-matching extraction below — pulled out of the
+// raw model output BEFORE parseReply/parseSearchToken/parseOutfitToken run,
+// so it never fights with those parsers over token boundaries.
+function parseUnderstoodToken(raw: string): { reply: string; understood?: Understood } {
+  const start = raw.indexOf('[UNDERSTOOD:')
+  if (start === -1) return { reply: raw }
+
+  let depth = 0
+  let jsonStart = -1
+  let jsonEnd = -1
+  for (let i = start + 12; i < raw.length; i++) {
+    const ch = raw[i]
+    if (ch === '{') {
+      if (jsonStart === -1) jsonStart = i
+      depth++
+    } else if (ch === '}') {
+      depth--
+      if (depth === 0) { jsonEnd = i; break }
+    }
+  }
+
+  const blockEnd = jsonEnd !== -1 ? raw.indexOf(']', jsonEnd) + 1 : raw.length
+  const replyText = (raw.slice(0, start) + raw.slice(blockEnd)).replace(/\s+$/, '').trim() || raw.trim()
+
+  if (jsonStart === -1 || jsonEnd === -1) return { reply: replyText }
+
+  try {
+    const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1))
+    if (Array.isArray(parsed?.bullets) && parsed.bullets.length > 0 && typeof parsed?.rationale === 'string') {
+      const bullets = parsed.bullets
+        .filter((b: any) => typeof b === 'string' && b.trim())
+        .slice(0, 5)
+        .map((b: string) => b.trim().slice(0, 60))
+      if (bullets.length > 0) {
+        return { reply: replyText, understood: { bullets, rationale: parsed.rationale.trim().slice(0, 300) } }
+      }
+    }
+  } catch {}
+  return { reply: replyText }
+}
 
 // ── Parse reply ─────────────────────────────────────────────────────────────
 function parseReply(raw: string): { reply: string; comparison?: Comparison } {
@@ -1180,7 +1240,8 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
 
     if (!raw) return NextResponse.json({ reply: "I missed that one, sorry. Try again?", comparison: null })
 
-    const { reply: replyWithSearch, comparison } = parseReply(raw)
+    const { reply: rawWithoutUnderstood, understood } = parseUnderstoodToken(raw)
+    const { reply: replyWithSearch, comparison } = parseReply(rawWithoutUnderstood)
     const { reply: replyWithOutfit, searchQuery: rawSearchQuery } = parseSearchToken(replyWithSearch)
     const { reply, outfitQueries: rawOutfitQueries } = parseOutfitToken(replyWithOutfit)
     // Deterministic safety net: if the model forgot to gender the query
@@ -1327,7 +1388,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       }
     }
 
-    return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, outfitSlots, searchQuery: searchQuery || undefined })
+    return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, outfitSlots, searchQuery: searchQuery || undefined, understood: understood ?? null })
   } catch (e) {
     console.error('[stylist] error:', e)
     if (isRateLimited(e)) {
