@@ -157,17 +157,18 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
           // logo size, Bold reads too heavy. -webkit-text-stroke adds a
           // hairline outline in the same color as the fill, visually
           // thickening the strokes without switching weight entirely.
-          // Ratio (2.2% of font-size) tuned by rendering this font and the
-          // reference wordmark at matched scale side by side and picking
-          // the stroke width whose stem thickness actually matched, not by
-          // formula alone — a first pass computed from stem/cap-height
-          // measurements (~7%) rendered visibly too bold once tested at
-          // real logo size. Firefox ignores -webkit-text-stroke and shows
-          // unstroked Ultralight, a graceful (if slightly thinner) fallback.
-          const strokeWidth = Math.max(0.5, +(wordmarkSize * 0.022).toFixed(2))
+          // A ratio tuned in desktop Chromium (2.2%, ~0.6px at this size)
+          // still read visibly thinner than the reference once checked on
+          // a real device (iOS Safari) — sub-1px stroke widths round/
+          // antialias less faithfully there than in a desktop headless
+          // browser. Bumped up with a firmer minimum so it holds its
+          // weight across engines; WebkitFontSmoothing keeps it crisp
+          // instead of blurry-thin. Firefox ignores -webkit-text-stroke and
+          // shows unstroked Ultralight, a graceful (if thinner) fallback.
+          const strokeWidth = Math.max(0.9, +(wordmarkSize * 0.038).toFixed(2))
           return (
             <span style={{ fontFamily: WORDMARK, fontSize: wordmarkSize, fontWeight: 200, color,
-              letterSpacing: '0.04em', lineHeight: 1,
+              letterSpacing: '0.04em', lineHeight: 1, WebkitFontSmoothing: 'antialiased',
               WebkitTextStroke: `${strokeWidth}px ${color}` } as React.CSSProperties}>
               DISCERN
             </span>
