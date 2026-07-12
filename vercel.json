@@ -5,7 +5,8 @@
   "installCommand": "npm install",
   "crons": [
     { "path": "/api/cron/brand-health", "schedule": "0 8 * * *" },
-    { "path": "/api/cron/style-signals", "schedule": "0 6 */2 * *" }
+    { "path": "/api/cron/style-signals", "schedule": "0 6 */2 * *" },
+    { "path": "/api/cron/quality-feedback", "schedule": "30 5 * * *" }
   ],
   "redirects": [
     {

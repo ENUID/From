@@ -469,7 +469,7 @@ export function augmentConcepts(llmConcepts: string[][], query: string): string[
 // search returned actually IS that category, and (c) label it correctly.
 export type SlotCategory = 'top' | 'bottom' | 'outer' | 'dress' | 'shoes' | 'accessory'
 
-const GARMENT_CATEGORY: Record<string, SlotCategory> = {
+export const GARMENT_CATEGORY: Record<string, SlotCategory> = {
   shirt: 'top', tshirt: 'top', blouse: 'top', polo: 'top', tank: 'top',
   sweater: 'top', hoodie: 'top', cardigan: 'top',
   trouser: 'bottom', jean: 'bottom', chino: 'bottom', short: 'bottom',

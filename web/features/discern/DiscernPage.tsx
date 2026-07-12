@@ -1949,6 +1949,10 @@ export default function DiscernApp({
   const upsertProfile = useMutation(api.tasteProfile.upsertTasteProfile)
   const updateUserNameMutation = useMutation(api.users.updateUserName)
   const flagQualitySignal = useMutation(api.qualitySignals.flagResult)
+  // Feeds the quality-feedback cron (relevance demotion) and the style-signals
+  // trend cron — both read search_history, which had zero live writers before
+  // this. Fire-and-forget, matching flagQualitySignal's pattern.
+  const saveSearchHistoryMutation = useMutation(api.shop.saveSearchHistory)
   // Cross-device Fabrics history sync — see convex/stylistSessions.ts. Every
   // local session change pushes here (when signed in); on mount, any remote
   // session this device doesn't have gets pulled in to backfill the sidebar.
@@ -2236,11 +2240,18 @@ export default function DiscernApp({
   // ── Stylist sheet — conversational AI over specific product(s) ──────────────
   type StylistComparison = { rows: { label: string; values: string[] }[]; pick?: { index: number; reason: string } }
   type OutfitSlot = { query: string; slotCategory?: string | null; products: Product[] }
+  // A single request can name 2+ distinct garment categories at once ("shirts
+  // and shorts") without asking for one coordinated outfit — the backend
+  // (multiCategorySearch in stylist/route.ts) splits that into one curated,
+  // separately-ranked group per category instead of one ambiguous combined
+  // search. When present, render each group as its own labeled strip instead
+  // of the flat foundProducts list.
+  type FoundProductGroup = { label: string; products: Product[] }
   // foundProductBatches sizes each row — chunked into groups of PRODUCTS_PER_ROW
   // (13) via chunkIntoRows, e.g. a 52-result fetch becomes [13, 13, 13, 13] — so
   // the flat foundProducts list renders as several short rows instead of one
   // long horizontally-scrolling line that keeps growing sideways forever.
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductGroups?: FoundProductGroup[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   // Guards against a shape mismatch from a pre-migration localStorage payload
   // (this app went through a chat-format architecture change) crashing the
@@ -2493,6 +2504,9 @@ export default function DiscernApp({
         const displayCur = shopperContext.currency || 'USD'
         const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
         const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? dedupeById(data.foundProducts.map(withCur)) : []
+        const foundProductGroups: FoundProductGroup[] | undefined = Array.isArray(data.foundProductGroups) && data.foundProductGroups.length > 0
+          ? data.foundProductGroups.map((g: any) => ({ label: g.label, products: Array.isArray(g.products) ? dedupeById(g.products.map(withCur)) : [] })).filter((g: FoundProductGroup) => g.products.length > 0)
+          : undefined
         const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0
           ? data.outfitSlots.map((s: any) => ({ ...s, products: Array.isArray(s.products) ? s.products.map(withCur) : s.products }))
           : undefined
@@ -2500,7 +2514,10 @@ export default function DiscernApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductBatches: newProducts.length > 0 ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined }])
+        if (typeof data.searchQuery === 'string' && data.searchQuery.trim() && onboardEmail && authProof) {
+          saveSearchHistoryMutation({ userEmail: onboardEmail, query: data.searchQuery.trim(), resultCount: newProducts.length, authProof }).catch(() => {})
+        }
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
           fetch('/api/ai/stylist-memory', {
@@ -2579,6 +2596,52 @@ export default function DiscernApp({
     } catch {
       setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: false } : m))
     }
+  }
+
+  // Shared "Found for you" product card — used both by the flat single-search
+  // strip and by each labeled group when a request spans multiple categories
+  // (foundProductGroups). Identical markup either way, so the two render
+  // paths never visually drift apart.
+  function renderFoundProductCard(p: Product, saveQuery?: string) {
+    const { colors: pc } = displaySwatches(p)
+    const isSaved = savedIds.has(p.id)
+    return (
+      <div key={p.id} onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+        {...makePressHandlers((x, y) => {
+          productWasLong.current = true
+          const menuW = 200; const menuH = 160
+          const above = y + 8 + menuH > window.innerHeight
+          const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+          const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
+          ctxMenuOpenAt.current = Date.now()
+          setProductCtxMenu({ product: p, x: mx, y: my, above })
+        })}
+        style={{ flexShrink: 0, width: 140, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
+        <div style={{ width: 140, height: 224, borderRadius: 12, overflow: 'hidden', background: BG2, position: 'relative' }}>
+          {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+          <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
+            onClick={e => { e.stopPropagation(); toggleSaved(p, saveQuery) }}
+            style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
+              background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
+            {isSaved ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            )}
+          </button>
+        </div>
+        <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, color: INK, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+        {pc.length > 0 && (
+          <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
+            {pc.slice(0, 5).map(c => (
+              <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={10} shape="square" selected={false} available={true} />
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   // Glass interaction states
@@ -5065,7 +5128,22 @@ export default function DiscernApp({
                         )}
                       </div>
                     )}
-                    {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (
+                    {m.role === 'assistant' && m.foundProductGroups && m.foundProductGroups.length > 0 && (
+                      <div style={{ marginTop: 10, width: '100%' }}>
+                        {/* One labeled strip per requested category (e.g. "shirts and
+                            shorts" → Tops, then Bottoms) — each already the curated
+                            best-of-best for that category, not the flat combined list. */}
+                        {m.foundProductGroups.map((group, gi) => (
+                          <div key={gi} style={{ marginTop: gi > 0 ? 14 : 0 }}>
+                            <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>{group.label}</div>
+                            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
+                              {group.products.map(p => renderFoundProductCard(p, m.searchQuery))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {m.role === 'assistant' && !m.foundProductGroups && m.foundProducts && m.foundProducts.length > 0 && (
                       <div style={{ marginTop: 10, width: '100%' }}>
                         <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Found for you</div>
                         {/* One row per "See more" batch — each fetch lands on its own
@@ -5082,47 +5160,7 @@ export default function DiscernApp({
                           }
                           return rows.map((row, ri) => (
                             <div key={ri} style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2, marginTop: ri > 0 ? 10 : 0 } as React.CSSProperties}>
-                              {row.map(p => {
-                                const { colors: pc } = displaySwatches(p)
-                                const isSaved = savedIds.has(p.id)
-                                return (
-                                  <div key={p.id} onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
-                                    {...makePressHandlers((x, y) => {
-                                      productWasLong.current = true
-                                      const menuW = 200; const menuH = 160
-                                      const above = y + 8 + menuH > window.innerHeight
-                                      const my = Math.max(8, above ? y - menuH - 4 : y + 8)
-                                      const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
-                                      ctxMenuOpenAt.current = Date.now()
-                                      setProductCtxMenu({ product: p, x: mx, y: my, above })
-                                    })}
-                                    style={{ flexShrink: 0, width: 140, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
-                                    <div style={{ width: 140, height: 224, borderRadius: 12, overflow: 'hidden', background: BG2, position: 'relative' }}>
-                                      {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                      <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
-                                        onClick={e => { e.stopPropagation(); toggleSaved(p) }}
-                                        style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
-                                          background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
-                                          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
-                                        {isSaved ? (
-                                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                                        ) : (
-                                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                                        )}
-                                      </button>
-                                    </div>
-                                    <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, color: INK, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                                    <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
-                                    {pc.length > 0 && (
-                                      <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
-                                        {pc.slice(0, 5).map(c => (
-                                          <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={10} shape="square" selected={false} available={true} />
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
+                              {row.map(p => renderFoundProductCard(p, m.searchQuery))}
                             </div>
                           ))
                         })()}
@@ -5187,7 +5225,7 @@ export default function DiscernApp({
                                     {slotLabel}
                                   </div>
                                   <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
-                                    onClick={e => { e.stopPropagation(); toggleSaved(best) }}
+                                    onClick={e => { e.stopPropagation(); toggleSaved(best, slot.query) }}
                                     style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
                                       background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
                                       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>

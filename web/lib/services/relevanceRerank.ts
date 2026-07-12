@@ -1,6 +1,8 @@
 import { groqChat, FAST_MODEL } from '../groq'
 import type { UcpProduct } from './GlobalCatalogService'
 import { matchStyles, vocabPromptBlock } from '../styleVocabulary'
+import { decomposeQuery } from '../queryParser'
+import { getRelevanceAdjustment } from './relevanceAdjustments'
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
 // LLM rerank is ON by default — set RELEVANCE_RERANK=off to disable.
@@ -117,8 +119,19 @@ export function bm25Scores(query: string, products: UcpProduct[]): Map<string, n
 
   // Normalize to 0–1
   const max = Math.max(...raw.map(r => r.score), 1e-9)
+  // Feedback-loop demotion: products/vendors repeatedly flagged as a bad
+  // match for this concept (web/app/api/cron/quality-feedback) get
+  // suppressed here — the single insertion point that feeds every
+  // downstream path (BM25-only fallback, the blended LLM score below, and
+  // which candidates even make it into topN for the LLM judge to see).
+  // Cheap synchronous lookup, zero added latency on the overwhelmingly
+  // common case (no adjustment applies).
+  const conceptKey = decomposeQuery(query).garmentKeys[0] || 'general'
   const result = new Map<string, number>()
-  for (const { id, score } of raw) result.set(id, score / max)
+  raw.forEach(({ id, score }, i) => {
+    const adjustment = getRelevanceAdjustment(conceptKey, id, products[i]?.vendor)
+    result.set(id, Math.max(0, score / max - adjustment))
+  })
   return result
 }
 

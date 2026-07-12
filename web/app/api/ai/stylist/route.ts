@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, wardrobeVisionChat, CHAT_MODEL, FAST_MODEL } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
-import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor } from '@/lib/queryParser'
+import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor, decomposeQuery, GARMENT_VOCAB, GARMENT_CATEGORY } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
 import { compileIntent, continueIntent, compiledReplyText, parseBudget } from '@/lib/intentCompiler'
@@ -47,7 +47,22 @@ function logAiUsage(info: {
 // side-panel stylist only.) 52 = 4 rows of 13 — the client chunks whatever
 // comes back here into 13-per-row "Found for you" strips (PRODUCTS_PER_ROW
 // in DiscernPage.tsx), so a fetch that returns fewer just shows fewer rows.
+// Only used for "See more" pagination (mode: 'load-more') now — a deliberate,
+// explicit shopper action to see a deeper page, not the first thing shown.
 const SEARCH_RESULT_CAP = 52
+
+// The FIRST page of a fresh search. The reranker (relevanceRerank.ts) already
+// judges a much wider candidate pool and orders it best-first — showing all
+// ~52 of those diluted "the best options" into "everything roughly
+// relevant." Cutting the initial page to a curated handful makes that
+// judging actually visible instead of buried in a long scroll. Shoppers who
+// want more still have "See more", which uses the wider SEARCH_RESULT_CAP.
+const INITIAL_RESULT_CAP = 8
+
+// Combined cap when one request spans multiple distinct garment categories
+// (see multiCategorySearch below) — total across all category groups, not
+// per group.
+const MULTI_CATEGORY_TOTAL_CAP = 8
 
 // Absolute last-line guard: no product id may appear twice in a single
 // foundProducts payload, whatever upstream produced it (fresh search, brand
@@ -62,6 +77,75 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
     out.push(p)
   }
   return out
+}
+
+// ── Multi-category search split ──────────────────────────────────────────────
+// GlobalCatalogService's concept-relevance scoring only recognizes ONE
+// "garment" group per search (the first concept group matched against known
+// garment vocabulary — see findGarmentGroupIndex in GlobalCatalogService.ts).
+// Feed it a query that decomposes to two categories at once ("shirts and
+// shorts") and only the first-recognized category (shirts) counts as the
+// garment; the second category's products never carry a garment hit, so
+// they get filtered out entirely once enough first-category results exist.
+// The shopper sees only shirts and no shorts, with no error or signal that
+// anything was dropped. Fix: when a query names 2+ distinct garment
+// categories, run one real, separately-ranked search per category instead of
+// one ambiguous combined search.
+function stripOtherCategoryTerms(query: string, keepKey: string, allKeys: string[]): string {
+  let q = query
+  for (const key of allKeys) {
+    if (key === keepKey) continue
+    for (const term of GARMENT_VOCAB[key]?.query || []) {
+      const esc = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[-\s]+/g, '[\\s-]+')
+      q = q.replace(new RegExp(`\\b${esc}\\b`, 'gi'), ' ')
+    }
+  }
+  return q.replace(/\band\b/gi, ' ').replace(/\s+/g, ' ').trim()
+}
+
+async function multiCategorySearch(
+  fullQuery: string,
+  budgetMax: number | null | undefined,
+  countryCode: string | null,
+  buyerCurrency: string,
+  memorySummary: string | undefined,
+  question: string | undefined,
+  preferredSize: string | null | undefined,
+): Promise<{ label: string; products: any[] }[] | null> {
+  const { garmentKeys } = decomposeQuery(fullQuery)
+  const seenCats = new Set<string>()
+  const categories: { key: string; cat: string }[] = []
+  for (const key of garmentKeys) {
+    const cat = GARMENT_CATEGORY[key]
+    if (cat && !seenCats.has(cat)) {
+      seenCats.add(cat)
+      categories.push({ key, cat })
+    }
+  }
+  if (categories.length < 2) return null
+
+  const perCategoryCap = Math.max(2, Math.ceil(MULTI_CATEGORY_TOTAL_CAP / categories.length))
+  const groups = await Promise.all(
+    categories.map(async ({ key, cat }) => {
+      const subQuery = stripOtherCategoryTerms(fullQuery, key, garmentKeys) || GARMENT_VOCAB[key]?.query[0] || fullQuery
+      const concepts = buildMandatoryConcepts(subQuery)
+      try {
+        const found = await GlobalCatalogService.search(
+          subQuery, budgetMax, [], countryCode, true, concepts,
+          'relevance', buyerCurrency, { fastFirstPage: true }, [],
+          memorySummary, question, preferredSize,
+        )
+        const filtered = found.filter(p => productMatchesSlot(p, cat as any))
+        const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, perCategoryCap)
+        return { label: slotLabelFor(cat as any), products: chosen }
+      } catch (e) {
+        console.error('[stylist] multi-category search error:', e)
+        return { label: slotLabelFor(cat as any), products: [] }
+      }
+    })
+  )
+  const nonEmpty = groups.filter(g => g.products.length > 0)
+  return nonEmpty.length >= 2 ? nonEmpty : null
 }
 
 // Resolve a registry domain to its display name for brand-fallback messaging.
@@ -565,6 +649,8 @@ Rules:
 • One search per reply. Do NOT output [SEARCH:] when discussing products already shown.
 • Do NOT output both [SEARCH:] and [COMPARE:] in the same reply.
 • If no new products are needed, omit [SEARCH:] entirely.
+• MULTIPLE CATEGORIES, NOT ONE COORDINATED LOOK: if the shopper names two or more distinct item categories in one request without asking you to build a single cohesive outfit (e.g. "shirts and shorts for the beach", "a couple tops and some trousers"), still use ONE [SEARCH: ...] naming every category — the system automatically splits it into a curated, separately-ranked group per category behind the scenes. Just name both/all categories in the query and mention them naturally in your lead-in sentence ("Here's the best of both — shirts and shorts for the beach.").
+• CURATED, NOT EXHAUSTIVE: every search already returns only a small, best-of-the-best set — you never need to ask the shopper to narrow down before searching just search with what you know.
 
 Examples:
 "Find me something for a summer wedding" → "Linen is the move breathable and elegant." [SEARCH: men linen summer trousers]
@@ -976,6 +1062,22 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       if (compiled) {
         try {
           const preferredSize = sizeForQuery(compiled.args.searchQuery)
+          const multiGroups = await multiCategorySearch(
+            compiled.args.searchQuery, compiled.args.budgetMax, countryCode,
+            compiled.args.budgetCurrency || buyerCurrency, memorySummary, question, preferredSize,
+          )
+          if (multiGroups) {
+            const totalCount = multiGroups.reduce((sum, g) => sum + g.products.length, 0)
+            logAiUsage({ path: 'fast', provider: 'none', estPromptTokens: 0, estCompletionTokensCap: 0, ok: true })
+            return NextResponse.json({
+              reply: compiledReplyText(compiled, totalCount),
+              comparison: null,
+              foundProducts: dedupeById(multiGroups.flatMap(g => g.products)).slice(0, MULTI_CATEGORY_TOTAL_CAP),
+              foundProductGroups: multiGroups,
+              outfitSlots: null,
+              searchQuery: compiled.args.searchQuery,
+            })
+          }
           let results = await GlobalCatalogService.search(
             compiled.args.searchQuery, compiled.args.budgetMax, [], countryCode, true,
             compiled.args.mandatoryConcepts || [], compiled.args.sort || 'relevance',
@@ -1006,7 +1108,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           return NextResponse.json({
             reply: compiledReplyText(compiled, results.length) + refineNote,
             comparison: null,
-            foundProducts: dedupeById(results).slice(0, SEARCH_RESULT_CAP),
+            foundProducts: dedupeById(results).slice(0, INITIAL_RESULT_CAP),
             outfitSlots: null,
             searchQuery: compiled.args.searchQuery,
           })
@@ -1196,6 +1298,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     const outfitQueries = rawOutfitQueries?.map(q => applyGenderDefault(q))
 
     let foundProducts: any[] | null = null
+    let foundProductGroups: { label: string; products: any[] }[] | null = null
     let reply2 = reply
     if (searchQuery) {
       try {
@@ -1206,6 +1309,15 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         // the model's [SEARCH:] text, which doesn't reliably carry numbers.
         const llmBudget = parseBudget(question, buyerCurrency)
         const preferredSize = sizeForQuery(searchQuery)
+
+        const multiGroups = await multiCategorySearch(
+          searchQuery, llmBudget.budgetMax, countryCode, buyerCurrency,
+          memorySummary, question, preferredSize,
+        )
+        if (multiGroups) {
+          foundProductGroups = multiGroups
+          foundProducts = dedupeById(multiGroups.flatMap(g => g.products)).slice(0, MULTI_CATEGORY_TOTAL_CAP)
+        } else {
         // 'relevance' engages the BM25 + LLM reranker; the shopper's actual
         // question is the judge query so occasion/aesthetic context ranks too.
         // Memory summary biases ranking toward their known taste. Falls back
@@ -1288,8 +1400,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         }
 
         if (results.length > 0) {
-          foundProducts = dedupeById(results).slice(0, SEARCH_RESULT_CAP)
+          foundProducts = dedupeById(results).slice(0, INITIAL_RESULT_CAP)
           reply2 = `${reply2}${refineNote}`.trim()
+        }
         }
       } catch (e) {
         console.error('[stylist] search error:', e)
@@ -1334,7 +1447,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       }
     }
 
-    return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, outfitSlots, searchQuery: searchQuery || undefined })
+    return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, foundProductGroups, outfitSlots, searchQuery: searchQuery || undefined })
   } catch (e) {
     console.error('[stylist] error:', e)
     if (isRateLimited(e)) {

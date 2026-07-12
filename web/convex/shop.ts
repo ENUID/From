@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authProofValidator, verifyAuthProof } from "./lib/authProof";
+import { verifyServerSecret } from "./lib/serverAuth";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Saved Products
@@ -11,6 +12,11 @@ export const toggleSavedProduct = mutation({
     userEmail: v.string(),
     product: v.any(),
     authProof: authProofValidator,
+    // The search query that surfaced this product, when the save happened
+    // from a message's product strip — an implicit "good match" signal for
+    // the quality-feedback cron. Omitted for saves with no search context
+    // (detail sheet, context menu outside a reply).
+    query: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (!(await verifyAuthProof(args.authProof, args.userEmail))) throw new Error("Unauthorized");
@@ -38,6 +44,7 @@ export const toggleSavedProduct = mutation({
         userId: user._id,
         product: args.product,
         savedAt: Date.now(),
+        query: args.query?.slice(0, 200),
       });
       return true;
     }
@@ -62,6 +69,20 @@ export const getSavedProducts = query({
       .collect();
 
     return saved.map((s) => s.product);
+  },
+});
+
+/** Raw query-linked saves since a cutoff — the implicit "good match" half of
+ * the quality-feedback cron's aggregation input. Server-only (web/app/api/
+ * cron/quality-feedback), same reasoning as qualitySignals.getSignalsForAggregation. */
+export const getSavedProductsForAggregation = query({
+  args: { since: v.number(), serverSecret: v.string() },
+  handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return [];
+    const rows = await ctx.db.query("saved_products").order("desc").take(5000);
+    return rows
+      .filter((r) => r.savedAt >= args.since && !!r.query)
+      .map((r) => ({ query: r.query!, productId: r.product?.id, vendor: r.product?.vendor }));
   },
 });
 

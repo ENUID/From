@@ -81,12 +81,12 @@ export function useDiscernChat(initialShopperContext: ShopperContext, initialRat
 
   const savedIds = new Set(savedProducts.map(product => product.id))
 
-  function toggleSaved(product: Product) {
+  function toggleSaved(product: Product, query?: string) {
     const isRemoving = savedProducts.some(item => item.id === product.id)
     if (isRemoving) removedSavedIds.current.add(product.id)
     else removedSavedIds.current.delete(product.id)
     if (userEmail && authProof) {
-      toggleConvexSaved({ userEmail, product, authProof }).catch(() => {})
+      toggleConvexSaved({ userEmail, product, authProof, query }).catch(() => {})
     }
     setSavedProducts(previous => {
       const normalizedProduct = normalizeProductForCurrency(product, shopperContext.currency)

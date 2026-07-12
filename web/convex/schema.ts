@@ -32,6 +32,12 @@ export default defineSchema({
     userId: v.id("users"),
     product: v.any(),
     savedAt: v.number(),
+    // The search query that produced this product, when known — an implicit
+    // "good match" signal read by the quality-feedback cron (a save is a much
+    // stronger relevance signal than a view, and this is what actually links
+    // it back to the query/concept that surfaced it). Absent for saves with
+    // no message context (e.g. from the detail sheet outside a search reply).
+    query: v.optional(v.string()),
   }).index("by_user", ["userId"])
     .index("by_user_product", ["userId", "product.id"]),
 
@@ -127,6 +133,24 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_signal", ["signal"])
     .index("by_query", ["query"]),
+
+  // Learning loop, second half: aggregated relevance_adjustments computed
+  // periodically (web/app/api/cron/quality-feedback) from quality_signals
+  // (explicit bad-match flags) and saved_products (implicit good-match via
+  // a query-linked save). Read on every live search via a cheap in-memory
+  // cache (lib/services/relevanceAdjustments.ts) to suppress/demote a
+  // product or vendor that's been repeatedly flagged for a given concept.
+  relevance_adjustments: defineTable({
+    scope: v.union(v.literal("product"), v.literal("vendor")),
+    conceptKey: v.string(),   // canonical garment key from lib/queryParser's decomposeQuery, "general" if none
+    targetId: v.string(),     // productId (scope=product) or lowercased vendor (scope=vendor)
+    score: v.number(),        // badCount - 0.5 * goodCount, clamped >= 0 — higher = more demoted
+    badCount: v.number(),
+    goodCount: v.number(),
+    distinctFlaggers: v.number(), // distinct users behind badCount — gates vendor-level demotion
+    updatedAt: v.number(),
+  }).index("by_key", ["scope", "conceptKey", "targetId"])
+    .index("by_concept", ["conceptKey"]),
 
   // Persisted brand health from the daily probe. consecutiveDown drives
   // auto-pruning: a store down for several days running is skipped in search

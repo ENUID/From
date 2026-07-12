@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authProofValidator, verifyAuthProof } from "./lib/authProof";
 import { verifyAdminSecret } from "./lib/adminAuth";
+import { verifyServerSecret } from "./lib/serverAuth";
 
 /**
  * Record a shopper's relevance feedback on a search result. Anonymous-friendly:
@@ -62,5 +63,64 @@ export const getRecentSignals = query({
           .take(200)
       : await ctx.db.query("quality_signals").order("desc").take(200);
     return rows;
+  },
+});
+
+// ── Feedback-loop aggregation (web/app/api/cron/quality-feedback) ─────────────
+
+/** Raw bad-match rows since a cutoff — the cron does the concept-key
+ * grouping itself (it can safely import lib/queryParser's decomposeQuery,
+ * which this Convex runtime cannot). Capped generously; a daily cron over a
+ * single day's flags should never come close to this. */
+export const getSignalsForAggregation = query({
+  args: { since: v.number(), serverSecret: v.string() },
+  handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return [];
+    const rows = await ctx.db.query("quality_signals").order("desc").take(5000);
+    return rows.filter((r) => r.createdAt >= args.since && r.signal === "bad_match");
+  },
+});
+
+/** Bulk upsert of computed relevance_adjustments — one row per (scope,
+ * conceptKey, targetId). Replaces each row's counts wholesale each run
+ * (the cron recomputes from the full trailing window every time, so this
+ * is idempotent, not additive). */
+export const writeRelevanceAdjustments = mutation({
+  args: {
+    serverSecret: v.string(),
+    adjustments: v.array(v.object({
+      scope: v.union(v.literal("product"), v.literal("vendor")),
+      conceptKey: v.string(),
+      targetId: v.string(),
+      score: v.number(),
+      badCount: v.number(),
+      goodCount: v.number(),
+      distinctFlaggers: v.number(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized");
+    for (const adj of args.adjustments.slice(0, 2000)) {
+      const existing = await ctx.db
+        .query("relevance_adjustments")
+        .withIndex("by_key", (q) => q.eq("scope", adj.scope).eq("conceptKey", adj.conceptKey).eq("targetId", adj.targetId))
+        .first();
+      const patch = { ...adj, updatedAt: Date.now() };
+      if (existing) await ctx.db.patch(existing._id, patch);
+      else await ctx.db.insert("relevance_adjustments", patch);
+    }
+    return { ok: true, count: args.adjustments.length };
+  },
+});
+
+/** Cheap hot-path read — the whole active (score > 0) adjustment set, for
+ * lib/services/relevanceAdjustments.ts's in-memory cache. Small in practice
+ * (only products/vendors with real negative signal ever appear here). */
+export const getActiveAdjustments = query({
+  args: { serverSecret: v.string() },
+  handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return [];
+    const rows = await ctx.db.query("relevance_adjustments").take(5000);
+    return rows.filter((r) => r.score > 0);
   },
 });
