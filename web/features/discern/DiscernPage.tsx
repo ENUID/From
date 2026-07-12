@@ -5004,22 +5004,6 @@ export default function DiscernApp({
                             ))}
                           </div>
                         )}
-                        {/* The specific product(s) this message was pinned to via "Ask
-                            Fabrics" — without this the sent bubble showed only the
-                            typed text with no sign of which item the question was
-                            actually about. */}
-                        {m.role === 'user' && m.pinnedProducts && m.pinnedProducts.length > 0 && (
-                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
-                            {m.pinnedProducts.map(p => (
-                              <div key={p.id} onClick={() => setSelected(p)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 4px', borderRadius: 20, background: BG2, border: `1px solid ${BRD}`, cursor: 'pointer' }}>
-                                <div style={{ width: 32, height: 40, borderRadius: 6, overflow: 'hidden', background: '#fff', flexShrink: 0 }}>
-                                  {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                </div>
-                                <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK2, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                         <div className={m.role === 'user' ? 'fr-msg-hover' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
                           <div style={{ fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
                             padding: m.role === 'user' ? '9px 14px' : 0,
