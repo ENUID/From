@@ -15,7 +15,21 @@ const RATE_LIMIT_MS = 60 * 1000     // 1 code per minute per email
 export const createCode = mutation({
   args: { email: v.string(), code: v.string(), serverSecret: v.string() },
   handler: async (ctx, args) => {
-    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized")
+    // TEMPORARY: return instead of throw so the real reason survives Convex's
+    // production error redaction (thrown Errors get flattened to "Server
+    // Error" client-side) — revert to throw once the live secret-mismatch
+    // issue is confirmed fixed.
+    if (!verifyServerSecret(args.serverSecret)) {
+      return {
+        ok: false as const,
+        reason: 'unauthorized' as const,
+        debug: {
+          secretConfigured: !!process.env.CONVEX_AUTH_SECRET,
+          secretLength: process.env.CONVEX_AUTH_SECRET?.length ?? 0,
+          providedLength: args.serverSecret?.length ?? 0,
+        },
+      }
+    }
     const email = args.email.toLowerCase().trim()
     const now = Date.now()
 

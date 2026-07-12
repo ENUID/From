@@ -79,6 +79,16 @@ export async function POST(req: NextRequest) {
           { status: 429 },
         )
       }
+      // TEMPORARY diagnostic branch — see matching comment in
+      // convex/verificationCodes.ts. Remove once the secret-mismatch issue
+      // is confirmed resolved.
+      if (result?.ok === false && result.reason === 'unauthorized') {
+        console.error('[send-code] createCode unauthorized, debug:', result.debug)
+        return NextResponse.json(
+          { error: `Sign-in secret mismatch — Convex sees ${result.debug?.secretConfigured ? `a ${result.debug.secretLength}-char CONVEX_AUTH_SECRET` : 'no CONVEX_AUTH_SECRET at all'}, Vercel sent a ${result.debug?.providedLength}-char value.` },
+          { status: 500 },
+        )
+      }
     } catch (e: any) {
       // Real failure (not rate limiting). Convex redacts thrown Error messages
       // in prod, so collect every shape we can for the logs and the response.
