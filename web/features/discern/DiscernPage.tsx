@@ -1817,15 +1817,17 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
   ]
 }
 
-// Duration scales with how much the trace actually has to report — never
-// below 8s, never above 12s, so a query with more genuine detail to surface
-// takes a little longer without ever feeling padded or capped arbitrarily.
-const STYLIST_STEPS_MIN_MS = 8000
-const STYLIST_STEPS_MAX_MS = 12000
-function stylistTotalMsFor(phases: StylistLoadingPhase[]): number {
-  const totalLines = phases.reduce((n, p) => n + p.trace.length, 0)
-  return Math.min(STYLIST_STEPS_MAX_MS, Math.max(STYLIST_STEPS_MIN_MS, STYLIST_STEPS_MIN_MS + totalLines * 220))
-}
+// The step tracker no longer runs on a fixed pretend duration — reasoning
+// time genuinely varies (a quick catalog lookup vs. a deep GPT-OSS
+// high-effort styling call), so a fixed "always take 8-12s" budget either
+// padded fast replies for no reason or cut off exactly when a slow one
+// needed more room. Steps now advance at a steady, natural pace
+// (STYLIST_STEP_INTERVAL_MS each) and simply hold on the last step,
+// visually "still thinking," for as long as the real request actually
+// takes — the reply appears the moment it's genuinely ready, gated only by
+// a small flicker guard so it never flashes in and out instantly.
+const STYLIST_STEP_INTERVAL_MS = 1100
+const STYLIST_FLICKER_GUARD_MS = 500
 
 // ── Step icons ───────────────────────────────────────────────────────────────
 // A single bespoke visual language, not a generic icon-font set — every glyph
@@ -2360,12 +2362,6 @@ export default function DiscernApp({
   const loading = stylistLoading
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
   const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
-  // The step tracker is budgeted to run 8-12s end to end (stylistTotalMsFor
-  // scales it with how much trace content there actually is) — sendStylist
-  // waits out any remainder before revealing the reply, so a fast response
-  // never cuts the animation short. If a request genuinely takes longer, the
-  // last step just holds (no artificial cap either way).
-  const [stylistLoadingTotalMs, setStylistLoadingTotalMs] = useState(STYLIST_STEPS_MIN_MS)
   // How many trace lines of the ACTIVE step are revealed so far — counts up
   // as the step plays out, resets to 0 whenever the active step changes.
   const [stylistTraceVisible, setStylistTraceVisible]   = useState(0)
@@ -2502,9 +2498,7 @@ export default function DiscernApp({
     // stale pin on every later, unrelated message too.
     setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined, pinnedProducts: productsArg && productsArg.length > 0 ? productsArg : undefined }])
     const loadingPhases = buildStylistLoadingPhases(question, capturedImages.length > 0, shopperContext.currency, shopperGenderFromProfile, shopperContext.country)
-    const loadingTotalMs = stylistTotalMsFor(loadingPhases)
     setStylistLoadingPhases(loadingPhases)
-    setStylistLoadingTotalMs(loadingTotalMs)
     setStylistLoadingStep(0)
     setStylistLoading(true)
     const requestStartedAt = Date.now()
@@ -2546,14 +2540,13 @@ export default function DiscernApp({
         }),
       })
       const data = await res.json()
-      // Hold the reply until the step tracker's own budget (8-12s, scaled to
-      // how much trace content it has to show) has elapsed — the fast path
-      // resolves in well under a second, and revealing the reply the moment
-      // it arrives cut the whole animation off almost before it started.
-      // Only holds when the response was faster than the budget; a
-      // genuinely slow request never waits any extra time.
-      const remaining = loadingTotalMs - (Date.now() - requestStartedAt)
-      if (remaining > 0) await new Promise(r => setTimeout(r, remaining))
+      // Show the reply the moment it's actually ready — reasoning time
+      // genuinely varies by query and provider, so there's no fixed budget
+      // to wait out anymore. Only guard against an instant flash for
+      // near-zero-latency responses (the fast/compileIntent path can
+      // resolve in well under STYLIST_FLICKER_GUARD_MS).
+      const elapsed = Date.now() - requestStartedAt
+      if (elapsed < STYLIST_FLICKER_GUARD_MS) await new Promise(r => setTimeout(r, STYLIST_FLICKER_GUARD_MS - elapsed))
       if (data?.reply) {
         // Let the step tracker dissolve out before the reply appears, instead
         // of an instant swap — a clean handoff, not a jump cut.
@@ -3009,12 +3002,12 @@ export default function DiscernApp({
     })
   }, [remoteStylistSessions, stylistHistory])
 
-  // Drive the loading phase animation — the whole sequence is budgeted to run
-  // stylistLoadingTotalMs total (paced evenly across however many steps
-  // exist), each step's trace lines reveal one at a time, then the step
-  // advances. sendStylist holds the reply until this same budget has
-  // elapsed, so the animation always plays out in full rather than being
-  // cut short by a fast response.
+  // Drive the loading phase animation — steps advance at a steady natural
+  // pace (STYLIST_STEP_INTERVAL_MS each), independent of how long the real
+  // request actually takes. Once the last step is reached, this simply
+  // stops advancing and holds there — the real fetch (in sendStylist) is
+  // what ultimately ends stylistLoading, whether that's sooner or later
+  // than the animation would have finished on its own.
   useEffect(() => {
     if (!stylistLoading || stylistLoadingPhases.length === 0) {
       setStylistLoadingStep(0)
@@ -3024,7 +3017,7 @@ export default function DiscernApp({
     setStylistTraceVisible(0)
     const phase = stylistLoadingPhases[stylistLoadingStep]
     const traceCount = phase?.trace.length ?? 0
-    const perStep = stylistLoadingTotalMs / stylistLoadingPhases.length
+    const perStep = STYLIST_STEP_INTERVAL_MS
     const timers: number[] = []
     for (let i = 0; i < traceCount; i++) {
       const at = (perStep * 0.85) * ((i + 1) / (traceCount + 1))
@@ -3032,7 +3025,7 @@ export default function DiscernApp({
     }
     timers.push(window.setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), perStep))
     return () => timers.forEach(clearTimeout)
-  }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases, stylistLoadingTotalMs])
+  }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]); setFetchedColorImages({}); setFetchedColors([]) } }, [selectedProduct])
   // When the shopper picks a colour in the drawer, jump the gallery back to the
   // first image of that colourway.
