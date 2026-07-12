@@ -1132,7 +1132,14 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // faster, and doesn't need color theory / outfit formulas for a greeting).
       // Heavy fashion queries get the full SYSTEM with contextBlock injected.
       const lastAssistant = [...rawHistory].reverse().find(m => m.role === 'assistant')?.content || ''
-      const heavy = isHeavyQuery(question) || isActionFollowThrough(question, lastAssistant)
+      // Pinned/attached products (the shopper tapped "Ask Fabrics" on one or
+      // more items) always force the full prompt + contextBlock, regardless
+      // of what isHeavyQuery's keyword regex thinks of the phrasing — a short
+      // follow-up like "explain these two" or "compare them" has no garment/
+      // material/occasion keyword to match, so without this the shopper's own
+      // pinned items were invisible to the model and it would ask them to
+      // re-specify what it could already see attached to the message.
+      const heavy = products.length > 0 || isHeavyQuery(question) || isActionFollowThrough(question, lastAssistant)
       const combinedSystem = heavy
         ? (contextBlock ? `${SYSTEM}\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}` : SYSTEM)
         : CHAT_SYSTEM
