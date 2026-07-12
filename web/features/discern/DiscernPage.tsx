@@ -3706,19 +3706,29 @@ export default function DiscernApp({
         }
 
         /* ── Header ── */
+        /* Translucent + blurred itself (not flat opaque white) — so the header's
+           own bottom edge already has a soft, frosted quality instead of being a
+           hard-edged solid block that a separate blur patch gets glued beneath.
+           backdrop-filter here has nothing to blur in normal flow (the header
+           doesn't overlap content itself), but it keeps the surface consistent
+           with the ::after melt zone right below it, so there's no visible seam. */
         .fr-header{display:flex;align-items:center;justify-content:space-between;position:relative;
           padding:max(10px,env(safe-area-inset-top,0px)) max(16px,calc(env(safe-area-inset-right,0px) + 12px)) 6px max(16px,calc(env(safe-area-inset-left,0px) + 12px));
-          flex-shrink:0;z-index:10;background:${BG};}
-        /* Soft blurred melt at the header's bottom edge — a real backdrop-blur
-           that fades out via a mask, not a flat white gradient painted on top.
-           A color-wash gradient looks like a dirty smudge wherever high-contrast
-           content (e.g. a dark message bubble) happens to scroll underneath it;
-           blur-with-a-fading-mask genuinely softens whatever's there instead,
-           the way a native translucent nav bar does. */
-        .fr-header::after{content:'';position:absolute;left:0;right:0;bottom:-28px;height:28px;
-          backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-          -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.9) 0%, rgba(0,0,0,.45) 55%, rgba(0,0,0,0) 100%);
-          mask-image:linear-gradient(to bottom, rgba(0,0,0,.9) 0%, rgba(0,0,0,.45) 55%, rgba(0,0,0,0) 100%);
+          flex-shrink:0;z-index:10;background:rgba(255,255,255,.86);
+          backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+        /* Soft blurred melt starting a little INSIDE the header's own bottom
+           edge and extending past it — overlapping the boundary itself (not
+           starting exactly at it) is what removes the seam/border-line feeling
+           and makes the header and the content below read as one continuous
+           surface. A real backdrop-blur fading via a mask, not a flat color
+           gradient painted on top — a color wash looks like a dirty smudge
+           wherever high-contrast content (a dark message bubble) scrolls
+           underneath; blur-with-a-fading-mask genuinely softens whatever's
+           there instead, the way a native translucent nav bar does. */
+        .fr-header::after{content:'';position:absolute;left:0;right:0;bottom:-32px;height:44px;
+          backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+          -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,.85) 27%, rgba(0,0,0,.4) 60%, rgba(0,0,0,0) 100%);
+          mask-image:linear-gradient(to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,.85) 27%, rgba(0,0,0,.4) 60%, rgba(0,0,0,0) 100%);
           pointer-events:none;z-index:1;}
 
         /* ── Content area (body + floating bar share this space) ── */
