@@ -22,7 +22,7 @@
  */
 import { createHash } from 'crypto'
 import { ConvexHttpClient } from 'convex/browser'
-import { anyApi } from 'convex/server'
+import { api } from '@/convex/_generated/api'
 import { BoundedCache } from '@/lib/boundedCache'
 import { groqVisionChat, type VisionMessage } from '@/lib/groq'
 
@@ -68,7 +68,7 @@ async function readCache(key: string): Promise<string[] | null> {
   if (!c || !secret) return null
   try {
     const row = (await Promise.race([
-      c.query(anyApi.imageOrder.get, { key, serverSecret: secret }),
+      c.query(api.imageOrder.get, { key, serverSecret: secret }),
       new Promise(resolve => setTimeout(() => resolve(null), READ_TIMEOUT_MS)),
     ])) as { order?: string } | null
     if (!row?.order) return null
@@ -84,7 +84,7 @@ async function writeCache(key: string, order: string[]): Promise<void> {
   const secret = serverSecret()
   if (!c || !secret) return
   try {
-    await c.mutation(anyApi.imageOrder.set, { key, order: JSON.stringify(order), serverSecret: secret })
+    await c.mutation(api.imageOrder.set, { key, order: JSON.stringify(order), serverSecret: secret })
   } catch {
     /* cache writes are never critical */
   }

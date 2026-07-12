@@ -3341,17 +3341,15 @@ export default function DiscernApp({
     if (!p || flaggedIds.has(p.id)) return
     setFlaggedIds(prev => new Set(prev).add(p.id))
     const q = [...stylistMsgs].reverse().find(m => m.role === 'user')?.content || ''
-    try {
-      flagQualitySignal({
-        userEmail: onboardEmail,
-        authProof: onboardEmail ? (authProof ?? undefined) : undefined,
-        query: String(q).slice(0, 200),
-        productId: p.id,
-        productTitle: p.title,
-        vendor: p.vendor,
-        signal: 'bad_match',
-      })
-    } catch { /* never block on feedback */ }
+    flagQualitySignal({
+      userEmail: onboardEmail,
+      authProof: onboardEmail ? (authProof ?? undefined) : undefined,
+      query: String(q).slice(0, 200),
+      productId: p.id,
+      productTitle: p.title,
+      vendor: p.vendor,
+      signal: 'bad_match',
+    }).catch(() => { /* never block on feedback */ })
   }
 
   // Restore/persist unit preference across products

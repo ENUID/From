@@ -1,4 +1,4 @@
-# OpenAI Setup - From
+# OpenAI Setup - Discern
 
 ## 1. Required environment
 

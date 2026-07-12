@@ -22,7 +22,7 @@ New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
 $rootFiles = @(
   ".gitignore",
   ".env.example",
-  "OLLAMA_SETUP.md",
+  "OPENAI_SETUP.md",
   "package.json",
   "package-lock.json",
   "PARTNER_HANDOFF.md"

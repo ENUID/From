@@ -99,19 +99,20 @@ export async function GET(req: NextRequest) {
   // Usage summary — trailing 24h and trailing 1h, from the ai_usage events
   // logged by every exit point of /api/ai/stylist (see logAiUsage there).
   // Estimated tokens (chars/4), not exact provider-reported usage.
-  if (process.env.NEXT_PUBLIC_CONVEX_URL) {
+  if (process.env.NEXT_PUBLIC_CONVEX_URL && process.env.CONVEX_AUTH_SECRET) {
     try {
       const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
+      const serverSecret = process.env.CONVEX_AUTH_SECRET
       const [last24h, lastHour] = await Promise.all([
-        convex.query(api.users.getAiUsageSummary, { windowMs: 24 * 60 * 60 * 1000 }),
-        convex.query(api.users.getAiUsageSummary, { windowMs: 60 * 60 * 1000 }),
+        convex.query(api.users.getAiUsageSummary, { windowMs: 24 * 60 * 60 * 1000, serverSecret }),
+        convex.query(api.users.getAiUsageSummary, { windowMs: 60 * 60 * 1000, serverSecret }),
       ])
       out.usage = { last24h, lastHour }
     } catch (e) {
       out.usage = { error: (e as Error).message?.slice(0, 300) ?? 'unknown' }
     }
   } else {
-    out.usage = { error: 'NEXT_PUBLIC_CONVEX_URL not set' }
+    out.usage = { error: 'NEXT_PUBLIC_CONVEX_URL or CONVEX_AUTH_SECRET not set' }
   }
 
   return NextResponse.json(out)

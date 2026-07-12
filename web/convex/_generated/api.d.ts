@@ -9,8 +9,10 @@
  */
 
 import type * as brandHealth from "../brandHealth.js";
+import type * as imageOrder from "../imageOrder.js";
 import type * as qualitySignals from "../qualitySignals.js";
 import type * as searchCache from "../searchCache.js";
+import type * as searchHistory from "../searchHistory.js";
 import type * as shop from "../shop.js";
 import type * as stylistMemory from "../stylistMemory.js";
 import type * as stylistSessions from "../stylistSessions.js";
@@ -27,8 +29,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   brandHealth: typeof brandHealth;
+  imageOrder: typeof imageOrder;
   qualitySignals: typeof qualitySignals;
   searchCache: typeof searchCache;
+  searchHistory: typeof searchHistory;
   shop: typeof shop;
   stylistMemory: typeof stylistMemory;
   stylistSessions: typeof stylistSessions;

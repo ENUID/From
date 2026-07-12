@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ConvexHttpClient } from 'convex/browser'
 import { groqChat } from '@/lib/groq'
-import { anyApi } from 'convex/server'
+import { api } from '@/convex/_generated/api'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const cutoff = Date.now() - 48 * 60 * 60 * 1000
-    const recentSearches = await convex.query(anyApi.searchHistory.getRecentSearches, {
+    const recentSearches = await convex.query(api.searchHistory.getRecentSearches, {
       cutoff,
       serverSecret: process.env.CONVEX_AUTH_SECRET,
     })

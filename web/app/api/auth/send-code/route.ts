@@ -8,6 +8,26 @@ export const runtime = 'nodejs'
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Discern <no-reply@discern.enuid.com>'
 
+// Per-email cooldown (enforced inside createCode) doesn't stop one IP from
+// emailing many DIFFERENT addresses — unbounded email-bombing / Resend quota
+// burn otherwise. Same in-memory sliding-window pattern used in
+// api/ai/recommend and api/ai/stylist.
+const RATE_WINDOW_MS = 10 * 60_000
+const RATE_MAX_REQUESTS = 8
+const rateBuckets = new Map<string, { count: number; resetAt: number }>()
+function isRateLimited(req: NextRequest): boolean {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const now = Date.now()
+  const bucket = rateBuckets.get(ip)
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return false
+  }
+  if (bucket.count >= RATE_MAX_REQUESTS) return true
+  bucket.count++
+  return false
+}
+
 function generateCode(): string {
   return String(randomInt(100000, 1000000))
 }
@@ -30,6 +50,9 @@ function codeEmail(code: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  if (isRateLimited(req)) {
+    return NextResponse.json({ error: 'Too many sign-in attempts. Please wait a few minutes and try again.' }, { status: 429 })
+  }
   // Guard: surface missing config immediately instead of cryptic "Internal error"
   if (!process.env.RESEND_API_KEY) {
     console.error('[send-code] RESEND_API_KEY is not set')

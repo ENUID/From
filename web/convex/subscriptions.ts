@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authProofValidator, verifyAuthProof } from "./lib/authProof";
 import { verifyAdminSecret } from "./lib/adminAuth";
+import { verifyServerSecret } from "./lib/serverAuth";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,14 +83,20 @@ export const ensureFreeSubscription = mutation({
   },
 });
 
+// Only ever called from app/api/billing/webhook/route.ts, after Stripe's own
+// signature verification — but that route-level trust doesn't extend to
+// Convex, since NEXT_PUBLIC_CONVEX_URL is public. Without this gate, anyone
+// could call this directly and grant themselves (or anyone) free premium.
 export const upgradeSubscription = mutation({
   args: {
     userEmail: v.string(),
     stripeCustomerId: v.optional(v.string()),
     stripeSubscriptionId: v.string(),
     currentPeriodEnd: v.number(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized");
     const user = await getUserByEmail(ctx, args.userEmail);
     if (!user) throw new Error("User not found");
     const existing = await ctx.db
@@ -116,9 +123,12 @@ export const upgradeSubscription = mutation({
   },
 });
 
+// Same reasoning as upgradeSubscription above — Stripe-webhook-only, gated
+// so it can't be called directly to cancel an arbitrary subscription.
 export const cancelSubscriptionByStripeCustomer = mutation({
-  args: { stripeCustomerId: v.string() },
+  args: { stripeCustomerId: v.string(), serverSecret: v.string() },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized");
     const sub = await ctx.db
       .query("subscriptions")
       .withIndex("by_stripe_customer", (q: any) =>

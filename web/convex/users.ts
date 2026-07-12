@@ -4,7 +4,9 @@ import { authProofValidator, verifyAuthProof } from "./lib/authProof";
 import { verifyServerSecret } from "./lib/serverAuth";
 
 /**
- * Ensures a user exists in the database. Called during NextAuth sign-in.
+ * Ensures a user exists in the database. Called during NextAuth sign-in,
+ * server-side only — gated so a direct caller can't overwrite another
+ * account's name/image or mass-create user rows for arbitrary emails.
  */
 export const ensureUser = mutation({
   args: {
@@ -12,8 +14,10 @@ export const ensureUser = mutation({
     name: v.optional(v.string()),
     image: v.optional(v.string()),
     role: v.optional(v.literal("buyer")),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized");
     const email = args.email.toLowerCase().trim();
     const existingUser = await ctx.db
       .query("users")
@@ -166,6 +170,7 @@ export const updateUserName = mutation({
 export const trackEvent = mutation({
   args: {
     email: v.optional(v.string()),
+    authProof: v.optional(authProofValidator),
     event: v.string(),
     properties: v.optional(v.any()),
     country: v.optional(v.string()),
@@ -173,8 +178,11 @@ export const trackEvent = mutation({
     deviceType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // authProof is optional (this fires for anonymous events too), but an
+    // email is only ever attributed to a real user if its proof checks out —
+    // otherwise the event is still recorded, just not attributed to anyone.
     let userId: any = undefined;
-    if (args.email) {
+    if (args.email && (await verifyAuthProof(args.authProof, args.email))) {
       const user = await ctx.db
         .query("users")
         .withIndex("by_email", (q) => q.eq("email", args.email!.toLowerCase().trim()))
@@ -205,8 +213,10 @@ export const trackEvent = mutation({
 export const getAiUsageSummary = query({
   args: {
     windowMs: v.optional(v.number()), // defaults to 24h
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    if (!verifyServerSecret(args.serverSecret)) return null;
     const since = Date.now() - (args.windowMs ?? 24 * 60 * 60 * 1000);
     const events = await ctx.db
       .query("user_events")

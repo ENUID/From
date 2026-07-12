@@ -73,6 +73,7 @@ export const authOptions: NextAuthOptions = {
           if (!valid) throw new Error('Invalid or expired code')
           await convex.mutation(api.users.ensureUser, {
             email: credentials.email.toLowerCase().trim(),
+            serverSecret,
           })
           const user = await convex.query(api.users.getUserByEmail, {
             email: credentials.email.toLowerCase().trim(),
@@ -123,11 +124,14 @@ export const authOptions: NextAuthOptions = {
       console.log('[auth] signIn provider:', account?.provider, 'email:', user?.email)
       if (user?.email) {
         try {
+          const serverSecret = process.env.CONVEX_AUTH_SECRET
+          if (!serverSecret) throw new Error('CONVEX_AUTH_SECRET is not configured')
           const convex = getConvex()
           await convex.mutation(api.users.ensureUser, {
             email: user.email,
             name: user.name || undefined,
             image: user.image || undefined,
+            serverSecret,
           })
         } catch (err) {
           console.error('[auth] Failed to sync user to Convex:', String(err))

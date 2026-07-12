@@ -14,10 +14,11 @@ function getPeriodEnd(sub: Stripe.Subscription): number {
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || !process.env.NEXT_PUBLIC_CONVEX_URL) {
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || !process.env.NEXT_PUBLIC_CONVEX_URL || !process.env.CONVEX_AUTH_SECRET) {
     console.error('[webhook] Missing required env vars')
     return NextResponse.json({ error: 'Not configured' }, { status: 500 })
   }
+  const serverSecret = process.env.CONVEX_AUTH_SECRET
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL)
   const body = await req.text()
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
           stripeCustomerId: (session.customer as string | null) ?? session.customer_email ?? userEmail,
           stripeSubscriptionId: sub.id,
           currentPeriodEnd: getPeriodEnd(sub),
+          serverSecret,
         })
         break
       }
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
           stripeCustomerId: sub.customer as string,
           stripeSubscriptionId: sub.id,
           currentPeriodEnd: getPeriodEnd(sub),
+          serverSecret,
         })
         break
       }
@@ -77,6 +80,7 @@ export async function POST(req: NextRequest) {
         const sub = event.data.object as Stripe.Subscription
         await convex.mutation(api.subscriptions.cancelSubscriptionByStripeCustomer, {
           stripeCustomerId: sub.customer as string,
+          serverSecret,
         })
         break
       }

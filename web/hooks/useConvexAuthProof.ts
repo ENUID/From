@@ -15,7 +15,8 @@ export function useConvexAuthProof(email: string | undefined): AuthProof | null 
   const [authProof, setAuthProof] = useState<AuthProof | null>(null)
 
   useEffect(() => {
-    if (!email) { setAuthProof(null); return }
+    setAuthProof(null) // clear any proof from a previous (or absent) email before fetching the new one
+    if (!email) return
     let cancelled = false
     const fetchProof = () => {
       fetch('/api/auth/convex-token')
