@@ -66,9 +66,12 @@ const STORE_TIMEOUT_MS = 5000   // many Shopify MCP endpoints take 2.5–4s; a t
                                 // timeout silently drops them and starves results
 const BATCH_SIZE = 45          // stores queried in parallel per round
 const MAX_ROUNDS_PER_CALL = 2  // up to 90 stores fetched per search() call
-// 52 = 4 rows of 13 in the "Found for you" strip (SEARCH_RESULT_CAP in the
-// stylist route slices to the same number) — both the first page and every
-// "See more" tap fill 4 full rows when the catalog has enough matches.
+// This is the CANDIDATE POOL fetched per call, not what a shopper actually
+// sees — the stylist route's reranker (relevanceRerank.ts) judges from this
+// whole pool and then slices to a much smaller best-of-best page
+// (INITIAL_RESULT_CAP, currently 8) for a fresh search, or the next such
+// page on a "See more" tap. Kept wide here so the reranker has real options
+// to choose the best of, not narrowed to match the final display count.
 const INITIAL_LIMIT = 52
 const LOAD_MORE_LIMIT = 52
 const CACHE_TTL_MS = 15 * 60 * 1000

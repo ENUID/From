@@ -54,8 +54,11 @@ const INITIAL_RESULT_CAP = 8
 
 // Combined cap when one request spans multiple distinct garment categories
 // (see multiCategorySearch below) — total across all category groups, not
-// per group.
-const MULTI_CATEGORY_TOTAL_CAP = 8
+// per group. Same "best of the best" budget as a single-category search,
+// just split across categories instead of one flat list — deriving from
+// INITIAL_RESULT_CAP instead of a second hardcoded 8 keeps that intentional
+// equality from silently drifting if one is retuned later.
+const MULTI_CATEGORY_TOTAL_CAP = INITIAL_RESULT_CAP
 
 // Absolute last-line guard: no product id may appear twice in a single
 // foundProducts payload, whatever upstream produced it (fresh search, brand
@@ -84,10 +87,16 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 // anything was dropped. Fix: when a query names 2+ distinct garment
 // categories, run one real, separately-ranked search per category instead of
 // one ambiguous combined search.
-function stripOtherCategoryTerms(query: string, keepKey: string, allKeys: string[]): string {
+// keepKeys (plural): when two garment WORDS map to the same broad slot
+// category (e.g. "shirt" and "tshirt" both → 'top'), that category's
+// subquery must keep BOTH terms, not just whichever one happened to be
+// first — stripping a same-category sibling term loses a real part of what
+// the shopper asked for just as surely as stripping a different category's
+// term would.
+function stripOtherCategoryTerms(query: string, keepKeys: string[], allKeys: string[]): string {
   let q = query
   for (const key of allKeys) {
-    if (key === keepKey) continue
+    if (keepKeys.includes(key)) continue
     for (const term of GARMENT_VOCAB[key]?.query || []) {
       const esc = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[-\s]+/g, '[\\s-]+')
       q = q.replace(new RegExp(`\\b${esc}\\b`, 'gi'), ' ')
@@ -102,34 +111,57 @@ async function multiCategorySearch(
   countryCode: string | null,
   buyerCurrency: string,
   memorySummary: string | undefined,
-  question: string | undefined,
   preferredSize: string | null | undefined,
 ): Promise<{ label: string; products: any[] }[] | null> {
   const { garmentKeys } = decomposeQuery(fullQuery)
-  const seenCats = new Set<string>()
-  const categories: { key: string; cat: string }[] = []
+  // Group by SlotCategory (not by individual garment key) — "shirts and
+  // t-shirts" is one "Tops" strip, not two identically-labeled ones. Every
+  // key that shares a category is kept together so stripOtherCategoryTerms
+  // above can preserve all of them in that category's subquery.
+  const catToKeys = new Map<string, string[]>()
   for (const key of garmentKeys) {
     const cat = GARMENT_CATEGORY[key]
-    if (cat && !seenCats.has(cat)) {
-      seenCats.add(cat)
-      categories.push({ key, cat })
-    }
+    if (!cat) continue
+    const keys = catToKeys.get(cat)
+    if (keys) keys.push(key)
+    else catToKeys.set(cat, [key])
   }
+  const categories = Array.from(catToKeys.entries()).map(([cat, keys]) => ({ cat, keys }))
   if (categories.length < 2) return null
 
-  const perCategoryCap = Math.max(2, Math.ceil(MULTI_CATEGORY_TOTAL_CAP / categories.length))
+  // Distribute the total cap across categories exactly (base + remainder),
+  // instead of ceil-per-category — ceil(8/3)=3 applied to every one of 3
+  // categories sums to 9, not 8, and the frontend renders these groups
+  // directly (not the separately-capped flat foundProducts field), so an
+  // uncapped-in-aggregate result here was the actual shopper-visible total.
+  const n = categories.length
+  const base = Math.floor(MULTI_CATEGORY_TOTAL_CAP / n)
+  const remainder = MULTI_CATEGORY_TOTAL_CAP - base * n
+  const capFor = (i: number) => Math.max(1, base + (i < remainder ? 1 : 0))
+
   const groups = await Promise.all(
-    categories.map(async ({ key, cat }) => {
-      const subQuery = stripOtherCategoryTerms(fullQuery, key, garmentKeys) || GARMENT_VOCAB[key]?.query[0] || fullQuery
+    categories.map(async ({ cat, keys }, i) => {
+      const subQuery = stripOtherCategoryTerms(fullQuery, keys, garmentKeys) || GARMENT_VOCAB[keys[0]]?.query[0] || fullQuery
       const concepts = buildMandatoryConcepts(subQuery)
       try {
+        // rerankQuery (last-but-one arg) is subQuery here, NOT the full
+        // original question — subQuery already keeps every non-garment word
+        // (occasion, material, "beach party", etc.), so the LLM judge loses
+        // no real context, but bm25Scores() internally derives its
+        // quality-feedback concept key from THIS SAME string via
+        // decomposeQuery(...).garmentKeys[0] — passing the full combined
+        // question here made every category branch resolve to whichever
+        // garment word appeared first in the whole sentence (always the
+        // same category), so relevance_adjustments demotion was being
+        // looked up under the wrong concept for every category but the
+        // first one.
         const found = await GlobalCatalogService.search(
           subQuery, budgetMax, [], countryCode, true, concepts,
           'relevance', buyerCurrency, { fastFirstPage: true }, [],
-          memorySummary, question, preferredSize,
+          memorySummary, subQuery, preferredSize,
         )
         const filtered = found.filter(p => productMatchesSlot(p, cat as any))
-        const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, perCategoryCap)
+        const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, capFor(i))
         return { label: slotLabelFor(cat as any), products: chosen }
       } catch (e) {
         console.error('[stylist] multi-category search error:', e)
@@ -274,9 +306,18 @@ async function stylistChat(
     run: () => cerebrasChat(messages, system, { ...opts, reasoning_effort: useGemini ? 'high' : 'low' }),
   }
 
-  // Preferred provider leads; the rest are the safety net behind it.
-  if (useGemini && hasGemini) {
-    attempts.push(geminiAttempt, ...groqAttempts, cerebrasAttempt)
+  // Preferred provider leads; the rest are the safety net behind it. The
+  // ORDER depends only on useGemini (heavy vs light path) — whether Gemini
+  // itself is actually configured (hasGemini) only decides whether its
+  // attempt is included at all, never where Cerebras lands. The previous
+  // `useGemini && hasGemini` gate conflated the two: with GOOGLE_AI_API_KEY
+  // unset, a heavy-path request fell into the "light" ordering and put
+  // Cerebras FIRST with reasoning_effort:'high' against the full heavy
+  // SYSTEM+contextBlock prompt — exactly the large-prompt/8K-cap risk this
+  // was supposed to go LAST to avoid.
+  if (useGemini) {
+    if (hasGemini) attempts.push(geminiAttempt)
+    attempts.push(...groqAttempts, cerebrasAttempt)
   } else {
     attempts.push(cerebrasAttempt, ...groqAttempts)
     if (hasGemini) attempts.push(geminiAttempt)
@@ -1133,7 +1174,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           const preferredSize = sizeForQuery(compiled.args.searchQuery)
           const multiGroups = await multiCategorySearch(
             compiled.args.searchQuery, compiled.args.budgetMax, countryCode,
-            compiled.args.budgetCurrency || buyerCurrency, memorySummary, question, preferredSize,
+            compiled.args.budgetCurrency || buyerCurrency, memorySummary, preferredSize,
           )
           if (multiGroups) {
             const totalCount = multiGroups.reduce((sum, g) => sum + g.products.length, 0)
@@ -1384,7 +1425,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
 
         const multiGroups = await multiCategorySearch(
           searchQuery, llmBudget.budgetMax, countryCode, buyerCurrency,
-          memorySummary, question, preferredSize,
+          memorySummary, preferredSize,
         )
         if (multiGroups) {
           foundProductGroups = multiGroups

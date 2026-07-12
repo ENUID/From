@@ -821,11 +821,9 @@ function ProductMeta({ p, rates, saved, onSave, onOpen, activeColor, onSelectCol
           onClick={e => { e.stopPropagation(); onSave() }}
           style={{ flexShrink: 0, width: 20, height: 20, marginTop: 1, padding: 0, border: 'none', background: 'none',
             cursor: 'pointer', color: INK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {saved ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-          ) : (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-          )}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+          </svg>
         </button>
       </div>
       <div style={{ fontFamily: SANS, fontSize: 12.5, color: INK, fontWeight: 500, letterSpacing: '.01em' }}>
@@ -2710,11 +2708,13 @@ export default function DiscernApp({
             style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
               background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
-            {isSaved ? (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-            ) : (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-            )}
+            {/* Same bag glyph as the detail sheet's "Bag it" button (outline when
+                not saved, filled when saved) — a "+" here read as ambiguous
+                (add to list? follow?) where a bag icon reads as exactly what
+                the action does, and matches the app's own "Bag it" language. */}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+            </svg>
           </button>
         </div>
         <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, color: INK, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
@@ -5357,11 +5357,9 @@ export default function DiscernApp({
                                     style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none',
                                       background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
                                       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
-                                    {isSaved ? (
-                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                                    ) : (
-                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                                    )}
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+                                    </svg>
                                   </button>
                                 </div>
                                 <div style={{ padding: '7px 8px' }}>
