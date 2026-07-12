@@ -2834,27 +2834,47 @@ export default function DiscernApp({
     }
   }, [stylistMsgs, authProof])
 
-  // Pull side of cross-device sync: backfill any session Convex has for this
-  // account that this particular device/browser doesn't have locally yet —
-  // e.g. signing into the same account on a new phone or a different
-  // browser. Never overwrites a session already known locally (a remote
-  // write could theoretically be stale versus one still in flight here);
-  // mergedRemoteSessionIds ensures each remote session is only merged once
-  // rather than re-processing the whole list on every render.
+  // Two-way cross-device sync for the history list. Pull side: backfill any
+  // session Convex has for this account that this device doesn't have
+  // locally yet — e.g. signing into the same account on a new phone. Prune
+  // side: if a session this device previously confirmed existed on the
+  // server (everSeenRemoteIds) has since disappeared from the live list —
+  // deleted from this device or another one — drop it here too, so a
+  // deletion actually shows up everywhere instead of only on the device
+  // that made it. A session is only prune-eligible after being independently
+  // confirmed present at least once remotely, so a conversation that was
+  // just created here and hasn't round-tripped through Convex's live query
+  // yet can never be mistaken for a deletion.
   const mergedRemoteSessionIds = useRef<Set<string>>(new Set())
+  const everSeenRemoteIds = useRef<Set<string>>(new Set())
   useEffect(() => {
-    if (!remoteStylistSessions || remoteStylistSessions.length === 0) return
+    if (!remoteStylistSessions) return // still loading — don't touch anything yet
+    const remoteIds = new Set(remoteStylistSessions.map(r => r.sessionId))
+    remoteIds.forEach(id => everSeenRemoteIds.current.add(id))
+
     const missing = remoteStylistSessions.filter(r =>
       !mergedRemoteSessionIds.current.has(r.sessionId) && !stylistHistory.some(h => h.id === r.sessionId)
     )
-    if (missing.length === 0) return
+    const toRemove = stylistHistory.filter(h => everSeenRemoteIds.current.has(h.id) && !remoteIds.has(h.id))
+    if (missing.length === 0 && toRemove.length === 0) return
+
     missing.forEach(r => {
       mergedRemoteSessionIds.current.add(r.sessionId)
       try { localStorage.setItem(stylistSessionLS(r.sessionId), r.messages) } catch {}
     })
+    if (toRemove.length > 0) {
+      toRemove.forEach(h => { try { localStorage.removeItem(stylistSessionLS(h.id)) } catch {} })
+      if (toRemove.some(h => h.id === stylistSessionId.current)) {
+        setStylistMsgs([])
+        stylistSessionId.current = null
+      }
+    }
+
     setStylistHistory(prev => {
+      const removeIds = new Set(toRemove.map(h => h.id))
+      const kept = prev.filter(h => !removeIds.has(h.id))
       const additions = missing.map(r => ({ id: r.sessionId, label: r.label, createdAt: r.createdAt }))
-      return [...prev, ...additions].sort((a, b) => b.createdAt - a.createdAt).slice(0, 30)
+      return [...kept, ...additions].sort((a, b) => b.createdAt - a.createdAt).slice(0, 30)
     })
   }, [remoteStylistSessions, stylistHistory])
 
