@@ -95,6 +95,26 @@ export type ChatMessage = {
   products?: any[]
 }
 
+// Strips visible chain-of-thought leakage some "hybrid reasoning" models
+// (e.g. Qwen3's <think> blocks, seen live from qwen/qwen3.6-27b on Groq
+// direct — health-checked in production returning "<think>\nHere's a
+// thinking process:...") emit inline in .content when thinking mode isn't
+// explicitly disabled by the caller. A raw reasoning trace showing up in a
+// shopper-facing reply reads as a broken product, not a stylist. Handles
+// both a fully-closed block and one cut off mid-thought by max_tokens.
+// Applied at the shared choke points every reply funnels through
+// (stylistChat in route.ts for text, wardrobeVisionChat below for vision)
+// rather than per-provider, so it protects against ANY current or future
+// model in the fallback chain doing this — openrouter/free in particular
+// can route to a different underlying model per request.
+export function stripThinkTags(text: string): string {
+  if (!text) return text
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/gi, '')
+    .trim()
+}
+
 function headersFor(base: string, apiKey: string) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -543,7 +563,9 @@ export async function wardrobeVisionChat(
   const errors: { name: string; err: any }[] = []
 
   try {
-    return await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)
+    const content = stripThinkTags((await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)).trim())
+    if (!content) throw new Error('empty content')
+    return content
   } catch (err: any) {
     errors.push({ name: 'gemini', err })
   }
@@ -556,7 +578,7 @@ export async function wardrobeVisionChat(
 
   try {
     const msg = await groqVisionChat(visionMessages, systemPrompt, opts)
-    const content = (msg?.content ?? '').trim()
+    const content = stripThinkTags((msg?.content ?? '').trim())
     if (!content) throw new Error('empty content')
     return content
   } catch (err: any) {
@@ -565,7 +587,7 @@ export async function wardrobeVisionChat(
 
   try {
     const msg = await groqDirectVisionChat(visionMessages, systemPrompt, opts)
-    const content = (msg?.content ?? '').trim()
+    const content = stripThinkTags((msg?.content ?? '').trim())
     if (!content) throw new Error('empty content')
     return content
   } catch (err: any) {

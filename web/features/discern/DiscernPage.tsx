@@ -3886,16 +3886,23 @@ export default function DiscernApp({
         }
         .fr-icon-btn:active{transform:scale(0.93);}
 
-        /* Send button */
+        /* Send button — while a request is in flight this becomes a plain
+           light "busy" pill (bordered, black stop-square icon) instead of
+           the dark send-arrow state, so it's visually obvious the button
+           won't act as send right now while the shopper is still free to
+           type and queue up their next message underneath it. */
         .fr-send-btn{
-          width:36px;height:36px;border-radius:50%;border:none;touch-action:manipulation;
-          background:${canSend ? INK : 'rgba(0,0,0,.18)'};
+          width:36px;height:36px;border-radius:50%;touch-action:manipulation;
+          background:${loading ? '#ffffff' : (canSend ? INK : 'rgba(0,0,0,.18)')};
+          border:${loading ? `1px solid ${BRD}` : 'none'};
           display:flex;align-items:center;justify-content:center;
-          cursor:${canSend ? 'pointer' : 'default'};
+          cursor:${loading ? 'default' : (canSend ? 'pointer' : 'default')};
           flex-shrink:0;
-          box-shadow:${canSend
-            ? '0 4px 14px rgba(0,0,0,.35),0 1px 4px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.12)'
-            : 'none'};
+          box-shadow:${loading
+            ? '0 2px 8px rgba(0,0,0,.08)'
+            : canSend
+              ? '0 4px 14px rgba(0,0,0,.35),0 1px 4px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.12)'
+              : 'none'};
           transition:background .2s,box-shadow .2s;
         }
 
@@ -5598,9 +5605,9 @@ export default function DiscernApp({
                         onPointerUp={() => setSendPressed(false)}
                         onPointerLeave={() => setSendPressed(false)}
                       >
-                        <button type="button" className="fr-send-btn" onClick={() => canSend && doSearch()}>
+                        <button type="button" className="fr-send-btn" aria-label={loading ? 'Fabrics is working' : 'Send'} onClick={() => canSend && doSearch()}>
                           {loading
-                            ? <div style={{ width: 12, height: 12, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.3)', borderTopColor: 'white', animation: 'spin .8s linear infinite' }} />
+                            ? <div style={{ width: 11, height: 11, borderRadius: 3, background: INK }} />
                             : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="12" y1="19" x2="12" y2="5"/>
                                 <polyline points="5 12 12 5 19 12"/>
