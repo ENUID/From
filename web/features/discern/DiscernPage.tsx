@@ -1830,6 +1830,15 @@ function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCu
 const STYLIST_STEP_INTERVAL_MS = 1100
 const STYLIST_FLICKER_GUARD_MS = 500
 
+// "See more" reasons through the same search+rank pipeline as a fresh query
+// (see mode:'load-more' in stylist/route.ts) — this is what it cycles
+// through while that's in flight, same icon language as the main tracker.
+const LOAD_MORE_PHASES: { icon: StylistLoadingIcon; label: string }[] = [
+  { icon: 'search', label: 'Searching for more' },
+  { icon: 'filter', label: 'Filtering for fit and material' },
+  { icon: 'curate', label: 'Ranking the next best picks' },
+]
+
 // ── Step icons ───────────────────────────────────────────────────────────────
 // A single bespoke visual language, not a generic icon-font set — every glyph
 // here is built from the same thread / needle / weave vocabulary as the
@@ -2363,6 +2372,12 @@ export default function DiscernApp({
   const loading = stylistLoading
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
   const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
+  // "See more" gets the same reasoning-in-progress feel as a fresh search —
+  // a small cycling icon+label row in place of the button — without needing
+  // the full per-message step tracker. Only one "See more" can be in flight
+  // at a time (the button disables while loading), so one shared step index
+  // is enough.
+  const [loadMoreStep, setLoadMoreStep] = useState(0)
   // How many trace lines of the ACTIVE step are revealed so far — counts up
   // as the step plays out, resets to 0 whenever the active step changes.
   const [stylistTraceVisible, setStylistTraceVisible]   = useState(0)
@@ -2620,12 +2635,20 @@ export default function DiscernApp({
     sendStylist(text, stylistProducts, truncated, editImages.map(url => ({ url })))
   }
 
-  // "See more" on a result strip — re-runs the same query excluding what's
-  // already shown, and appends. No LLM call (mode: 'load-more').
+  // "See more" re-runs the same reasoned search (BM25 + LLM judge, mode:
+  // 'load-more' in stylist/route.ts) excluding what's already shown, and
+  // appends the next best-of-best batch — same reasoning pipeline as a
+  // fresh query, not a raw pagination dump. Drives the small cycling
+  // icon+label row (loadMoreStep) in place of the button while it runs.
   const loadMoreStylistProducts = async (messageIndex: number) => {
     const msg = stylistMsgs[messageIndex]
     if (!msg || !msg.searchQuery || msg.loadingMore || msg.hasNoMore) return
     setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: true } : m))
+    setLoadMoreStep(0)
+    const stepTimer = window.setInterval(() => {
+      setLoadMoreStep(s => Math.min(s + 1, LOAD_MORE_PHASES.length - 1))
+    }, STYLIST_STEP_INTERVAL_MS)
+    const startedAt = Date.now()
     try {
       const excludeIds = (msg.foundProducts || []).map(p => p.id)
       const res = await fetch('/api/ai/stylist', {
@@ -2636,6 +2659,10 @@ export default function DiscernApp({
         }),
       })
       const data = await res.json()
+      // Same small flicker guard as a fresh search — never hold longer than
+      // the request actually took, just avoid an instant in-and-out flash.
+      const elapsed = Date.now() - startedAt
+      if (elapsed < STYLIST_FLICKER_GUARD_MS) await new Promise(r => setTimeout(r, STYLIST_FLICKER_GUARD_MS - elapsed))
       const displayCur = shopperContext.currency || 'USD'
       const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
       const fresh: Product[] = Array.isArray(data?.foundProducts) ? dedupeById(data.foundProducts.map(withCur)) : []
@@ -2652,6 +2679,8 @@ export default function DiscernApp({
       }))
     } catch {
       setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: false } : m))
+    } finally {
+      window.clearInterval(stepTimer)
     }
   }
 
@@ -3712,6 +3741,10 @@ export default function DiscernApp({
            backdrop-filter here has nothing to blur in normal flow (the header
            doesn't overlap content itself), but it keeps the surface consistent
            with the ::after melt zone right below it, so there's no visible seam. */
+        /* Same blur radius and translucency on both the header itself and the
+           melt strip below it (FR_HEADER_BLUR) — they used to differ slightly
+           (14px vs 12px, plain rgba vs a masked strip), which read as two
+           different surfaces glued together instead of one continuous one. */
         .fr-header{display:flex;align-items:center;justify-content:space-between;position:relative;
           padding:max(10px,env(safe-area-inset-top,0px)) max(16px,calc(env(safe-area-inset-right,0px) + 12px)) 6px max(16px,calc(env(safe-area-inset-left,0px) + 12px));
           flex-shrink:0;z-index:10;background:rgba(255,255,255,.86);
@@ -3726,7 +3759,8 @@ export default function DiscernApp({
            underneath; blur-with-a-fading-mask genuinely softens whatever's
            there instead, the way a native translucent nav bar does. */
         .fr-header::after{content:'';position:absolute;left:0;right:0;bottom:-32px;height:44px;
-          backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+          background:rgba(255,255,255,.86);
+          backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
           -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,.85) 27%, rgba(0,0,0,.4) 60%, rgba(0,0,0,0) 100%);
           mask-image:linear-gradient(to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,.85) 27%, rgba(0,0,0,.4) 60%, rgba(0,0,0,0) 100%);
           pointer-events:none;z-index:1;}
@@ -5243,12 +5277,21 @@ export default function DiscernApp({
                           ))
                         })()}
                         {m.searchQuery && !m.hasNoMore && (
-                          <button type="button" onClick={() => loadMoreStylistProducts(i)} disabled={m.loadingMore}
-                            style={{ marginTop: 14, width: '100%', padding: '11px', borderRadius: 12, border: `1px solid ${BRD}`,
-                              background: 'transparent', fontFamily: SANS, fontSize: 12, fontWeight: 500, letterSpacing: '.04em',
-                              textTransform: 'uppercase', color: INK2, cursor: m.loadingMore ? 'default' : 'pointer', opacity: m.loadingMore ? .5 : 1 }}>
-                            {m.loadingMore ? 'Finding more…' : 'See more'}
-                          </button>
+                          m.loadingMore ? (
+                            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '11px 2px' }}>
+                              <div className="fr-step-active" style={{ position: 'relative', width: 22, height: 22, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
+                                <StylistStepIcon icon={LOAD_MORE_PHASES[loadMoreStep].icon} size={12} />
+                              </div>
+                              <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>{LOAD_MORE_PHASES[loadMoreStep].label}</span>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => loadMoreStylistProducts(i)}
+                              style={{ marginTop: 14, width: '100%', padding: '11px', borderRadius: 12, border: `1px solid ${BRD}`,
+                                background: 'transparent', fontFamily: SANS, fontSize: 12, fontWeight: 500, letterSpacing: '.04em',
+                                textTransform: 'uppercase', color: INK2, cursor: 'pointer' }}>
+                              See more
+                            </button>
+                          )
                         )}
                       </div>
                     )}

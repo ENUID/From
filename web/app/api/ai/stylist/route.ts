@@ -43,21 +43,13 @@ function logAiUsage(info: {
   }).catch(() => {}) // best-effort — never let logging affect the actual response
 }
 
-// Fabrics is now the one and only shopping surface — results need to feel
-// like real browsing, not a quick-answer teaser. (Was 12 when this was a
-// side-panel stylist only.) 52 = 4 rows of 13 — the client chunks whatever
-// comes back here into 13-per-row "Found for you" strips (PRODUCTS_PER_ROW
-// in DiscernPage.tsx), so a fetch that returns fewer just shows fewer rows.
-// Only used for "See more" pagination (mode: 'load-more') now — a deliberate,
-// explicit shopper action to see a deeper page, not the first thing shown.
-const SEARCH_RESULT_CAP = 52
-
-// The FIRST page of a fresh search. The reranker (relevanceRerank.ts) already
-// judges a much wider candidate pool and orders it best-first — showing all
-// ~52 of those diluted "the best options" into "everything roughly
-// relevant." Cutting the initial page to a curated handful makes that
-// judging actually visible instead of buried in a long scroll. Shoppers who
-// want more still have "See more", which uses the wider SEARCH_RESULT_CAP.
+// Best-of-best cap — applied to BOTH the first page of a fresh search AND
+// each "See more" page. The reranker (relevanceRerank.ts) already judges a
+// much wider candidate pool and orders it best-first; showing dozens of
+// those at once (this used to be 52, 4 rows of 13) diluted "the best
+// options" into "everything roughly relevant." "See more" re-runs the same
+// reasoned search excluding what's already shown and returns the next
+// best-of-best batch of this same size, not a bulk dump of the wider pool.
 const INITIAL_RESULT_CAP = 8
 
 // Combined cap when one request spans multiple distinct garment categories
@@ -68,7 +60,7 @@ const MULTI_CATEGORY_TOTAL_CAP = 8
 // Absolute last-line guard: no product id may appear twice in a single
 // foundProducts payload, whatever upstream produced it (fresh search, brand
 // fallback, or the persistent catalog-cache pool). Applied at every site that
-// builds a foundProducts response, right before the SEARCH_RESULT_CAP slice.
+// builds a foundProducts response, right before the INITIAL_RESULT_CAP slice.
 function dedupeById<T extends { id: string }>(items: T[]): T[] {
   const seen = new Set<string>()
   const out: T[] = []
@@ -1029,9 +1021,12 @@ export async function POST(req: NextRequest) {
       ? (body.recentSearches as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0).slice(0, 8)
       : []
 
-    // ── Load-more mode: pure pagination re-fetch for a "see more" tap on an
-    // already-shown result strip. No LLM involved — reuses the exact query,
-    // excludes IDs already on screen. ─────────────────────────────────────────
+    // ── Load-more mode: a "see more" tap re-runs the same reasoned search
+    // (BM25 + LLM judge, same as a fresh query) excluding whatever's already
+    // shown, and returns the next best-of-best batch — NOT a bulk dump of
+    // the wider candidate pool. Was slicing to the old SEARCH_RESULT_CAP
+    // (52, 4 rows of 13) — the same "everything roughly relevant" flood
+    // the initial-search cap was fixed to move away from applies here too.
     if (mode === 'load-more') {
       const loadMoreQuery: string = typeof body?.query === 'string' ? body.query.trim().slice(0, 200) : ''
       const excludeIds: string[] = Array.isArray(body?.excludeIds)
@@ -1045,7 +1040,7 @@ export async function POST(req: NextRequest) {
           'relevance', buyerCurrency, { fastFirstPage: true, loadMore: true }, [],
           memorySummary, undefined, sizeForQuery(loadMoreQuery),
         )
-        return NextResponse.json({ reply: '', comparison: null, foundProducts: dedupeById(results).slice(0, SEARCH_RESULT_CAP), outfitSlots: null })
+        return NextResponse.json({ reply: '', comparison: null, foundProducts: dedupeById(results).slice(0, INITIAL_RESULT_CAP), outfitSlots: null })
       } catch (e) {
         console.error('[stylist] load-more error:', e)
         return NextResponse.json({ foundProducts: [], comparison: null })
