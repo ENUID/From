@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
   if (!process.env.CONVEX_AUTH_SECRET) {
     console.error('[send-code] CONVEX_AUTH_SECRET is not set')
-    return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'Sign-in is not configured (missing auth secret)' }, { status: 503 })
   }
 
   // Normalize and validate the Convex URL — a .convex.site URL or trailing
