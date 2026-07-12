@@ -31,6 +31,11 @@ const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
 const GEIST = "'Geist', 'DM Sans', system-ui, sans-serif"
+// Wordmark-only face — bold, wide, geometric display font for the "Discern"
+// logotype specifically (free for commercial use, unlike the paid PP
+// Gatwick this was picked to approximate the spirit of). Never used for
+// body/UI text, only the literal brand mark rendered by DiscernLogo below.
+const WORDMARK = "'Unbounded', 'Geist', 'DM Sans', system-ui, sans-serif"
 
 // ── One-time localStorage migration: from → discern (the FROM → Discern
 // rebrand) ───────────────────────────────────────────────────────────────────
@@ -145,8 +150,8 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
         style={{ display: 'block', objectFit: 'contain', flexShrink: 0, borderRadius: Math.round(markSize * 0.22) }}
       />
       <span style={{ display: 'flex', alignItems: 'baseline', gap: Math.round(size * 0.2) }}>
-        <span style={{ fontFamily: GEIST, fontSize: size, fontWeight: 500, color,
-          letterSpacing: '0.015em', lineHeight: 1 }}>
+        <span style={{ fontFamily: WORDMARK, fontSize: Math.round(size * 0.86), fontWeight: 700, color,
+          letterSpacing: '0.01em', lineHeight: 1, textTransform: 'uppercase' }}>
           Discern
         </span>
         <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.42), fontWeight: 400,
