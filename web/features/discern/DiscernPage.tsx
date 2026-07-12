@@ -16,12 +16,17 @@ import DOMPurify from 'dompurify'
 import { compileIntent } from '@/lib/intentCompiler'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
-const INK   = "#2C1206"   // dark brown
-const INK2  = "#4A2010"   // medium brown
-const INK3  = "#9B7060"   // warm muted brown
-const BRD   = "rgba(44,18,6,0.08)"
+// Cool neutral system (Apple/Linear-style) — near-black/gray/white, one
+// restrained accent color reserved for primary actions and confidence
+// badges. Previously a warm ink-brown theme; every usage below still flows
+// through these same constant names, so the whole app repaints from here.
+const INK   = "#1D1D1F"   // near-black (primary text/UI)
+const INK2  = "#3A3A3C"   // dark gray (secondary emphasis)
+const INK3  = "#8E8E93"   // mid gray (tertiary/secondary text)
+const BRD   = "rgba(0,0,0,0.08)"
 const BG    = "#FFFFFF"   // pure white
 const BG2   = "#FFFFFF"   // white (no beige anywhere — separation comes from borders)
+const ACCENT = "#0071E3"  // restrained accent — primary actions, confidence badges only
 const SANS  = "'DM Sans', system-ui, sans-serif"
 const SERIF = "'Cormorant Garamond', Georgia, serif"
 const SEASON = "'TANMeringue', 'Bodoni Moda', Georgia, serif"
@@ -238,7 +243,7 @@ function BrandLogo({ domain, name, size = 44 }: { domain: string; name: string; 
     return (
       <div style={{ width: size, height: size, borderRadius: '50%', background: '#F2EDE9',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        fontFamily: SERIF, fontSize: size * 0.46, fontWeight: 500, color: '#2C1206' }}>
+        fontFamily: SERIF, fontSize: size * 0.46, fontWeight: 500, color: '#1D1D1F' }}>
         {initial}
       </div>
     )
@@ -247,7 +252,7 @@ function BrandLogo({ domain, name, size = 44 }: { domain: string; name: string; 
     <img src={`https://logo.clearbit.com/${logoDomain(domain)}`} alt="" loading="lazy"
       onError={() => setFailed(true)}
       style={{ width: size, height: size, borderRadius: '50%', objectFit: 'contain',
-        background: '#fff', border: '1px solid rgba(44,18,6,0.08)', flexShrink: 0 }} />
+        background: '#fff', border: '1px solid rgba(0,0,0,0.08)', flexShrink: 0 }} />
   )
 }
 
@@ -752,7 +757,7 @@ function ColorSwatch({ name, imageUrl, size, shape, selected, available, onClick
       onClick={onClick ? e => { e.stopPropagation(); if (available) onClick() } : undefined}
       style={{
         width: size, height: size, borderRadius: radius, padding: 0, background: bg,
-        border: selected ? `1px solid ${INK}` : '1px solid rgba(44,18,6,0.22)',
+        border: selected ? `1px solid ${INK}` : '1px solid rgba(0,0,0,0.22)',
         boxShadow: selected ? `0 0 0 ${ring}px ${BG}, 0 0 0 ${ring + 1}px ${INK}` : 'none',
         opacity: available ? 1 : 0.34, position: 'relative', display: 'inline-block',
         cursor: onClick && available ? 'pointer' : 'default', transition: 'box-shadow .15s',
@@ -1355,13 +1360,13 @@ function renderStylistText(
           return (
             <button key={si} onClick={() => onProductClick(p)} style={{
               display: 'flex', alignItems: 'center', gap: 10,
-              background: 'rgba(44,18,6,0.04)', border: '1px solid rgba(44,18,6,0.10)',
+              background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.10)',
               borderRadius: 12, padding: '8px 12px 8px 8px',
               cursor: 'pointer', marginTop: 10, textAlign: 'left', width: '100%',
               transition: 'background .14s',
             }}
-              onPointerEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.08)')}
-              onPointerLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.04)')}
+              onPointerEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.08)')}
+              onPointerLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
             >
               <div style={{ width: 44, height: 56, borderRadius: 8, overflow: 'hidden', background: '#EEEEEE', flexShrink: 0 }}>
                 {imgUrl && <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
@@ -3577,7 +3582,7 @@ export default function DiscernApp({
           background:#ffffff;}
         @media(min-width:1601px){
           .fr-wrap{background:#f2ede8;}
-          .fr-shell{box-shadow:0 0 0 1px rgba(44,18,6,.06);}
+          .fr-shell{box-shadow:0 0 0 1px rgba(0,0,0,.06);}
         }
 
         /* ── Header ── */
@@ -3652,18 +3657,18 @@ export default function DiscernApp({
           transform:translateX(-100%);transition:transform .34s cubic-bezier(.32,.72,0,1);
           display:flex;flex-direction:column;
           background:#ffffff;
-          border-right:0.5px solid rgba(44,18,6,.08);
-          box-shadow:8px 0 48px rgba(44,18,6,.10);
+          border-right:0.5px solid rgba(0,0,0,.08);
+          box-shadow:8px 0 48px rgba(0,0,0,.10);
           border-radius:inherit;}
         .fr-sb.open{transform:translateX(0);}
         .fr-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:199;pointer-events:none;
           transition:background .34s;border-radius:inherit;}
-        .fr-ov.open{background:rgba(44,18,6,.18);pointer-events:all;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
+        .fr-ov.open{background:rgba(0,0,0,.18);pointer-events:all;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
         .fr-hi{display:flex;align-items:center;gap:14px;padding:13px 18px;cursor:pointer;border-radius:12px;
           transition:background .12s;font-family:'DM Sans',sans-serif;font-size:14px;color:${INK};font-weight:300;
           -webkit-touch-callout:none;touch-action:pan-y;}
-        .fr-hi:hover{background:rgba(44,18,6,.05);}
-        .fr-hi.on{background:rgba(44,18,6,.07);font-weight:400;}
+        .fr-hi:hover{background:rgba(0,0,0,.05);}
+        .fr-hi.on{background:rgba(0,0,0,.07);font-weight:400;}
 
         /* ── Search bar pill ── */
         .fr-bar{
@@ -3675,10 +3680,10 @@ export default function DiscernApp({
           will-change:transform;
           background:rgba(255,255,255,0.82);
           box-shadow:
-            0 8px 32px rgba(44,18,6,.10),
-            0 2px 8px rgba(44,18,6,.06),
+            0 8px 32px rgba(0,0,0,.10),
+            0 2px 8px rgba(0,0,0,.06),
             inset 0 1.5px 0 rgba(255,255,255,.98),
-            inset 0 -0.5px 0 rgba(44,18,6,.04);
+            inset 0 -0.5px 0 rgba(0,0,0,.04);
         }
 
         /* Textarea */
@@ -3688,7 +3693,7 @@ export default function DiscernApp({
         .fr-ta{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;
           font-size:16px;color:${INK};caret-color:${INK};resize:none;overflow:hidden;
           min-height:24px;max-height:120px;line-height:1.55;padding:0;display:block;outline:none;width:100%;}
-        .fr-ta::placeholder{color:rgba(44,18,6,.28);}
+        .fr-ta::placeholder{color:rgba(0,0,0,.28);}
 
         /* Icon buttons */
         .fr-icon-btn{
@@ -3696,12 +3701,12 @@ export default function DiscernApp({
           display:flex;align-items:center;justify-content:center;touch-action:manipulation;
           color:${INK2};
           background:#ffffff;
-          box-shadow:0 2px 8px rgba(44,18,6,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -0.5px 0 rgba(44,18,6,.06);
+          box-shadow:0 2px 8px rgba(0,0,0,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -0.5px 0 rgba(0,0,0,.06);
           transition:background .15s,box-shadow .15s,transform .1s;
         }
         .fr-icon-btn:hover{
           background:#ffffff;
-          box-shadow:0 3px 12px rgba(44,18,6,.13),inset 0 1px 0 #fff,inset 0 -0.5px 0 rgba(44,18,6,.07);
+          box-shadow:0 3px 12px rgba(0,0,0,.13),inset 0 1px 0 #fff,inset 0 -0.5px 0 rgba(0,0,0,.07);
           transform:translateY(-0.5px);
         }
         .fr-icon-btn:active{transform:scale(0.93);}
@@ -3709,12 +3714,12 @@ export default function DiscernApp({
         /* Send button */
         .fr-send-btn{
           width:36px;height:36px;border-radius:50%;border:none;touch-action:manipulation;
-          background:${canSend ? INK : 'rgba(44,18,6,.18)'};
+          background:${canSend ? INK : 'rgba(0,0,0,.18)'};
           display:flex;align-items:center;justify-content:center;
           cursor:${canSend ? 'pointer' : 'default'};
           flex-shrink:0;
           box-shadow:${canSend
-            ? '0 4px 14px rgba(44,18,6,.35),0 1px 4px rgba(44,18,6,.2),inset 0 1px 0 rgba(255,255,255,.12)'
+            ? '0 4px 14px rgba(0,0,0,.35),0 1px 4px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.12)'
             : 'none'};
           transition:background .2s,box-shadow .2s;
         }
@@ -3724,10 +3729,10 @@ export default function DiscernApp({
           position:absolute;bottom:0;left:0;right:0;border-radius:24px 24px 0 0;
           display:flex;flex-direction:column;z-index:101;
           background:#ffffff;
-          border-top:0.5px solid rgba(44,18,6,.08);
+          border-top:0.5px solid rgba(0,0,0,.08);
           box-shadow:
-            0 -1px 0 rgba(44,18,6,.05),
-            0 -24px 64px rgba(44,18,6,.10);
+            0 -1px 0 rgba(0,0,0,.05),
+            0 -24px 64px rgba(0,0,0,.10);
         }
         /* On laptop/desktop (1024px+) the sheet becomes a centred side-by-side card.
            iPads in portrait (<1024px) keep the familiar bottom-sheet behaviour. */
@@ -3739,17 +3744,17 @@ export default function DiscernApp({
             height:min(700px,88vh);
             min-height:0;
             border-radius:28px;
-            border:0.5px solid rgba(44,18,6,.07);
+            border:0.5px solid rgba(0,0,0,.07);
             box-shadow:
-              0 0 0 0.5px rgba(44,18,6,.04),
-              0 8px 40px rgba(44,18,6,.14),
-              0 32px 80px rgba(44,18,6,.10);
+              0 0 0 0.5px rgba(0,0,0,.04),
+              0 8px 40px rgba(0,0,0,.14),
+              0 32px 80px rgba(0,0,0,.10);
           }
           .fr-drag{display:none;}
         }
         .fr-sheet-ov{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:100;
           pointer-events:none;transition:background .36s;border-radius:inherit;}
-        .fr-sheet-ov.vis{background:rgba(44,18,6,.28);pointer-events:all;
+        .fr-sheet-ov.vis{background:rgba(0,0,0,.28);pointer-events:all;
           backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
         .fr-drag{padding:10px 0 6px;display:flex;justify-content:center;flex-shrink:0;
           cursor:ns-resize;touch-action:none;user-select:none;}
@@ -3773,15 +3778,15 @@ export default function DiscernApp({
         .fr-html b,.fr-html strong{font-weight:500;color:${INK};}
         .fr-html em,.fr-html i{font-style:italic;}
         .fr-html table{width:100%;border-collapse:collapse;font-size:12px;}
-        .fr-html th{background:rgba(44,18,6,0.05);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:${INK};}
-        .fr-html th,.fr-html td{padding:9px 12px;border:1px solid rgba(44,18,6,0.10);text-align:left;vertical-align:middle;}
-        .fr-html tr:nth-child(even) td{background:rgba(44,18,6,0.025);}
+        .fr-html th{background:rgba(0,0,0,0.05);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:${INK};}
+        .fr-html th,.fr-html td{padding:9px 12px;border:1px solid rgba(0,0,0,0.10);text-align:left;vertical-align:middle;}
+        .fr-html tr:nth-child(even) td{background:rgba(0,0,0,0.025);}
         /* Size guide modal */
         .fr-sz-modal{font-family:'DM Sans',sans-serif;}
         .fr-sz-modal table{width:auto;min-width:max-content;white-space:nowrap;border-collapse:collapse;font-size:12px;}
-        .fr-sz-modal th{background:rgba(44,18,6,.05);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:${INK};padding:9px 14px;border:1px solid rgba(44,18,6,.1);text-align:left;vertical-align:middle;}
-        .fr-sz-modal td{padding:9px 14px;border:1px solid rgba(44,18,6,.1);text-align:left;vertical-align:middle;color:${INK2};font-weight:300;}
-        .fr-sz-modal tr:nth-child(even) td{background:rgba(44,18,6,.025);}
+        .fr-sz-modal th{background:rgba(0,0,0,.05);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:${INK};padding:9px 14px;border:1px solid rgba(0,0,0,.1);text-align:left;vertical-align:middle;}
+        .fr-sz-modal td{padding:9px 14px;border:1px solid rgba(0,0,0,.1);text-align:left;vertical-align:middle;color:${INK2};font-weight:300;}
+        .fr-sz-modal tr:nth-child(even) td{background:rgba(0,0,0,.025);}
         .fr-sz-modal img{max-width:100%;height:auto;display:block;}
 
         /* ADD button — full width */
@@ -3815,13 +3820,13 @@ export default function DiscernApp({
           color:${INK};
           border-radius:28px 28px 0 0;
           padding:28px 24px 36px;
-          border-top:1px solid rgba(44,18,6,.08);
+          border-top:1px solid rgba(0,0,0,.08);
           box-shadow:0 -12px 60px rgba(28,12,4,.22);
           animation:sheetUp .34s cubic-bezier(.32,.72,0,1);
           max-height:94vh;
           overflow-y:auto;
         }
-        .fr-gate-handle{width:40px;height:4px;border-radius:4px;background:rgba(44,18,6,.18);margin:-8px auto 20px;}
+        .fr-gate-handle{width:40px;height:4px;border-radius:4px;background:rgba(0,0,0,.18);margin:-8px auto 20px;}
         @media(min-width:768px){
           .fr-gate-outer{align-items:center;padding:18px;}
           .fr-gate-card{max-width:420px;border-radius:26px;padding:36px 32px 28px;box-shadow:0 28px 80px rgba(28,12,4,.28);animation:fadeScale .28s cubic-bezier(.32,.72,0,1);}
@@ -3835,7 +3840,7 @@ export default function DiscernApp({
           color:${INK};
           border-radius:26px 26px 0 0;
           display:flex;flex-direction:column;max-height:88vh;
-          border-top:1px solid rgba(44,18,6,.08);
+          border-top:1px solid rgba(0,0,0,.08);
           box-shadow:0 -8px 48px rgba(28,12,4,.18);
           animation:sheetUp .32s cubic-bezier(.32,.72,0,1);
         }
@@ -3849,19 +3854,19 @@ export default function DiscernApp({
         @keyframes glassFloat{0%,100%{transform:translateY(0px);}50%{transform:translateY(-4px);}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
         @keyframes fr-step-in{from{opacity:0;transform:scale(0.7);}to{opacity:1;transform:scale(1);}}
-        @keyframes fr-step-glow{0%,100%{box-shadow:0 0 0 0 rgba(44,18,6,0.18);}50%{box-shadow:0 0 0 5px rgba(44,18,6,0.06);}}
+        @keyframes fr-step-glow{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,0.18);}50%{box-shadow:0 0 0 5px rgba(0,0,0,0.06);}}
         @keyframes fr-caret-blink{0%,55%{opacity:1;}56%,100%{opacity:0;}}
         .fr-step-active{animation:fr-step-in .25s cubic-bezier(.32,.9,.4,1), fr-step-glow 1.8s ease-in-out .25s infinite;}
         .fr-step-pop{animation:fr-step-in .22s cubic-bezier(.32,.9,.4,1);}
         .fr-type-caret{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:fr-caret-blink 1s step-start infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
-        .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(44,18,6,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
+        .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(0,0,0,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
         button{cursor:pointer;} a{color:inherit;}
         .fr-msg-edit-btn{opacity:0;transition:opacity .15s ease;}
         .fr-msg-hover:hover .fr-msg-edit-btn,.fr-msg-hover:focus-within .fr-msg-edit-btn{opacity:.55;}
         .fr-msg-edit-btn:hover{opacity:1 !important;}
         .fr-otp-box{transition:border-color .12s ease,box-shadow .12s ease;}
-        .fr-otp-box:focus{border-color:${INK} !important;box-shadow:0 0 0 3px rgba(44,18,6,0.12);}
+        .fr-otp-box:focus{border-color:${INK} !important;box-shadow:0 0 0 3px rgba(0,0,0,0.12);}
       `}</style>
 
       {/* Attach input — the one photo picker, persistent wardrobe pieces for outfit-building */}
@@ -4013,7 +4018,7 @@ export default function DiscernApp({
               return (
                 <div key={key} onClick={() => setOn(!on)} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 0', borderTop: `1px solid ${BRD}`, cursor: 'pointer' }}>
                   {/* Toggle pill */}
-                  <div style={{ flexShrink: 0, marginTop: 2, width: 44, height: 26, borderRadius: 13, background: on ? INK : 'rgba(44,18,6,.12)', transition: 'background .18s', position: 'relative' }}>
+                  <div style={{ flexShrink: 0, marginTop: 2, width: 44, height: 26, borderRadius: 13, background: on ? INK : 'rgba(0,0,0,.12)', transition: 'background .18s', position: 'relative' }}>
                     <div style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.18)', transition: 'left .18s' }} />
                   </div>
                   <div>
@@ -4047,7 +4052,7 @@ export default function DiscernApp({
 
             {/* Header */}
             <div style={{ padding: '14px 18px 0', flexShrink: 0 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.14)', margin: '0 auto 14px' }} />
+              <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(0,0,0,.14)', margin: '0 auto 14px' }} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 {settingsView === 'profile' ? (
                   <button onClick={() => setSettingsView('main')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 15, fontWeight: 500, color: INK, padding: 0 }}>
@@ -4057,12 +4062,12 @@ export default function DiscernApp({
                 ) : (
                   <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 600, color: INK }}>Settings</span>
                 )}
-                <button onClick={() => { setSettingsOpen(false); setSettingsView('main') }} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(44,18,6,.07)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <button onClick={() => { setSettingsOpen(false); setSettingsView('main') }} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,.07)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
               {settingsView === 'main' && (
-                <div style={{ background: 'rgba(44,18,6,.04)', borderRadius: 12, padding: '10px 14px', marginBottom: 18 }}>
+                <div style={{ background: 'rgba(0,0,0,.04)', borderRadius: 12, padding: '10px 14px', marginBottom: 18 }}>
                   <div style={{ fontFamily: SANS, fontSize: 13, color: INK3 }}>{session?.user?.email || ''}</div>
                 </div>
               )}
@@ -4076,10 +4081,10 @@ export default function DiscernApp({
               <div>
                 {/* Avatar / name display */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', background: 'rgba(44,18,6,.08)', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', background: 'rgba(0,0,0,.08)', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     {session?.user?.image
                       ? <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(44,18,6,.35)" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                      : <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.35)" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
                     }
                   </div>
                   <div style={{ fontFamily: SANS, fontSize: 12, color: INK3 }}>{session?.user?.email || ''}</div>
@@ -4128,13 +4133,13 @@ export default function DiscernApp({
                     <label style={{ display: 'block', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, opacity: 0.7 }}>Sizes</label>
                     <span style={{ fontFamily: SANS, fontSize: 10, color: INK3, opacity: 0.6 }}>Fabrics uses this for fit advice</span>
                   </div>
-                  <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden' }}>
+                  <div style={{ background: 'rgba(0,0,0,.03)', borderRadius: 14, overflow: 'hidden' }}>
                     {[
                       { label: 'Tops', value: profileSizeTops, set: setProfileSizeTops, placeholder: profileGender === 'Women' ? 'XS, S, M, L…' : profileGender === 'Men' ? 'S, M, L, XL…' : 'e.g. M, L, 38' },
                       { label: 'Bottoms', value: profileSizeBottoms, set: setProfileSizeBottoms, placeholder: profileGender === 'Women' ? '26, 28, 30, 32…' : profileGender === 'Men' ? '30, 32, 34, 36…' : 'e.g. 32, W30 L32' },
                       { label: 'Shoes', value: profileSizeShoes, set: setProfileSizeShoes, placeholder: profileGender === 'Women' ? '6, 7, 8, EU 38…' : profileGender === 'Men' ? '9, 10, 11, EU 43…' : 'e.g. EU 42, UK 8' },
                     ].map(({ label, value, set, placeholder }, i) => (
-                      <div key={label} style={{ borderTop: i > 0 ? `0.5px solid rgba(44,18,6,.07)` : 'none', display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12 }}>
+                      <div key={label} style={{ borderTop: i > 0 ? `0.5px solid rgba(0,0,0,.07)` : 'none', display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12 }}>
                         <div style={{ fontFamily: SANS, fontSize: 14, color: INK, width: 72, flexShrink: 0 }}>{label}</div>
                         <input value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
                           style={{ flex: 1, border: 'none', background: 'transparent', fontFamily: SANS, fontSize: 14, color: INK, outline: 'none', textAlign: 'right' }} />
@@ -4158,7 +4163,7 @@ export default function DiscernApp({
               <div>
               {/* Account section */}
               <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, opacity: 0.6, marginBottom: 8 }}>Account</div>
-              <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
+              <div style={{ background: 'rgba(0,0,0,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
                 {[
                   {
                     label: 'My Profile',
@@ -4177,7 +4182,7 @@ export default function DiscernApp({
                   <div key={label}>
                     <button onClick={action} disabled={!action}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: 'none', border: 'none', cursor: action ? 'pointer' : 'default', textAlign: 'left' }}
-                      onPointerDown={e => action && (e.currentTarget.style.background = 'rgba(44,18,6,.05)')}
+                      onPointerDown={e => action && (e.currentTarget.style.background = 'rgba(0,0,0,.05)')}
                       onPointerUp={e => (e.currentTarget.style.background = 'none')}
                       onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
                       <div style={{ flexShrink: 0 }}>{icon}</div>
@@ -4188,14 +4193,14 @@ export default function DiscernApp({
                       {badge && <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: '#fff', background: INK, borderRadius: 20, padding: '3px 10px', letterSpacing: '.04em' }}>{badge}</span>}
                       {action && !badge && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>}
                     </button>
-                    {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(44,18,6,.08)', margin: '0 14px' }} />}
+                    {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(0,0,0,.08)', margin: '0 14px' }} />}
                   </div>
                 ))}
               </div>
 
               {/* Privacy section */}
               <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, opacity: 0.6, marginBottom: 8 }}>Privacy</div>
-              <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
+              <div style={{ background: 'rgba(0,0,0,.03)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
                 {[
                   {
                     label: 'Data & Consent',
@@ -4222,7 +4227,7 @@ export default function DiscernApp({
                       </a>
                     ) : (
                       <button onClick={action} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                        onPointerDown={e => (e.currentTarget.style.background = 'rgba(44,18,6,.05)')}
+                        onPointerDown={e => (e.currentTarget.style.background = 'rgba(0,0,0,.05)')}
                         onPointerUp={e => (e.currentTarget.style.background = 'none')}
                         onPointerLeave={e => (e.currentTarget.style.background = 'none')}>
                         <div style={{ flexShrink: 0 }}>{icon}</div>
@@ -4233,17 +4238,17 @@ export default function DiscernApp({
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="1.8" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
                       </button>
                     )}
-                    {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(44,18,6,.08)', margin: '0 14px' }} />}
+                    {i < arr.length - 1 && <div style={{ height: '0.5px', background: 'rgba(0,0,0,.08)', margin: '0 14px' }} />}
                   </div>
                 ))}
               </div>
 
               {/* Sign out */}
               <button onClick={() => signOut({ callbackUrl: window.location.origin + '/' })}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: 'rgba(44,18,6,.03)', borderRadius: 14, border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: 'rgba(0,0,0,.03)', borderRadius: 14, border: 'none', cursor: 'pointer', textAlign: 'left' }}
                 onPointerDown={e => (e.currentTarget.style.background = 'rgba(192,57,43,.08)')}
-                onPointerUp={e => (e.currentTarget.style.background = 'rgba(44,18,6,.03)')}
-                onPointerLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.03)')}>
+                onPointerUp={e => (e.currentTarget.style.background = 'rgba(0,0,0,.03)')}
+                onPointerLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,.03)')}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c0392b" strokeWidth="1.7" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: '#c0392b' }}>Sign out</span>
               </button>
@@ -4277,7 +4282,7 @@ export default function DiscernApp({
                 style={{
                   width: 38, height: 38, borderRadius: "50%",
                   background: sidebarView === 'profile' ? INK : "#ffffff",
-                  boxShadow: "0 4px 16px rgba(44,18,6,.12), 0 1px 4px rgba(44,18,6,.07), inset 0 1px 0 rgba(255,255,255,.95)",
+                  boxShadow: "0 4px 16px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,.95)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   cursor: "pointer", flexShrink: 0, userSelect: "none",
                   overflow: "hidden", transition: "background 0.18s",
@@ -4433,7 +4438,7 @@ export default function DiscernApp({
                     )}
 
                     {/* Divider */}
-                    <div style={{ width: '100%', height: 1, background: 'rgba(44,18,6,0.07)', marginBottom: 16 }} />
+                    <div style={{ width: '100%', height: 1, background: 'rgba(0,0,0,0.07)', marginBottom: 16 }} />
 
                     {/* Sign out */}
                     <button
@@ -4446,7 +4451,7 @@ export default function DiscernApp({
                         fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK3,
                         cursor: 'pointer', transition: 'background 0.12s',
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.05)')}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.05)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -4594,12 +4599,12 @@ export default function DiscernApp({
                       style={{
                         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
                         padding: '11px 16px', borderRadius: 10,
-                        background: 'rgba(44,18,6,0.04)', border: '1px solid rgba(44,18,6,0.08)',
+                        background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)',
                         fontFamily: SANS, fontSize: 14, fontWeight: 400, color: INK,
                         cursor: 'pointer', transition: 'background 0.12s',
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.08)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,0.04)')}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.08)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
                     >
                       <svg width="16" height="16" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
                         <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
@@ -4726,13 +4731,13 @@ export default function DiscernApp({
               <button onClick={() => setSidebar(true)} style={{
                 width: 36, height: 36, borderRadius: "50%", border: "none",
                 background: "#ffffff",
-                boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
+                boxShadow: "0 2px 8px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.95)",
                 display: "flex", flexDirection: "column", alignItems: "flex-start",
                 justifyContent: "center", gap: 4.5, padding: "8px 9px", cursor: "pointer",
                 transition: "box-shadow .15s, transform .1s", flexShrink: 0,
               }}
-                onPointerEnter={e => { e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
-                onPointerLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
+                onPointerEnter={e => { e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,.14), inset 0 1px 0 #fff"; e.currentTarget.style.transform = "translateY(-0.5px)" }}
+                onPointerLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.95)"; e.currentTarget.style.transform = "" }}
               >
                 <span style={{ display: "block", width: 16, height: 1.5, background: INK, borderRadius: 1 }} />
                 <span style={{ display: "block", width: 12, height: 1.5, background: INK, borderRadius: 1 }} />
@@ -4748,12 +4753,12 @@ export default function DiscernApp({
                 style={{
                   width: 36, height: 36, borderRadius: "50%", border: "none",
                   background: "#ffffff",
-                  boxShadow: "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.95)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   cursor: "pointer", flexShrink: 0, transition: "box-shadow .15s",
                 }}
-                onPointerEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(44,18,6,.14), inset 0 1px 0 #fff")}
-                onPointerLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(44,18,6,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
+                onPointerEnter={e => (e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,.14), inset 0 1px 0 #fff")}
+                onPointerLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.95)")}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 20h9"/>
@@ -5049,7 +5054,7 @@ export default function DiscernApp({
                         <div style={{ display: 'flex', borderBottom: `1px solid ${BRD}` }}>
                           <div style={{ width: 88, flexShrink: 0 }} />
                           {stylistProducts.map((p, ci) => (
-                            <div key={p.id} style={{ flex: 1, padding: '8px 4px', textAlign: 'center', borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
+                            <div key={p.id} style={{ flex: 1, padding: '8px 4px', textAlign: 'center', borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(0,0,0,0.05)' : 'transparent' }}>
                               <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, color: INK2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 3px', lineHeight: 1.3 }}>
                                 {p.title.replace(/^\d[\d\s\-–—]*/, '').trim().split(' ').slice(0, 3).join(' ') || `${ci + 1}`}
                               </div>
@@ -5063,14 +5068,14 @@ export default function DiscernApp({
                           <div key={ri} style={{ display: 'flex', borderBottom: ri < m.comparison!.rows.length - 1 ? `1px solid ${BRD}` : 'none' }}>
                             <div style={{ width: 88, flexShrink: 0, padding: '9px 10px', fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.03em', textTransform: 'uppercase', color: INK3 }}>{row.label}</div>
                             {stylistProducts.map((p, ci) => (
-                              <div key={ci} style={{ flex: 1, padding: '9px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 12, color: INK2, borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(44,18,6,0.05)' : 'transparent' }}>
+                              <div key={ci} style={{ flex: 1, padding: '9px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 12, color: INK2, borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(0,0,0,0.05)' : 'transparent' }}>
                                 {row.values[ci] ?? '—'}
                               </div>
                             ))}
                           </div>
                         ))}
                         {m.comparison.pick?.reason && stylistProducts[m.comparison.pick.index] && (
-                          <div style={{ padding: '10px 12px', fontFamily: SANS, fontSize: 12, color: INK2, lineHeight: 1.5, background: 'rgba(44,18,6,0.03)', borderTop: `1px solid ${BRD}` }}>
+                          <div style={{ padding: '10px 12px', fontFamily: SANS, fontSize: 12, color: INK2, lineHeight: 1.5, background: 'rgba(0,0,0,0.03)', borderTop: `1px solid ${BRD}` }}>
                             <strong style={{ fontWeight: 600 }}>{stylistProducts[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
                           </div>
                         )}
@@ -5267,9 +5272,9 @@ export default function DiscernApp({
                                   width: state === 'done' ? 16 : 22, height: state === 'done' ? 16 : 22,
                                   borderRadius: '50%',
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  background: state === 'active' ? INK : state === 'done' ? 'rgba(44,18,6,.05)' : 'transparent',
-                                  color: state === 'active' ? '#fff' : state === 'done' ? 'rgba(44,18,6,.4)' : 'rgba(44,18,6,.3)',
-                                  border: state === 'upcoming' ? '1px solid rgba(44,18,6,.16)' : 'none',
+                                  background: state === 'active' ? INK : state === 'done' ? 'rgba(0,0,0,.05)' : 'transparent',
+                                  color: state === 'active' ? '#fff' : state === 'done' ? 'rgba(0,0,0,.4)' : 'rgba(0,0,0,.3)',
+                                  border: state === 'upcoming' ? '1px solid rgba(0,0,0,.16)' : 'none',
                                   transition: 'background .3s ease, color .3s ease, width .3s ease, height .3s ease',
                                 }}>
                                 {state === 'done'
@@ -5277,7 +5282,7 @@ export default function DiscernApp({
                                   : <StylistStepIcon icon={phase.icon} size={12} />}
                               </div>
                               {!isLast && (
-                                <div style={{ width: 1, flex: 1, minHeight: 20, marginTop: 2, marginBottom: 2, background: state === 'done' ? 'rgba(44,18,6,.14)' : 'rgba(44,18,6,.08)', transition: 'background .3s ease' }} />
+                                <div style={{ width: 1, flex: 1, minHeight: 20, marginTop: 2, marginBottom: 2, background: state === 'done' ? 'rgba(0,0,0,.14)' : 'rgba(0,0,0,.08)', transition: 'background .3s ease' }} />
                               )}
                             </div>
                             {/* Label + detail */}
@@ -5285,7 +5290,7 @@ export default function DiscernApp({
                               {state !== 'upcoming' && (
                                 <div style={{
                                   fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase',
-                                  color: state === 'active' ? INK3 : 'rgba(44,18,6,.32)', marginBottom: 1,
+                                  color: state === 'active' ? INK3 : 'rgba(0,0,0,.32)', marginBottom: 1,
                                   animation: state === 'active' ? 'fadeUp .2s ease' : undefined,
                                 }}>
                                   {AGENT_NAME_BY_ICON[phase.icon]}
@@ -5293,7 +5298,7 @@ export default function DiscernApp({
                               )}
                               <div style={{
                                 fontFamily: SANS, fontSize: state === 'done' ? 12 : 13, fontWeight: state === 'active' ? 600 : 500, lineHeight: '22px',
-                                color: state === 'upcoming' ? 'rgba(44,18,6,.34)' : state === 'done' ? INK3 : INK,
+                                color: state === 'upcoming' ? 'rgba(0,0,0,.34)' : state === 'done' ? INK3 : INK,
                                 transition: 'color .3s ease, font-size .3s ease',
                               }}>
                                 {phase.main}
@@ -5305,7 +5310,7 @@ export default function DiscernApp({
                               {state === 'active' && stylistTraceVisible > 0 && phase.trace.length > 0 && (
                                 <div style={{
                                   marginTop: 5, padding: '7px 9px', borderRadius: 8,
-                                  background: 'rgba(44,18,6,0.035)', border: '1px solid rgba(44,18,6,0.07)',
+                                  background: 'rgba(0,0,0,0.035)', border: '1px solid rgba(0,0,0,0.07)',
                                 }}>
                                   {phase.trace.slice(0, stylistTraceVisible).map((line, li) => {
                                     const isLastVisible = li === stylistTraceVisible - 1
@@ -5314,10 +5319,10 @@ export default function DiscernApp({
                                       <div key={li} style={{
                                         display: 'flex', gap: 6, alignItems: 'baseline',
                                         fontFamily: "'SF Mono',ui-monospace,Menlo,Consolas,monospace",
-                                        fontSize: 10.5, lineHeight: '17px', color: 'rgba(44,18,6,.58)',
+                                        fontSize: 10.5, lineHeight: '17px', color: 'rgba(0,0,0,.58)',
                                         animation: 'fadeUp .2s ease',
                                       }}>
-                                        <span style={{ color: 'rgba(44,18,6,.3)', flexShrink: 0 }}>›</span>
+                                        <span style={{ color: 'rgba(0,0,0,.3)', flexShrink: 0 }}>›</span>
                                         <span style={{ overflowWrap: 'anywhere' }}>
                                           {line}
                                           {stillMore && <span className="fr-type-caret" />}
@@ -5563,7 +5568,7 @@ export default function DiscernApp({
                 style={{ width: '100%', maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '86vh' }}>
 
                 {/* ── Header ── */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 14px', borderBottom: '1px solid rgba(44,18,6,0.08)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 14px', borderBottom: '1px solid rgba(0,0,0,0.08)', flexShrink: 0 }}>
                   <div>
                     <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase', color: INK }}>Size Guide</span>
                     {parsedSizeTables.length === 1 && parsedSizeTables[0].label && (
@@ -5572,7 +5577,7 @@ export default function DiscernApp({
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {sgTable?.unit && (
-                      <div style={{ display: 'flex', border: `1px solid rgba(44,18,6,0.18)`, overflow: 'hidden', borderRadius: 4 }}>
+                      <div style={{ display: 'flex', border: `1px solid rgba(0,0,0,0.18)`, overflow: 'hidden', borderRadius: 4 }}>
                         {(['in', 'cm'] as const).map(u => {
                           const active = (sgDisplayUnit ?? sgTable!.unit) === u
                           return (
@@ -5600,7 +5605,7 @@ export default function DiscernApp({
 
                     {/* ── Section tabs (multiple tables, e.g. Tops / Bottoms) ── */}
                     {parsedSizeTables.length > 1 && (
-                      <div style={{ display: 'flex', borderBottom: '1px solid rgba(44,18,6,0.08)', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                      <div style={{ display: 'flex', borderBottom: '1px solid rgba(0,0,0,0.08)', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
                         {parsedSizeTables.map((t, i) => (
                           <button key={i} onClick={() => { setSgTableIdx(i); setSgGroupIdx(0) }}
                             style={{ flexShrink: 0, padding: '13px 16px', fontFamily: SANS, fontSize: 11, fontWeight: sgTableIdx === i ? 600 : 400,
@@ -5629,7 +5634,7 @@ export default function DiscernApp({
                                     style={{ flex: 1, padding: '11px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 500,
                                       letterSpacing: '.04em', color: on ? '#fff' : INK,
                                       background: on ? INK : 'transparent',
-                                      border: `1.5px solid ${on ? INK : 'rgba(44,18,6,0.20)'}`,
+                                      border: `1.5px solid ${on ? INK : 'rgba(0,0,0,0.20)'}`,
                                       borderRadius: 0, cursor: 'pointer', transition: 'all .15s' }}>
                                     {label}
                                   </button>
@@ -5656,7 +5661,7 @@ export default function DiscernApp({
                               {sgTable.rows
                                 .filter(row => row.values.slice(sgColStart, sgColStart + sgChunk.length).some(v => v.trim()))
                                 .map((row, ri) => (
-                                  <tr key={ri} style={{ borderTop: '1px solid rgba(44,18,6,0.07)' }}>
+                                  <tr key={ri} style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
                                     <td style={{ padding: '14px 0', fontFamily: SANS, fontSize: 12, fontWeight: 600, color: INK, letterSpacing: '.02em' }}>
                                       {row.label}
                                     </td>
@@ -5677,12 +5682,12 @@ export default function DiscernApp({
                           </p>
                           {/* ── International size reference — only shown when brand uses letter sizes ── */}
                           {sgIntlCols && (
-                            <div style={{ marginTop: 28, borderTop: '1px solid rgba(44,18,6,0.07)', paddingTop: 18 }}>
+                            <div style={{ marginTop: 28, borderTop: '1px solid rgba(0,0,0,0.07)', paddingTop: 18 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                                 <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: INK2 }}>
                                   International Sizes
                                 </span>
-                                <div style={{ display: 'flex', border: `1px solid rgba(44,18,6,0.18)`, overflow: 'hidden', borderRadius: 4 }}>
+                                <div style={{ display: 'flex', border: `1px solid rgba(0,0,0,0.18)`, overflow: 'hidden', borderRadius: 4 }}>
                                   {(['Women', 'Men'] as const).map((g, gi) => {
                                     const gkey = gi === 0 ? 'w' : 'm'
                                     const on = sgIntlGender === gkey
@@ -5712,7 +5717,7 @@ export default function DiscernApp({
                                   </thead>
                                   <tbody>
                                     {(sgIntlGender === 'w' ? INTL_W : INTL_M).map(row => (
-                                      <tr key={row.sys} style={{ borderTop: '1px solid rgba(44,18,6,0.06)' }}>
+                                      <tr key={row.sys} style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
                                         <td style={{ padding: '8px 10px 8px 0', fontFamily: SANS, fontSize: 11, fontWeight: 600, color: INK2, whiteSpace: 'nowrap' }}>
                                           {row.sys}
                                         </td>
@@ -5763,7 +5768,7 @@ export default function DiscernApp({
               background: INK, color: '#fff', borderRadius: 24,
               padding: '11px 22px', display: 'flex', alignItems: 'center', gap: 10,
               fontFamily: SANS, fontSize: 13, fontWeight: 400, letterSpacing: '.01em',
-              boxShadow: '0 8px 32px rgba(44,18,6,0.32), 0 2px 8px rgba(44,18,6,0.18)', whiteSpace: 'nowrap',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.18)', whiteSpace: 'nowrap',
               animation: `${exploreToastOut ? 'toastOut 0.42s cubic-bezier(0.4,0,1,1)' : 'toastIn 0.52s cubic-bezier(0.34,1.36,0.64,1)'} forwards`,
             }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: .7 }}>
@@ -5799,13 +5804,13 @@ export default function DiscernApp({
             <>
               <div
                 onClick={() => setShowUpgradeSheet(false)}
-                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(44,18,6,0.35)', backdropFilter: 'blur(2px)' }}
+                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)' }}
               />
               <div style={{
                 position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9101,
                 background: BG, borderRadius: '20px 20px 0 0',
                 padding: '32px 24px 40px',
-                boxShadow: '0 -8px 48px rgba(44,18,6,0.18)',
+                boxShadow: '0 -8px 48px rgba(0,0,0,0.18)',
                 animation: 'sheetUp .32s cubic-bezier(0.32,0.72,0,1)',
                 maxWidth: 480, margin: '0 auto',
               }}>
@@ -5886,7 +5891,7 @@ export default function DiscernApp({
             <>
               <div
                 onClick={() => finishOnboarding(true)}
-                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(44,18,6,0.38)', backdropFilter: 'blur(3px)' }}
+                style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(3px)' }}
               />
               {/* Tablet/desktop: centred popup. Phone: bottom sheet. */}
               <div style={{
@@ -5900,12 +5905,12 @@ export default function DiscernApp({
                 background: BG,
                 borderRadius: isMedium ? '24px' : '24px 24px 0 0',
                 padding: '28px 24px 44px',
-                boxShadow: isMedium ? '0 24px 80px rgba(44,18,6,.28),0 0 0 0.5px rgba(44,18,6,.08)' : '0 -8px 48px rgba(44,18,6,0.18)',
+                boxShadow: isMedium ? '0 24px 80px rgba(0,0,0,.28),0 0 0 0.5px rgba(0,0,0,.08)' : '0 -8px 48px rgba(0,0,0,0.18)',
                 animation: isMedium ? 'fadeScale .28s cubic-bezier(0.32,0.72,0,1)' : 'sheetUp .32s cubic-bezier(0.32,0.72,0,1)',
                 width: '100%', maxWidth: 480,
               }}>
                 {/* Drag handle — phone only */}
-                {!isMedium && <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(44,18,6,.12)', margin: '0 auto 22px' }} />}
+                {!isMedium && <div style={{ width: 36, height: 4, borderRadius: 4, background: 'rgba(0,0,0,.12)', margin: '0 auto 22px' }} />}
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
@@ -5920,7 +5925,7 @@ export default function DiscernApp({
                     </div>
                   </div>
                   <button onClick={() => finishOnboarding(true)}
-                    style={{ background: 'rgba(44,18,6,.06)', border: 'none', cursor: 'pointer', padding: 8, borderRadius: '50%', color: INK3, flexShrink: 0, marginLeft: 12 }}>
+                    style={{ background: 'rgba(0,0,0,.06)', border: 'none', cursor: 'pointer', padding: 8, borderRadius: '50%', color: INK3, flexShrink: 0, marginLeft: 12 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
@@ -5969,13 +5974,13 @@ export default function DiscernApp({
                 {/* Step 1 — sizes */}
                 {onboardingStep === 1 && (
                   <div style={{ marginBottom: 24 }}>
-                    <div style={{ background: 'rgba(44,18,6,.03)', borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
+                    <div style={{ background: 'rgba(0,0,0,.03)', borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
                       {[
                         { label: 'Tops', key: 'tops', placeholder: onboardGender === 'Women' ? 'XS, S, M, L…' : 'S, M, L, XL…' },
                         { label: 'Bottoms', key: 'bottoms', placeholder: onboardGender === 'Women' ? '26, 28, 30…' : '30, 32, 34…' },
                         { label: 'Shoes', key: 'shoes', placeholder: onboardGender === 'Women' ? '6, 7, 8, EU 38…' : '9, 10, 11, EU 43…' },
                       ].map(({ label, key, placeholder }, i) => (
-                        <div key={key} style={{ borderTop: i > 0 ? `0.5px solid rgba(44,18,6,.07)` : 'none', display: 'flex', alignItems: 'center', padding: '13px 16px', gap: 14 }}>
+                        <div key={key} style={{ borderTop: i > 0 ? `0.5px solid rgba(0,0,0,.07)` : 'none', display: 'flex', alignItems: 'center', padding: '13px 16px', gap: 14 }}>
                           <span style={{ fontFamily: SANS, fontSize: 13, color: INK2, width: 66, flexShrink: 0 }}>{label}</span>
                           <input
                             value={onboardSizes[key as 'tops' | 'bottoms' | 'shoes']}
@@ -6217,10 +6222,10 @@ export default function DiscernApp({
                       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 14px 0' }}>
                         <button onClick={() => setSelected(null)} aria-label="Close"
                           style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0,
-                            background: 'rgba(44,18,6,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'rgba(0,0,0,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'background .15s' }}
-                          onPointerEnter={e => (e.currentTarget.style.background = 'rgba(44,18,6,.14)')}
-                          onPointerLeave={e => (e.currentTarget.style.background = 'rgba(44,18,6,.07)')}>
+                          onPointerEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,.14)')}
+                          onPointerLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,.07)')}>
                           <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
                             <path d="M1 1l10 10M11 1L1 11" stroke={INK} strokeWidth="1.6" strokeLinecap="round"/>
                           </svg>
