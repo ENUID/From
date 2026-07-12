@@ -616,33 +616,6 @@ function displaySwatches(p: Product): { colors: string[]; interactive: boolean }
   return { colors: inferred ? [inferred] : ['neutral'], interactive: false }
 }
 
-// Curated primary recommendations shown per search — quality over quantity.
-// Anything beyond this stays available via the existing "See more" flow.
-const DECISION_CARD_COUNT = 8
-
-// Confidence label instead of a rank number. Primarily driven by
-// relevance_score (0-100 LLM-judge scale, set by lib/services/relevanceRerank.ts
-// whenever the reranker ran — absent on some fast-path/low-result-count
-// searches). Falls back to price-percentile-within-the-set for the
-// budget/premium framing, and a simple position-based label when no score
-// is present at all so the UI never shows nothing.
-function confidenceTier(product: Product, index: number, row: Product[]): string {
-  const score = product.relevance_score
-  if (typeof score === 'number') {
-    if (index === 0 && score >= 80) return 'Best Match'
-    if (score >= 72) return 'Excellent Match'
-    if (score >= 50) return 'Great Alternative'
-    if (score >= 30) return 'Different Style'
-  }
-  const prices = row.map(p => p.price).filter((v): v is number => typeof v === 'number')
-  if (prices.length > 2) {
-    const sorted = [...prices].sort((a, b) => a - b)
-    if (product.price === sorted[0]) return 'Budget Pick'
-    if (product.price === sorted[sorted.length - 1]) return 'Premium Pick'
-  }
-  return index === 0 ? 'Best Match' : 'Great Alternative'
-}
-
 // ── Dominant-colour sampling ──────────────────────────────────────────────────
 // Title text lies about colour ("Linen Shirt" is a fabric, not a hue), so the
 // only reliable swatch is the garment itself. We load a tiny copy of the
@@ -2188,9 +2161,6 @@ export default function DiscernApp({
   })
   const [productCtxMenu, setProductCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
   const [bagCtxMenu, setBagCtxMenu] = useState<{ product: Product; x: number; y: number; above: boolean } | null>(null)
-  // Which messages have their beyond-the-curated-8 "more options" strip open —
-  // keyed by message index, purely a display toggle over data already fetched.
-  const [expandedMoreOptions, setExpandedMoreOptions] = useState<Set<number>>(new Set())
   // ── Email OTP sign-in state ─────────────────────────────────────────────────
   const [otpEmail, setOtpEmail]         = useState('')
   const [otpCode, setOtpCode]           = useState('')
@@ -2270,8 +2240,7 @@ export default function DiscernApp({
   // (13) via chunkIntoRows, e.g. a 52-result fetch becomes [13, 13, 13, 13] — so
   // the flat foundProducts list renders as several short rows instead of one
   // long horizontally-scrolling line that keeps growing sideways forever.
-  type StylistUnderstood = { bullets: string[]; rationale: string }
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean; understood?: StylistUnderstood }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   // Guards against a shape mismatch from a pre-migration localStorage payload
   // (this app went through a chat-format architecture change) crashing the
@@ -2524,10 +2493,6 @@ export default function DiscernApp({
         const displayCur = shopperContext.currency || 'USD'
         const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
         const newProducts: Product[] = Array.isArray(data.foundProducts) && data.foundProducts.length > 0 ? dedupeById(data.foundProducts.map(withCur)) : []
-        const understood: StylistUnderstood | undefined =
-          data.understood && Array.isArray(data.understood.bullets) && data.understood.bullets.length > 0 && typeof data.understood.rationale === 'string'
-            ? { bullets: data.understood.bullets.slice(0, 5), rationale: data.understood.rationale }
-            : undefined
         const outfitSlots: OutfitSlot[] | undefined = Array.isArray(data.outfitSlots) && data.outfitSlots.length > 0
           ? data.outfitSlots.map((s: any) => ({ ...s, products: Array.isArray(s.products) ? s.products.map(withCur) : s.products }))
           : undefined
@@ -2535,7 +2500,7 @@ export default function DiscernApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductBatches: newProducts.length > 0 ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, understood }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductBatches: newProducts.length > 0 ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined }])
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
           fetch('/api/ai/stylist-memory', {
@@ -5116,123 +5081,66 @@ export default function DiscernApp({
                         )}
                       </div>
                     )}
-                    {m.role === 'assistant' && m.understood && (
-                      <div style={{ marginTop: 14, width: '100%' }}>
-                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>You want</div>
-                        <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                          {m.understood.bullets.map((b, bi) => (
-                            <li key={bi} style={{ fontFamily: SANS, fontSize: 13.5, color: INK, lineHeight: 1.7, display: 'flex', gap: 8 }}>
-                              <span style={{ color: INK3 }}>•</span>{b}
-                            </li>
-                          ))}
-                        </ul>
-                        <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 14.5, color: INK2, marginTop: 10, lineHeight: 1.55 }}>
-                          {m.understood.rationale}
-                        </div>
-                      </div>
-                    )}
                     {m.role === 'assistant' && m.foundProducts && m.foundProducts.length > 0 && (
-                      <div style={{ marginTop: 14, width: '100%' }}>
-                        <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 14 }}>Recommended for you</div>
+                      <div style={{ marginTop: 10, width: '100%' }}>
+                        <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Found for you</div>
+                        {/* One row per "See more" batch — each fetch lands on its own
+                            line instead of endlessly extending one horizontal strip. */}
                         {(() => {
-                          const primary = m.foundProducts!.slice(0, DECISION_CARD_COUNT)
-                          const rest = m.foundProducts!.slice(DECISION_CARD_COUNT)
-                          const isExpanded = expandedMoreOptions.has(i)
-                          const openProduct = (p: Product) => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }
-                          const longPress = (p: Product) => makePressHandlers((x, y) => {
-                            productWasLong.current = true
-                            const menuW = 200; const menuH = 160
-                            const above = y + 8 + menuH > window.innerHeight
-                            const my = Math.max(8, above ? y - menuH - 4 : y + 8)
-                            const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
-                            ctxMenuOpenAt.current = Date.now()
-                            setProductCtxMenu({ product: p, x: mx, y: my, above })
-                          })
-                          return (
-                            <>
-                              {primary.map((p, pi) => {
+                          const batches = m.foundProductBatches && m.foundProductBatches.length > 0
+                            ? m.foundProductBatches
+                            : [m.foundProducts!.length]
+                          const rows: Product[][] = []
+                          let offset = 0
+                          for (const size of batches) {
+                            rows.push(m.foundProducts!.slice(offset, offset + size))
+                            offset += size
+                          }
+                          return rows.map((row, ri) => (
+                            <div key={ri} style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2, marginTop: ri > 0 ? 10 : 0 } as React.CSSProperties}>
+                              {row.map(p => {
+                                const { colors: pc } = displaySwatches(p)
                                 const isSaved = savedIds.has(p.id)
-                                const tier = confidenceTier(p, pi, primary)
                                 return (
-                                  <div key={p.id} onClick={() => openProduct(p)} {...longPress(p)}
-                                    style={{ cursor: 'pointer', marginBottom: pi < primary.length - 1 ? 28 : 0, WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
-                                    <div style={{ width: '100%', aspectRatio: '4 / 5', borderRadius: 18, overflow: 'hidden', background: BG2, position: 'relative' }}>
+                                  <div key={p.id} onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
+                                    {...makePressHandlers((x, y) => {
+                                      productWasLong.current = true
+                                      const menuW = 200; const menuH = 160
+                                      const above = y + 8 + menuH > window.innerHeight
+                                      const my = Math.max(8, above ? y - menuH - 4 : y + 8)
+                                      const mx = Math.max(8, Math.min(x, window.innerWidth - menuW - 8))
+                                      ctxMenuOpenAt.current = Date.now()
+                                      setProductCtxMenu({ product: p, x: mx, y: my, above })
+                                    })}
+                                    style={{ flexShrink: 0, width: 140, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
+                                    <div style={{ width: 140, height: 224, borderRadius: 12, overflow: 'hidden', background: BG2, position: 'relative' }}>
                                       {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                      <span style={{ position: 'absolute', top: 12, left: 12, padding: '5px 10px', borderRadius: 20,
-                                        background: 'rgba(255,255,255,.94)', fontFamily: SANS, fontSize: 10.5, fontWeight: 600,
-                                        letterSpacing: '.03em', color: tier === 'Best Match' ? ACCENT : INK2 }}>{tier}</span>
                                       <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
                                         onClick={e => { e.stopPropagation(); toggleSaved(p) }}
-                                        style={{ position: 'absolute', top: 12, right: 12, width: 30, height: 30, borderRadius: '50%', border: 'none',
-                                          background: 'rgba(255,255,255,.94)', boxShadow: '0 1px 4px rgba(0,0,0,.14)', cursor: 'pointer',
+                                        style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
+                                          background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
                                           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
                                         {isSaved ? (
-                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                                         ) : (
-                                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                                         )}
                                       </button>
                                     </div>
-                                    <div style={{ marginTop: 12 }}>
-                                      <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: '.05em', textTransform: 'uppercase', color: INK3 }}>{p.vendor}</div>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 500, color: INK, lineHeight: 1.3 }}>{p.title}</div>
-                                        <div style={{ fontFamily: SANS, fontSize: 14, color: INK3, flexShrink: 0 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                                    <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, color: INK, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                                    <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+                                    {pc.length > 0 && (
+                                      <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
+                                        {pc.slice(0, 5).map(c => (
+                                          <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={10} shape="square" selected={false} available={true} />
+                                        ))}
                                       </div>
-                                      {p.relevance_reason && (
-                                        <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 13.5, color: INK2, marginTop: 8, lineHeight: 1.55 }}>
-                                          {p.relevance_reason}
-                                        </div>
-                                      )}
-                                    </div>
+                                    )}
                                   </div>
                                 )
                               })}
-                              {rest.length > 0 && !isExpanded && (
-                                <button type="button" onClick={() => setExpandedMoreOptions(prev => new Set(prev).add(i))}
-                                  style={{ marginTop: 20, background: 'none', border: 'none', padding: 0, fontFamily: SANS, fontSize: 12.5,
-                                    color: INK3, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                                  See {rest.length} more option{rest.length === 1 ? '' : 's'}
-                                </button>
-                              )}
-                              {rest.length > 0 && isExpanded && (
-                                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2, marginTop: 20 } as React.CSSProperties}>
-                                  {rest.map(p => {
-                                    const { colors: pc } = displaySwatches(p)
-                                    const isSaved = savedIds.has(p.id)
-                                    return (
-                                      <div key={p.id} onClick={() => openProduct(p)} {...longPress(p)}
-                                        style={{ flexShrink: 0, width: 140, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
-                                        <div style={{ width: 140, height: 224, borderRadius: 12, overflow: 'hidden', background: BG2, position: 'relative' }}>
-                                          {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                          <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
-                                            onClick={e => { e.stopPropagation(); toggleSaved(p) }}
-                                            style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
-                                              background: 'rgba(255,255,255,.92)', boxShadow: '0 1px 4px rgba(0,0,0,.18)', cursor: 'pointer',
-                                              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: INK }}>
-                                            {isSaved ? (
-                                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                                            ) : (
-                                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                                            )}
-                                          </button>
-                                        </div>
-                                        <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, color: INK, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                                        <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
-                                        {pc.length > 0 && (
-                                          <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
-                                            {pc.slice(0, 5).map(c => (
-                                              <ColorSwatch key={c} name={c} imageUrl={getColorVariantImages(p, c)[0] ?? getProductImages(p)[0]} size={10} shape="square" selected={false} available={true} />
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </>
-                          )
+                            </div>
+                          ))
                         })()}
                         {m.searchQuery && !m.hasNoMore && (
                           <button type="button" onClick={() => loadMoreStylistProducts(i)} disabled={m.loadingMore}

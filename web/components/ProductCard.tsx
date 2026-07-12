@@ -29,11 +29,6 @@ export interface Product {
     media?: Array<{ url: string; alt?: string }>
   }>
   media?: Array<{ type: string; url: string; alt?: string }>
-  // Set by the LLM reranker (lib/services/relevanceRerank.ts) whenever it
-  // ran — absent on results from the deterministic fast path.
-  relevance_score?: number
-  relevance_reason?: string
-  trust_score?: number
 }
 
 interface Props {
