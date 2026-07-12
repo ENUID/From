@@ -3709,19 +3709,23 @@ export default function DiscernApp({
         .fr-header{display:flex;align-items:center;justify-content:space-between;position:relative;
           padding:max(10px,env(safe-area-inset-top,0px)) max(16px,calc(env(safe-area-inset-right,0px) + 12px)) 6px max(16px,calc(env(safe-area-inset-left,0px) + 12px));
           flex-shrink:0;z-index:10;background:${BG};}
-        /* Soft translucent fade at the header's bottom edge instead of a hard cutoff —
-           blurred + fading to transparent, extends slightly past the header's own box
-           so it melts into the content below rather than ending in a sharp line. */
-        .fr-header::after{content:'';position:absolute;left:0;right:0;bottom:-18px;height:18px;
-          background:linear-gradient(to bottom, rgba(255,255,255,.85), rgba(255,255,255,0));
-          backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+        /* Soft blurred melt at the header's bottom edge — a real backdrop-blur
+           that fades out via a mask, not a flat white gradient painted on top.
+           A color-wash gradient looks like a dirty smudge wherever high-contrast
+           content (e.g. a dark message bubble) happens to scroll underneath it;
+           blur-with-a-fading-mask genuinely softens whatever's there instead,
+           the way a native translucent nav bar does. */
+        .fr-header::after{content:'';position:absolute;left:0;right:0;bottom:-28px;height:28px;
+          backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+          -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.9) 0%, rgba(0,0,0,.45) 55%, rgba(0,0,0,0) 100%);
+          mask-image:linear-gradient(to bottom, rgba(0,0,0,.9) 0%, rgba(0,0,0,.45) 55%, rgba(0,0,0,0) 100%);
           pointer-events:none;z-index:1;}
 
         /* ── Content area (body + floating bar share this space) ── */
         .fr-content{flex:1;min-height:0;position:relative;overflow:hidden;}
 
         /* ── Body ── */
-        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-top:16px;padding-bottom:calc(max(140px, env(safe-area-inset-bottom, 0px) + 130px));overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
+        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-top:28px;padding-bottom:calc(max(140px, env(safe-area-inset-bottom, 0px) + 130px));overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
         .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
         /* ── Search bar wrap ── */

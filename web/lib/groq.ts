@@ -24,19 +24,31 @@
 // whatever was already configured before the OpenRouter migration; if unset,
 // the Groq fallback is simply skipped and OpenRouter is the only provider.
 //
-// Defaulted to the FREE (":free" suffix) OpenRouter models — zero cost.
+// Defaulted to OpenRouter's own auto-router, openrouter/free (launched Feb
+// 2026) — zero cost, and it picks a live free model per-request rather than
+// pinning one hardcoded slug. This directly fixes a real recurring failure
+// mode: this file used to default to a specific free model ID (first Groq's
+// own lineup, then deepseek/deepseek-chat-v3.1:free), and BOTH were
+// unilaterally pulled from free tier by their provider with no warning —
+// health-checked in production as a live HTTP 404 ("This model is
+// unavailable for free"). openrouter/free routes around exactly that: it
+// filters live for whatever a request actually needs (tool calling, image
+// understanding, structured output) and never goes stale as individual
+// free models rotate in/out upstream. Override via the env vars below if a
+// specific pinned model is ever genuinely preferred over the auto-router.
+//
 // Tradeoff: OpenRouter's free tier is capped account-wide (across every
-// ":free" model combined) at 20 req/min and 50 req/day with no credit
-// purchased, or 1000/day once you've bought $10 of credit (one-time, doesn't
-// need to be spent — it just raises the ceiling). Once that's exhausted, this
-// file now falls back to Groq's own current lineup automatically. Switch any
-// model anytime via the env vars below — no code change needed either way.
+// ":free" model combined, openrouter/free included) at 20 req/min and 50
+// req/day with no credit purchased, or 1000/day once you've bought $10 of
+// credit (one-time, doesn't need to be spent — it just raises the ceiling).
+// Once that's exhausted, this file falls back to Groq's own current lineup
+// automatically, then Cerebras (see cerebras.ts) behind that.
 const AI_BASE = process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1'
 const AI_API_KEY = process.env.OPENROUTER_API_KEY ?? ''
 // "Smart" tier — tool-calling capable, used for search planning + the Fabrics
 // stylist's heavy path. Override with OPENROUTER_SMART_MODEL.
-export const CHAT_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat-v3.1:free'
-export const STYLIST_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/deepseek-chat-v3.1:free'
+export const CHAT_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'openrouter/free'
+export const STYLIST_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'openrouter/free'
 // "Fast" tier — chitchat routing, rerank judging, descriptions, shipping
 // parsing, memory compression. Defaults to the same model as the smart tier
 // for safety (one fewer unverified model ID); point it at something cheaper/
@@ -44,7 +56,9 @@ export const STYLIST_MODEL = process.env.OPENROUTER_SMART_MODEL ?? 'deepseek/dee
 export const FAST_MODEL = process.env.OPENROUTER_FAST_MODEL ?? CHAT_MODEL
 // Vision FALLBACK only — Gemini is primary (see wardrobeVisionChat below);
 // this only fires when Gemini is rate-limited or GOOGLE_AI_API_KEY is unset.
-export const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL ?? 'meta-llama/llama-4-maverick:free'
+// openrouter/free's live capability filtering covers image understanding
+// too, so the same "never goes stale" reasoning applies here.
+export const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL ?? 'openrouter/free'
 
 // ── Groq direct — second-line fallback when OpenRouter's free tier is dry ──
 // Reuses GROQ_API_KEY / GROQ_BASE_URL from before the migration (they were
@@ -62,10 +76,15 @@ export const GROQ_DIRECT_CONFIGURED = !!GROQ_DIRECT_API_KEY
 // Groq's current vision-capable model (GPT-OSS above is text-only). The
 // text chain gets 3 fallback tiers (Gemini/OpenRouter → OpenRouter → Groq
 // direct); vision only ever had 2 (Gemini → OpenRouter's vision model) with
-// no Groq-direct tier at all — this closes that gap. Verify at
+// no Groq-direct tier at all — this closes that gap.
+// Llama 4 Maverick (the original default here) was deprecated by Groq on
+// 2026-02-20; Llama 4 Scout (its usual replacement) was ALSO deprecated on
+// 2026-06-17 — Groq's free/dev tier has no Llama 4 vision model left at
+// all. qwen/qwen3.6-27b is Groq's own current migration target and is
+// multimodal (accepts image input, not just text). Verify at
 // https://console.groq.com/docs/vision if this ever starts erroring and
 // override via GROQ_VISION_MODEL.
-export const GROQ_DIRECT_VISION_MODEL = process.env.GROQ_VISION_MODEL ?? 'meta-llama/llama-4-maverick-17b-128e-instruct'
+export const GROQ_DIRECT_VISION_MODEL = process.env.GROQ_VISION_MODEL ?? 'qwen/qwen3.6-27b'
 
 export type ChatMessage = {
   role: string
