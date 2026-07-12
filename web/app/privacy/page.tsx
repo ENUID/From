@@ -36,7 +36,7 @@ export default function PrivacyPage() {
       <p>You have the right to access, correct, or delete your personal data. If you are in the EU or UK, you also have rights under GDPR. Email us to exercise any of these rights.</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>7. Contact</h2>
-      <p>Questions about privacy? Email us at <a href="mailto:hello@from.fashion" style={{ color: '#2C1206' }}>hello@from.fashion</a></p>
+      <p>Questions about privacy? Email us at <a href="mailto:accounts@enuid.com" style={{ color: '#2C1206' }}>accounts@enuid.com</a></p>
     </main>
   )
 }

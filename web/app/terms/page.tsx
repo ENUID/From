@@ -31,7 +31,7 @@ export default function TermsPage() {
       <p>We may update these terms from time to time. Continued use of Discern after changes are posted means you accept the revised terms.</p>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>9. Contact</h2>
-      <p>Questions? Email us at <a href="mailto:hello@from.fashion" style={{ color: '#2C1206' }}>hello@from.fashion</a></p>
+      <p>Questions? Email us at <a href="mailto:accounts@enuid.com" style={{ color: '#2C1206' }}>accounts@enuid.com</a></p>
     </main>
   )
 }
