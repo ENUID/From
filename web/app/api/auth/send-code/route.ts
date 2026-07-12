@@ -100,7 +100,10 @@ export async function POST(req: NextRequest) {
         }
       }
       console.error('[send-code] createCode failed:', detail)
-      return NextResponse.json({ error: 'Sign-in failed. Please try again.' }, { status: 500 })
+      // TEMPORARY: surfacing `detail` to the client while diagnosing a live
+      // sign-in failure — revert to the generic message once resolved, this
+      // could leak internal error text to end users otherwise.
+      return NextResponse.json({ error: `Sign-in failed: ${detail}` }, { status: 500 })
     }
 
     const { error } = await resend.emails.send({
