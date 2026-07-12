@@ -16,6 +16,24 @@
   font-display: block;
 }
 
+/* Wordmark only — the "Discern" logotype. Licensed PP Gatwick, self-hosted
+   (not on Google/Adobe Fonts). Two weights: Ultralight for the wordmark
+   itself, Bold kept available in case it's ever needed elsewhere. */
+@font-face {
+  font-family: 'PP Gatwick';
+  src: url('/fonts/PPGatwick-Ultralight.woff2') format('woff2');
+  font-weight: 200;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'PP Gatwick';
+  src: url('/fonts/PPGatwick-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
 :root {
   --serif: 'Cormorant Garamond', Georgia, serif;
   --mono:  'DM Mono', 'Courier New', monospace;
