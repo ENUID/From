@@ -154,6 +154,63 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
   )
 }
 
+// Six-box OTP entry — replaces a single free-text field with one focused
+// digit slot per box (auto-advancing, backspace-to-previous, and a full
+// paste/fast-type into any box redistributes the remaining digits forward).
+function OtpBoxInput({ value, onChange, length = 6, autoFocus = false, boxSize = 46 }:
+  { value: string; onChange: (v: string) => void; length?: number; autoFocus?: boolean; boxSize?: number }) {
+  const refs = useRef<(HTMLInputElement | null)[]>([])
+  const digits = Array.from({ length }, (_, i) => value[i] ?? '')
+
+  function setDigit(i: number, raw: string) {
+    const clean = raw.replace(/\D/g, '')
+    if (!clean) { onChange(value.slice(0, i) + value.slice(i + 1)); return }
+    if (clean.length > 1) {
+      // Paste or fast native-autofill — spread starting at this box.
+      const next = digits.slice()
+      for (let j = 0; j < clean.length && i + j < length; j++) next[i + j] = clean[j]
+      const joined = next.join('')
+      onChange(joined)
+      refs.current[Math.min(i + clean.length, length - 1)]?.focus()
+      return
+    }
+    const next = digits.slice()
+    next[i] = clean
+    onChange(next.join(''))
+    if (i < length - 1) refs.current[i + 1]?.focus()
+  }
+
+  function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Backspace' && !digits[i] && i > 0) refs.current[i - 1]?.focus()
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: Math.round(boxSize * 0.22), justifyContent: 'center' }}>
+      {digits.map((d, i) => (
+        <input
+          key={i}
+          ref={el => { refs.current[i] = el }}
+          type="text"
+          inputMode="numeric"
+          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          maxLength={length}
+          value={d}
+          autoFocus={autoFocus && i === 0}
+          onChange={e => setDigit(i, e.target.value)}
+          onKeyDown={e => handleKeyDown(i, e)}
+          onFocus={e => e.target.select()}
+          className="fr-otp-box"
+          style={{
+            width: boxSize, height: Math.round(boxSize * 1.17), textAlign: 'center', fontSize: Math.round(boxSize * 0.43), fontWeight: 600,
+            fontFamily: SANS, color: INK, background: BG2, borderRadius: Math.round(boxSize * 0.26),
+            border: `1.5px solid ${BRD}`, outline: 'none',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 // Map the few .myshopify.com registry domains to their real storefront so the
 // logo service can resolve them; everything else uses its own domain.
 const LOGO_DOMAIN: Record<string, string> = {
@@ -3783,6 +3840,8 @@ export default function DiscernApp({
         .fr-msg-edit-btn{opacity:0;transition:opacity .15s ease;}
         .fr-msg-hover:hover .fr-msg-edit-btn,.fr-msg-hover:focus-within .fr-msg-edit-btn{opacity:.55;}
         .fr-msg-edit-btn:hover{opacity:1 !important;}
+        .fr-otp-box{transition:border-color .12s ease,box-shadow .12s ease;}
+        .fr-otp-box:focus{border-color:${INK} !important;box-shadow:0 0 0 3px rgba(44,18,6,0.12);}
       `}</style>
 
       {/* Attach input — the one photo picker, persistent wardrobe pieces for outfit-building */}
@@ -3870,12 +3929,10 @@ export default function DiscernApp({
                   setOtpStep('email'); setOtpCode('')
                 } catch (err: any) { setOtpError(err.message) } finally { setOtpVerifying(false) }
               }}>
-                <input type="text" value={otpCode} placeholder="000000" onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  inputMode="numeric" autoComplete="one-time-code" autoFocus
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '13px 16px', borderRadius: 12, marginBottom: 12,
-                    border: `1px solid ${BRD}`, fontFamily: SANS, fontSize: 22, fontWeight: 600, letterSpacing: '0.3em',
-                    color: INK, background: BG2, outline: 'none', textAlign: 'center' }} />
-                {otpError && <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 12 }}>{otpError}</div>}
+                <div style={{ marginBottom: 12 }}>
+                  <OtpBoxInput value={otpCode} onChange={setOtpCode} autoFocus />
+                </div>
+                {otpError && <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 12, textAlign: 'center' }}>{otpError}</div>}
                 <button type="submit" disabled={otpCode.length < 6 || otpVerifying}
                   style={{ width: '100%', padding: '14px', borderRadius: 30, background: INK, color: '#fff', border: 'none',
                     cursor: otpCode.length < 6 || otpVerifying ? 'default' : 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600,
@@ -4461,18 +4518,9 @@ export default function DiscernApp({
                           setOtpVerifying(false)
                         }
                       }}>
-                        <input
-                          type="text" value={otpCode} placeholder="000000"
-                          onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                          inputMode="numeric" autoComplete="one-time-code" autoFocus
-                          style={{
-                            width: '100%', boxSizing: 'border-box',
-                            padding: '11px 14px', borderRadius: 10, marginBottom: 10,
-                            border: `1px solid ${BRD}`, fontFamily: SANS, fontSize: 22,
-                            fontWeight: 600, letterSpacing: '0.3em', color: INK,
-                            background: BG2, outline: 'none', textAlign: 'center',
-                          }}
-                        />
+                        <div style={{ marginBottom: 10 }}>
+                          <OtpBoxInput value={otpCode} onChange={setOtpCode} autoFocus boxSize={34} />
+                        </div>
                         {otpError && (
                           <div style={{ fontFamily: SANS, fontSize: 12, color: '#c0392b', marginBottom: 10 }}>{otpError}</div>
                         )}

@@ -28,7 +28,7 @@ export const flagResult = mutation({
     if (args.userEmail && (await verifyAuthProof(args.authProof, args.userEmail))) {
       const user = await ctx.db
         .query("users")
-        .filter((q) => q.eq(q.field("email"), args.userEmail))
+        .filter((q) => q.eq(q.field("email"), args.userEmail!.toLowerCase().trim()))
         .first();
       userId = user?._id;
     }

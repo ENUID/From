@@ -16,7 +16,7 @@ export const toggleSavedProduct = mutation({
     if (!(await verifyAuthProof(args.authProof, args.userEmail))) throw new Error("Unauthorized");
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.userEmail))
+      .withIndex("by_email", (q) => q.eq("email", args.userEmail.toLowerCase().trim()))
       .first();
 
     if (!user) throw new Error("User not found");
@@ -50,7 +50,7 @@ export const getSavedProducts = query({
     if (!(await verifyAuthProof(args.authProof, args.userEmail))) return [];
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.userEmail))
+      .withIndex("by_email", (q) => q.eq("email", args.userEmail.toLowerCase().trim()))
       .first();
 
     if (!user) return [];
@@ -80,7 +80,7 @@ export const saveSearchHistory = mutation({
     if (!(await verifyAuthProof(args.authProof, args.userEmail))) return;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.userEmail))
+      .withIndex("by_email", (q) => q.eq("email", args.userEmail.toLowerCase().trim()))
       .first();
 
     if (!user) return; // Silent fail if not logged in
@@ -100,7 +100,7 @@ export const deleteSearchHistory = mutation({
     if (!(await verifyAuthProof(args.authProof, args.userEmail))) return;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.userEmail))
+      .withIndex("by_email", (q) => q.eq("email", args.userEmail.toLowerCase().trim()))
       .first();
 
     if (!user) return;
@@ -124,7 +124,7 @@ export const getSearchHistory = query({
     if (!(await verifyAuthProof(args.authProof, args.userEmail))) return [];
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.userEmail))
+      .withIndex("by_email", (q) => q.eq("email", args.userEmail.toLowerCase().trim()))
       .first();
 
     if (!user) return [];
