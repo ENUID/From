@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat, wardrobeVisionChat, stripThinkTags, CHAT_MODEL, FAST_MODEL } from '@/lib/groq'
+import { groqChat, wardrobeVisionChat, stripThinkTags, stripAiDashes, CHAT_MODEL, FAST_MODEL } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor, decomposeQuery, GARMENT_VOCAB, GARMENT_CATEGORY } from '@/lib/queryParser'
@@ -334,7 +334,10 @@ async function stylistChat(
       // routes to on a given request) can emit a raw <think> block inline
       // in .content instead of a clean answer. See stripThinkTags in
       // lib/groq.ts — this is the shared choke point for the text-chat side.
-      const cleaned = result?.content ? stripThinkTags(result.content) : result?.content
+      // stripAiDashes is the deterministic backstop for the "never use em
+      // dashes" prompt rule — see its comment in lib/groq.ts for why prompt
+      // compliance alone isn't enough across a 4-provider fallback chain.
+      const cleaned = result?.content ? stripAiDashes(stripThinkTags(result.content)) : result?.content
       if (cleaned) return { ...result, content: cleaned, provider: a.name }
       errors.push(`${a.name}: empty content`)
     } catch (err) {

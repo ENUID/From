@@ -115,6 +115,25 @@ export function stripThinkTags(text: string): string {
     .trim()
 }
 
+// Em/en dashes as clause separators are the single most recognizable
+// "AI-generated" tell, and the system prompt already forbids them (see WRITE
+// LIKE AN ACTUAL PERSON in stylist/route.ts) — but that instruction is only
+// as reliable as whichever of the 4 fallback providers actually answered a
+// given request, and smaller/free-tier models follow it far less
+// consistently than the primary one. Applied at the same shared choke
+// points as stripThinkTags so the promise holds no matter which model
+// answered. Only touches the em dash (—) and en dash (–) Unicode
+// characters, never the plain ASCII hyphen (-) real compound words use
+// ("off-white", "wide-leg", "12-14oz").
+export function stripAiDashes(text: string): string {
+  if (!text) return text
+  return text
+    .replace(/\s*[—–]\s*/g, ', ')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*([.!?])/g, '$1')
+    .trim()
+}
+
 function headersFor(base: string, apiKey: string) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -563,7 +582,7 @@ export async function wardrobeVisionChat(
   const errors: { name: string; err: any }[] = []
 
   try {
-    const content = stripThinkTags((await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)).trim())
+    const content = stripAiDashes(stripThinkTags((await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)).trim()))
     if (!content) throw new Error('empty content')
     return content
   } catch (err: any) {
@@ -578,7 +597,7 @@ export async function wardrobeVisionChat(
 
   try {
     const msg = await groqVisionChat(visionMessages, systemPrompt, opts)
-    const content = stripThinkTags((msg?.content ?? '').trim())
+    const content = stripAiDashes(stripThinkTags((msg?.content ?? '').trim()))
     if (!content) throw new Error('empty content')
     return content
   } catch (err: any) {
@@ -587,7 +606,7 @@ export async function wardrobeVisionChat(
 
   try {
     const msg = await groqDirectVisionChat(visionMessages, systemPrompt, opts)
-    const content = stripThinkTags((msg?.content ?? '').trim())
+    const content = stripAiDashes(stripThinkTags((msg?.content ?? '').trim()))
     if (!content) throw new Error('empty content')
     return content
   } catch (err: any) {
