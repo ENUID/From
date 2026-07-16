@@ -152,6 +152,73 @@ const OCCASION_LABEL: Record<string, string> = {
 // Words that signal the message is conversation, not a product search.
 const CONVERSATIONAL = /\b(compare|versus|vs\.?|which|what|how|why|can you|could you|would|should|tell me|explain|difference|better|goes? with|pairs? with|match(es)? with|style (this|it|them)|wear (this|it|with)|thoughts on|opinion|review|first one|second one|third one|that one|these|this one|hi|hello|hey|thanks|thank you|help)\b/i
 
+// ── Residue check: does the message carry meaning this compiler can't see? ────
+// The compiler is a fixed lexicon. Anything outside it (a festival name like
+// "muharram", a season, a niche subculture, a life event) used to be SILENTLY
+// DROPPED: "black shirts and trousers for muharram" compiled to a generic
+// "black shirts" search and the one word that defined the whole request never
+// reached anything that could understand it. That's the worst failure mode a
+// fast path can have — confidently wrong, invisible to the shopper.
+//
+// So: after stripping everything the compiler DID recognize (garments, colors,
+// materials, occasions, gender, budget, sort words, refinement words, common
+// style adjectives, shopping filler), any substantive word left over means the
+// message knows something we don't → decline to compile and let the LLM path
+// reason about it. The fast path keeps its job (instant "black linen shirt
+// men under $100") and loses the failure mode (lossy compiles of queries it
+// only half-understood).
+
+// Style adjectives the pipeline treats as soft ranking signals — safe for the
+// fast path to ignore, so they don't force an LLM fallback on their own.
+const SOFT_STYLE_WORDS = new Set([
+  'casual', 'formal', 'smart', 'dressy', 'elegant', 'plain', 'simple', 'basic',
+  'classic', 'clean', 'minimal', 'minimalist', 'modern', 'timeless', 'relaxed',
+  'comfy', 'comfortable', 'cozy', 'soft', 'light', 'lightweight', 'dark',
+  'bright', 'deep', 'pale', 'breathable', 'airy', 'oversized', 'fitted',
+  'slim', 'skinny', 'baggy', 'loose', 'tight', 'regular', 'straight', 'wide',
+  'cropped', 'everyday', 'versatile', 'stylish', 'trendy', 'cute', 'pretty',
+  'beautiful', 'quality', 'solid', 'neutral', 'muted', 'subtle',
+])
+
+// Verbs, pronouns, articles, and shopping filler that carry no product intent.
+const FILLER_WORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'so', 'for', 'with', 'without', 'from',
+  'of', 'in', 'on', 'at', 'to', 'too', 'as', 'by', 'not', 'no', 'me', 'my',
+  'i', 'im', 'we', 'us', 'you', 'your', 'it', 'its', 'they', 'them', 'their',
+  'that', 'this', 'those', 'are', 'is', 'be', 'was', 'am', 'get', 'got',
+  'give', 'show', 'find', 'need', 'want', 'wants', 'looking', 'look', 'buy',
+  'shop', 'shopping', 'search', 'searching', 'browse', 'see', 'some', 'any',
+  'few', 'couple', 'pair', 'pairs', 'please', 'pls', 'really', 'very',
+  'super', 'bit', 'just', 'new', 'nice', 'good', 'great', 'cool', 'more',
+  'most', 'less', 'something', 'anything', 'stuff', 'clothes', 'clothing',
+  'wear', 'piece', 'pieces', 'item', 'items', 'option', 'options', 'ideas',
+  'idea', 'kind', 'type', 'types', 'best', 'top', 'well', 'also', 'like',
+])
+
+// Sort keywords already consumed by compileIntent's sort detection.
+const SORT_WORDS = /\b(cheap|cheapest|affordable|budget|lowest|expensive|premium|luxury|highest|finest|best quality)\b/gi
+
+function hasUnknownIntent(q: string): boolean {
+  let residue = q
+  // Strip the budget phrase span (same patterns parseBudget consumes).
+  residue = residue.replace(
+    /(?:under|below|less than|up to|max(?:imum)?|budget(?: of)?|within|around|about)\s*([$€£¥₫])?\s*(\d+(?:[.,]\d+)?)\s*(k|m)?\s*(usd|eur|gbp|jpy|inr|vnd|aud|cad)?/gi, ' '
+  ).replace(/([$€£¥₫])\s*(\d+(?:[.,]\d+)?)\s*(k|m)?/gi, ' ')
+  // Strip everything the lexicons recognize.
+  residue = stripLexicon(residue, GARMENTS)
+  residue = stripLexicon(residue, COLORS)
+  residue = stripLexicon(residue, MATERIALS)
+  residue = stripLexicon(residue, OCCASIONS)
+  residue = stripLexicon(residue, GENDER_TERMS as unknown as Record<string, string[]>)
+  residue = residue.replace(SORT_WORDS, ' ')
+  residue = residue.replace(REFINEMENT_WORDS_G, ' ')
+  // Whatever's left: any substantive unknown word → the LLM should handle it.
+  const tokens = residue.split(/[^a-z']+/i).filter(Boolean)
+  return tokens.some(t =>
+    t.length >= 3 && !FILLER_WORDS.has(t) && !SOFT_STYLE_WORDS.has(t)
+  )
+}
+
 // ── Budget parsing ─────────────────────────────────────────────────────────────
 export function parseBudget(message: string, buyerCurrency: string): { budgetMax?: number; budgetCurrency?: string } {
   const m = message.toLowerCase().match(
@@ -222,6 +289,12 @@ export function compileIntent(message: string, buyerCurrency: string): CompiledI
   // ordering is resolved by match length).
   const garmentHits = findInLexicon(q, GARMENTS)
   if (garmentHits.length === 0) return null
+
+  // The message mentions something the lexicons don't cover (a festival, a
+  // season, an event, a niche style) → the LLM path must reason about it.
+  // Compiling anyway would silently drop the very word that defines the
+  // request. See hasUnknownIntent above.
+  if (hasUnknownIntent(q)) return null
   garmentHits.sort((a, b) => b.matched.length - a.matched.length)
   // Generic "top"/"shoes" lose to anything more specific
   const generic = new Set(['top', 'shoes'])
@@ -303,6 +376,9 @@ function stripLexicon(text: string, lexicon: Record<string, string[]>): string {
 // Extra refinement words that signal "continue the last search, tweaked" even
 // when no colour/material/budget is present on their own.
 const REFINEMENT_WORDS = /\b(cheap|cheaper|cheapest|affordable|expensive|pricier|premium|luxury|longer|shorter|looser|tighter|oversized|cropped|baggy|slim|relaxed|darker|lighter|warmer|brighter|bolder|plainer|simpler|fancier|dressier|casual|formal|short.sleeve|long.sleeve|sleeveless|other|others|different|more)\b/i
+// Global-flag twin for residue stripping in hasUnknownIntent (a non-global
+// regex passed to .replace only removes the FIRST match).
+const REFINEMENT_WORDS_G = new RegExp(REFINEMENT_WORDS.source, 'gi')
 
 /**
  * Continuation compiler — folds a short refinement ("blue colour", "in linen",
@@ -351,7 +427,7 @@ export function continueIntent(
 /** Templated lead-in for compiled searches — no LLM round-trip needed. */
 export function compiledReplyText(intent: CompiledIntent, productCount: number): string {
   if (productCount === 0) {
-    return `I couldn't find ${intent.summary} matches right now — try a different colour, material, or broader description.`
+    return `I couldn't find ${intent.summary} matches right now. Try a different colour, material, or broader description.`
   }
   const leads = [
     `Here's a curated selection of ${intent.summary} pieces from independent brands.`,

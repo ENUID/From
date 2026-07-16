@@ -479,6 +479,16 @@ Translate any occasion into a real dress code and the signals that define it. Ne
 • Athleisure: technical or soft-touch fabric, clean silhouette — this is a look, not an excuse for old gym clothes.
 Read the occasion for its REAL formality, not just its surface word — "party" ranges from black tie to backyard BBQ; ask or infer from context (time, venue, other clues) before defaulting to the safest smart-casual read.
 
+CULTURAL & RELIGIOUS OBSERVANCES — treat these with the same fluency as Western dress codes; never respond generically when one is named:
+• Muharram / Ashura: a period of mourning. Subdued, modest, plain — black or very dark, zero shine, embellishment, or loud branding. It falls across hot months in South Asia and the Middle East, so breathable plain cotton or linen matters as much as the color.
+• Eid (al-Fitr / al-Adha): festive but modest. Crisp and fresh — clean tailoring, a kurta or an elegant dress, white, pastels, or rich jewel tones. New-feeling and put together.
+• Ramadan / iftar gatherings: modest, comfortable, breathable — you're eating with family after a fast, elegance without constriction.
+• Diwali / Navratri / Indian weddings: festive color is the point — embroidery, silk, rich tones welcome; black head-to-toe reads wrong at most of these.
+• Funerals: Western — black, formal, conservative. Several East and South Asian traditions — white or plain pale clothing. If unsure of the tradition, ask ONE respectful question rather than defaulting.
+• Temple, mosque, church, gurdwara visits: modest coverage (shoulders, knees; often the head for some settings), nothing loud; easy to remove shoes matters for some.
+• Lunar New Year: red and bright tones are auspicious; avoid head-to-toe black or white.
+When one of these anchors the request, the material, the color discipline, and the modesty level ARE the styling advice — get those right before anything else, and translate them into the [SEARCH:]/[OUTFIT:] query per the search rules.
+
 ━━━ PATTERN MIXING ━━━
 • Different scales always work: large bold print + fine stripe, big floral + micro check
 • One loud pattern + everything else plain. Two patterns max, always one muted.
@@ -705,6 +715,7 @@ You can find real products for the shopper from ANY input: a description, an occ
 
 Rules:
 • Use exact product vocabulary: garment type + gender + material + color, plus an occasion/setting word when the shopper named one and it actually narrows the result (beach, resort, wedding, office, interview, date night, black tie, cocktail, gym, travel, brunch, festival). Examples: "men linen shirt". "women black leather boots". "silk slip dress". "men linen shirt beach".
+• OCCASIONS THE CATALOG WON'T CONTAIN — TRANSLATE, NEVER PASS THROUGH: when the shopper names a cultural, religious, or personal occasion no product listing would literally mention (Muharram, Ashura, Eid, Ramadan, Diwali, Navratri, Onam, Lunar New Year, Hanukkah, a funeral, a temple or church or mosque visit, a baby shower, graduation), REASON about it first: what the occasion is, what's respectfully worn there in the shopper's culture and region, expected colors and modesty level, and the local climate at that time of year. Then put ONLY the translated concrete attributes in the query, never the occasion word itself. Example: "black light casual shirts and trousers, simple and plain, for Muharram" → you know Muharram is a month of mourning, worn subdued and modest, plain black, no shine or embellishment, and it's hot season in South Asia so breathable fabric matters → [SEARCH: men plain black cotton shirt and black linen trousers]. Show that understanding in ONE natural line of your reply ("For Muharram you want subdued and breathable, plain black cotton, nothing flashy") so the shopper knows you got it — respectful and matter-of-fact, never lecturing them about their own culture.
 • BRAND NAMES: if the shopper names a brand ("a tee from Taylor Stitch", "show me Our Legacy trousers", "anything from Everlane"), KEEP the brand name in the query. The search restricts to that brand automatically. Example: [SEARCH: Taylor Stitch linen shirt]. If they name two brands, pick the one most relevant to the request.
 • PHOTO REQUESTS: When the shopper shares a photo of a product they want to find or buy catalog shot, flat lay, or product on a model, ALWAYS emit [SEARCH: ...]. Extract every visual detail: garment type + exact colour + material + cut + key identifying detail. Be specific: not "blue shirt" but "mid-wash indigo oversized linen camp collar shirt". Photo of tan suede loafers → [SEARCH: tan suede penny loafer]. Photo of a black ribbed knit polo → [SEARCH: black ribbed cotton polo shirt]. The more precise the query, the better the catalog match. If the image has a visible brand name or logo, include it in the query.
 • One search per reply. Do NOT output [SEARCH:] when discussing products already shown.
@@ -1096,7 +1107,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ reply: '', comparison: null, foundProducts: dedupeById(results).slice(0, INITIAL_RESULT_CAP), outfitSlots: null })
       } catch (e) {
         console.error('[stylist] load-more error:', e)
-        return NextResponse.json({ foundProducts: [], comparison: null })
+        // loadMoreError distinguishes "the fetch broke" from "genuinely no
+        // more matches" — without it the frontend treated a transient
+        // failure as exhaustion and hid the See-more button permanently.
+        return NextResponse.json({ foundProducts: [], comparison: null, loadMoreError: true })
       }
     }
 
@@ -1279,6 +1293,13 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     const memoryBlock = memorySummary
       ? `SHOPPER MEMORY (from previous Fabrics sessions):\n${memorySummary}`
       : ''
+    // Country grounds every recommendation in reality: climate-appropriate
+    // materials, local dress norms and occasions (a festival query means
+    // something specific THERE), and what's actually loved/available in that
+    // market — without it the model styles for a generic nowhere.
+    const localeBlock = countryCode
+      ? `SHOPPER'S COUNTRY: ${countryCode}. Factor in its climate and season, local dress norms and occasions, and what reads well there — prices are shown in ${buyerCurrency}.`
+      : ''
     const wardrobeBlock = shopperWardrobe
       ? `SHOPPER'S KNOWN WARDROBE (from a photo scan Fabrics already did):\n${shopperWardrobe}\nUse this to spot real gaps and avoid recommending near-duplicates of what they already own — reference specific pieces by name when it's genuinely relevant, don't force it into every reply.`
       : ''
@@ -1293,7 +1314,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       personalLines.push(`Recent searches (most recent first): ${recentSearches.map(q => `"${q}"`).join(', ')}. Infer their evolving taste, but follow the CURRENT request first.`)
     }
     const personalizationBlock = personalLines.length > 0 ? `SHOPPER SIGNALS:\n${personalLines.join('\n')}` : ''
-    const contextBlock = [genderBlock, memoryBlock, wardrobeBlock, personalizationBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
+    const contextBlock = [genderBlock, localeBlock, memoryBlock, wardrobeBlock, personalizationBlock, styleVocab ? `STYLE CONTEXT FOR THIS REQUEST:\n${styleVocab}` : '', productContext, imageNote].filter(Boolean).join('\n\n')
 
     let raw = ''
 
