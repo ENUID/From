@@ -2389,6 +2389,10 @@ export default function DiscernApp({
   // How many trace lines of the ACTIVE step are revealed so far — counts up
   // as the step plays out, resets to 0 whenever the active step changes.
   const [stylistTraceVisible, setStylistTraceVisible]   = useState(0)
+  // Bumped to restart the LAST step's trace-line reveal while the real
+  // request is still in flight — the animation must keep visibly working
+  // until the reply actually arrives, never sit finished-looking early.
+  const [stylistTraceLoop, setStylistTraceLoop]         = useState(0)
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
   const stylistSessionId                    = useRef<string | null>(null)
   // Wardrobe pieces the shopper owns — persist across the whole conversation as
@@ -3117,15 +3121,26 @@ export default function DiscernApp({
     setStylistTraceVisible(0)
     const phase = stylistLoadingPhases[stylistLoadingStep]
     const traceCount = phase?.trace.length ?? 0
-    const perStep = STYLIST_STEP_INTERVAL_MS
+    const onLastStep = stylistLoadingStep >= stylistLoadingPhases.length - 1
+    // The last step paces its lines slower — it's the one that holds for
+    // however long the model actually takes, so its reveal should breathe.
+    const perStep = onLastStep ? STYLIST_STEP_INTERVAL_MS * 2 : STYLIST_STEP_INTERVAL_MS
     const timers: number[] = []
     for (let i = 0; i < traceCount; i++) {
       const at = (perStep * 0.85) * ((i + 1) / (traceCount + 1))
       timers.push(window.setTimeout(() => setStylistTraceVisible(v => Math.max(v, i + 1)), at))
     }
-    timers.push(window.setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), perStep))
+    if (!onLastStep) {
+      timers.push(window.setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), perStep))
+    } else {
+      // Still waiting on the real request once every line is out — restart
+      // this step's reveal so the tracker reads as actively working (lines
+      // cycling, caret blinking) instead of silently done. sendStylist's
+      // fetch resolving is what actually ends the loop.
+      timers.push(window.setTimeout(() => setStylistTraceLoop(t => t + 1), perStep + 700))
+    }
     return () => timers.forEach(clearTimeout)
-  }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases])
+  }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases, stylistTraceLoop])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]); setFetchedColorImages({}); setFetchedColors([]) } }, [selectedProduct])
   // When the shopper picks a colour in the drawer, jump the gallery back to the
   // first image of that colourway.
@@ -5525,99 +5540,99 @@ export default function DiscernApp({
                 ))}
                 {stylistLoading && (
                   <div style={{ opacity: stylistDissolving ? 0 : 1, transition: 'opacity .22s ease' }}>
-                  {stylistLoadingPhases.length === 0 ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 2px' }}>
-                      <div className="fr-step-active" style={{ position: 'relative', width: 22, height: 22, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
-                        <StylistStepIcon icon="read" size={12} />
-                      </div>
-                      <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>Reading your message</span>
-                    </div>
-                  ) : (
-                    <div style={{ padding: '4px 2px 14px' }}>
-                      {/* Perplexity-style vertical step tracker — one row per operation,
-                          a distinct icon per step (not a generic dot), connected by a
-                          thread; the active step glows and reveals nested sub-detail. */}
-                      {stylistLoadingPhases.map((phase, pi) => {
-                        const state = pi < stylistLoadingStep ? 'done' : pi === stylistLoadingStep ? 'active' : 'upcoming'
-                        const isLast = pi === stylistLoadingPhases.length - 1
-                        return (
-                          <div key={pi} style={{ display: 'flex', gap: 10 }}>
-                            {/* Icon + connecting thread — keyed on state so each
-                                transition (upcoming→active→done) remounts and pops,
-                                reacting the instant it happens, not lagging behind. */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                              <div key={`${pi}-${state}`} className={state === 'active' ? 'fr-step-active' : 'fr-step-pop'}
-                                style={{
-                                  position: 'relative',
-                                  width: state === 'done' ? 16 : 22, height: state === 'done' ? 16 : 22,
-                                  borderRadius: '50%',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  background: state === 'active' ? INK : state === 'done' ? 'rgba(0,0,0,.05)' : 'transparent',
-                                  color: state === 'active' ? '#fff' : state === 'done' ? 'rgba(0,0,0,.4)' : 'rgba(0,0,0,.3)',
-                                  border: state === 'upcoming' ? '1px solid rgba(0,0,0,.16)' : 'none',
-                                  transition: 'background .3s ease, color .3s ease, width .3s ease, height .3s ease',
-                                }}>
-                                {state === 'done'
-                                  ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                                  : <StylistStepIcon icon={phase.icon} size={12} />}
-                              </div>
-                              {!isLast && (
-                                <div style={{ width: 1, flex: 1, minHeight: 20, marginTop: 2, marginBottom: 2, background: state === 'done' ? 'rgba(0,0,0,.14)' : 'rgba(0,0,0,.08)', transition: 'background .3s ease' }} />
-                              )}
-                            </div>
-                            {/* Label + detail */}
-                            <div style={{ paddingBottom: isLast ? 0 : 16, minWidth: 0, opacity: state === 'done' ? .6 : 1, transition: 'opacity .3s ease' }}>
-                              {state !== 'upcoming' && (
-                                <div style={{
-                                  fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase',
-                                  color: state === 'active' ? INK3 : 'rgba(0,0,0,.32)', marginBottom: 1,
-                                  animation: state === 'active' ? 'fadeUp .2s ease' : undefined,
-                                }}>
-                                  {AGENT_NAME_BY_ICON[phase.icon]}
-                                </div>
-                              )}
-                              <div style={{
-                                fontFamily: SANS, fontSize: state === 'done' ? 12 : 13, fontWeight: state === 'active' ? 600 : 500, lineHeight: '22px',
-                                color: state === 'upcoming' ? 'rgba(0,0,0,.34)' : state === 'done' ? INK3 : INK,
-                                transition: 'color .3s ease, font-size .3s ease',
-                              }}>
-                                {phase.main}
-                              </div>
-                              {/* Trace console — a real execution log, not prose: each line is
-                                  its own operation, monospaced like a terminal, revealed one at
-                                  a time as the step plays out. A blinking caret after the last
-                                  revealed line signals more is still coming. */}
-                              {state === 'active' && stylistTraceVisible > 0 && phase.trace.length > 0 && (
-                                <div style={{
-                                  marginTop: 5, padding: '7px 9px', borderRadius: 8,
-                                  background: 'rgba(0,0,0,0.035)', border: '1px solid rgba(0,0,0,0.07)',
-                                }}>
-                                  {phase.trace.slice(0, stylistTraceVisible).map((line, li) => {
-                                    const isLastVisible = li === stylistTraceVisible - 1
-                                    const stillMore = isLastVisible && stylistTraceVisible < phase.trace.length
-                                    return (
-                                      <div key={li} style={{
-                                        display: 'flex', gap: 6, alignItems: 'baseline',
-                                        fontFamily: "'SF Mono',ui-monospace,Menlo,Consolas,monospace",
-                                        fontSize: 10.5, lineHeight: '17px', color: 'rgba(0,0,0,.58)',
-                                        animation: 'fadeUp .2s ease',
-                                      }}>
-                                        <span style={{ color: 'rgba(0,0,0,.3)', flexShrink: 0 }}>›</span>
-                                        <span style={{ overflowWrap: 'anywhere' }}>
-                                          {line}
-                                          {stillMore && <span className="fr-type-caret" />}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
+                  {(() => {
+                    const searchingFor = [...stylistMsgs].reverse().find(mm => mm.role === 'user')?.content ?? ''
+                    return (
+                      /* Search-progress card: "SEARCHING FOR" + the query in serif
+                         italic with a live ring spinner, then a vertical step tracker —
+                         rounded-square step icons (the bespoke thread/needle glyph set),
+                         uppercase step titles with a check circle once done, and the
+                         step's work revealed as readable lines beneath. The last step's
+                         lines cycle (see stylistTraceLoop) until the real reply lands. */
+                      <div style={{ border: `1px solid ${BRD}`, borderRadius: 16, background: '#fff', overflow: 'hidden', maxWidth: 480, boxShadow: '0 2px 12px rgba(0,0,0,.04)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '13px 16px 11px' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: INK3, marginBottom: 3 }}>Searching for</div>
+                            <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 19, lineHeight: 1.25, color: INK, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
+                              {searchingFor || 'Your request'}
                             </div>
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                          <div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2, borderRadius: '50%', border: '2px solid rgba(0,0,0,.12)', borderTopColor: INK, animation: 'spin .8s linear infinite' }} />
+                        </div>
+                        <div style={{ borderTop: `1px solid ${BRD}`, padding: '14px 16px 15px' }}>
+                          {stylistLoadingPhases.length === 0 ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div className="fr-step-active" style={{ position: 'relative', width: 30, height: 30, borderRadius: 9, border: `1px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: INK }}>
+                                <StylistStepIcon icon="read" size={14} />
+                              </div>
+                              <span style={{ fontFamily: SANS, fontSize: 13, color: INK2 }}>Reading your message</span>
+                            </div>
+                          ) : stylistLoadingPhases.map((phase, pi) => {
+                            const state = pi < stylistLoadingStep ? 'done' : pi === stylistLoadingStep ? 'active' : 'upcoming'
+                            const isLast = pi === stylistLoadingPhases.length - 1
+                            const lines = state === 'active' ? phase.trace.slice(0, stylistTraceVisible) : state === 'done' ? phase.trace : []
+                            return (
+                              <div key={pi} style={{ display: 'flex', gap: 12 }}>
+                                {/* Rounded-square icon + connecting thread — keyed on state
+                                    so each transition remounts and pops immediately. */}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                                  <div key={`${pi}-${state}`} className={state === 'active' ? 'fr-step-active' : 'fr-step-pop'}
+                                    style={{
+                                      position: 'relative', width: 30, height: 30, borderRadius: 9,
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      border: `1px solid ${state === 'active' ? INK : state === 'done' ? 'rgba(0,0,0,.14)' : 'rgba(0,0,0,.09)'}`,
+                                      background: state === 'active' ? 'rgba(0,0,0,.03)' : 'transparent',
+                                      color: state === 'active' ? INK : state === 'done' ? 'rgba(0,0,0,.34)' : 'rgba(0,0,0,.18)',
+                                      transition: 'border-color .3s ease, color .3s ease, background .3s ease',
+                                    }}>
+                                    <StylistStepIcon icon={phase.icon} size={14} />
+                                  </div>
+                                  {!isLast && (
+                                    <div style={{ width: 1, flex: 1, minHeight: 14, marginTop: 3, marginBottom: 3, background: state === 'done' ? 'rgba(0,0,0,.13)' : 'rgba(0,0,0,.07)', transition: 'background .3s ease' }} />
+                                  )}
+                                </div>
+                                {/* Step title row (uppercase, check circle when done) + work lines */}
+                                <div style={{ flex: 1, minWidth: 0, paddingBottom: isLast ? 0 : 14, paddingTop: 7 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                    <div style={{
+                                      fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.13em', textTransform: 'uppercase',
+                                      color: state === 'active' ? INK2 : state === 'done' ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.16)',
+                                      transition: 'color .3s ease',
+                                    }}>
+                                      {phase.main}
+                                    </div>
+                                    {state === 'done' && (
+                                      <div className="fr-step-pop" style={{ width: 16, height: 16, borderRadius: '50%', background: INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {lines.length > 0 && (
+                                    <div style={{ marginTop: 4 }}>
+                                      {lines.map((line, li) => {
+                                        const isLastVisible = state === 'active' && li === lines.length - 1
+                                        return (
+                                          <div key={`${li}-${state === 'active' ? stylistTraceLoop : 'done'}`} style={{
+                                            fontFamily: SANS, fontSize: 13.5, lineHeight: '24px',
+                                            color: state === 'done' ? 'rgba(0,0,0,.3)' : li === lines.length - 1 ? INK2 : 'rgba(0,0,0,.42)',
+                                            animation: state === 'active' ? 'fadeUp .25s ease' : undefined,
+                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                          }}>
+                                            {line}
+                                            {isLastVisible && <span className="fr-type-caret" style={{ opacity: .5 }} />}
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })()}
                   </div>
                 )}
               </div>
