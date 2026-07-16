@@ -5000,16 +5000,6 @@ const UCP_REGISTRY_ALL: StoreProfile[] = [
     "about": "Jaipur brand crafting soft feminine floral-embroidered dresses and suits"
   },
   {
-    "domain": "nitinbalchauhan.com",
-    "name": "Nitin Bal Chauhan",
-    "categories": ["dress","top","bottom","outerwear"],
-    "vibe": ["avant-garde","luxury","edgy","indian-fusion"],
-    "gender": ["women","men"],
-    "priceRange": "luxury",
-    "items": ["dress","lehenga","bustier","culottes","kaftan"],
-    "about": "Delhi avant-garde luxury occasionwear built on traditional crafts"
-  },
-  {
     "domain": "houseofdesigners.in",
     "name": "House of Designers",
     "categories": ["top","bottom","dress","jewelry","accessory"],
@@ -5655,7 +5645,7 @@ const STORE_COUNTRIES: Record<string, string> = {
   'aloyoga.com': 'US', 'goodamerican.com': 'US',
   // ── Indian brands on .com/.co (TLD doesn't reveal country) ──
   'ofrida.com': 'IN', 'banithni.com': 'IN', 'escapebyaishwarya.com': 'IN',
-  'pashaindia.com': 'IN', 'masoomm.com': 'IN', 'nitinbalchauhan.com': 'IN',
+  'pashaindia.com': 'IN', 'masoomm.com': 'IN',
   'fardaclothing.com': 'IN', 'kardo.co': 'IN', 'anitadongre.com': 'IN',
   'ornatejewels.com': 'IN', 'twamev.com': 'IN',
 }
