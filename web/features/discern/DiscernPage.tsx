@@ -5,7 +5,7 @@ import { useSession, signIn, signOut } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useDiscernChat } from './hooks/useDiscernChat'
-import { useConvexAuthProof } from '@/hooks/useConvexAuthProof'
+import { useConvexAuthProof, fetchConvexAuthProof } from '@/hooks/useConvexAuthProof'
 import { formatMoney, convertCurrencyAmount } from '@/lib/currency'
 import type { ShopperContext } from '@/lib/shopperContext'
 import { ExchangeRates } from '@/lib/exchangeRates'
@@ -1801,7 +1801,12 @@ export default function DiscernApp({
 
   async function saveProfile() {
     if (!onboardEmail || profileSaving) return
-    if (!authProof) {
+    // The cached proof can be momentarily absent (initial fetch still in flight,
+    // or a transient failure right after sign-in). Try once to mint a fresh one
+    // on demand before giving up, so a save isn't blocked on a timing gap — this
+    // is the difference between "works on the next click" and "stuck for minutes".
+    const proof = authProof ?? await fetchConvexAuthProof()
+    if (!proof) {
       setProfileError("Couldn't reach the server. Please try again in a moment.")
       return
     }
@@ -1823,9 +1828,9 @@ export default function DiscernApp({
       if (profileGender) sizes.gender = profileGender
       // Profile write first — this auto-provisions the user row if needed, so the
       // name update below (and everything else) can rely on the user existing.
-      await withTimeout(upsertProfile({ userEmail: onboardEmail, sizes: Object.keys(sizes).length ? sizes : undefined, authProof }))
+      await withTimeout(upsertProfile({ userEmail: onboardEmail, sizes: Object.keys(sizes).length ? sizes : undefined, authProof: proof }))
       if (profileName.trim()) {
-        await withTimeout(updateUserNameMutation({ email: onboardEmail, name: profileName.trim(), authProof }))
+        await withTimeout(updateUserNameMutation({ email: onboardEmail, name: profileName.trim(), authProof: proof }))
       }
       setProfileSaving(false)
       setSettingsView('main')
@@ -1845,7 +1850,11 @@ export default function DiscernApp({
     if (!onboardEmail) { setShowOnboarding(false); return }
     const BUDGET_RANGES = [[0, 50], [50, 150], [150, 400], [400, 9999]]
     try {
-      if (!authProof) throw new Error('auth proof not ready')
+      // Mint a proof on demand if the cached one hasn't landed yet, same as
+      // saveProfile — otherwise a fast-finishing onboarding silently drops the
+      // profile write.
+      const proof = authProof ?? await fetchConvexAuthProof()
+      if (!proof) throw new Error('auth proof not ready')
       const hasSizes = onboardSizes.tops || onboardSizes.bottoms || onboardSizes.shoes
       const sizesObj = (onboardGender || hasSizes)
         ? { ...onboardSizes, ...(onboardGender ? { gender: onboardGender } : {}) }
@@ -1856,7 +1865,7 @@ export default function DiscernApp({
         budgetMin: (!skip && selectedBudget !== null) ? BUDGET_RANGES[selectedBudget][0] : undefined,
         budgetMax: (!skip && selectedBudget !== null) ? BUDGET_RANGES[selectedBudget][1] : undefined,
         sizes: skip ? undefined : sizesObj,
-        authProof,
+        authProof: proof,
       })
     } catch { /* ignore */ }
     setShowOnboarding(false)
