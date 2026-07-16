@@ -138,7 +138,7 @@ function FabricsIcon({ size = 15, stroke = 'currentColor', strokeWidth = 1.0 }: 
   )
 }
 
-function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: string }) {
+function DiscernLogo({ size = 28, color = "#000000", showTag = true }: { size?: number; color?: string; showTag?: boolean }) {
   const markSize = Math.round(size * 1.05)
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(size * 0.25), userSelect: 'none' }}>
@@ -174,11 +174,13 @@ function DiscernLogo({ size = 28, color = "#000000" }: { size?: number; color?: 
             </span>
           )
         })()}
-        <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.42), fontWeight: 400,
-          letterSpacing: '0.08em', color: 'rgba(0,0,0,0.4)', lineHeight: 1,
-          position: 'relative', top: Math.round(size * -0.08) }}>
-          | Early Access
-        </span>
+        {showTag && (
+          <span style={{ fontFamily: SANS, fontSize: Math.round(size * 0.42), fontWeight: 400,
+            letterSpacing: '0.08em', color: 'rgba(0,0,0,0.4)', lineHeight: 1,
+            position: 'relative', top: Math.round(size * -0.08) }}>
+            | Early Access
+          </span>
+        )}
       </span>
     </span>
   )
@@ -4138,6 +4140,16 @@ export default function DiscernApp({
         /* Neutral text shimmer for the working step's title — the older
            .fr-shine hardcodes the retired warm-brown palette. */
         .fr-shine-soft{background:linear-gradient(90deg,rgba(0,0,0,.34) 0%,rgba(0,0,0,.34) 38%,rgba(0,0,0,.92) 50%,rgba(0,0,0,.34) 62%,rgba(0,0,0,.34) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.2s linear infinite;}
+        /* Whisper-thin indeterminate sweep along the card's header divider —
+           1px of quiet forward motion, the card's heartbeat. */
+        @keyframes fr-sweep-bar{0%{transform:translateX(-110%);}100%{transform:translateX(480%);}}
+        .fr-sweep{position:absolute;top:0;left:0;height:1px;width:26%;background:linear-gradient(90deg,transparent,rgba(0,0,0,.38),transparent);animation:fr-sweep-bar 2.6s cubic-bezier(.45,.1,.55,.9) infinite;}
+        /* One-shot ripple when a step's check lands. */
+        @keyframes fr-ripple{0%{box-shadow:0 0 0 0 rgba(0,0,0,.22);}100%{box-shadow:0 0 0 9px rgba(0,0,0,0);}}
+        .fr-check-pop{animation:fr-step-in .22s cubic-bezier(.32,.9,.4,1), fr-ripple .55s ease-out .08s 1;}
+        /* The active step's glyph breathes — barely, like fabric moving. */
+        @keyframes fr-icon-breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.07);}}
+        .fr-icon-breathe{display:flex;animation:fr-icon-breathe 2.4s ease-in-out infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(0,0,0,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
         button{cursor:pointer;} a{color:inherit;}
@@ -4555,7 +4567,7 @@ export default function DiscernApp({
               display: "flex", alignItems: "center", justifyContent: "space-between",
               flexShrink: 0,
             }}>
-              <DiscernLogo size={24} color="#000000" />
+              <DiscernLogo size={24} color="#000000" showTag={false} />
               <div
                 onClick={() => setSettingsOpen(true)}
                 style={{
@@ -5561,7 +5573,7 @@ export default function DiscernApp({
                          uppercase step titles with a check circle once done, and the
                          step's work revealed as readable lines beneath. The last step's
                          lines cycle (see stylistTraceLoop) until the real reply lands. */
-                      <div className="fr-search-card" style={{ border: `1px solid ${BRD}`, borderRadius: 16, background: '#fff', overflow: 'hidden', maxWidth: 480, boxShadow: '0 2px 12px rgba(0,0,0,.04)' }}>
+                      <div className="fr-search-card" style={{ border: `1px solid ${BRD}`, borderRadius: 16, background: '#fff', overflow: 'hidden', maxWidth: 480, boxShadow: '0 4px 24px rgba(0,0,0,.05), 0 1px 3px rgba(0,0,0,.04)' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '13px 16px 11px' }}>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: INK3, marginBottom: 3 }}>Searching for</div>
@@ -5576,10 +5588,15 @@ export default function DiscernApp({
                               <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                             </div>
                           ) : (
-                            <div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2, borderRadius: '50%', border: '2px solid rgba(0,0,0,.12)', borderTopColor: INK, animation: 'spin .8s linear infinite' }} />
+                            <div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2, borderRadius: '50%', border: '1.5px solid rgba(0,0,0,.09)', borderTopColor: INK2, animation: 'spin 1.05s linear infinite' }} />
                           )}
                         </div>
-                        <div style={{ borderTop: `1px solid ${BRD}`, padding: '14px 16px 15px' }}>
+                        {/* Divider doubles as the card's heartbeat — a 1px sweep of
+                            forward motion for as long as the work is genuinely running. */}
+                        <div style={{ position: 'relative', height: 1, background: BRD, overflow: 'hidden' }}>
+                          {!stylistDissolving && <div className="fr-sweep" />}
+                        </div>
+                        <div style={{ padding: '14px 16px 15px' }}>
                           {stylistLoadingPhases.length === 0 ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <div className="fr-step-active" style={{ position: 'relative', width: 30, height: 30, borderRadius: 9, border: `1px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: INK }}>
@@ -5605,7 +5622,9 @@ export default function DiscernApp({
                                       color: state === 'active' ? INK : state === 'done' ? 'rgba(0,0,0,.34)' : 'rgba(0,0,0,.18)',
                                       transition: 'border-color .3s ease, color .3s ease, background .3s ease',
                                     }}>
-                                    <StylistStepIcon icon={phase.icon} size={14} />
+                                    {state === 'active'
+                                      ? <span className="fr-icon-breathe"><StylistStepIcon icon={phase.icon} size={14} /></span>
+                                      : <StylistStepIcon icon={phase.icon} size={14} />}
                                   </div>
                                   {!isLast && (
                                     /* The thread draws itself in as its step completes —
@@ -5629,7 +5648,7 @@ export default function DiscernApp({
                                       {state === 'active' ? <span className="fr-shine-soft">{phase.main}</span> : phase.main}
                                     </div>
                                     {state === 'done' && (
-                                      <div className="fr-step-pop" style={{ width: 16, height: 16, borderRadius: '50%', background: INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      <div className="fr-check-pop" style={{ width: 16, height: 16, borderRadius: '50%', background: INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                                       </div>
                                     )}
@@ -5642,7 +5661,9 @@ export default function DiscernApp({
                                           <div key={`${li}-${state === 'active' ? stylistTraceLoop : 'done'}`}
                                             className={state === 'active' ? 'fr-trace-line' : undefined}
                                             style={{
-                                              fontFamily: SANS, fontSize: 13.5, lineHeight: '24px',
+                                              /* Past work compacts as it archives; the present line
+                                                 gets the room and the darkest ink. */
+                                              fontFamily: SANS, fontSize: state === 'done' ? 12.5 : 13.5, lineHeight: state === 'done' ? '20px' : '24px',
                                               color: state === 'done' ? 'rgba(0,0,0,.3)' : li === lines.length - 1 ? INK2 : 'rgba(0,0,0,.42)',
                                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                             }}>
