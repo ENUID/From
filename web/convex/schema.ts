@@ -152,6 +152,18 @@ export default defineSchema({
   }).index("by_key", ["scope", "conceptKey", "targetId"])
     .index("by_concept", ["conceptKey"]),
 
+  // Emerging style trends distilled from real search volume by the
+  // style-signals cron (web/app/api/cron/style-signals) every ~2 days.
+  // Read by the LLM relevance judge as light context ("what shoppers are
+  // gravitating toward right now"), never as a filter — see
+  // lib/services/trendConcepts.ts. Small table, replaced wholesale each run;
+  // firstSeenAt survives replacement so a persistent trend shows its age.
+  trend_concepts: defineTable({
+    concept: v.string(),      // lowercased short phrase, e.g. "quiet luxury"
+    firstSeenAt: v.number(),
+    lastSeenAt: v.number(),
+  }).index("by_concept", ["concept"]),
+
   // Persisted brand health from the daily probe. consecutiveDown drives
   // auto-pruning: a store down for several days running is skipped in search
   // until it recovers (a healthy probe resets the counter).

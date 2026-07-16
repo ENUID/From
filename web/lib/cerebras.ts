@@ -32,6 +32,8 @@
 // Requires CEREBRAS_API_KEY (https://cloud.cerebras.ai — free signup, no
 // card). If unset, every call below throws immediately and the caller's
 // existing fallback loop just moves on to the next provider.
+import { chatCompletion } from './groq'
+
 const CEREBRAS_BASE = process.env.CEREBRAS_BASE_URL ?? 'https://api.cerebras.ai/v1'
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY ?? ''
 export const CEREBRAS_MODEL = process.env.CEREBRAS_MODEL ?? 'gpt-oss-120b'
@@ -50,64 +52,29 @@ type CerebrasOpts = {
   reasoning_effort?: 'low' | 'medium' | 'high'
 }
 
+// Delegates to lib/groq.ts's shared chatCompletion — one retry/429-backoff/
+// timeout implementation for every OpenAI-compatible provider in the family,
+// instead of a drift-prone copy here. Cerebras' one provider-specific field
+// (reasoning_effort) rides in via extraPayload.
 async function cerebrasCompletion(
   messages: CerebrasMessage[],
   system?: string,
   opts?: CerebrasOpts,
-  retryCount = 0,
 ): Promise<any> {
   if (!CEREBRAS_API_KEY) throw new Error('CEREBRAS_API_KEY is not set. Get one at https://cloud.cerebras.ai and add it to .env.local / Vercel.')
-
-  const allMessages = system
-    ? [{ role: 'system', content: system }, ...messages]
-    : messages
-
-  const payload: Record<string, unknown> = {
-    model: opts?.model ?? CEREBRAS_MODEL,
-    messages: allMessages,
-    temperature: opts?.temperature ?? 0.1,
-    max_tokens: opts?.max_tokens ?? 1200,
-  }
-  if (opts?.reasoning_effort) payload.reasoning_effort = opts.reasoning_effort
-
-  try {
-    const res = await fetch(`${CEREBRAS_BASE}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${CEREBRAS_API_KEY}` },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(25000),
-    })
-
-    if (res.status === 429 && retryCount < 2) {
-      const errorText = await res.clone().text()
-      let delay = 2000
-      try {
-        const errorJson = JSON.parse(errorText)
-        const match = errorJson.error?.message?.match(/try again in ([\d.]+)s/i)
-        if (match) delay = Math.ceil(parseFloat(match[1]) * 1000) + 200
-      } catch {}
-      // Cap at 8s so a long provider-suggested wait doesn't timeout the
-      // Vercel function — bail immediately and let the caller's fallback
-      // loop try the next provider instead.
-      if (delay > 8000) throw new Error(`Rate limit: suggested wait ${delay}ms exceeds cap`)
-      await new Promise(resolve => setTimeout(resolve, delay))
-      return cerebrasCompletion(messages, system, opts, retryCount + 1)
-    }
-
-    if (!res.ok) {
-      const errorText = await res.text()
-      throw new Error(`Cerebras HTTP ${res.status}: ${errorText}`)
-    }
-
-    const data = await res.json()
-    return data.choices?.[0]?.message
-  } catch (err: any) {
-    if (retryCount < 2 && !err.message?.includes('API key')) {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      return cerebrasCompletion(messages, system, opts, retryCount + 1)
-    }
-    throw err
-  }
+  return chatCompletion(
+    CEREBRAS_BASE,
+    CEREBRAS_API_KEY,
+    opts?.model ?? CEREBRAS_MODEL,
+    messages as any,
+    system,
+    undefined,
+    {
+      max_tokens: opts?.max_tokens,
+      temperature: opts?.temperature,
+      extraPayload: opts?.reasoning_effort ? { reasoning_effort: opts.reasoning_effort } : undefined,
+    },
+  )
 }
 
 export async function cerebrasChat(

@@ -731,7 +731,7 @@ Examples:
 ━━━ VISUAL COMPARISON (2+ products, comparison/choice question only) ━━━
 After your text reply, output ONE comparison block at the very end, nothing after it:
 [COMPARE: {"rows":[{"label":"Price","values":["£40","£95"]},{"label":"Material","values":["Cotton","Linen"]}],"pick":{"index":1,"reason":"Better quality for the price"}}]
-STRICT: 2–4 rows max. Short values (≤5 words each). "pick" only when clearly better. Output ONCE, last line. Never output comparison for single products or general questions.
+STRICT: 2–6 rows. Choose the rows a real buyer would weigh for THESE items — from: Price, Material, Construction, Fit/Silhouette, Style, Versatility, Care, Longevity, Occasion fit. Only rows where the products genuinely differ; skip any row where the values would read the same. Short values (≤5 words each). "pick" only when clearly better. Output ONCE, last line. Never output comparison for single products or general questions.
 
 ━━━ OUTFIT BUILDER ━━━
 When the shopper asks for a COMPLETE OUTFIT ("build me a look for X", "what would I wear to Y", "outfit for Z", "complete the look", "show me outfits", "where are the outfits", "give me outfits") use [OUTFIT:] instead of [SEARCH:]:

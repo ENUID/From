@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ConvexHttpClient } from 'convex/browser'
+import { anyApi } from 'convex/server'
 import { groqChat } from '@/lib/groq'
 import { api } from '@/convex/_generated/api'
 
@@ -62,7 +63,26 @@ ${queries.map((q: string) => `- ${q}`).join('\n')}`
 
     console.log('[style-signals] emerging concepts:', concepts)
 
-    return NextResponse.json({ ok: true, queriesAnalyzed: queries.length, concepts })
+    // Persist so the relevance judge can actually use them — before this the
+    // whole cron's output stopped at the console.log above. Best-effort: a
+    // write failure still reports the concepts it found.
+    let persisted = false
+    if (Array.isArray(concepts) && concepts.length > 0) {
+      try {
+        // anyApi (not the generated typed api): the generated types are only
+        // rebuilt by `npx convex dev/deploy`, which the Vercel build runs —
+        // same pattern as every other server-side caller of a new function.
+        const res = await convex.mutation(anyApi.trendConcepts.replaceTrendConcepts, {
+          concepts: concepts.filter((c): c is string => typeof c === 'string'),
+          serverSecret: process.env.CONVEX_AUTH_SECRET,
+        })
+        persisted = res?.ok === true
+      } catch (e) {
+        console.error('[style-signals] persist failed:', e)
+      }
+    }
+
+    return NextResponse.json({ ok: true, queriesAnalyzed: queries.length, concepts, persisted })
   } catch (err: any) {
     console.error('[style-signals] error:', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })

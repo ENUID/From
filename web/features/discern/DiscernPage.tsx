@@ -2300,7 +2300,11 @@ export default function DiscernApp({
   // (13) via chunkIntoRows, e.g. a 52-result fetch becomes [13, 13, 13, 13] — so
   // the flat foundProducts list renders as several short rows instead of one
   // long horizontally-scrolling line that keeps growing sideways forever.
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductGroups?: FoundProductGroup[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean }
+  // trace: snapshot of the reasoning steps that played while this reply was
+  // being produced (the same phases the live step tracker showed) — kept on
+  // the message so "what did it think about" survives past the loading
+  // animation, behind a collapsed "Show reasoning" toggle.
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductGroups?: FoundProductGroup[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean; trace?: StylistLoadingPhase[] }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   // Guards against a shape mismatch from a pre-migration localStorage payload
   // (this app went through a chat-format architecture change) crashing the
@@ -2374,6 +2378,8 @@ export default function DiscernApp({
   const loading = stylistLoading
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
   const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
+  // Which message's persisted reasoning trace is expanded (one at a time).
+  const [openTraceIdx, setOpenTraceIdx] = useState<number | null>(null)
   // "See more" gets the same reasoning-in-progress feel as a fresh search —
   // a small cycling icon+label row in place of the button — without needing
   // the full per-message step tracker. Only one "See more" can be in flight
@@ -2588,7 +2594,7 @@ export default function DiscernApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, trace: loadingPhases.length > 0 ? loadingPhases : undefined }])
         if (typeof data.searchQuery === 'string' && data.searchQuery.trim() && onboardEmail && authProof) {
           saveSearchHistoryMutation({ userEmail: onboardEmail, query: data.searchQuery.trim(), resultCount: newProducts.length, authProof }).catch(() => {})
         }
@@ -5278,6 +5284,49 @@ export default function DiscernApp({
                           )}
                         </div>
                       </>
+                    )}
+                    {/* Persisted reasoning trace — the steps the live tracker showed
+                        while this reply was produced, reviewable after the fact.
+                        Collapsed to one quiet line; expands to a read-only version
+                        of the same step layout (all steps in their "done" state). */}
+                    {m.role === 'assistant' && m.trace && m.trace.length > 0 && (
+                      <div style={{ marginTop: 6, width: '100%' }}>
+                        <button type="button" onClick={() => setOpenTraceIdx(openTraceIdx === i ? null : i)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: '2px 0', cursor: 'pointer', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: INK3 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                            style={{ transform: openTraceIdx === i ? 'rotate(90deg)' : 'none', transition: 'transform .18s ease' }}>
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                          {openTraceIdx === i ? 'Hide reasoning' : `Show reasoning · ${m.trace.length} steps`}
+                        </button>
+                        {openTraceIdx === i && (
+                          <div style={{ padding: '8px 2px 2px', animation: 'fadeUp .18s ease' }}>
+                            {m.trace.map((phase, pi) => {
+                              const isLast = pi === m.trace!.length - 1
+                              return (
+                                <div key={pi} style={{ display: 'flex', gap: 10 }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                                    <div style={{ width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.05)', color: 'rgba(0,0,0,.45)' }}>
+                                      <StylistStepIcon icon={phase.icon} size={9} />
+                                    </div>
+                                    {!isLast && <div style={{ width: 1, flex: 1, minHeight: 10, marginTop: 2, marginBottom: 2, background: 'rgba(0,0,0,.1)' }} />}
+                                  </div>
+                                  <div style={{ paddingBottom: isLast ? 0 : 10, minWidth: 0 }}>
+                                    <div style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 500, lineHeight: '16px', color: INK3 }}>{phase.main}</div>
+                                    {phase.trace.length > 0 && (
+                                      <div style={{ marginTop: 3 }}>
+                                        {phase.trace.map((line, li) => (
+                                          <div key={li} style={{ fontFamily: "'SF Mono',ui-monospace,Menlo,Consolas,monospace", fontSize: 10, lineHeight: '15px', color: 'rgba(0,0,0,.42)' }}>{line}</div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
                     )}
                     {m.comparison && m.comparison.rows.length > 0 && (
                       <div style={{ marginTop: 10, width: '100%', maxWidth: 480, border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>

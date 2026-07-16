@@ -5,6 +5,7 @@ import { matchStyles, vocabPromptBlock } from '../styleVocabulary'
 import { decomposeQuery } from '../queryParser'
 import { getRelevanceAdjustment } from './relevanceAdjustments'
 import { readPersistentRerankCache, writePersistentRerankCache } from './persistentRerankCache'
+import { trendContextLine } from './trendConcepts'
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
 // LLM rerank is ON by default — set RELEVANCE_RERANK=off to disable.
@@ -169,9 +170,13 @@ async function llmRelevanceScores(
 
   const matched = matchStyles(query)
   const vocabBlock = vocabPromptBlock(matched)
+  // What real shoppers are trending toward right now (style-signals cron →
+  // trend_concepts table) — a step-5 tiebreaker nudge for the judge, worth
+  // one short line. Empty string until the cron has produced data.
+  const trendLine = trendContextLine()
 
   const system = `You are the relevance engine behind Discern — a curated independent fashion platform. Your job: score how well each product actually satisfies the shopper's intent. Think like a seasoned boutique buyer, not a keyword matcher.
-${vocabBlock}${profileLine}
+${vocabBlock}${profileLine}${trendLine ? `${trendLine}\n` : ''}
 SCORING RUBRIC (0–100). Apply in strict order — a low score at any step caps the total:
 1. GARMENT CATEGORY (0–30 pts): Is it the item type they asked for? Completely wrong category (homeware, book, candle when they want a shirt) → 0–5. Adjacent but not quite right → 10–15. Correct → 25–30.
 2. GENDER (0–20 pts): Explicitly gendered request + wrong gender → 0–8. Unisex or ambiguous request → full pts.
@@ -203,24 +208,46 @@ Return an entry for EVERY index. No trailing text after the closing bracket.`
 
   let raw: string | null = null
   try {
-    // Cerebras first — its free tier is a 4th, independent pool from
-    // OpenRouter/Groq-direct, and this prompt (compact per-product lines,
-    // capped RERANK_TOP_N candidates) comfortably fits its 8K free-tier
-    // context cap. reasoning_effort: 'medium' asks gpt-oss-120b to actually
-    // think through the rubric instead of pattern-matching keywords —
-    // Cerebras' hardware is fast enough that this still has a real shot at
-    // landing inside the judge timeout below. Falls through to the existing
-    // groqChat judge on any failure/timeout/empty response — this is a pure
-    // addition, the pre-existing behavior is unchanged when Cerebras is
-    // unavailable or too slow this particular request.
-    raw = await withJudgeTimeout(
-      cerebrasChat([{ role: 'user', content: userMsg }], system, { temperature: 0, max_tokens: 1600, reasoning_effort: 'medium' })
-    )
-    if (!raw) {
-      raw = await withJudgeTimeout(
-        groqChat([{ role: 'user', content: userMsg }], system, undefined, { temperature: 0, max_tokens: 1600, model: FAST_MODEL })
-      )
-    }
+    // Hedged two-provider judge. Cerebras leads — its free tier is a 4th,
+    // independent pool from OpenRouter/Groq-direct, this prompt comfortably
+    // fits its 8K free-tier context cap, and reasoning_effort: 'medium' asks
+    // gpt-oss-120b to actually think through the rubric. Its hardware
+    // usually answers well inside HEDGE_MS, so the common case costs ONE
+    // call. If it hasn't answered by then (slow, down, rate-limited), the
+    // Groq judge starts in PARALLEL and whichever returns a usable answer
+    // first wins — previously the two ran strictly in sequence, so a
+    // Cerebras outage added its full TIMEOUT_MS to every relevance-ranked
+    // search (~4s worst case, now ~TIMEOUT_MS + hedge delay). A plain
+    // always-both race was rejected deliberately: it would double free-tier
+    // quota burn on every search to save latency only in the rare case.
+    const HEDGE_MS = Math.min(800, TIMEOUT_MS / 2)
+    raw = await new Promise<string | null>(resolve => {
+      let resolved = false
+      let cerebrasDone = false
+      let groqDone = false
+      let groqLaunched = false
+      const finish = (v: string | null) => {
+        if (resolved) return
+        if (v) { resolved = true; resolve(v); return }
+        // Both attempts have come back empty → give up (BM25 order stands).
+        if (cerebrasDone && groqDone) { resolved = true; resolve(null) }
+      }
+      const launchGroq = () => {
+        if (groqLaunched || resolved) return
+        groqLaunched = true
+        withJudgeTimeout(
+          groqChat([{ role: 'user', content: userMsg }], system, undefined, { temperature: 0, max_tokens: 1600, model: FAST_MODEL })
+        ).then(v => { groqDone = true; finish(v) })
+      }
+      withJudgeTimeout(
+        cerebrasChat([{ role: 'user', content: userMsg }], system, { temperature: 0, max_tokens: 1600, reasoning_effort: 'medium' })
+      ).then(v => {
+        cerebrasDone = true
+        if (!v) launchGroq()
+        finish(v)
+      })
+      setTimeout(launchGroq, HEDGE_MS)
+    })
   } catch {
     return null
   }

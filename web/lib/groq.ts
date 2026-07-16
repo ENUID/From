@@ -150,17 +150,21 @@ function headersFor(base: string, apiKey: string) {
 
 /**
  * Raw chat completion call against a given provider (base URL + key + model).
- * Parametrized so both OpenRouter and the Groq-direct fallback share one
- * retry/self-heal implementation instead of two near-identical copies.
+ * Parametrized so every OpenAI-compatible provider in the fallback family —
+ * OpenRouter, Groq direct, and Cerebras (lib/cerebras.ts) — shares ONE
+ * retry/429-backoff/self-heal implementation instead of near-identical
+ * copies that would drift apart the first time one of them gets a fix.
+ * opts.extraPayload carries provider-specific request fields (e.g.
+ * Cerebras' reasoning_effort) without this shared core knowing about them.
  */
-async function chatCompletion(
+export async function chatCompletion(
   base: string,
   apiKey: string,
   model: string,
   messages: ChatMessage[],
   system?: string,
   tools?: any[],
-  opts?: { max_tokens?: number; temperature?: number },
+  opts?: { max_tokens?: number; temperature?: number; extraPayload?: Record<string, unknown> },
   retryCount = 0,
 ): Promise<any> {
   if (!apiKey) throw new Error(`No API key configured for ${base}`)
@@ -174,6 +178,7 @@ async function chatCompletion(
     messages: allMessages,
     temperature: opts?.temperature ?? 0.1,
     max_tokens: opts?.max_tokens ?? 1200,
+    ...(opts?.extraPayload ?? {}),
   }
 
   if (tools && tools.length > 0) {
