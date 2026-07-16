@@ -15,7 +15,7 @@
 
 import { SearchToolArgs, SearchToolSchema } from '@/lib/ai/schema'
 import { matchStyles, type StyleEntry } from '@/lib/styleVocabulary'
-import { normalizeFashionTypos } from '@/lib/queryParser'
+import { normalizeFashionTypos, FIT_VOCAB } from '@/lib/queryParser'
 
 // ── Layer 1: Garment lexicon ───────────────────────────────────────────────────
 // canonical garment → synonym group used as a mandatoryConcepts hard filter.
@@ -34,7 +34,20 @@ const GARMENTS: Record<string, string[]> = {
   leggings:     ['leggings', 'legging', 'joggers', 'jogger', 'sweatpants', 'track pants', 'bike shorts'],
   dress:        ['dress', 'dresses', 'gown', 'sundress'],
   jumpsuit:     ['jumpsuit', 'romper', 'playsuit', 'co-ord', 'coord set', 'co ord'],
-  kurta:        ['kurta', 'saree', 'lehenga', 'dupatta'],
+  // Indian / South-Asian wear — split into real canonicals (the old single
+  // "kurta" bucket lumped saree/lehenga/dupatta together, so a saree search
+  // hard-filtered on kurtas and lehengas too). Each is its own concept now.
+  kurta:        ['kurta', 'kurtas', 'kurti', 'kurtis'],
+  saree:        ['saree', 'sari', 'sarees', 'saris'],
+  lehenga:      ['lehenga', 'lehanga', 'lehnga', 'ghagra', 'lehenga choli'],
+  'salwar kameez': ['salwar kameez', 'shalwar kameez', 'salwar suit', 'salwar', 'kameez', 'churidar', 'punjabi suit', 'patiala suit'],
+  palazzo:      ['palazzo', 'palazzos', 'palazo'],
+  anarkali:     ['anarkali', 'anarkalis'],
+  sharara:      ['sharara', 'gharara'],
+  kaftan:       ['kaftan', 'caftan'],
+  sherwani:     ['sherwani', 'sherwanis'],
+  'nehru jacket': ['nehru jacket', 'modi jacket', 'bandhgala', 'jodhpuri'],
+  dupatta:      ['dupatta', 'chunni', 'odhni'],
   jacket:       ['jacket', 'jackets', 'bomber', 'windbreaker', 'harrington', 'trucker'],
   coat:         ['coat', 'coats', 'overcoat', 'trench', 'parka', 'puffer', 'raincoat', 'peacoat'],
   blazer:       ['blazer', 'blazers', 'sport coat', 'suit jacket'],
@@ -178,6 +191,14 @@ const SOFT_STYLE_WORDS = new Set([
   'slim', 'skinny', 'baggy', 'loose', 'tight', 'regular', 'straight', 'wide',
   'cropped', 'everyday', 'versatile', 'stylish', 'trendy', 'cute', 'pretty',
   'beautiful', 'quality', 'solid', 'neutral', 'muted', 'subtle',
+  // Fit / silhouette descriptor words — the pieces of a fit phrase that aren't
+  // themselves garments ("wide LEG", "high WAISTED", "boot CUT", "muscle FIT",
+  // "long SLEEVE"). Treated as soft so a fit query still compiles on the fast
+  // path instead of bailing to the LLM over a leftover word.
+  'leg', 'waisted', 'waist', 'rise', 'tapered', 'flared', 'flare', 'bootcut',
+  'boxy', 'tailored', 'muscle', 'athletic', 'longline', 'boyfriend', 'mom',
+  'fit', 'cut', 'length', 'hem', 'sleeve', 'sleeved', 'sleeveless', 'neck',
+  'collar', 'collared', 'high', 'mid', 'low',
 ])
 
 // Verbs, pronouns, articles, and shopping filler that carry no product intent.
@@ -249,10 +270,13 @@ function findInLexicon(q: string, lexicon: Record<string, string[]>): { canonica
   const hits: { canonical: string; matched: string; group: string[] }[] = []
   for (const [canonical, synonyms] of Object.entries(lexicon)) {
     for (const syn of synonyms) {
-      // word-boundary match; multi-word synonyms matched as substrings
-      const pattern = syn.includes(' ') || syn.includes('-')
-        ? syn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        : `\\b${syn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`
+      // Whole-term match, ALWAYS word-boundary anchored — including multi-word
+      // synonyms. Matching "t shirt" as a bare substring made "slim FIT SHIRT"
+      // resolve to the tee garment (the "t shirt" hid across the fit/shirt word
+      // gap), so a shirt search silently returned t-shirts. Anchoring both ends
+      // fixes that while still matching "t-shirt", "wide leg", "button-down".
+      const escaped = syn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const pattern = `\\b${escaped}\\b`
       if (new RegExp(pattern, 'i').test(q)) {
         hits.push({ canonical, matched: syn, group: synonyms })
         break
@@ -320,11 +344,25 @@ export function compileIntent(message: string, buyerCurrency: string): CompiledI
     : /\b(expensive|premium|luxury|highest|finest|best quality)\b/i.test(q) ? 'price_desc'
     : 'relevance'
 
-  // searchQuery: gender + color + material + garment + occasion — clean and specific
+  // Fit / silhouette (oversized, slim, wide-leg, high-waisted…). A soft signal:
+  // it goes into the search text for store-side recall and as a ranking concept,
+  // but never hard-filters the category — a shopper who says "oversized tee"
+  // still sees tees even if few are explicitly tagged oversized.
+  let fitCanonical: string | undefined
+  let fitTerm: string | undefined
+  let fitGroup: string[] | undefined
+  for (const [fit, syns] of Object.entries(FIT_VOCAB)) {
+    const hit = syns.find(t =>
+      new RegExp(`(?:^|[^a-z])${t.replace(/[-\s]+/g, '[\\s-]+')}(?:[^a-z]|$)`, 'i').test(q))
+    if (hit) { fitCanonical = fit; fitTerm = hit; fitGroup = syns; break }
+  }
+
+  // searchQuery: gender + color + material + fit + garment + occasion — clean and specific
   const queryParts: string[] = []
   if (gender) queryParts.push(gender)
   if (colorHits[0]) queryParts.push(colorHits[0].matched)
   if (materialHits[0]) queryParts.push(materialHits[0].matched)
+  if (fitTerm) queryParts.push(fitTerm)
   queryParts.push(garment.matched)
   if (occasion) queryParts.push(OCCASION_BOOST[occasion.canonical][0])
   const searchQuery = queryParts.join(' ')

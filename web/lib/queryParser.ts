@@ -209,6 +209,187 @@ export const GARMENT_VOCAB: Record<string, GarmentEntry> = {
     query:   ['wallet', 'wallets', 'card holder', 'cardholder', 'card wallet'],
     product: ['wallet', 'wallets', 'cardholder', 'card holder'],
   },
+  // ── More Western garments ───────────────────────────────────────────────────
+  henley: {
+    query:   ['henley', 'henleys', 'henley shirt', 'henley tee', 'granddad tee'],
+    product: ['henley'],
+  },
+  turtleneck: {
+    // "polo neck" / "roll neck" / "high neck" all mean turtleneck — this is also
+    // why plain `polo` excludes "polo neck" (that's a turtleneck, not a polo).
+    query:   ['turtleneck', 'turtle neck', 'roll neck', 'rollneck', 'polo neck', 'poloneck', 'high neck', 'mock neck', 'skivvy'],
+    product: ['turtleneck', 'roll neck', 'rollneck', 'mock neck', 'high neck'],
+  },
+  cargo: {
+    query:   ['cargo', 'cargos', 'cargo pants', 'cargo trousers', 'cargo joggers', 'combat pants', 'utility pants'],
+    product: ['cargo', 'combat pant', 'utility pant'],
+  },
+  jogger: {
+    query:   ['jogger', 'joggers', 'jogger pants', 'jog pants'],
+    product: ['jogger', 'joggers'],
+  },
+  sweatpant: {
+    query:   ['sweatpants', 'sweat pants', 'track pants', 'trackpants', 'lounge pants'],
+    product: ['sweatpant', 'sweat pant', 'track pant', 'trackpant', 'lounge pant'],
+  },
+  culotte: {
+    query:   ['culottes', 'culotte'],
+    product: ['culotte', 'culottes'],
+  },
+  capri: {
+    query:   ['capris', 'capri', 'capri pants', 'three-quarter pants', '3/4 pants'],
+    product: ['capri', 'capris'],
+  },
+  bomber: {
+    query:   ['bomber', 'bomber jacket', 'flight jacket', 'aviator jacket', 'ma-1'],
+    product: ['bomber'],
+  },
+  denimJacket: {
+    query:   ['denim jacket', 'jean jacket', 'jeans jacket', 'trucker jacket'],
+    product: ['denim jacket', 'jean jacket', 'trucker jacket'],
+  },
+  windbreaker: {
+    query:   ['windbreaker', 'windcheater', 'wind jacket', 'shell jacket', 'cagoule'],
+    product: ['windbreaker', 'windcheater', 'shell jacket'],
+  },
+  gown: {
+    query:   ['gown', 'gowns', 'evening gown', 'ball gown'],
+    product: ['gown', 'evening gown', 'ball gown'],
+  },
+  mule: {
+    query:   ['mule', 'mules', 'backless shoes'],
+    product: ['mule', 'mules'],
+  },
+  flat: {
+    query:   ['flats', 'flat shoes', 'ballet flats', 'ballerina flats', 'ballerinas', 'bellies'],
+    product: ['ballet flat', 'ballerina', 'flat shoe'],
+  },
+  // ── Indian / South-Asian garments (catalog carries Indian brands) ────────────
+  // Sets (salwar kameez, punjabi suit) fold into ONE key mapped to a single slot
+  // so a "salwar kameez" search stays one strip of complete sets, not a false
+  // top+bottom split. Genuinely separate combos ("kurta and palazzo") still split.
+  kurta: {
+    query:   ['kurta', 'kurtas', 'kurtha'],
+    product: ['kurta'],
+  },
+  kurti: {
+    query:   ['kurti', 'kurtis', 'kurty', 'kurties'],
+    product: ['kurti'],
+  },
+  saree: {
+    query:   ['saree', 'sari', 'sarees', 'saris', 'saree with blouse'],
+    product: ['saree', 'sari'],
+  },
+  lehenga: {
+    query:   ['lehenga', 'lehanga', 'lehnga', 'lehngha', 'ghagra', 'chaniya', 'lehenga choli'],
+    product: ['lehenga', 'lehanga', 'lehnga', 'ghagra'],
+  },
+  anarkali: {
+    query:   ['anarkali', 'anarkalis'],
+    product: ['anarkali'],
+  },
+  kaftan: {
+    query:   ['kaftan', 'caftan', 'kaftans'],
+    product: ['kaftan', 'caftan'],
+  },
+  palazzo: {
+    query:   ['palazzo', 'palazzos', 'palazo', 'pallazo'],
+    product: ['palazzo', 'palazzos'],
+  },
+  churidar: {
+    query:   ['churidar', 'chudidar', 'churidaar'],
+    product: ['churidar', 'chudidar'],
+  },
+  sharara: {
+    query:   ['sharara', 'shararah'],
+    product: ['sharara'],
+  },
+  gharara: {
+    query:   ['gharara', 'ghararas'],
+    product: ['gharara'],
+  },
+  dhoti: {
+    query:   ['dhoti', 'dhoti pants', 'veshti', 'mundu'],
+    product: ['dhoti'],
+  },
+  salwarKameez: {
+    // Folds salwar + kameez + the various "suit" names into one set concept.
+    query:   ['salwar kameez', 'shalwar kameez', 'salwar suit', 'churidar suit', 'punjabi suit', 'salwar', 'shalwar', 'kameez', 'patiala suit'],
+    product: ['salwar kameez', 'salwar suit', 'salwar', 'kameez'],
+  },
+  sherwani: {
+    query:   ['sherwani', 'sherwanis'],
+    product: ['sherwani'],
+  },
+  nehruJacket: {
+    query:   ['nehru jacket', 'modi jacket', 'nehru vest', 'ethnic jacket', 'bandi jacket'],
+    product: ['nehru jacket', 'modi jacket'],
+  },
+  bandhgala: {
+    query:   ['bandhgala', 'bandhagala', 'jodhpuri', 'jodhpuri suit'],
+    product: ['bandhgala', 'jodhpuri'],
+  },
+  dupatta: {
+    query:   ['dupatta', 'duppatta', 'chunni', 'odhni'],
+    product: ['dupatta', 'chunni'],
+  },
+}
+
+// ── Garment disambiguation ────────────────────────────────────────────────────
+// Some garment names are a LEXICAL SUBSTRING of a more specific garment, so a
+// naive word match confuses them: "shirt" matches "t-shirt" (the hyphen is a
+// word boundary), a "boot" search matches "bootcut" jeans, a "polo" matches a
+// "polo neck" (which is actually a turtleneck), and "jeans" (via the 'denim'
+// term) matches a "denim jacket". When a shopper searches the GENERAL garment,
+// these more-specific look-alikes must be EXCLUDED — that was the "I asked for
+// shirts and got t-shirts" bug. Keyed by garment key; a product whose text
+// contains any of these terms is NOT that garment.
+export const GARMENT_EXCLUSIONS: Record<string, string[]> = {
+  shirt:   ['t-shirt', 't shirt', 'tshirt', 'tee', 'tees', 'sweatshirt', 'polo', 'nightshirt', 'undershirt', 'henley'],
+  polo:    ['polo neck', 'poloneck', 'polo-neck', 'water polo'],
+  boot:    ['bootcut', 'boot cut', 'bootie shorts'],
+  jean:    ['denim jacket', 'denim shirt', 'denim skirt', 'denim dress', 'denim jkt'],
+  tank:    ['tankini'],
+  // "dress" as a garment must reject the adjectival uses — a "dress shirt" is a
+  // shirt, "dress pants" are trousers, "dress shoes" are footwear — and the
+  // sleepwear look-alikes (nightgown, dressing gown).
+  dress:   ['dress shirt', 'dress pant', 'dress trouser', 'dress shoe', 'dress sock', 'nightgown', 'dressing gown'],
+}
+
+// Reverse index: each product term of an excluded garment → that garment's
+// exclusion list. The catalog matcher identifies the garment concept group in
+// product-term form (not by key), so it looks exclusions up this way.
+export const GARMENT_PRODUCT_EXCLUSIONS: Record<string, string[]> = (() => {
+  const m: Record<string, string[]> = {}
+  for (const [key, ex] of Object.entries(GARMENT_EXCLUSIONS)) {
+    if (ex.length === 0) continue
+    for (const term of GARMENT_VOCAB[key]?.product || []) {
+      m[term.toLowerCase().trim()] = ex
+    }
+  }
+  return m
+})()
+
+// True when the product text contains a term that disqualifies it from the
+// given garment concept group. Multi-word / hyphenated terms match as a loose
+// substring ("premium t-shirt" → excluded); single short tokens use a word
+// boundary so "tee" doesn't fire on "teen" or "polo" on nothing real.
+export function matchesGarmentExclusion(haystack: string, garmentGroup: string[]): boolean {
+  const excludes = new Set<string>()
+  for (const term of garmentGroup) {
+    const list = GARMENT_PRODUCT_EXCLUSIONS[term.toLowerCase().trim()]
+    if (list) for (const e of list) excludes.add(e)
+  }
+  if (excludes.size === 0) return false
+  for (const t of Array.from(excludes)) {
+    if (t.includes(' ') || t.includes('-')) {
+      if (haystack.includes(t)) return true
+    } else {
+      const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      if (new RegExp(`\\b${esc}s?\\b`, 'i').test(haystack)) return true
+    }
+  }
+  return false
 }
 
 // ── Material vocabulary ───────────────────────────────────────────────────────
@@ -262,6 +443,37 @@ export const COLOR_VOCAB: Record<string, string[]> = {
   yellow: ['yellow', 'mustard', 'ochre', 'lemon'],
   gold:   ['gold', 'golden'],
   silver: ['silver', 'metallic'],
+}
+
+// ── Fit / silhouette vocabulary ───────────────────────────────────────────────
+// How a garment is CUT — a real shopper signal ("oversized tee", "slim chinos",
+// "wide-leg trousers", "high-waisted jeans") that catalogs put right in the
+// product title. Unlike garment/gender this is a SOFT signal: it strongly
+// ranks matching cuts to the top but never hard-filters the category away (a
+// thin "oversized" page still beats an empty one). key: fit word to detect in
+// the QUERY; value: synonyms to look for in PRODUCT TEXT. Ambiguous bare words
+// (regular, straight) are kept as compound phrases so they don't fire on prose.
+export const FIT_VOCAB: Record<string, string[]> = {
+  oversized:   ['oversized', 'oversize', 'over-sized', 'oversized fit'],
+  relaxed:     ['relaxed', 'relaxed fit', 'easy fit'],
+  loose:       ['loose', 'loose fit', 'baggy'],
+  boxy:        ['boxy', 'boxy fit'],
+  slim:        ['slim', 'slim fit', 'slim-fit', 'slimfit'],
+  skinny:      ['skinny', 'skinny fit'],
+  muscle:      ['muscle fit', 'muscle-fit', 'athletic fit', 'compression fit'],
+  regular:     ['regular fit', 'classic fit', 'standard fit', 'regular-fit'],
+  tailored:    ['tailored', 'tailored fit', 'slim tailored'],
+  fitted:      ['fitted', 'bodycon', 'body-con', 'body con', 'body-hugging'],
+  cropped:     ['cropped', 'crop', 'crop fit'],
+  longline:    ['longline', 'long-line', 'longer length'],
+  'wide-leg':  ['wide-leg', 'wide leg', 'wideleg'],
+  'straight-leg': ['straight-leg', 'straight leg', 'straight fit'],
+  bootcut:     ['bootcut', 'boot cut', 'boot-cut'],
+  tapered:     ['tapered', 'tapered fit', 'carrot fit'],
+  flared:      ['flared', 'flare', 'bell-bottom', 'bell bottom', 'bootleg flare'],
+  'high-rise': ['high-rise', 'high rise', 'high-waisted', 'high waisted', 'high waist'],
+  'mid-rise':  ['mid-rise', 'mid rise', 'mid-waisted'],
+  'low-rise':  ['low-rise', 'low rise', 'low-waisted', 'low waist'],
 }
 
 // Every product-side garment term, lowercased — lets the catalog service
@@ -335,6 +547,17 @@ const CORRECTION_VOCAB: string[] = Array.from(new Set([
 ].map(w => w.toLowerCase()).filter(w => /^[a-z]{4,}$/.test(w))))
 const CORRECTION_SET = new Set(CORRECTION_VOCAB)
 
+// Fit / silhouette words are real vocabulary too — protect them from the fuzzy
+// typo corrector, which otherwise "fixes" one-edit look-alikes ("wide" → "wine",
+// "slim" → "slit") and corrupts the query before it's ever parsed.
+const FIT_WORD_SET = new Set(
+  Object.values(FIT_VOCAB)
+    .flat()
+    .flatMap(t => t.split(/[\s-]+/))
+    .filter(w => w.length >= 3)
+    .map(w => w.toLowerCase()),
+)
+
 // Real English words that sit one edit from a fashion term and must never be
 // "corrected" (bed→red, best→vest, cost→coat, want→pant…). Also common intent
 // words that appear next to garments.
@@ -366,7 +589,7 @@ export function normalizeFashionTypos(text: string): string {
   return text.replace(/[a-zA-Z][a-zA-Z'-]*/g, (token) => {
     const lower = token.toLowerCase()
     if (lower.length < 3) return token
-    if (CORRECTION_SET.has(lower) || GARMENT_PRODUCT_TERMS.has(lower)) return token // already valid
+    if (CORRECTION_SET.has(lower) || GARMENT_PRODUCT_TERMS.has(lower) || FIT_WORD_SET.has(lower)) return token // already valid
     const mapped = TYPO_MAP[lower]
     if (mapped) return matchCase(token, mapped)
     if (TYPO_SKIP.has(lower)) return token
@@ -390,6 +613,7 @@ export type QueryComponents = {
   garmentKeys: string[]
   materials: string[]
   colors: string[]
+  fits: string[]
 }
 
 export function decomposeQuery(query: string): QueryComponents {
@@ -414,7 +638,12 @@ export function decomposeQuery(query: string): QueryComponents {
     if (hasWord(lower, color)) colors.push(color)
   }
 
-  return { gender, garmentKeys, materials, colors }
+  const fits: string[] = []
+  for (const [fit, syns] of Object.entries(FIT_VOCAB)) {
+    if (syns.some(term => hasWord(lower, term))) fits.push(fit)
+  }
+
+  return { gender, garmentKeys, materials, colors, fits }
 }
 
 // ── Concept builder ───────────────────────────────────────────────────────────
@@ -425,7 +654,7 @@ export function decomposeQuery(query: string): QueryComponents {
 // it's the weakest product-text signal (unisex pieces often name no gender)
 // and must never be mistaken for the garment filter.
 export function buildMandatoryConcepts(query: string): string[][] {
-  const { gender, garmentKeys, materials, colors } = decomposeQuery(query)
+  const { gender, garmentKeys, materials, colors, fits } = decomposeQuery(query)
   const concepts: string[][] = []
 
   for (const key of garmentKeys) {
@@ -440,6 +669,15 @@ export function buildMandatoryConcepts(query: string): string[][] {
 
   for (const color of colors) {
     const synonyms = COLOR_VOCAB[color]
+    if (synonyms) concepts.push(synonyms)
+  }
+
+  // Fit is a ranking signal only, never the category filter (findGarmentGroupIndex
+  // keys off GARMENT_PRODUCT_TERMS, which no fit synonym is in) — a matching cut
+  // gets the same +details boost color/material do, so "oversized tee" surfaces
+  // oversized tees first without ever hiding the rest of the tees.
+  for (const fit of fits) {
+    const synonyms = FIT_VOCAB[fit]
     if (synonyms) concepts.push(synonyms)
   }
 
@@ -480,14 +718,22 @@ export type SlotCategory = 'top' | 'bottom' | 'outer' | 'dress' | 'shoes' | 'acc
 
 export const GARMENT_CATEGORY: Record<string, SlotCategory> = {
   shirt: 'top', tshirt: 'top', blouse: 'top', polo: 'top', tank: 'top',
-  sweater: 'top', hoodie: 'top', cardigan: 'top',
+  sweater: 'top', hoodie: 'top', cardigan: 'top', henley: 'top', turtleneck: 'top',
   trouser: 'bottom', jean: 'bottom', chino: 'bottom', short: 'bottom',
   skirt: 'bottom', legging: 'bottom',
+  cargo: 'bottom', jogger: 'bottom', sweatpant: 'bottom', culotte: 'bottom', capri: 'bottom',
   jacket: 'outer', blazer: 'outer', coat: 'outer', vest: 'outer',
-  dress: 'dress', jumpsuit: 'dress', bodysuit: 'dress',
+  bomber: 'outer', denimJacket: 'outer', windbreaker: 'outer',
+  dress: 'dress', jumpsuit: 'dress', bodysuit: 'dress', gown: 'dress',
   shoe: 'shoes',
   sneaker: 'shoes', boot: 'shoes', loafer: 'shoes', sandal: 'shoes',
-  heel: 'shoes', derby: 'shoes', espadrille: 'shoes', clog: 'shoes',
+  heel: 'shoes', derby: 'shoes', espadrille: 'shoes', clog: 'shoes', mule: 'shoes', flat: 'shoes',
+  // Indian / South-Asian
+  kurta: 'top', kurti: 'top',
+  palazzo: 'bottom', churidar: 'bottom', sharara: 'bottom', gharara: 'bottom', dhoti: 'bottom', lehenga: 'bottom',
+  saree: 'dress', anarkali: 'dress', kaftan: 'dress', salwarKameez: 'dress',
+  sherwani: 'outer', nehruJacket: 'outer', bandhgala: 'outer',
+  dupatta: 'accessory',
   bag: 'accessory', tote: 'accessory', backpack: 'accessory', hat: 'accessory',
   scarf: 'accessory', belt: 'accessory', sock: 'accessory', sunglasses: 'accessory',
   watch: 'accessory', jewelry: 'accessory', wallet: 'accessory',

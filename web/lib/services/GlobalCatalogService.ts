@@ -15,7 +15,7 @@
  */
 
 import { UCP_REGISTRY, detectBrandsInQuery, BRAND_NAMES, getStoreCountry, GEO_REGIONS, brandQualityScore } from '../stores'
-import { GARMENT_PRODUCT_TERMS } from '../queryParser'
+import { GARMENT_PRODUCT_TERMS, matchesGarmentExclusion } from '../queryParser'
 import { getExchangeRates } from '../exchangeRates'
 import { rerankByRelevance } from './relevanceRerank'
 import { matchStyles, styleRecallSignals } from '../styleVocabulary'
@@ -344,13 +344,18 @@ function applyConceptRelevance(products: UcpProduct[], concepts: string[][], min
     let garmentHit = false
     let score = 0
     groups.forEach((g, gi) => {
+      const isGarment = gi === garmentIdx
+      // A general garment concept must not count a more-specific look-alike as
+      // a match — "shirt" must reject "t-shirt"/"polo", "boot" reject "bootcut".
+      // Only applied to the garment group (the exclusions are garment-specific).
+      if (isGarment && conceptHit(hay, g) && matchesGarmentExclusion(hay, g)) return
       if (conceptHit(hay, g)) {
         hits++
         // Garment dominates; every extra matched detail (material, color,
         // gender) stacks on top — so a full exact match always outranks a
         // right-category-only match, which outranks everything else.
-        score += gi === garmentIdx ? 100 : 10
-        if (gi === garmentIdx) garmentHit = true
+        score += isGarment ? 100 : 10
+        if (isGarment) garmentHit = true
       }
     })
     return { p, i, score, hits, garmentHit }
