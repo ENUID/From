@@ -10,8 +10,7 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Discern <no-reply@discern.e
 
 // Per-email cooldown (enforced inside createCode) doesn't stop one IP from
 // emailing many DIFFERENT addresses — unbounded email-bombing / Resend quota
-// burn otherwise. Same in-memory sliding-window pattern used in
-// api/ai/recommend and api/ai/stylist.
+// burn otherwise. Same in-memory sliding-window pattern used in api/ai/stylist.
 const RATE_WINDOW_MS = 10 * 60_000
 const RATE_MAX_REQUESTS = 8
 const rateBuckets = new Map<string, { count: number; resetAt: number }>()

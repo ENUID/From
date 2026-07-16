@@ -14,13 +14,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const report = brandHealthReport()
-  const status = req.nextUrl.searchParams.get('status')
-  if (status) {
-    return NextResponse.json({
-      ...report,
-      brands: report.brands.filter(b => b.status === status),
-    })
+  try {
+    const report = brandHealthReport()
+    const status = req.nextUrl.searchParams.get('status')
+    if (status) {
+      return NextResponse.json({
+        ...report,
+        brands: report.brands.filter(b => b.status === status),
+      })
+    }
+    return NextResponse.json(report)
+  } catch (e) {
+    console.error('[admin/brand-health] report failed:', e)
+    return NextResponse.json({ error: 'report failed' }, { status: 500 })
   }
-  return NextResponse.json(report)
 }

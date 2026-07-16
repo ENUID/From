@@ -172,6 +172,6 @@ export async function GET(req: NextRequest) {
       firstProducts: result.products.slice(0, 8).map((p: any) => ({ title: p.title, vendor: p.vendor, store_url: p.store_url, img: !!p.image_url })),
     })
   } catch (e) {
-    return NextResponse.json({ error: String(e) })
+    return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }

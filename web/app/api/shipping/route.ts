@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, FAST_MODEL } from '@/lib/groq'
 import { BoundedCache } from '@/lib/boundedCache'
 import { safeParseStoreUrl } from '@/lib/ssrfGuard'
+import { makeIpRateLimiter } from '@/lib/rateLimit'
 
 const cache = new BoundedCache<string, { shipping: string; returns: string } | null>(2000)
+
+// Unauthenticated, and each cache miss costs several outbound page fetches
+// plus one LLM call — limit per IP so it can't be scripted into a quota
+// drain or used to hammer stores' policy pages through us.
+const isRateLimited = makeIpRateLimiter(20, 60_000)
 
 // Shopify standard policy pages + common custom slugs
 function policyUrls(base: string) {
@@ -90,6 +96,7 @@ Rules:
 - If genuinely nothing is found for a section, omit it entirely`
 
 export async function GET(req: NextRequest) {
+  if (isRateLimited(req)) return NextResponse.json({ data: null }, { status: 429 })
   const raw = req.nextUrl.searchParams.get('url')
   if (!raw) return NextResponse.json({ data: null })
 

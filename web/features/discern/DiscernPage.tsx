@@ -2477,7 +2477,7 @@ export default function DiscernApp({
         body: JSON.stringify({ mode: 'wardrobe-scan', images: imgs, userEmail: onboardEmail, authProof }),
       })
       const data = await res.json()
-      setStylistMsgs(prev => [...prev, { role: 'assistant', content: data?.reply || "I couldn't quite make out your wardrobe pieces — try clearer, well-lit photos?" }])
+      setStylistMsgs(prev => [...prev, { role: 'assistant', content: data?.reply || "I couldn't quite make out your wardrobe pieces. Try clearer, well-lit photos?" }])
     } catch {
       setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong scanning your wardrobe. Please try again.' }])
     } finally {
@@ -2676,7 +2676,9 @@ export default function DiscernApp({
           ...m,
           foundProducts: [...(m.foundProducts || []), ...uniqueNew],
           foundProductBatches: uniqueNew.length > 0 ? [...(m.foundProductBatches || []), ...chunkIntoRows(uniqueNew.length)] : m.foundProductBatches,
-          loadingMore: false, hasNoMore: uniqueNew.length === 0,
+          // A transient backend failure (loadMoreError) is not exhaustion —
+          // keep the button so the shopper can simply try again.
+          loadingMore: false, hasNoMore: !data?.loadMoreError && uniqueNew.length === 0,
         }
       }))
     } catch {
@@ -2727,7 +2729,8 @@ export default function DiscernApp({
             if (gi !== groupIndex) return g
             const existingIds = new Set(g.products.map(p => p.id))
             const uniqueNew = fresh.filter(p => !existingIds.has(p.id))
-            return { ...g, products: [...g.products, ...uniqueNew], loadingMore: false, hasNoMore: uniqueNew.length === 0 }
+            // Same rule as the flat list: a failed fetch keeps the button.
+            return { ...g, products: [...g.products, ...uniqueNew], loadingMore: false, hasNoMore: !data?.loadMoreError && uniqueNew.length === 0 }
           }),
         }
       }))

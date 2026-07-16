@@ -12,8 +12,15 @@ import { signAuthProof } from '@/lib/convexAuthProof'
 //   2. The Convex community_allowlist table — dynamic, managed from /admin/community.
 // Either one granting access is enough.
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  const email = session?.user?.email?.toLowerCase().trim()
+  let email: string | undefined
+  try {
+    const session = await getServerSession(authOptions)
+    email = session?.user?.email?.toLowerCase().trim()
+  } catch (e) {
+    // Fail closed with the same shape the client handles — not an opaque 500.
+    console.error('[community/me] session lookup failed:', e)
+    return NextResponse.json({ allowed: false })
+  }
   if (!email) return NextResponse.json({ allowed: false })
 
   // Source 1 — env var (bulletproof, no network)

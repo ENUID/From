@@ -12,14 +12,14 @@ export async function POST(req: NextRequest) {
     console.error('[billing/checkout] STRIPE_COMMUNITY_PRICE_ID is not set')
     return NextResponse.json({ error: 'Billing not configured' }, { status: 503 })
   }
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-  const COMMUNITY_PRICE_ID = process.env.STRIPE_COMMUNITY_PRICE_ID
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-
   try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+    const COMMUNITY_PRICE_ID = process.env.STRIPE_COMMUNITY_PRICE_ID
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],

@@ -54,8 +54,10 @@ ${queries.map((q: string) => `- ${q}`).join('\n')}`
       const text = (raw as any)?.content ?? (raw as any)?.choices?.[0]?.message?.content ?? ''
       const match = text.match(/\[[\s\S]*\]/)
       if (match) concepts = JSON.parse(match[0])
-    } catch {
-      // non-blocking — log and continue
+    } catch (e) {
+      // Non-blocking, but never silent: an empty concepts array must be
+      // distinguishable in logs from "the model genuinely found no trends".
+      console.error('[style-signals] trend extraction failed:', e)
     }
 
     console.log('[style-signals] emerging concepts:', concepts)

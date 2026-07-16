@@ -56,7 +56,12 @@ export async function GET(req: NextRequest) {
     })
     clearTimeout(timer)
     if (!res.ok) {
-      cache.set(raw, empty)
+      // Cache "no gallery" only for responses that mean the product page
+      // genuinely has no JSON gallery (404/410). Transient upstream states
+      // (5xx, 429, timeouts) must NOT be memoized — the old unconditional
+      // cache.set turned one slow store response into "this product has no
+      // images" for the life of the process.
+      if (res.status === 404 || res.status === 410) cache.set(raw, empty)
       return NextResponse.json(empty)
     }
 
@@ -125,7 +130,7 @@ export async function GET(req: NextRequest) {
     cache.set(raw, gallery)
     return NextResponse.json(gallery)
   } catch {
-    cache.set(raw, empty)
+    // Network error / abort — transient by definition, never cached.
     return NextResponse.json(empty)
   }
 }

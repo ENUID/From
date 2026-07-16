@@ -12,15 +12,21 @@ import { signAuthProof } from '@/lib/convexAuthProof'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.email) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json({ authProof: null })
+    }
+    const authProof = signAuthProof(session.user.email)
+    if (!authProof) {
+      // CONVEX_AUTH_SECRET isn't set — fail closed (no proof), not open.
+      console.error('[convex-token] CONVEX_AUTH_SECRET is not configured')
+      return NextResponse.json({ authProof: null })
+    }
+    return NextResponse.json({ authProof })
+  } catch (e) {
+    // Same fail-closed shape the client already handles — never an opaque 500.
+    console.error('[convex-token] session lookup failed:', e)
     return NextResponse.json({ authProof: null })
   }
-  const authProof = signAuthProof(session.user.email)
-  if (!authProof) {
-    // CONVEX_AUTH_SECRET isn't set — fail closed (no proof), not open.
-    console.error('[convex-token] CONVEX_AUTH_SECRET is not configured')
-    return NextResponse.json({ authProof: null })
-  }
-  return NextResponse.json({ authProof })
 }

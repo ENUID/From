@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, FAST_MODEL } from '@/lib/groq'
 import { BoundedCache } from '@/lib/boundedCache'
+import { makeIpRateLimiter } from '@/lib/rateLimit'
 
 const cache = new BoundedCache<string, string>(2000)
+
+// Unauthenticated + one LLM call per cache miss — without a limiter this is
+// a free-tier-quota drain anyone can script. 30/min is far above what a real
+// shopper browsing product sheets generates.
+const isRateLimited = makeIpRateLimiter(30, 60_000)
 
 const SYSTEM = `You are a product information writer for a curated independent fashion marketplace.
 
@@ -26,6 +32,7 @@ ALWAYS WRITE SOMETHING USEFUL:
 FORMAT: 1 to 3 short plain sentences. No special characters. No markdown. Minimal and direct.`
 
 export async function POST(req: NextRequest) {
+  if (isRateLimited(req)) return NextResponse.json({ text: '' }, { status: 429 })
   try {
     const { id, title, vendor, type, rawText } = await req.json()
 

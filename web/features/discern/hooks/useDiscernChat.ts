@@ -10,16 +10,6 @@ import { ExchangeRates } from '@/lib/exchangeRates'
 import { useSubscription } from '@/hooks/useSubscription'
 import { useConvexAuthProof } from '@/hooks/useConvexAuthProof'
 
-// Kept only so web/features/discern/components/DiscoverView.tsx (unmounted,
-// dead component) keeps compiling — the search-history feature itself now
-// lives in web/features/discern/hooks/_parked/useLegacySearch.ts.
-export type SearchHistoryEntry = {
-  id: string
-  query: string
-  createdAt: number
-  resultCount: number
-}
-
 const SAVED_KEY = 'discern:saved-products'
 
 function normalizeProductForCurrency(product: Product, currency: string): Product {

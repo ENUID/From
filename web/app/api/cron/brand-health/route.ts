@@ -69,7 +69,14 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const report = brandHealthReport()
-  console.log(`[brand-health] probed ${report.total} brands:`, JSON.stringify(report.byStatus))
-  return NextResponse.json({ ok: true, ...report })
+  try {
+    const report = brandHealthReport()
+    console.log(`[brand-health] probed ${report.total} brands:`, JSON.stringify(report.byStatus))
+    return NextResponse.json({ ok: true, ...report })
+  } catch (e) {
+    // Probes already ran and persisted above — a summary failure shouldn't
+    // report the whole cron as an opaque 500 with no body.
+    console.error('[brand-health] report failed after probes:', e)
+    return NextResponse.json({ ok: true, reportError: 'summary failed' })
+  }
 }
