@@ -4126,6 +4126,18 @@ export default function DiscernApp({
         .fr-step-active{animation:fr-step-in .25s cubic-bezier(.32,.9,.4,1), fr-step-glow 1.8s ease-in-out .25s infinite;}
         .fr-step-pop{animation:fr-step-in .22s cubic-bezier(.32,.9,.4,1);}
         .fr-type-caret{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:fr-caret-blink 1s step-start infinite;}
+        /* Search-progress card motion vocabulary — every piece uses the same
+           spring curve as the rest of the app (.32,.9,.4,1) so the card feels
+           native, not bolted on. */
+        @keyframes fr-card-in{from{opacity:0;transform:translateY(10px) scale(.985);}to{opacity:1;transform:translateY(0) scale(1);}}
+        .fr-search-card{animation:fr-card-in .38s cubic-bezier(.32,.9,.4,1);}
+        @keyframes fr-line-in{from{opacity:0;transform:translateY(5px);filter:blur(2.5px);}to{opacity:1;transform:translateY(0);filter:blur(0);}}
+        .fr-trace-line{animation:fr-line-in .34s cubic-bezier(.32,.9,.4,1) both;}
+        @keyframes fr-thread-grow{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+        .fr-thread-fill{transform-origin:top;animation:fr-thread-grow .45s cubic-bezier(.32,.9,.4,1) both;}
+        /* Neutral text shimmer for the working step's title — the older
+           .fr-shine hardcodes the retired warm-brown palette. */
+        .fr-shine-soft{background:linear-gradient(90deg,rgba(0,0,0,.34) 0%,rgba(0,0,0,.34) 38%,rgba(0,0,0,.92) 50%,rgba(0,0,0,.34) 62%,rgba(0,0,0,.34) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.2s linear infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(0,0,0,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
         button{cursor:pointer;} a{color:inherit;}
@@ -5539,7 +5551,7 @@ export default function DiscernApp({
                   </div>
                 ))}
                 {stylistLoading && (
-                  <div style={{ opacity: stylistDissolving ? 0 : 1, transition: 'opacity .22s ease' }}>
+                  <div style={{ opacity: stylistDissolving ? 0 : 1, transform: stylistDissolving ? 'translateY(-6px) scale(.985)' : 'none', transition: 'opacity .22s ease, transform .22s ease' }}>
                   {(() => {
                     const searchingFor = [...stylistMsgs].reverse().find(mm => mm.role === 'user')?.content ?? ''
                     return (
@@ -5549,7 +5561,7 @@ export default function DiscernApp({
                          uppercase step titles with a check circle once done, and the
                          step's work revealed as readable lines beneath. The last step's
                          lines cycle (see stylistTraceLoop) until the real reply lands. */
-                      <div style={{ border: `1px solid ${BRD}`, borderRadius: 16, background: '#fff', overflow: 'hidden', maxWidth: 480, boxShadow: '0 2px 12px rgba(0,0,0,.04)' }}>
+                      <div className="fr-search-card" style={{ border: `1px solid ${BRD}`, borderRadius: 16, background: '#fff', overflow: 'hidden', maxWidth: 480, boxShadow: '0 2px 12px rgba(0,0,0,.04)' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '13px 16px 11px' }}>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: INK3, marginBottom: 3 }}>Searching for</div>
@@ -5557,7 +5569,15 @@ export default function DiscernApp({
                               {searchingFor || 'Your request'}
                             </div>
                           </div>
-                          <div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2, borderRadius: '50%', border: '2px solid rgba(0,0,0,.12)', borderTopColor: INK, animation: 'spin .8s linear infinite' }} />
+                          {/* Live ring while working; flips to a filled check for the
+                              dissolve beat so completion lands as a moment, not a cut. */}
+                          {stylistDissolving ? (
+                            <div className="fr-step-pop" style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2, borderRadius: '50%', background: INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                            </div>
+                          ) : (
+                            <div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2, borderRadius: '50%', border: '2px solid rgba(0,0,0,.12)', borderTopColor: INK, animation: 'spin .8s linear infinite' }} />
+                          )}
                         </div>
                         <div style={{ borderTop: `1px solid ${BRD}`, padding: '14px 16px 15px' }}>
                           {stylistLoadingPhases.length === 0 ? (
@@ -5572,7 +5592,7 @@ export default function DiscernApp({
                             const isLast = pi === stylistLoadingPhases.length - 1
                             const lines = state === 'active' ? phase.trace.slice(0, stylistTraceVisible) : state === 'done' ? phase.trace : []
                             return (
-                              <div key={pi} style={{ display: 'flex', gap: 12 }}>
+                              <div key={pi} style={{ display: 'flex', gap: 12, animation: 'fadeUp .32s cubic-bezier(.32,.9,.4,1) both', animationDelay: `${Math.min(pi * 70, 350)}ms` }}>
                                 {/* Rounded-square icon + connecting thread — keyed on state
                                     so each transition remounts and pops immediately. */}
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
@@ -5588,7 +5608,12 @@ export default function DiscernApp({
                                     <StylistStepIcon icon={phase.icon} size={14} />
                                   </div>
                                   {!isLast && (
-                                    <div style={{ width: 1, flex: 1, minHeight: 14, marginTop: 3, marginBottom: 3, background: state === 'done' ? 'rgba(0,0,0,.13)' : 'rgba(0,0,0,.07)', transition: 'background .3s ease' }} />
+                                    /* The thread draws itself in as its step completes —
+                                       a static faint line underneath, a growing dark fill
+                                       on top (transform-origin: top). */
+                                    <div style={{ position: 'relative', width: 1, flex: 1, minHeight: 14, marginTop: 3, marginBottom: 3, background: 'rgba(0,0,0,.07)' }}>
+                                      {state === 'done' && <div className="fr-thread-fill" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.16)' }} />}
+                                    </div>
                                   )}
                                 </div>
                                 {/* Step title row (uppercase, check circle when done) + work lines */}
@@ -5599,7 +5624,9 @@ export default function DiscernApp({
                                       color: state === 'active' ? INK2 : state === 'done' ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.16)',
                                       transition: 'color .3s ease',
                                     }}>
-                                      {phase.main}
+                                      {/* The working step's title shimmers — quiet, continuous
+                                          proof of motion even between line reveals. */}
+                                      {state === 'active' ? <span className="fr-shine-soft">{phase.main}</span> : phase.main}
                                     </div>
                                     {state === 'done' && (
                                       <div className="fr-step-pop" style={{ width: 16, height: 16, borderRadius: '50%', background: INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -5612,12 +5639,13 @@ export default function DiscernApp({
                                       {lines.map((line, li) => {
                                         const isLastVisible = state === 'active' && li === lines.length - 1
                                         return (
-                                          <div key={`${li}-${state === 'active' ? stylistTraceLoop : 'done'}`} style={{
-                                            fontFamily: SANS, fontSize: 13.5, lineHeight: '24px',
-                                            color: state === 'done' ? 'rgba(0,0,0,.3)' : li === lines.length - 1 ? INK2 : 'rgba(0,0,0,.42)',
-                                            animation: state === 'active' ? 'fadeUp .25s ease' : undefined,
-                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                          }}>
+                                          <div key={`${li}-${state === 'active' ? stylistTraceLoop : 'done'}`}
+                                            className={state === 'active' ? 'fr-trace-line' : undefined}
+                                            style={{
+                                              fontFamily: SANS, fontSize: 13.5, lineHeight: '24px',
+                                              color: state === 'done' ? 'rgba(0,0,0,.3)' : li === lines.length - 1 ? INK2 : 'rgba(0,0,0,.42)',
+                                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                            }}>
                                             {line}
                                             {isLastVisible && <span className="fr-type-caret" style={{ opacity: .5 }} />}
                                           </div>
