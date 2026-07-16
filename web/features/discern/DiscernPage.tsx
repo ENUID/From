@@ -1591,6 +1591,23 @@ function curateTrace(seed: string, judgeQuery: string, country?: string | null):
   return lines
 }
 
+// Once the LAST step's real captured lines have all played once and the
+// actual reply still isn't back, the tracker used to just replay the exact
+// same lines on a loop — reading as stuck, not working. Instead, each further
+// loop appends one more plausible in-progress line for that step's kind of
+// work, so it visibly keeps moving instead of repeating itself verbatim.
+const STILL_WORKING_POOL: Partial<Record<StylistLoadingIcon, string[]>> = {
+  curate: [
+    'scoring.compare(fit, material, price)',
+    'cross.check(does it match the vibe)',
+    'quality.filter(independent brands first)',
+    'dedupe.check(no repeat picks)',
+  ],
+  search: ['store.retry(slower responders)', 'catalog.widen(a few more brands)'],
+  filter: ['availability.recheck(live stock)', 'size.crosscheck(true to size)'],
+  outfit: ['slot.balance(no repeated category)', 'proportion.check(volume across pieces)'],
+}
+
 // Assembles a variable-length step list — 4 steps when a query has nothing
 // beyond a bare garment, up to 8 when color, material, occasion, and a
 // non-default sort are all genuinely present. Every optional step reflects
@@ -4128,28 +4145,6 @@ export default function DiscernApp({
         .fr-step-active{animation:fr-step-in .25s cubic-bezier(.32,.9,.4,1), fr-step-glow 1.8s ease-in-out .25s infinite;}
         .fr-step-pop{animation:fr-step-in .22s cubic-bezier(.32,.9,.4,1);}
         .fr-type-caret{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:fr-caret-blink 1s step-start infinite;}
-        /* Search-progress card motion vocabulary — every piece uses the same
-           spring curve as the rest of the app (.32,.9,.4,1) so the card feels
-           native, not bolted on. */
-        @keyframes fr-card-in{from{opacity:0;transform:translateY(10px) scale(.985);}to{opacity:1;transform:translateY(0) scale(1);}}
-        .fr-search-card{animation:fr-card-in .38s cubic-bezier(.32,.9,.4,1);}
-        @keyframes fr-line-in{from{opacity:0;transform:translateY(5px);filter:blur(2.5px);}to{opacity:1;transform:translateY(0);filter:blur(0);}}
-        .fr-trace-line{animation:fr-line-in .34s cubic-bezier(.32,.9,.4,1) both;}
-        @keyframes fr-thread-grow{from{transform:scaleY(0);}to{transform:scaleY(1);}}
-        .fr-thread-fill{transform-origin:top;animation:fr-thread-grow .45s cubic-bezier(.32,.9,.4,1) both;}
-        /* Neutral text shimmer for the working step's title — the older
-           .fr-shine hardcodes the retired warm-brown palette. */
-        .fr-shine-soft{background:linear-gradient(90deg,rgba(0,0,0,.34) 0%,rgba(0,0,0,.34) 38%,rgba(0,0,0,.92) 50%,rgba(0,0,0,.34) 62%,rgba(0,0,0,.34) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.2s linear infinite;}
-        /* Whisper-thin indeterminate sweep along the card's header divider —
-           1px of quiet forward motion, the card's heartbeat. */
-        @keyframes fr-sweep-bar{0%{transform:translateX(-110%);}100%{transform:translateX(480%);}}
-        .fr-sweep{position:absolute;top:0;left:0;height:1px;width:26%;background:linear-gradient(90deg,transparent,rgba(0,0,0,.38),transparent);animation:fr-sweep-bar 2.6s cubic-bezier(.45,.1,.55,.9) infinite;}
-        /* One-shot ripple when a step's check lands. */
-        @keyframes fr-ripple{0%{box-shadow:0 0 0 0 rgba(0,0,0,.22);}100%{box-shadow:0 0 0 9px rgba(0,0,0,0);}}
-        .fr-check-pop{animation:fr-step-in .22s cubic-bezier(.32,.9,.4,1), fr-ripple .55s ease-out .08s 1;}
-        /* The active step's glyph breathes — barely, like fabric moving. */
-        @keyframes fr-icon-breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.07);}}
-        .fr-icon-breathe{display:flex;animation:fr-icon-breathe 2.4s ease-in-out infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(0,0,0,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
         button{cursor:pointer;} a{color:inherit;}
@@ -5563,125 +5558,58 @@ export default function DiscernApp({
                   </div>
                 ))}
                 {stylistLoading && (
-                  <div style={{ opacity: stylistDissolving ? 0 : 1, transform: stylistDissolving ? 'translateY(-6px) scale(.985)' : 'none', transition: 'opacity .22s ease, transform .22s ease' }}>
-                  {(() => {
-                    const searchingFor = [...stylistMsgs].reverse().find(mm => mm.role === 'user')?.content ?? ''
-                    return (
-                      /* Search-progress card: "SEARCHING FOR" + the query in serif
-                         italic with a live ring spinner, then a vertical step tracker —
-                         rounded-square step icons (the bespoke thread/needle glyph set),
-                         uppercase step titles with a check circle once done, and the
-                         step's work revealed as readable lines beneath. The last step's
-                         lines cycle (see stylistTraceLoop) until the real reply lands. */
-                      <div className="fr-search-card" style={{ border: `1px solid ${BRD}`, borderRadius: 16, background: '#fff', overflow: 'hidden', maxWidth: 480, boxShadow: '0 4px 24px rgba(0,0,0,.05), 0 1px 3px rgba(0,0,0,.04)' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '13px 16px 11px' }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: INK3, marginBottom: 3 }}>Searching for</div>
-                            <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 19, lineHeight: 1.25, color: INK, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
-                              {searchingFor || 'Your request'}
-                            </div>
-                          </div>
-                          {/* Live ring while working; flips to a filled check for the
-                              dissolve beat so completion lands as a moment, not a cut. */}
-                          {stylistDissolving ? (
-                            <div className="fr-step-pop" style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2, borderRadius: '50%', background: INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                            </div>
-                          ) : (
-                            <div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2, borderRadius: '50%', border: '1.5px solid rgba(0,0,0,.09)', borderTopColor: INK2, animation: 'spin 1.05s linear infinite' }} />
-                          )}
+                  <div style={{ opacity: stylistDissolving ? 0 : 1, transition: 'opacity .2s ease' }}>
+                    {/* Same plain step-list language as the persisted "Show reasoning"
+                        toggle below (small circle icon, connecting thread, monospace
+                        trace lines, no card/border/spinner/shimmer) — live and
+                        after-the-fact now look identical, just with an active step
+                        instead of every step already done. */}
+                    {stylistLoadingPhases.length === 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.06)', color: INK }}>
+                          <StylistStepIcon icon="read" size={9} />
                         </div>
-                        {/* Divider doubles as the card's heartbeat — a 1px sweep of
-                            forward motion for as long as the work is genuinely running. */}
-                        <div style={{ position: 'relative', height: 1, background: BRD, overflow: 'hidden' }}>
-                          {!stylistDissolving && <div className="fr-sweep" />}
-                        </div>
-                        <div style={{ padding: '14px 16px 15px' }}>
-                          {stylistLoadingPhases.length === 0 ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <div className="fr-step-active" style={{ position: 'relative', width: 30, height: 30, borderRadius: 9, border: `1px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: INK }}>
-                                <StylistStepIcon icon="read" size={14} />
-                              </div>
-                              <span style={{ fontFamily: SANS, fontSize: 13, color: INK2 }}>Reading your message</span>
-                            </div>
-                          ) : stylistLoadingPhases.map((phase, pi) => {
-                            const state = pi < stylistLoadingStep ? 'done' : pi === stylistLoadingStep ? 'active' : 'upcoming'
-                            const isLast = pi === stylistLoadingPhases.length - 1
-                            const lines = state === 'active' ? phase.trace.slice(0, stylistTraceVisible) : state === 'done' ? phase.trace : []
-                            return (
-                              <div key={pi} style={{ display: 'flex', gap: 12, animation: 'fadeUp .32s cubic-bezier(.32,.9,.4,1) both', animationDelay: `${Math.min(pi * 70, 350)}ms` }}>
-                                {/* Rounded-square icon + connecting thread — keyed on state
-                                    so each transition remounts and pops immediately. */}
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                                  <div key={`${pi}-${state}`} className={state === 'active' ? 'fr-step-active' : 'fr-step-pop'}
-                                    style={{
-                                      position: 'relative', width: 30, height: 30, borderRadius: 9,
-                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                      border: `1px solid ${state === 'active' ? INK : state === 'done' ? 'rgba(0,0,0,.14)' : 'rgba(0,0,0,.09)'}`,
-                                      background: state === 'active' ? 'rgba(0,0,0,.03)' : 'transparent',
-                                      color: state === 'active' ? INK : state === 'done' ? 'rgba(0,0,0,.34)' : 'rgba(0,0,0,.18)',
-                                      transition: 'border-color .3s ease, color .3s ease, background .3s ease',
-                                    }}>
-                                    {state === 'active'
-                                      ? <span className="fr-icon-breathe"><StylistStepIcon icon={phase.icon} size={14} /></span>
-                                      : <StylistStepIcon icon={phase.icon} size={14} />}
-                                  </div>
-                                  {!isLast && (
-                                    /* The thread draws itself in as its step completes —
-                                       a static faint line underneath, a growing dark fill
-                                       on top (transform-origin: top). */
-                                    <div style={{ position: 'relative', width: 1, flex: 1, minHeight: 14, marginTop: 3, marginBottom: 3, background: 'rgba(0,0,0,.07)' }}>
-                                      {state === 'done' && <div className="fr-thread-fill" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.16)' }} />}
-                                    </div>
-                                  )}
-                                </div>
-                                {/* Step title row (uppercase, check circle when done) + work lines */}
-                                <div style={{ flex: 1, minWidth: 0, paddingBottom: isLast ? 0 : 14, paddingTop: 7 }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                    <div style={{
-                                      fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.13em', textTransform: 'uppercase',
-                                      color: state === 'active' ? INK2 : state === 'done' ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.16)',
-                                      transition: 'color .3s ease',
-                                    }}>
-                                      {/* The working step's title shimmers — quiet, continuous
-                                          proof of motion even between line reveals. */}
-                                      {state === 'active' ? <span className="fr-shine-soft">{phase.main}</span> : phase.main}
-                                    </div>
-                                    {state === 'done' && (
-                                      <div className="fr-check-pop" style={{ width: 16, height: 16, borderRadius: '50%', background: INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {lines.length > 0 && (
-                                    <div style={{ marginTop: 4 }}>
-                                      {lines.map((line, li) => {
-                                        const isLastVisible = state === 'active' && li === lines.length - 1
-                                        return (
-                                          <div key={`${li}-${state === 'active' ? stylistTraceLoop : 'done'}`}
-                                            className={state === 'active' ? 'fr-trace-line' : undefined}
-                                            style={{
-                                              /* Past work compacts as it archives; the present line
-                                                 gets the room and the darkest ink. */
-                                              fontFamily: SANS, fontSize: state === 'done' ? 12.5 : 13.5, lineHeight: state === 'done' ? '20px' : '24px',
-                                              color: state === 'done' ? 'rgba(0,0,0,.3)' : li === lines.length - 1 ? INK2 : 'rgba(0,0,0,.42)',
-                                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                            }}>
-                                            {line}
-                                            {isLastVisible && <span className="fr-type-caret" style={{ opacity: .5 }} />}
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
+                        <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>Reading your message</span>
                       </div>
-                    )
-                  })()}
+                    ) : stylistLoadingPhases.map((phase, pi) => {
+                      const state = pi < stylistLoadingStep ? 'done' : pi === stylistLoadingStep ? 'active' : 'upcoming'
+                      const isLast = pi === stylistLoadingPhases.length - 1
+                      let lines = state === 'active' ? phase.trace.slice(0, stylistTraceVisible) : state === 'done' ? phase.trace : []
+                      // Real trace exhausted but the reply still isn't back — append a
+                      // rotating "still working" line (never the same one twice in a
+                      // row) instead of silently replaying the identical lines above.
+                      if (isLast && state === 'active' && stylistTraceLoop > 0) {
+                        const pool = STILL_WORKING_POOL[phase.icon]
+                        if (pool && pool.length > 0) lines = [...lines, pool[(stylistTraceLoop - 1) % pool.length]]
+                      }
+                      return (
+                        <div key={pi} style={{ display: 'flex', gap: 10, opacity: state === 'upcoming' ? .35 : 1, transition: 'opacity .25s ease' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                            <div style={{
+                              width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: state === 'active' ? INK : 'rgba(0,0,0,.05)',
+                              color: state === 'active' ? '#fff' : 'rgba(0,0,0,.45)',
+                              transition: 'background .25s ease, color .25s ease',
+                            }}>
+                              <StylistStepIcon icon={phase.icon} size={9} />
+                            </div>
+                            {!isLast && <div style={{ width: 1, flex: 1, minHeight: 10, marginTop: 2, marginBottom: 2, background: 'rgba(0,0,0,.1)' }} />}
+                          </div>
+                          <div style={{ paddingBottom: isLast ? 0 : 10, minWidth: 0 }}>
+                            <div style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 500, lineHeight: '16px', color: state === 'active' ? INK : INK3 }}>{phase.main}</div>
+                            {lines.length > 0 && (
+                              <div style={{ marginTop: 3 }}>
+                                {lines.map((line, li) => (
+                                  <div key={`${li}-${state === 'active' ? stylistTraceLoop : 'done'}`} style={{ fontFamily: "'SF Mono',ui-monospace,Menlo,Consolas,monospace", fontSize: 10, lineHeight: '15px', color: 'rgba(0,0,0,.42)' }}>
+                                    {line}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

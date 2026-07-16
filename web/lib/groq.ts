@@ -134,6 +134,38 @@ export function stripAiDashes(text: string): string {
     .trim()
 }
 
+// Some models in this fallback chain — most often whichever underlying
+// model openrouter/free's auto-router happens to pick, or gpt-oss with
+// reasoning_effort set — narrate their internal deliberation as plain prose
+// INSTEAD OF wrapping it in <think> tags, so stripThinkTags's tag-based
+// approach can't catch it at all. The tell isn't a tag, it's the voice: a
+// real Fabrics reply always addresses the shopper directly ("you", "your")
+// in 1-4 short sentences; a leaked reasoning trace narrates ABOUT the
+// shopper in the third person ("the user says/wants"), talks through its own
+// rules ("we must", "check rules", "the rule says"), and runs for whole
+// paragraphs. Length alone isn't enough (a comparison reply can legitimately
+// run a few sentences longer) — this requires BOTH implausible length AND
+// at least two distinct meta-commentary signals before flagging, so a
+// merely-long real reply is never mistaken for a leak.
+const REASONING_LEAK_SIGNALS: RegExp[] = [
+  /\bthe user (says?|wants?|is asking|said|likely)\b/i,
+  /\bwe (need to|must|can|should)\b/i,
+  /\blet'?s (do|check|see|think|write|make sure)\b/i,
+  /\bthe rules? (say|states?|is)\b/i,
+  /\bcheck rules?:?/i,
+  /\b(now\s+)?(the\s+)?final (response|answer):?/i,
+  /\bshould we\b/i,
+]
+export function looksLikeLeakedReasoning(text: string): boolean {
+  if (!text || text.length < 350) return false
+  let hits = 0
+  for (const re of REASONING_LEAK_SIGNALS) {
+    if (re.test(text)) hits++
+    if (hits >= 2) return true
+  }
+  return false
+}
+
 function headersFor(base: string, apiKey: string) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -589,6 +621,7 @@ export async function wardrobeVisionChat(
   try {
     const content = stripAiDashes(stripThinkTags((await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)).trim()))
     if (!content) throw new Error('empty content')
+    if (looksLikeLeakedReasoning(content)) throw new Error('leaked reasoning')
     return content
   } catch (err: any) {
     errors.push({ name: 'gemini', err })
@@ -604,6 +637,7 @@ export async function wardrobeVisionChat(
     const msg = await groqVisionChat(visionMessages, systemPrompt, opts)
     const content = stripAiDashes(stripThinkTags((msg?.content ?? '').trim()))
     if (!content) throw new Error('empty content')
+    if (looksLikeLeakedReasoning(content)) throw new Error('leaked reasoning')
     return content
   } catch (err: any) {
     errors.push({ name: 'openrouter', err })
@@ -613,6 +647,7 @@ export async function wardrobeVisionChat(
     const msg = await groqDirectVisionChat(visionMessages, systemPrompt, opts)
     const content = stripAiDashes(stripThinkTags((msg?.content ?? '').trim()))
     if (!content) throw new Error('empty content')
+    if (looksLikeLeakedReasoning(content)) throw new Error('leaked reasoning')
     return content
   } catch (err: any) {
     errors.push({ name: 'groq-direct', err })

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChat, wardrobeVisionChat, stripThinkTags, stripAiDashes, CHAT_MODEL, FAST_MODEL } from '@/lib/groq'
+import { groqChat, wardrobeVisionChat, stripThinkTags, stripAiDashes, looksLikeLeakedReasoning, CHAT_MODEL, FAST_MODEL } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor, decomposeQuery, GARMENT_VOCAB, GARMENT_CATEGORY } from '@/lib/queryParser'
@@ -52,13 +52,14 @@ function logAiUsage(info: {
 // best-of-best batch of this same size, not a bulk dump of the wider pool.
 const INITIAL_RESULT_CAP = 8
 
-// Combined cap when one request spans multiple distinct garment categories
-// (see multiCategorySearch below) — total across all category groups, not
-// per group. Same "best of the best" budget as a single-category search,
-// just split across categories instead of one flat list — deriving from
-// INITIAL_RESULT_CAP instead of a second hardcoded 8 keeps that intentional
-// equality from silently drifting if one is retuned later.
-const MULTI_CATEGORY_TOTAL_CAP = INITIAL_RESULT_CAP
+// Per-category cap when one request spans multiple distinct garment
+// categories (see multiCategorySearch below) — each category strip gets the
+// SAME best-of-best budget as a single-category search, not a shared total
+// split across categories. "Shirts and shorts" therefore shows up to 8 tops
+// AND up to 8 bottoms, not 4 and 4 — deriving from INITIAL_RESULT_CAP instead
+// of a second hardcoded 8 keeps that intentional equality from silently
+// drifting if one is retuned later.
+const MULTI_CATEGORY_PER_GROUP_CAP = INITIAL_RESULT_CAP
 
 // Absolute last-line guard: no product id may appear twice in a single
 // foundProducts payload, whatever upstream produced it (fresh search, brand
@@ -129,18 +130,8 @@ async function multiCategorySearch(
   const categories = Array.from(catToKeys.entries()).map(([cat, keys]) => ({ cat, keys }))
   if (categories.length < 2) return null
 
-  // Distribute the total cap across categories exactly (base + remainder),
-  // instead of ceil-per-category — ceil(8/3)=3 applied to every one of 3
-  // categories sums to 9, not 8, and the frontend renders these groups
-  // directly (not the separately-capped flat foundProducts field), so an
-  // uncapped-in-aggregate result here was the actual shopper-visible total.
-  const n = categories.length
-  const base = Math.floor(MULTI_CATEGORY_TOTAL_CAP / n)
-  const remainder = MULTI_CATEGORY_TOTAL_CAP - base * n
-  const capFor = (i: number) => Math.max(1, base + (i < remainder ? 1 : 0))
-
   const groups = await Promise.all(
-    categories.map(async ({ cat, keys }, i) => {
+    categories.map(async ({ cat, keys }) => {
       const subQuery = stripOtherCategoryTerms(fullQuery, keys, garmentKeys) || GARMENT_VOCAB[keys[0]]?.query[0] || fullQuery
       const concepts = buildMandatoryConcepts(subQuery)
       try {
@@ -161,7 +152,7 @@ async function multiCategorySearch(
           memorySummary, subQuery, preferredSize,
         )
         const filtered = found.filter(p => productMatchesSlot(p, cat as any))
-        const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, capFor(i))
+        const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, MULTI_CATEGORY_PER_GROUP_CAP)
         // subQuery (not fullQuery) is what "See more" on this specific group
         // re-runs, category-scoped, on the frontend — same reasoning as why
         // rerankQuery uses it above.
@@ -338,6 +329,17 @@ async function stylistChat(
       // dashes" prompt rule — see its comment in lib/groq.ts for why prompt
       // compliance alone isn't enough across a 4-provider fallback chain.
       const cleaned = result?.content ? stripAiDashes(stripThinkTags(result.content)) : result?.content
+      if (cleaned && looksLikeLeakedReasoning(cleaned)) {
+        // Narrated chain-of-thought with no <think> tag to strip — showing
+        // this to the shopper is strictly worse than trying the next
+        // provider, and parsing [SEARCH:]/[OUTFIT:] tokens out of it is
+        // unreliable (a stray token-format mention inside the reasoning
+        // itself can get captured instead of the real one near the end).
+        // Treat exactly like empty content: this attempt failed, move on.
+        console.error(`[stylist] ${a.name}: discarded leaked-reasoning content (${cleaned.length} chars)`)
+        errors.push(`${a.name}: leaked reasoning`)
+        continue
+      }
       if (cleaned) return { ...result, content: cleaned, provider: a.name }
       errors.push(`${a.name}: empty content`)
     } catch (err) {
@@ -1202,7 +1204,12 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
             return NextResponse.json({
               reply: compiledReplyText(compiled, totalCount),
               comparison: null,
-              foundProducts: dedupeById(multiGroups.flatMap(g => g.products)).slice(0, MULTI_CATEGORY_TOTAL_CAP),
+              // Flat mirror of the groups above, each already capped at
+              // MULTI_CATEGORY_PER_GROUP_CAP — the frontend renders
+              // foundProductGroups directly when present and only falls back
+              // to this flat field otherwise, so it needs no separate cap
+              // here (re-slicing it would silently undo the per-group cap).
+              foundProducts: dedupeById(multiGroups.flatMap(g => g.products)),
               foundProductGroups: multiGroups,
               outfitSlots: null,
               searchQuery: compiled.args.searchQuery,
@@ -1456,7 +1463,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         )
         if (multiGroups) {
           foundProductGroups = multiGroups
-          foundProducts = dedupeById(multiGroups.flatMap(g => g.products)).slice(0, MULTI_CATEGORY_TOTAL_CAP)
+          // Each group is already capped at MULTI_CATEGORY_PER_GROUP_CAP; see
+          // the matching comment at the fast-path call site above.
+          foundProducts = dedupeById(multiGroups.flatMap(g => g.products))
         } else {
         // 'relevance' engages the BM25 + LLM reranker; the shopper's actual
         // question is the judge query so occasion/aesthetic context ranks too.
