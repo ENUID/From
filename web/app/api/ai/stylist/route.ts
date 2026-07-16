@@ -300,20 +300,33 @@ async function stylistChat(
     run: () => cerebrasChat(messages, system, { ...opts, reasoning_effort: useGemini ? 'high' : 'low' }),
   }
 
-  // Preferred provider leads; the rest are the safety net behind it. The
-  // ORDER depends only on useGemini (heavy vs light path) — whether Gemini
-  // itself is actually configured (hasGemini) only decides whether its
-  // attempt is included at all, never where Cerebras lands. The previous
-  // `useGemini && hasGemini` gate conflated the two: with GOOGLE_AI_API_KEY
-  // unset, a heavy-path request fell into the "light" ordering and put
-  // Cerebras FIRST with reasoning_effort:'high' against the full heavy
-  // SYSTEM+contextBlock prompt — exactly the large-prompt/8K-cap risk this
-  // was supposed to go LAST to avoid.
-  if (useGemini) {
+  // Cerebras leads whenever it genuinely can: its free tier is far more
+  // generous than OpenRouter's (1M tokens/day, 30 req/min vs. ~20/min &
+  // 50-1000/day) and openrouter/free's auto-router can land on a weak
+  // underlying model on any given request, so quality is inconsistent where
+  // Cerebras' gpt-oss-120b is not. Its one real constraint is a hard 8K
+  // TOKEN CONTEXT cap (a window limit, not a volume limit) — the heavy
+  // path's full SYSTEM + contextBlock (shopper profile, memory, wardrobe,
+  // style vocab, product context) can occasionally approach or exceed that
+  // for a shopper with a long taste profile/memory/many pinned products.
+  // So: estimate THIS request's actual prompt size and lead with Cerebras
+  // whenever it safely fits (the common case — most conversations are
+  // short), falling back to the previous Gemini-led order only on the rare
+  // request large enough to risk truncation/failure on Cerebras.
+  const CEREBRAS_CONTEXT_CAP = 8192
+  const promptTokenEstimate = estimateTokens(system) + messages.reduce((sum, m) => sum + estimateTokens(String(m?.content ?? '')), 0)
+  const cerebrasFits = promptTokenEstimate + (opts?.max_tokens ?? 1200) + 300 < CEREBRAS_CONTEXT_CAP
+
+  if (cerebrasFits) {
+    attempts.push(cerebrasAttempt)
+    if (useGemini && hasGemini) attempts.push(geminiAttempt)
+    attempts.push(...groqAttempts)
+    if (!useGemini && hasGemini) attempts.push(geminiAttempt)
+  } else if (useGemini) {
     if (hasGemini) attempts.push(geminiAttempt)
     attempts.push(...groqAttempts, cerebrasAttempt)
   } else {
-    attempts.push(cerebrasAttempt, ...groqAttempts)
+    attempts.push(...groqAttempts, cerebrasAttempt)
     if (hasGemini) attempts.push(geminiAttempt)
   }
 
