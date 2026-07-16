@@ -43,6 +43,8 @@
 // credit (one-time, doesn't need to be spent — it just raises the ceiling).
 // Once that's exhausted, this file falls back to Groq's own current lineup
 // automatically, then Cerebras (see cerebras.ts) behind that.
+import { isOnCooldown, markRateLimited } from './providerCooldown'
+
 const AI_BASE = process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1'
 const AI_API_KEY = process.env.OPENROUTER_API_KEY ?? ''
 // "Smart" tier — tool-calling capable, used for search planning + the Fabrics
@@ -200,6 +202,10 @@ export async function chatCompletion(
   retryCount = 0,
 ): Promise<any> {
   if (!apiKey) throw new Error(`No API key configured for ${base}`)
+  // A provider that just 429'd won't clear its free-tier cap in the next few
+  // seconds — skip the network round trip entirely rather than pay for a
+  // call that will almost certainly 429 again. See lib/providerCooldown.ts.
+  if (isOnCooldown(base)) throw new Error(`${base} is on rate-limit cooldown, skipping`)
 
   const allMessages = system
     ? [{ role: 'system', content: system }, ...messages]
@@ -226,24 +232,17 @@ export async function chatCompletion(
       signal: AbortSignal.timeout(25000),
     })
 
-    if (res.status === 429 && retryCount < 2) {
-      const errorText = await res.clone().text();
-      let delay = 2000;
-      try {
-        const errorJson = JSON.parse(errorText);
-        const match = errorJson.error?.message?.match(/try again in ([\d\.]+)s/i);
-        if (match) {
-          delay = Math.ceil(parseFloat(match[1]) * 1000) + 200;
-        }
-      } catch (e) {}
-
-      // Cap at 8s so a long provider-suggested wait doesn't timeout the Vercel function.
-      // If the wait would be too long, bail immediately and let the caller try the fallback provider.
-      if (delay > 8000) throw new Error(`Rate limit: suggested wait ${delay}ms exceeds cap`)
-
-      console.warn(`Rate limited (429) on ${base}. Retrying in ${delay}ms... (Attempt ${retryCount + 1})`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return chatCompletion(base, apiKey, model, messages, system, tools, opts, retryCount + 1);
+    if (res.status === 429) {
+      // A free-tier cap doesn't clear in a few seconds — sleeping and
+      // retrying THIS SAME provider was mostly wasted time (up to ~16s
+      // across 2 retries) that delayed ever reaching a fallback provider
+      // that could actually answer. Mark it on cooldown and fail
+      // immediately; stylistChat's/relevanceRerank's own fallback loop is
+      // what's actually supposed to absorb this, not a retry loop here.
+      markRateLimited(base)
+      const rlErr: any = new Error(`AI Provider HTTP 429 (rate limited): ${base}`)
+      rlErr.isRateLimit = true
+      throw rlErr
     }
 
     if (!res.ok) {
@@ -265,7 +264,10 @@ export async function chatCompletion(
     const data = await res.json()
     return data.choices?.[0]?.message
   } catch (err: any) {
-    if (retryCount < 2 && !err.message?.includes('API key')) {
+    // A rate limit already fails fast above (own cooldown, no local retry) —
+    // retrying it again here would defeat that. Only a genuine transient
+    // network error (timeout, connection reset) is worth one retry.
+    if (!err.isRateLimit && retryCount < 2 && !err.message?.includes('API key')) {
       console.warn(`AI provider connection error on ${base}: ${err.message}. Retrying in 2000ms...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
       return chatCompletion(base, apiKey, model, messages, system, tools, opts, retryCount + 1);

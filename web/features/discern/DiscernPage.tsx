@@ -2631,7 +2631,12 @@ export default function DiscernApp({
       } else {
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: "Something went wrong. Try again?" }])
       }
-    } catch {
+    } catch (err) {
+      // Was silently swallowed — logging it is the only way a future report
+      // like "it broke after a few searches" is diagnosable at all, since
+      // this fires on a network failure or unparseable response, not on any
+      // path the server's own graceful-degradation JSON replies go through.
+      console.error('[stylist] request failed:', err)
       setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong reaching Fabrics. Give it another go in a moment.' }])
     } finally {
       setStylistLoading(false)
