@@ -285,19 +285,25 @@ async function stylistChat(
     run: () => groqChat(messages, system, undefined, { ...opts, model }),
   }))
   // Cerebras: a 4th free-tier pool, independent of OpenRouter/Gemini/Groq's
-  // caps. Its free tier's 8K context cap comfortably fits the light CHAT_SYSTEM
-  // path (and is worth trying FIRST there — near-instant, huge daily quota),
-  // but may not fit the full heavy SYSTEM prompt + contextBlock, so it only
-  // goes LAST in that chain — a strictly-additive safety net, never a
-  // regression, since a failure here just falls through like any other.
-  // On the heavy path specifically, ask gpt-oss-120b to actually reason
-  // (reasoning_effort: 'high') before answering — real styling advice and
-  // outfit construction benefit from depth here, and unlike the reranker's
-  // tight judge timeout, this path already allows a full 25s round trip, so
-  // there's real room for it to think without risking a timeout.
+  // caps, and — per repeated real-world feedback — noticeably more reliable
+  // output than whatever openrouter/free's auto-router happens to land on.
+  // Its one hard constraint is an 8K TOKEN CONTEXT cap covering prompt +
+  // completion together; see cerebrasFits below for how that's actually
+  // accounted for per-request rather than assumed.
+  // reasoning_effort is 'medium' on the heavy path, not 'high': the base
+  // heavy SYSTEM prompt alone runs ~5,500 tokens before contextBlock is even
+  // added, which leaves comparatively little of the 8K window for BOTH the
+  // model's internal chain-of-thought AND its final answer — 'high' effort
+  // asks for more reasoning than that headroom reliably supports, and a
+  // request that runs out of completion budget mid-thought returns its raw,
+  // incomplete reasoning as if it were the answer (exactly what a real
+  // leaked-reasoning incident looked like — the reply ended mid-token,
+  // "[SEARCH: premium linen shirt beach" with no closing bracket, a
+  // textbook truncation signature). 'medium' still asks for real depth,
+  // just within a budget this prompt size can actually deliver on.
   const cerebrasAttempt: Attempt = {
     name: 'cerebras',
-    run: () => cerebrasChat(messages, system, { ...opts, reasoning_effort: useGemini ? 'high' : 'low' }),
+    run: () => cerebrasChat(messages, system, { ...opts, reasoning_effort: useGemini ? 'medium' : 'low' }),
   }
 
   // Cerebras leads whenever it genuinely can: its free tier is far more
@@ -305,14 +311,15 @@ async function stylistChat(
   // 50-1000/day) and openrouter/free's auto-router can land on a weak
   // underlying model on any given request, so quality is inconsistent where
   // Cerebras' gpt-oss-120b is not. Its one real constraint is a hard 8K
-  // TOKEN CONTEXT cap (a window limit, not a volume limit) — the heavy
-  // path's full SYSTEM + contextBlock (shopper profile, memory, wardrobe,
-  // style vocab, product context) can occasionally approach or exceed that
-  // for a shopper with a long taste profile/memory/many pinned products.
-  // So: estimate THIS request's actual prompt size and lead with Cerebras
-  // whenever it safely fits (the common case — most conversations are
-  // short), falling back to the previous Gemini-led order only on the rare
-  // request large enough to risk truncation/failure on Cerebras.
+  // TOKEN CONTEXT cap (a window limit, not a volume limit, and it covers
+  // prompt + completion TOGETHER) — the heavy path's base SYSTEM prompt
+  // alone already runs ~5,500 tokens before contextBlock (shopper profile,
+  // memory, wardrobe, style vocab, product context) is even added, so this
+  // is a real, load-bearing check, not a rare edge case: a shopper with any
+  // meaningful accumulated context routinely won't fit, and that's fine —
+  // they correctly fall back to the Gemini-led order below rather than risk
+  // truncation on Cerebras. A fresh/light-context conversation usually does
+  // fit, and that's the case this exists to speed up and improve.
   const CEREBRAS_CONTEXT_CAP = 8192
   const promptTokenEstimate = estimateTokens(system) + messages.reduce((sum, m) => sum + estimateTokens(String(m?.content ?? '')), 0)
   const cerebrasFits = promptTokenEstimate + (opts?.max_tokens ?? 1200) + 300 < CEREBRAS_CONTEXT_CAP
@@ -1007,10 +1014,69 @@ function stylistRateLimited(req: NextRequest): boolean {
 }
 
 // ── Route ───────────────────────────────────────────────────────────────────
+// Streamed as newline-delimited JSON so the frontend's loading tracker can
+// show REAL progress instead of a client-only guessed animation — each
+// `{type:'progress', ...}` line fires at a genuine transition in the actual
+// work below (about to hit the catalog, catalog resolved with N real
+// candidates, about to call the model, etc.), and the single
+// `{type:'result', ...}` line at the end carries exactly the same payload
+// shape this route always returned, unchanged. This was the direct fix for
+// three related, repeatedly-reported problems: the tracker's last step
+// replaying the same canned lines 6-8 times while waiting (there was
+// nothing real to show once the canned script ran out); no correlation
+// between when the backend actually finished and when the frontend stopped
+// animating (a fixed client-side schedule, not genuine sync); and the same
+// staleness on the "See more" tracker. Every branch below is the exact same
+// logic that ran before this change — only `NextResponse.json(X)` became
+// `finish(X)`, and a handful of `send(...)` calls were inserted at points
+// that were already real await boundaries.
 export async function POST(req: NextRequest) {
   if (stylistRateLimited(req)) {
     return NextResponse.json({ reply: "Too many requests — please slow down.", busy: false }, { status: 429 })
   }
+
+  const encoder = new TextEncoder()
+  let streamClosed = false
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const write = (obj: Record<string, unknown>) => {
+        if (streamClosed) return
+        try { controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n')) } catch { /* client disconnected */ }
+      }
+      // icon matches the existing StylistStepIcon set on the frontend
+      // (read/search/filter/curate/outfit/...) so the visual language is
+      // unchanged — only the SOURCE of each step is now real, not simulated.
+      const send = (icon: string, main: string, detail?: string) => write({ type: 'progress', icon, main, detail })
+      const finish = (result: Record<string, unknown>) => {
+        write({ type: 'result', ...result })
+        streamClosed = true
+        try { controller.close() } catch {}
+      }
+
+      try {
+        await runStylistRequest(req, send, finish)
+      } catch (e) {
+        console.error('[stylist] error:', e)
+        if (isRateLimited(e)) { finish({ reply: BUSY_REPLY, busy: true, comparison: null }); return }
+        finish({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
+      }
+      // Safety net: every real code path below calls finish() itself, but if
+      // one somehow falls through without it, the stream must still close —
+      // an open stream with no final line hangs the frontend's reader forever.
+      if (!streamClosed) finish({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
+    },
+  })
+
+  return new Response(stream, {
+    headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-cache, no-transform' },
+  })
+}
+
+async function runStylistRequest(
+  req: NextRequest,
+  send: (icon: string, main: string, detail?: string) => void,
+  finish: (result: Record<string, unknown>) => void,
+): Promise<void> {
   try {
     const body = await req.json()
     const mode: string = typeof body?.mode === 'string' ? body.mode : 'default'
@@ -1111,32 +1177,34 @@ export async function POST(req: NextRequest) {
       const excludeIds: string[] = Array.isArray(body?.excludeIds)
         ? (body.excludeIds as unknown[]).filter((x): x is string => typeof x === 'string').slice(0, 300)
         : []
-      if (!loadMoreQuery) return NextResponse.json({ foundProducts: [], comparison: null })
+      if (!loadMoreQuery) return finish({ foundProducts: [], comparison: null })
       try {
+        send('search', 'Searching for more', `catalog.search("${loadMoreQuery}")`)
         const concepts = buildMandatoryConcepts(loadMoreQuery)
         const results = await GlobalCatalogService.search(
           loadMoreQuery, undefined, excludeIds, countryCode, true, concepts,
           'relevance', buyerCurrency, { fastFirstPage: true, loadMore: true }, [],
           memorySummary, undefined, sizeForQuery(loadMoreQuery),
         )
-        return NextResponse.json({ reply: '', comparison: null, foundProducts: dedupeById(results).slice(0, INITIAL_RESULT_CAP), outfitSlots: null })
+        send('curate', 'Ranking the next best picks', `rank.relevance(${results.length} candidates)`)
+        return finish({ reply: '', comparison: null, foundProducts: dedupeById(results).slice(0, INITIAL_RESULT_CAP), outfitSlots: null })
       } catch (e) {
         console.error('[stylist] load-more error:', e)
         // loadMoreError distinguishes "the fetch broke" from "genuinely no
         // more matches" — without it the frontend treated a transient
         // failure as exhaustion and hid the See-more button permanently.
-        return NextResponse.json({ foundProducts: [], comparison: null, loadMoreError: true })
+        return finish({ foundProducts: [], comparison: null, loadMoreError: true })
       }
     }
 
     if (!question) {
-      return NextResponse.json({ reply: null, comparison: null })
+      return finish({ reply: null, comparison: null })
     }
 
     // ── Wardrobe scan mode ──────────────────────────────────────────────────
     if (mode === 'wardrobe-scan') {
       if (images.length === 0) {
-        return NextResponse.json({ reply: 'Please share photos of your wardrobe pieces to get started.', comparison: null })
+        return finish({ reply: 'Please share photos of your wardrobe pieces to get started.', comparison: null })
       }
 
       const WARDROBE_SYSTEM = `You are Fabrics a personal stylist analyzing a shopper's wardrobe from photos.
@@ -1154,6 +1222,7 @@ The JSON inside [WARDROBE: {...}] must have this shape:
 After the token, write 1–2 warm sentences acknowledging what you see and inviting next steps.
 Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natural and encouraging.`
 
+      send('read', 'Reading your wardrobe photos', `vision.analyze(${images.length} photo${images.length > 1 ? 's' : ''})`)
       const raw = await wardrobeVisionChat(
         WARDROBE_SYSTEM,
         question || 'Please analyze my wardrobe pieces.',
@@ -1189,7 +1258,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           console.error('[stylist] wardrobe-scan save failed:', e)
         }
       }
-      return NextResponse.json({ reply, wardrobeScan: wardrobeScan ?? null, wardrobeSaved: saved, comparison: null })
+      return finish({ reply, wardrobeScan: wardrobeScan ?? null, wardrobeSaved: saved, comparison: null })
     }
 
     // ── Instant fast path: deterministic compile for plain garment queries ──
@@ -1205,16 +1274,19 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       let compiled = compileIntent(genderedQuestion, buyerCurrency)
       if (!compiled && prevUserMessage) compiled = continueIntent(genderedQuestion, prevUserMessage, buyerCurrency)
       if (compiled) {
+        send('read', 'Reading your request', `parse("${genderedQuestion.length > 60 ? genderedQuestion.slice(0, 57) + '…' : genderedQuestion}") → ${compiled.summary}`)
         try {
           const preferredSize = sizeForQuery(compiled.args.searchQuery)
+          send('search', 'Searching the catalog', `catalog.search("${compiled.args.searchQuery}")`)
           const multiGroups = await multiCategorySearch(
             compiled.args.searchQuery, compiled.args.budgetMax, countryCode,
             compiled.args.budgetCurrency || buyerCurrency, memorySummary, preferredSize,
           )
           if (multiGroups) {
             const totalCount = multiGroups.reduce((sum, g) => sum + g.products.length, 0)
+            send('curate', 'Ranking the best picks', `rank.relevance(${totalCount} across ${multiGroups.length} categories)`)
             logAiUsage({ path: 'fast', provider: 'none', estPromptTokens: 0, estCompletionTokensCap: 0, ok: true })
-            return NextResponse.json({
+            return finish({
               reply: compiledReplyText(compiled, totalCount),
               comparison: null,
               // Flat mirror of the groups above, each already capped at
@@ -1255,7 +1327,8 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           // not budget consumption (compileIntent is the whole point of the
           // fast path: it costs nothing from the shared free-tier pool).
           logAiUsage({ path: 'fast', provider: 'none', estPromptTokens: 0, estCompletionTokensCap: 0, ok: true })
-          return NextResponse.json({
+          send('curate', 'Ranking the best picks', `rank.relevance(${results.length} candidates) → page.slice(${INITIAL_RESULT_CAP})`)
+          return finish({
             reply: compiledReplyText(compiled, results.length) + refineNote,
             comparison: null,
             foundProducts: dedupeById(results).slice(0, INITIAL_RESULT_CAP),
@@ -1358,6 +1431,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // showed the shopper a generic "something went wrong on my end" with no
       // indication it was a busy/rate-limit condition, and no retry framing.
       try {
+        send('read', 'Reading your photos', `vision.analyze(${images.length} photo${images.length > 1 ? 's' : ''})`)
         raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 1100, temperature: 0.3 })
         // Provider tag is approximate — wardrobeVisionChat doesn't report back
         // which of Gemini/Groq actually served the request without changing its
@@ -1367,9 +1441,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         logAiUsage({ path: 'vision', provider: 'gemini-openrouter-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: false })
         console.error('[stylist] vision model call failed:', err)
         if (isRateLimited(err)) {
-          return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
+          return finish({ reply: BUSY_REPLY, busy: true, comparison: null })
         }
-        return NextResponse.json({ reply: "I couldn't read that photo just now. Give it another go in a moment?", comparison: null })
+        return finish({ reply: "I couldn't read that photo just now. Give it another go in a moment?", comparison: null })
       }
 
       // Same self-heal the text path has below — it existed there but not
@@ -1410,18 +1484,35 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         { role: 'user' as const, content: question },
       ]
       const promptTextForEstimate = combinedSystem + messages.map(m => m.content ?? '').join(' ')
+      // gpt-oss's reasoning_effort (Cerebras, heavy path only) spends real
+      // completion tokens on internal chain-of-thought BEFORE it ever starts
+      // the final answer. Capping the whole exchange at the same 1100-token
+      // budget used for a plain non-reasoning call risks the model getting
+      // cut off mid-thought — this is the literal, verified cause of a real
+      // leaked-reasoning incident: the truncated reply ended mid-token
+      // ("[SEARCH: premium linen shirt beach", no closing bracket), a dead
+      // giveaway of hitting the completion cap, not a formatting quirk —
+      // and matches the "#1 failure mode" already documented below (model
+      // ran long, got cut off before the trailing token). Reasoning tokens
+      // are internal; the system prompt already caps the VISIBLE reply at
+      // 1-4 sentences, so a larger ceiling here doesn't risk a bloated
+      // answer, it just gives the model room to finish thinking before it
+      // has to produce one. Light path is unaffected (no reasoning effort
+      // there, CHAT_SYSTEM is small, 1100 was never the constraint).
+      const replyMaxTokens = heavy ? 2000 : 1100
+      send(heavy ? 'fabric' : 'read', heavy ? 'Thinking through the styling' : 'Reading your message', heavy ? 'reasoning.compose(style + fit + occasion)' : `parse("${question.length > 60 ? question.slice(0, 57) + '…' : question}")`)
       try {
-        const msg = await stylistChat(messages, combinedSystem, { max_tokens: 1100, temperature: 0.4 }, heavy)
+        const msg = await stylistChat(messages, combinedSystem, { max_tokens: replyMaxTokens, temperature: 0.4 }, heavy)
         raw = (msg?.content ?? '').trim()
-        logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: msg.provider, estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: 1100, ok: !!raw })
+        logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: msg.provider, estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: replyMaxTokens, ok: !!raw })
       } catch (err) {
-        logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: 'openrouter-or-groq', estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: 1100, ok: false })
+        logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: 'openrouter-or-groq', estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: replyMaxTokens, ok: false })
         console.error('[stylist] model call failed:', err)
         if (isRateLimited(err)) {
-          return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
+          return finish({ reply: BUSY_REPLY, busy: true, comparison: null })
         }
         console.error('[stylist] all models failed:', (err as Error).message)
-        return NextResponse.json({ reply: "Something went wrong. Please try again.", comparison: null })
+        return finish({ reply: "Something went wrong. Please try again.", comparison: null })
       }
 
       // Self-heal: the #1 failure mode is the model describing an outfit/item in
@@ -1435,7 +1526,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       if (heavy && raw && !hasToken && describesProducts) {
         try {
           const retryNudge = combinedSystem + `\n\n━━━ CORRECTION ━━━ Your last reply described clothing but did not include the required token. This time keep the lead-in to ONE short sentence and end the reply with either [SEARCH: precise query] for a single item or [OUTFIT: query1 | query2 | query3] for a full look — the token MUST be present, it is how the shopper actually sees and buys the pieces.`
-          const retryMsg = await stylistChat(messages, retryNudge, { max_tokens: 1100, temperature: 0.3 }, heavy)
+          const retryMsg = await stylistChat(messages, retryNudge, { max_tokens: replyMaxTokens, temperature: 0.3 }, heavy)
           const retryRaw = (retryMsg?.content ?? '').trim()
           if (retryRaw && /\[(SEARCH|OUTFIT|COMPARE|WARDROBE):/i.test(retryRaw)) {
             raw = retryRaw
@@ -1447,7 +1538,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       }
     }
 
-    if (!raw) return NextResponse.json({ reply: "I missed that one, sorry. Try again?", comparison: null })
+    if (!raw) return finish({ reply: "I missed that one, sorry. Try again?", comparison: null })
 
     const { reply: replyWithSearch, comparison } = parseReply(raw)
     const { reply: replyWithOutfit, searchQuery: rawSearchQuery } = parseSearchToken(replyWithSearch)
@@ -1461,6 +1552,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     let foundProductGroups: { label: string; products: any[]; query: string }[] | null = null
     let reply2 = reply
     if (searchQuery) {
+      send('search', 'Searching the catalog', `catalog.search("${searchQuery}")`)
       try {
         const concepts = buildMandatoryConcepts(searchQuery)
         // The shopper's actual stated budget — this path never parsed or
@@ -1479,6 +1571,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           // Each group is already capped at MULTI_CATEGORY_PER_GROUP_CAP; see
           // the matching comment at the fast-path call site above.
           foundProducts = dedupeById(multiGroups.flatMap(g => g.products))
+          send('curate', 'Ranking the best picks', `rank.relevance(${foundProducts.length} across ${multiGroups.length} categories)`)
         } else {
         // 'relevance' engages the BM25 + LLM reranker; the shopper's actual
         // question is the judge query so occasion/aesthetic context ranks too.
@@ -1565,6 +1658,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           foundProducts = dedupeById(results).slice(0, INITIAL_RESULT_CAP)
           reply2 = `${reply2}${refineNote}`.trim()
         }
+        send('curate', 'Ranking the best picks', `rank.relevance(${results.length} candidates) → page.slice(${INITIAL_RESULT_CAP})`)
         }
       } catch (e) {
         console.error('[stylist] search error:', e)
@@ -1573,6 +1667,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
 
     let outfitSlots: { query: string; slotCategory: string | null; products: any[] }[] | null = null
     if (outfitQueries && outfitQueries.length > 0) {
+      send('outfit', 'Assembling the complete look', `outfit.slots([${outfitQueries.join(', ')}])`)
       try {
         // Fetch every slot's candidates in parallel (speed), then pick
         // sequentially (correctness) — picking inside the parallel map raced
@@ -1609,12 +1704,12 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       }
     }
 
-    return NextResponse.json({ reply: reply2, comparison: comparison ?? null, foundProducts, foundProductGroups, outfitSlots, searchQuery: searchQuery || undefined })
+    return finish({ reply: reply2, comparison: comparison ?? null, foundProducts, foundProductGroups, outfitSlots, searchQuery: searchQuery || undefined })
   } catch (e) {
     console.error('[stylist] error:', e)
     if (isRateLimited(e)) {
-      return NextResponse.json({ reply: BUSY_REPLY, busy: true, comparison: null })
+      return finish({ reply: BUSY_REPLY, busy: true, comparison: null })
     }
-    return NextResponse.json({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
+    return finish({ reply: "Something went wrong on my end. Give it another go?", comparison: null })
   }
 }

@@ -13,7 +13,6 @@ import type { Product } from '@/components/ProductCard'
 import { BRAND_NAMES, UCP_REGISTRY, cleanBrandToken } from '@/lib/stores'
 import { TAGLINES, shuffledIndices } from './taglines'
 import DOMPurify from 'dompurify'
-import { compileIntent } from '@/lib/intentCompiler'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 // Cool neutral system (Apple/Linear-style) — near-black/gray/white, one
@@ -1469,6 +1468,43 @@ function TypewriterText({ text, products, liveRates, onProductClick, animate, on
   )
 }
 
+// Reads /api/ai/stylist's streamed NDJSON response: one `{type:'progress',
+// icon, main, detail}` line per genuine backend transition (about to hit the
+// catalog, catalog resolved with N real candidates, about to call the model,
+// ...), fired via onProgress the instant each arrives, then a final
+// `{type:'result', ...}` line carrying exactly the same payload shape this
+// endpoint always returned. Shared by sendStylist and both "See more" loaders
+// so live search and live pagination get identical, genuinely-synced tracking
+// instead of three separate simulated schedules.
+async function readStylistStream(res: Response, onProgress: (icon: string, main: string, detail?: string) => void): Promise<any> {
+  if (!res.body) return null
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: any = null
+  const handleLine = (line: string) => {
+    const trimmed = line.trim()
+    if (!trimmed) return
+    try {
+      const obj = JSON.parse(trimmed)
+      if (obj.type === 'progress') onProgress(obj.icon, obj.main, obj.detail)
+      else if (obj.type === 'result') result = obj
+    } catch { /* one malformed line shouldn't abort the whole read */ }
+  }
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let newlineIdx
+    while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
+      handleLine(buffer.slice(0, newlineIdx))
+      buffer = buffer.slice(newlineIdx + 1)
+    }
+  }
+  handleLine(buffer) // trailing content with no final newline
+  return result
+}
+
 // ── Stylist loading phases — query-aware, operational progress steps ─────────
 // Perplexity-style: each step names what is actually happening (reading the
 // request, searching the catalog, filtering, ranking) rather than a simulated
@@ -1478,43 +1514,6 @@ type StylistLoadingIcon = 'read' | 'search' | 'filter' | 'compare' | 'palette' |
 // styled like a real operation trace — as many lines as the step genuinely
 // has to report, never padded to a fixed count.
 type StylistLoadingPhase = { main: string; icon: StylistLoadingIcon; trace: string[] }
-
-// Each step in the tracker is a genuinely distinct operation in the pipeline
-// (parsing intent, hitting the catalog, applying filters, ranking results) —
-// naming the operation makes that real division of labor legible instead of
-// reading as one undifferentiated "loading" spinner. Real atelier roles, not
-// the generic "X Agent" pattern every AI product reaches for — same instinct
-// as the thread/needle icon set: bespoke to Fabrics, not a reskinned default.
-const AGENT_NAME_BY_ICON: Record<StylistLoadingIcon, string> = {
-  read: 'The Cutter',       // takes the brief, cuts it down to its essential pattern
-  search: 'The Sourcer',    // finds it across every store
-  filter: 'The Fitter',     // checks fit, material, and quality against the brief
-  compare: 'The Adjudicator', // weighs two pieces against each other
-  palette: 'The Colorist',  // undertone, harmony, what bridges and what clashes
-  fabric: 'The Draper',     // fabric weight, drape, how it moves
-  value: 'The Valuer',      // cost-per-wear, worth against the price
-  outfit: 'The Dresser',    // assembles the complete look
-  curate: 'The Editor',     // final selection, ranked
-}
-
-// Same gender-default logic as the backend (applyGenderDefault in the stylist
-// route) — mirrored client-side purely so the DISPLAYED "reading your
-// request" text matches what will actually be searched, not a guess.
-const LOADING_GENDER_TERM_RE = /\b(men|women|man|woman|male|female|ladies|guys?|boys?|girls?|unisex|wife|husband|girlfriend|boyfriend|sister|brother|daughter|son|her|his|him)\b/i
-function withProfileGenderForDisplay(q: string, profileGender?: string): string {
-  if (!profileGender || !q.trim() || LOADING_GENDER_TERM_RE.test(q)) return q
-  const word = profileGender === 'Women' ? 'women' : profileGender === 'Men' ? 'men' : null
-  return word ? `${word} ${q}` : q
-}
-
-// Deterministic-but-varied pick — same query always renders the same way (no
-// layout jitter on a re-render), but two different queries land on different
-// phrasing instead of the exact same boilerplate line every time.
-function seededPick<T>(arr: T[], seed: string): T {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
-  return arr[h % arr.length]
-}
 
 // Client-side last-line guard, mirroring the server's own dedupeById — a
 // product id must never render twice in the same result set, regardless of
@@ -1545,320 +1544,17 @@ function chunkIntoRows(count: number): number[] {
   return rows
 }
 
-// Real numbers pulled from the actual catalog pipeline (GlobalCatalogService),
-// not invented telemetry — a store count that changes, a batch size that's a
-// tuning constant, a page size that's a UI decision. Keeping these accurate
-// is what makes the trace read as a real execution log instead of theater.
-const ROSTER_LABEL = '450+ independent stores'
-const CATALOG_BATCH_SIZE = 45
-const CATALOG_VENDOR_CAP = 2
-const CATALOG_PAGE_SIZE = 13
-
-function readTrace(literalQuery: string, parts: Array<[string, string | null | undefined]>): string[] {
-  const lines = [`parse("${literalQuery.length > 60 ? literalQuery.slice(0, 57) + '…' : literalQuery}")`]
-  for (const [label, val] of parts) if (val) lines.push(`${label} → ${val}`)
-  return lines.slice(0, 5)
-}
-
-function searchTrace(seed: string, searchLabel: string, budgetLabel?: string | null, sort?: string): string[] {
-  const lines = [
-    `catalog.search("${searchLabel}")`,
-    `stores → ${ROSTER_LABEL}`,
-    seededPick([
-      `fetch → batch of ${CATALOG_BATCH_SIZE}, parallel`,
-      `fetch → up to 2 rounds × ${CATALOG_BATCH_SIZE} stores`,
-    ], seed),
-  ]
-  if (budgetLabel) lines.push(`budget → ${budgetLabel}`)
-  if (sort === 'price_asc') lines.push('sort → price, low to high')
-  else if (sort === 'price_desc') lines.push('sort → price, high to low')
-  return lines
-}
-
-function filterTrace(seed: string, concepts?: string | null): string[] {
-  return [
-    concepts ? `concepts.match([${concepts}])` : 'concepts.match([garment])',
-    `vendor.cap(${CATALOG_VENDOR_CAP} per store)`,
-    seededPick(['stock.filter(in_stock only)', 'stock.check(live availability)', 'size.check(true to size)'], seed),
-  ]
-}
-
-function curateTrace(seed: string, judgeQuery: string, country?: string | null): string[] {
-  const q = judgeQuery.length > 44 ? judgeQuery.slice(0, 44) + '…' : judgeQuery
-  const lines = [`rank.relevance(judge="${q}")`]
-  if (country) lines.push(`geo.boost(country=${country})`)
-  lines.push(`page.slice(${CATALOG_PAGE_SIZE})`)
-  return lines
-}
-
-// Once the LAST step's real captured lines have all played once and the
-// actual reply still isn't back, the tracker used to just replay the exact
-// same lines on a loop — reading as stuck, not working. Instead, each further
-// loop appends one more plausible in-progress line for that step's kind of
-// work, so it visibly keeps moving instead of repeating itself verbatim.
-const STILL_WORKING_POOL: Partial<Record<StylistLoadingIcon, string[]>> = {
-  curate: [
-    'scoring.compare(fit, material, price)',
-    'cross.check(does it match the vibe)',
-    'quality.filter(independent brands first)',
-    'dedupe.check(no repeat picks)',
-  ],
-  search: ['store.retry(slower responders)', 'catalog.widen(a few more brands)'],
-  filter: ['availability.recheck(live stock)', 'size.crosscheck(true to size)'],
-  outfit: ['slot.balance(no repeated category)', 'proportion.check(volume across pieces)'],
-}
-
-// Assembles a variable-length step list — 4 steps when a query has nothing
-// beyond a bare garment, up to 8 when color, material, occasion, and a
-// non-default sort are all genuinely present. Every optional step reflects
-// something the compiler/heuristics actually detected — never padded to
-// hit a target count, and never trimmed below the 4 real, always-true
-// operations (read, search, filter, curate).
-function buildDynamicPhases(opts: {
-  literalQuery: string
-  searchQuery: string
-  garment?: string | null
-  color?: string | null
-  material?: string | null
-  occasion?: string | null
-  gender?: string | null
-  budgetLabel?: string | null
-  sort?: string
-  judgeQuery: string
-  buyerCountry?: string | null
-}): StylistLoadingPhase[] {
-  const seed = opts.searchQuery
-  const phases: StylistLoadingPhase[] = []
-
-  phases.push({
-    icon: 'read', main: 'Reading your request',
-    trace: readTrace(opts.literalQuery, [
-      ['garment', opts.garment], ['color', opts.color], ['material', opts.material],
-      ['occasion', opts.occasion], ['gender', opts.gender],
-    ]),
-  })
-
-  if (opts.color) {
-    phases.push({
-      icon: 'palette', main: 'Cross-checking the color story',
-      trace: [`undertone.match(${opts.color})`, 'balance → 60-30-10 rule', seededPick(['clash.check(competing accents)', 'harmony.check(warm vs cool)'], seed + '_color')],
-    })
-  }
-  if (opts.material) {
-    phases.push({
-      icon: 'fabric', main: `Reading ${opts.material}`,
-      trace: [`fabric.profile("${opts.material}")`, 'weight, drape, how it moves'],
-    })
-  }
-  if (opts.occasion) {
-    phases.push({
-      icon: 'outfit', main: `Matching fit for ${opts.occasion}`,
-      trace: [`dresscode.read(${opts.occasion})`, 'formality.check(garment vs setting)'],
-    })
-  }
-
-  phases.push({ icon: 'search', main: 'Searching Discern’s catalog', trace: searchTrace(seed, opts.searchQuery, opts.budgetLabel, opts.sort) })
-
-  if (opts.sort && opts.sort !== 'relevance') {
-    phases.push({
-      icon: 'value', main: opts.sort === 'price_asc' ? 'Sorting lowest price first' : 'Sorting premium picks first',
-      trace: [`sort.apply(${opts.sort === 'price_asc' ? 'price, low → high' : 'price, high → low'})`, 'quality.check(never cut for price alone)'],
-    })
-  }
-
-  phases.push({ icon: 'filter', main: 'Filtering for fit and material', trace: filterTrace(seed + '_filter', [opts.material, opts.color].filter(Boolean).join(', ') || null) })
-  phases.push({ icon: 'curate', main: 'Ranking and curating your picks', trace: curateTrace(seed + '_curate', opts.judgeQuery, opts.buyerCountry) })
-
-  return phases.slice(0, 8)
-}
-
-function buildStylistLoadingPhases(question: string, hasImages: boolean, buyerCurrency: string, profileGender?: string, buyerCountry?: string | null): StylistLoadingPhase[] {
-  const q = question.toLowerCase()
-
-  // ── Extract meaningful terms from the query ─────────────────────────────────
-  const GARMENT_WORDS: [RegExp, string][] = [
-    [/\bt-?shirts?\b|\btees?\b/, 't-shirt'],
-    [/\bshirts?\b/, 'shirt'],
-    [/\bjackets?\b/, 'jacket'],
-    [/\bblazer|\bblazers\b/, 'blazer'],
-    [/\bcoats?\b|\bovercoat|\bparka|\btrench\b/, 'coat'],
-    [/\bsuits?\b/, 'suit'],
-    [/\btrousers?\b|\bpants\b|\bslacks\b/, 'trousers'],
-    [/\bjeans?\b|\bdenim\b/, 'jeans'],
-    [/\bchinos?\b|\bkhakis?\b/, 'chinos'],
-    [/\bshorts?\b/, 'shorts'],
-    [/\bdresses?\b/, 'dress'],
-    [/\bskirts?\b/, 'skirt'],
-    [/\bsweater|\bjumper|\bknitwear|\bpullover/, 'knitwear'],
-    [/\bcardigan/, 'cardigan'],
-    [/\bhoodie|\bsweatshirt/, 'hoodie'],
-    [/\bboots?\b/, 'boots'],
-    [/\bsneakers?\b|\btrainers?\b/, 'sneakers'],
-    [/\bloafers?\b/, 'loafers'],
-    [/\bsandals?\b/, 'sandals'],
-    [/\bbag\b|\bhandbag|\btote\b/, 'bag'],
-  ]
-  const MATERIAL_WORDS: [RegExp, string][] = [
-    [/\blinen\b/, 'linen'], [/\bcotton\b/, 'cotton'], [/\bcashmere\b/, 'cashmere'],
-    [/\bwool\b|\bmerino\b/, 'wool'], [/\bsilk\b/, 'silk'], [/\bleather\b/, 'leather'],
-    [/\bsuede\b/, 'suede'], [/\bvelvet\b/, 'velvet'], [/\bdenim\b/, 'denim'],
-  ]
-  const OCCASION_WORDS: [RegExp, string][] = [
-    [/\bwedding\b/, 'a wedding'], [/\bwork\b|\boffice\b/, 'the office'],
-    [/\bdate\b/, 'a date'], [/\bbeach\b/, 'the beach'],
-    [/\bformal\b|\bgala\b|\bblack.?tie\b/, 'a formal evening'],
-    [/\bsummer\b/, 'summer'], [/\bwinter\b/, 'winter'],
-    [/\bweekend\b/, 'the weekend'], [/\beveryday\b|\bdaily\b/, 'everyday wear'],
-    [/\beverning\b|\bnight out\b/, 'an evening out'],
-  ]
-  const COLOR_WORDS = ['black','white','navy','cream','camel','burgundy','olive',
-    'grey','gray','beige','tan','brown','blue','green','red','rust','terracotta']
-
-  const foundGarment  = GARMENT_WORDS.find(([re]) => re.test(q))?.[1] ?? null
-  const foundMaterial = MATERIAL_WORDS.find(([re]) => re.test(q))?.[1] ?? null
-  const foundOccasion = OCCASION_WORDS.find(([re]) => re.test(q))?.[1] ?? null
-  const foundColor    = COLOR_WORDS.find(c => new RegExp(`\\b${c}\\b`).test(q)) ?? null
-
-  // Build a natural subject string from what was detected
-  const subjectParts = [foundColor, foundMaterial, foundGarment].filter(Boolean)
-  const subject = subjectParts.length > 0 ? subjectParts.join(' ') : null
-  const yours   = subject ? `your ${subject}` : 'this piece'
-
-  // ── Intent detection ─────────────────────────────────────────────────────────
-  const isCompare  = /\bcompar|\bwhich.{0,12}better\b|\bvs\b|\bprefer|\bchoose|\bpick\b|\bbest one\b|\bdifference/.test(q)
-  const isSearch   = /\bfind\b|\bshow\b|\blook for\b|\brecommend\b|\bsuggest\b|\bsearch\b/.test(q)
-  const isColor    = /\bcolou?r|\bmatch\b|\bgo with\b|\bpair\b|\bwear with\b|\bcomplement/.test(q)
-  const isMaterial = /\bmaterial\b|\bfabric\b/.test(q) || !!foundMaterial
-  const isOutfit   = /\boutfit\b|\blook\b|\bstyle\b|\bocasion\b|\boccasion\b|\bwear\b|\bcasual\b|\bformal\b/.test(q)
-  const isValue    = /\bprice\b|\bcost\b|\bworth\b|\bvalue\b|\bexpensive\b|\bcheap\b|\bbudget\b/.test(q)
-
-  if (!hasImages) {
-    // Run the SAME deterministic compiler the backend's instant fast path
-    // runs — if it compiles, the search is guaranteed to be literal (its own
-    // CONVERSATIONAL filter already excludes compare/styling-advice
-    // phrasing), so the terms shown here are exactly what gets searched, not
-    // a simulated guess. Reuses the color/material/occasion already detected
-    // above to decide which optional steps this particular query earns.
-    const compiled = compileIntent(withProfileGenderForDisplay(question, profileGender), buyerCurrency)
-    if (compiled) {
-      return buildDynamicPhases({
-        literalQuery: question,
-        searchQuery: compiled.args.searchQuery,
-        garment: foundGarment, color: foundColor, material: foundMaterial, occasion: foundOccasion,
-        budgetLabel: compiled.args.budgetMax ? `under ${compiled.args.budgetCurrency || buyerCurrency} ${compiled.args.budgetMax}` : null,
-        sort: compiled.args.sort || 'relevance',
-        judgeQuery: question,
-        buyerCountry,
-      })
-    }
-  }
-
-  // No fashion signals → purely conversational message, use simple typing dots
-  const hasFashionSignal = hasImages || foundGarment || foundMaterial || foundOccasion || foundColor ||
-    isCompare || isSearch || isColor || isMaterial || isOutfit || isValue
-  if (!hasFashionSignal) return []
-
-  // ── Step sets — operational, specific, no filler. Each step names the real
-  // thing Discern is doing (reading, searching, filtering, ranking) with the
-  // actual detected terms filled in, so it never reads generic. ────────────────
-  if (hasImages) {
-    return [
-      { icon: 'read', main: 'Reading your photo', trace: ['vision.scan(garment, color, silhouette)', 'material cues → weave, drape, texture'] },
-      { icon: 'palette', main: 'Checking undertone and contrast', trace: ['undertone.read(warm | cool | neutral)', 'pairing → what bridges, what clashes'] },
-      { icon: 'search', main: 'Searching Discern for what completes it', trace: searchTrace(question, 'visual match', null) },
-      { icon: 'curate', main: 'Ranking by fit and quality', trace: curateTrace(question + '_curate', question, buyerCountry) },
-    ]
-  }
-
-  if (isCompare) {
-    const dim = foundMaterial ? `${foundMaterial} weight and construction` : foundGarment ? `cut and silhouette of each ${foundGarment}` : 'silhouette, fabric, and drape'
-    return [
-      { icon: 'read', main: 'Reading both pieces', trace: readTrace(question, [['comparing', dim]]) },
-      { icon: 'compare', main: 'Comparing construction and cost-per-wear', trace: ['compare.dims([price, material, construction])', 'versatility → real-world use', 'longevity → occasion range'] },
-      { icon: 'value', main: 'Weighing which earns its place', trace: ['value.score(price, quality, versatility)', 'not just the lower price'] },
-      { icon: 'curate', main: 'Picking the winner', trace: ['pick.select(highest score)', 'reason.attach(concrete, not vague)'] },
-    ]
-  }
-
-  if (isSearch) {
-    const what = subject ?? (foundOccasion ? `something for ${foundOccasion}` : 'the right piece')
-    const sort = /\b(cheap|cheapest|affordable|budget|lowest)\b/.test(q) ? 'price_asc'
-      : /\b(expensive|premium|luxury|highest|finest)\b/.test(q) ? 'price_desc' : 'relevance'
-    return buildDynamicPhases({
-      literalQuery: question, searchQuery: what,
-      garment: foundGarment, color: foundColor, material: foundMaterial, occasion: foundOccasion,
-      sort, judgeQuery: question, buyerCountry,
-    })
-  }
-
-  if (isColor) {
-    const base = foundColor ? foundColor : 'your palette'
-    return [
-      { icon: 'read', main: 'Reading the color you’re working with', trace: readTrace(question, [['color', base]]) },
-      { icon: 'palette', main: 'Cross-checking warm and cool families', trace: ['undertone.match(warm | cool | neutral)', 'balance → 60-30-10 rule', 'clash.check(competing accents)'] },
-      { icon: 'search', main: 'Searching for pieces that hold the palette', trace: searchTrace(q, base) },
-      { icon: 'curate', main: 'Landing on the combination', trace: curateTrace(q + '_curate', question, buyerCountry) },
-    ]
-  }
-
-  if (isMaterial) {
-    const mat = foundMaterial ?? 'this fabric'
-    return [
-      { icon: 'fabric', main: `Reading ${mat}`, trace: [`fabric.profile("${mat}")`, 'weight, drape, how it moves'] },
-      { icon: 'value', main: 'Checking wearability', trace: ['wearability.check(season, occasion, care)', 'durability → how it ages'] },
-      { icon: 'search', main: 'Searching for the right pieces', trace: searchTrace(q, mat) },
-      { icon: 'curate', main: 'Forming the answer', trace: curateTrace(q + '_curate', question, buyerCountry) },
-    ]
-  }
-
-  if (isValue) {
-    return [
-      { icon: 'read', main: `Reading what ${yours} is worth`, trace: readTrace(question, [['piece', subject]]) },
-      { icon: 'fabric', main: 'Checking construction and finishing', trace: ['construction.check(stitching, hardware, lining)', 'positioning → material, cut, brand'] },
-      { icon: 'value', main: 'Calculating cost-per-wear', trace: ['cost_per_wear.compute(price ÷ expected wears)', 'compare → against the honest alternative'] },
-      { icon: 'curate', main: 'Giving you the honest read', trace: ['verdict.form(worth it | not)', 'reason.attach(concrete, not vague)'] },
-    ]
-  }
-
-  if (isOutfit || foundOccasion) {
-    const occ = foundOccasion ? ` for ${foundOccasion}` : ''
-    const piece = subject ?? 'the piece'
-    return [
-      { icon: 'read', main: `Reading the brief${occ}`, trace: readTrace(question, [['anchor', piece], ['occasion', foundOccasion]]) },
-      { icon: 'search', main: 'Dispatching one agent per garment', trace: ['outfit.slots([top, bottom, shoes, layer])', 'search.parallel(one query per slot)', 'dedupe → no product repeats across slots'] },
-      { icon: 'palette', main: 'Matching color story and texture', trace: ['color.story(shared thread across pieces)', 'proportion → volume and structure balance', 'undertone.match(warm | cool)'] },
-      { icon: 'outfit', main: 'Assembling the full look', trace: ['outfit.assemble(slots → complete look)', 'includes shoes and outerwear'] },
-    ]
-  }
-
-  // ── Default — genuinely conversational styling question, no product search ──
-  return [
-    { icon: 'read', main: `Reading ${yours}`, trace: readTrace(question, [['reading', subject]]) },
-    { icon: 'palette', main: 'Checking proportion and color', trace: [foundOccasion ? `fit.check(reads right for ${foundOccasion})` : 'fit.check(what elevates, what clashes)', 'detail.scan(the specifics that matter)'] },
-    { icon: 'curate', main: 'Forming one clear answer', trace: ['answer.form(one recommendation, not a list)'] },
-  ]
-}
-
-// The step tracker no longer runs on a fixed pretend duration — reasoning
-// time genuinely varies (a quick catalog lookup vs. a deep GPT-OSS
-// high-effort styling call), so a fixed "always take 8-12s" budget either
-// padded fast replies for no reason or cut off exactly when a slow one
-// needed more room. Steps now advance at a steady, natural pace
-// (STYLIST_STEP_INTERVAL_MS each) and simply hold on the last step,
-// visually "still thinking," for as long as the real request actually
-// takes — the reply appears the moment it's genuinely ready, gated only by
-// a small flicker guard so it never flashes in and out instantly.
-const STYLIST_STEP_INTERVAL_MS = 1100
+// The tracker is now driven entirely by real backend events (see the NDJSON
+// stream read in sendStylist/loadMoreStylistProducts/loadMoreGroupProducts)
+// instead of a client-only simulated schedule. Every step shown was a genuine
+// `send(...)` call on the server at the moment that operation actually
+// started — no canned trace text, no fixed pacing, no padding once the real
+// work runs long. This directly replaced three rounds of client-only fixes
+// that couldn't actually solve the underlying complaint: the last step
+// replaying the same lines 6-8 times while waiting (there was nothing real
+// left to show), no correlation between backend completion and when the
+// animation actually stopped, and the same staleness on "See more."
 const STYLIST_FLICKER_GUARD_MS = 500
-
-// "See more" reasons through the same search+rank pipeline as a fresh query
-// (see mode:'load-more' in stylist/route.ts) — this is what it cycles
-// through while that's in flight, same icon language as the main tracker.
-const LOAD_MORE_PHASES: { icon: StylistLoadingIcon; label: string }[] = [
-  { icon: 'search', label: 'Searching for more' },
-  { icon: 'filter', label: 'Filtering for fit and material' },
-  { icon: 'curate', label: 'Ranking the next best picks' },
-]
 
 // ── Step icons ───────────────────────────────────────────────────────────────
 // A single bespoke visual language, not a generic icon-font set — every glyph
@@ -2395,23 +2091,16 @@ export default function DiscernApp({
   // The home page IS the one conversation now — every "is a request in
   // flight" check in the UI reads Fabrics' own loading state.
   const loading = stylistLoading
+  // Filled incrementally by real backend progress events (readStylistStream)
+  // as a fresh search plays out — the last entry is always the active step,
+  // everything before it is done. No separate "current index" state needed.
   const [stylistLoadingPhases, setStylistLoadingPhases] = useState<StylistLoadingPhase[]>([])
-  const [stylistLoadingStep, setStylistLoadingStep]     = useState(0)
   // Which message's persisted reasoning trace is expanded (one at a time).
   const [openTraceIdx, setOpenTraceIdx] = useState<number | null>(null)
-  // "See more" gets the same reasoning-in-progress feel as a fresh search —
-  // a small cycling icon+label row in place of the button — without needing
-  // the full per-message step tracker. Only one "See more" can be in flight
-  // at a time (the button disables while loading), so one shared step index
-  // is enough.
-  const [loadMoreStep, setLoadMoreStep] = useState(0)
-  // How many trace lines of the ACTIVE step are revealed so far — counts up
-  // as the step plays out, resets to 0 whenever the active step changes.
-  const [stylistTraceVisible, setStylistTraceVisible]   = useState(0)
-  // Bumped to restart the LAST step's trace-line reveal while the real
-  // request is still in flight — the animation must keep visibly working
-  // until the reply actually arrives, never sit finished-looking early.
-  const [stylistTraceLoop, setStylistTraceLoop]         = useState(0)
+  // "See more" gets the same real-event-driven tracker as a fresh search —
+  // only one "See more" can be in flight at a time (the button disables
+  // while loading), so one shared phases array is enough.
+  const [loadMorePhases, setLoadMorePhases] = useState<StylistLoadingPhase[]>([])
   const stylistScrollRef                      = useRef<HTMLDivElement>(null)
   const stylistSessionId                    = useRef<string | null>(null)
   // Wardrobe pieces the shopper owns — persist across the whole conversation as
@@ -2505,7 +2194,7 @@ export default function DiscernApp({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'wardrobe-scan', images: imgs, userEmail: onboardEmail, authProof }),
       })
-      const data = await res.json()
+      const data = await readStylistStream(res, () => {}) // no live tracker on this flow yet — just needs the final result
       setStylistMsgs(prev => [...prev, { role: 'assistant', content: data?.reply || "I couldn't quite make out your wardrobe pieces. Try clearer, well-lit photos?" }])
     } catch {
       setStylistMsgs(prev => [...prev, { role: 'assistant', content: 'Something went wrong scanning your wardrobe. Please try again.' }])
@@ -2544,11 +2233,20 @@ export default function DiscernApp({
     // which persists across the whole session and would otherwise re-show a
     // stale pin on every later, unrelated message too.
     setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined, pinnedProducts: productsArg && productsArg.length > 0 ? productsArg : undefined }])
-    const loadingPhases = buildStylistLoadingPhases(question, capturedImages.length > 0, shopperContext.currency, shopperGenderFromProfile, shopperContext.country)
-    setStylistLoadingPhases(loadingPhases)
-    setStylistLoadingStep(0)
+    // Starts empty — every step shown from here on is a genuine backend
+    // event (see readStylistStream), not a pre-built simulated schedule.
+    setStylistLoadingPhases([])
     setStylistLoading(true)
     const requestStartedAt = Date.now()
+    // Local mirror of the phases as they arrive, kept in lockstep with the
+    // state setter below — needed so the FINAL list can be persisted onto
+    // the message's `trace` field without racing React's state batching.
+    const capturedPhases: StylistLoadingPhase[] = []
+    const onProgress = (icon: string, main: string, detail?: string) => {
+      const phase: StylistLoadingPhase = { icon: icon as StylistLoadingIcon, main, trace: detail ? [detail] : [] }
+      capturedPhases.push(phase)
+      setStylistLoadingPhases(prev => [...prev, phase])
+    }
     try {
       const payloadProducts = products.map(p => ({
         id: p.id, title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
@@ -2586,12 +2284,12 @@ export default function DiscernApp({
           recentSearches: stylistHistory.slice(0, 8).map(h => h.label),
         }),
       })
-      const data = await res.json()
+      const data = await readStylistStream(res, onProgress)
       // Show the reply the moment it's actually ready — reasoning time
       // genuinely varies by query and provider, so there's no fixed budget
-      // to wait out anymore. Only guard against an instant flash for
-      // near-zero-latency responses (the fast/compileIntent path can
-      // resolve in well under STYLIST_FLICKER_GUARD_MS).
+      // to wait out anymore. Only guard against an instant flash for a
+      // near-zero-latency response (a cached fast-path hit can resolve in
+      // well under STYLIST_FLICKER_GUARD_MS).
       const elapsed = Date.now() - requestStartedAt
       if (elapsed < STYLIST_FLICKER_GUARD_MS) await new Promise(r => setTimeout(r, STYLIST_FLICKER_GUARD_MS - elapsed))
       if (data?.reply) {
@@ -2617,7 +2315,7 @@ export default function DiscernApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, trace: loadingPhases.length > 0 ? loadingPhases : undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, trace: capturedPhases.length > 0 ? capturedPhases : undefined }])
         if (typeof data.searchQuery === 'string' && data.searchQuery.trim() && onboardEmail && authProof) {
           saveSearchHistoryMutation({ userEmail: onboardEmail, query: data.searchQuery.trim(), resultCount: newProducts.length, authProof }).catch(() => {})
         }
@@ -2674,16 +2372,13 @@ export default function DiscernApp({
   // "See more" re-runs the same reasoned search (BM25 + LLM judge, mode:
   // 'load-more' in stylist/route.ts) excluding what's already shown, and
   // appends the next best-of-best batch — same reasoning pipeline as a
-  // fresh query, not a raw pagination dump. Drives the small cycling
-  // icon+label row (loadMoreStep) in place of the button while it runs.
+  // fresh query, not a raw pagination dump. Drives the small icon+label row
+  // (loadMorePhases, real backend events) in place of the button while it runs.
   const loadMoreStylistProducts = async (messageIndex: number) => {
     const msg = stylistMsgs[messageIndex]
     if (!msg || !msg.searchQuery || msg.loadingMore || msg.hasNoMore) return
     setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: true } : m))
-    setLoadMoreStep(0)
-    const stepTimer = window.setInterval(() => {
-      setLoadMoreStep(s => Math.min(s + 1, LOAD_MORE_PHASES.length - 1))
-    }, STYLIST_STEP_INTERVAL_MS)
+    setLoadMorePhases([])
     const startedAt = Date.now()
     try {
       const excludeIds = (msg.foundProducts || []).map(p => p.id)
@@ -2694,7 +2389,9 @@ export default function DiscernApp({
           buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country,
         }),
       })
-      const data = await res.json()
+      const data = await readStylistStream(res, (icon, main, detail) => {
+        setLoadMorePhases(prev => [...prev, { icon: icon as StylistLoadingIcon, main, trace: detail ? [detail] : [] }])
+      })
       // Same small flicker guard as a fresh search — never hold longer than
       // the request actually took, just avoid an instant in-and-out flash.
       const elapsed = Date.now() - startedAt
@@ -2717,8 +2414,6 @@ export default function DiscernApp({
       }))
     } catch {
       setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: false } : m))
-    } finally {
-      window.clearInterval(stepTimer)
     }
   }
 
@@ -2735,10 +2430,7 @@ export default function DiscernApp({
       if (i !== messageIndex || !m.foundProductGroups) return m
       return { ...m, foundProductGroups: m.foundProductGroups.map((g, gi) => gi === groupIndex ? { ...g, loadingMore: true } : g) }
     }))
-    setLoadMoreStep(0)
-    const stepTimer = window.setInterval(() => {
-      setLoadMoreStep(s => Math.min(s + 1, LOAD_MORE_PHASES.length - 1))
-    }, STYLIST_STEP_INTERVAL_MS)
+    setLoadMorePhases([])
     const startedAt = Date.now()
     try {
       const excludeIds = group.products.map(p => p.id)
@@ -2749,7 +2441,9 @@ export default function DiscernApp({
           buyerCurrency: shopperContext.currency, buyerCountry: shopperContext.country,
         }),
       })
-      const data = await res.json()
+      const data = await readStylistStream(res, (icon, main, detail) => {
+        setLoadMorePhases(prev => [...prev, { icon: icon as StylistLoadingIcon, main, trace: detail ? [detail] : [] }])
+      })
       const elapsed = Date.now() - startedAt
       if (elapsed < STYLIST_FLICKER_GUARD_MS) await new Promise(r => setTimeout(r, STYLIST_FLICKER_GUARD_MS - elapsed))
       const displayCur = shopperContext.currency || 'USD'
@@ -2773,8 +2467,6 @@ export default function DiscernApp({
         if (i !== messageIndex || !m.foundProductGroups) return m
         return { ...m, foundProductGroups: m.foundProductGroups.map((g, gi) => gi === groupIndex ? { ...g, loadingMore: false } : g) }
       }))
-    } finally {
-      window.clearInterval(stepTimer)
     }
   }
 
@@ -3035,7 +2727,7 @@ export default function DiscernApp({
   // new messages, but every step the tracker advances through and every
   // trace line it reveals, so the growing step list never runs on ahead of
   // what's actually visible on screen.
-  useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading, stylistLoadingStep, stylistTraceVisible])
+  useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading, stylistLoadingPhases])
 
   // Restore the session ID that was actually active, matching stylistMsgs'
   // own restore logic above — not just "always the most recent one".
@@ -3130,41 +2822,6 @@ export default function DiscernApp({
     })
   }, [remoteStylistSessions, stylistHistory])
 
-  // Drive the loading phase animation — steps advance at a steady natural
-  // pace (STYLIST_STEP_INTERVAL_MS each), independent of how long the real
-  // request actually takes. Once the last step is reached, this simply
-  // stops advancing and holds there — the real fetch (in sendStylist) is
-  // what ultimately ends stylistLoading, whether that's sooner or later
-  // than the animation would have finished on its own.
-  useEffect(() => {
-    if (!stylistLoading || stylistLoadingPhases.length === 0) {
-      setStylistLoadingStep(0)
-      setStylistTraceVisible(0)
-      return
-    }
-    setStylistTraceVisible(0)
-    const phase = stylistLoadingPhases[stylistLoadingStep]
-    const traceCount = phase?.trace.length ?? 0
-    const onLastStep = stylistLoadingStep >= stylistLoadingPhases.length - 1
-    // The last step paces its lines slower — it's the one that holds for
-    // however long the model actually takes, so its reveal should breathe.
-    const perStep = onLastStep ? STYLIST_STEP_INTERVAL_MS * 2 : STYLIST_STEP_INTERVAL_MS
-    const timers: number[] = []
-    for (let i = 0; i < traceCount; i++) {
-      const at = (perStep * 0.85) * ((i + 1) / (traceCount + 1))
-      timers.push(window.setTimeout(() => setStylistTraceVisible(v => Math.max(v, i + 1)), at))
-    }
-    if (!onLastStep) {
-      timers.push(window.setTimeout(() => setStylistLoadingStep(s => Math.min(s + 1, stylistLoadingPhases.length - 1)), perStep))
-    } else {
-      // Still waiting on the real request once every line is out — restart
-      // this step's reveal so the tracker reads as actively working (lines
-      // cycling, caret blinking) instead of silently done. sendStylist's
-      // fetch resolving is what actually ends the loop.
-      timers.push(window.setTimeout(() => setStylistTraceLoop(t => t + 1), perStep + 700))
-    }
-    return () => timers.forEach(clearTimeout)
-  }, [stylistLoading, stylistLoadingStep, stylistLoadingPhases, stylistTraceLoop])
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]); setFetchedColorImages({}); setFetchedColors([]) } }, [selectedProduct])
   // When the shopper picks a colour in the drawer, jump the gallery back to the
   // first image of that colourway.
@@ -5414,9 +5071,9 @@ export default function DiscernApp({
                               group.loadingMore ? (
                                 <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 2px' }}>
                                   <div className="fr-step-active" style={{ position: 'relative', width: 20, height: 20, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
-                                    <StylistStepIcon icon={LOAD_MORE_PHASES[loadMoreStep].icon} size={11} />
+                                    <StylistStepIcon icon={(loadMorePhases[loadMorePhases.length - 1]?.icon) ?? 'search'} size={11} />
                                   </div>
-                                  <span style={{ fontFamily: SANS, fontSize: 12, color: INK2 }}>{LOAD_MORE_PHASES[loadMoreStep].label}</span>
+                                  <span style={{ fontFamily: SANS, fontSize: 12, color: INK2 }}>{loadMorePhases[loadMorePhases.length - 1]?.main ?? 'Searching for more'}</span>
                                 </div>
                               ) : (
                                 <button type="button" onClick={() => loadMoreGroupProducts(i, gi)}
@@ -5456,9 +5113,9 @@ export default function DiscernApp({
                           m.loadingMore ? (
                             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '11px 2px' }}>
                               <div className="fr-step-active" style={{ position: 'relative', width: 22, height: 22, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
-                                <StylistStepIcon icon={LOAD_MORE_PHASES[loadMoreStep].icon} size={12} />
+                                <StylistStepIcon icon={(loadMorePhases[loadMorePhases.length - 1]?.icon) ?? 'search'} size={12} />
                               </div>
-                              <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>{LOAD_MORE_PHASES[loadMoreStep].label}</span>
+                              <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>{loadMorePhases[loadMorePhases.length - 1]?.main ?? 'Searching for more'}</span>
                             </div>
                           ) : (
                             <button type="button" onClick={() => loadMoreStylistProducts(i)}
@@ -5566,9 +5223,13 @@ export default function DiscernApp({
                   <div style={{ opacity: stylistDissolving ? 0 : 1, transition: 'opacity .2s ease' }}>
                     {/* Same plain step-list language as the persisted "Show reasoning"
                         toggle below (small circle icon, connecting thread, monospace
-                        trace lines, no card/border/spinner/shimmer) — live and
-                        after-the-fact now look identical, just with an active step
-                        instead of every step already done. */}
+                        trace line, no card/border/spinner/shimmer) — live and
+                        after-the-fact look identical. Every step here is a genuine
+                        backend event (see readStylistStream) fired the instant that
+                        operation actually started, so there's no "upcoming" state —
+                        only steps that have already really happened, with the last
+                        one active until the next real event or the final reply
+                        arrives. Nothing is ever padded or replayed. */}
                     {stylistLoadingPhases.length === 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
                         <div style={{ width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.06)', color: INK }}>
@@ -5577,18 +5238,10 @@ export default function DiscernApp({
                         <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>Reading your message</span>
                       </div>
                     ) : stylistLoadingPhases.map((phase, pi) => {
-                      const state = pi < stylistLoadingStep ? 'done' : pi === stylistLoadingStep ? 'active' : 'upcoming'
                       const isLast = pi === stylistLoadingPhases.length - 1
-                      let lines = state === 'active' ? phase.trace.slice(0, stylistTraceVisible) : state === 'done' ? phase.trace : []
-                      // Real trace exhausted but the reply still isn't back — append a
-                      // rotating "still working" line (never the same one twice in a
-                      // row) instead of silently replaying the identical lines above.
-                      if (isLast && state === 'active' && stylistTraceLoop > 0) {
-                        const pool = STILL_WORKING_POOL[phase.icon]
-                        if (pool && pool.length > 0) lines = [...lines, pool[(stylistTraceLoop - 1) % pool.length]]
-                      }
+                      const state = isLast ? 'active' : 'done'
                       return (
-                        <div key={pi} style={{ display: 'flex', gap: 10, opacity: state === 'upcoming' ? .35 : 1, transition: 'opacity .25s ease' }}>
+                        <div key={pi} style={{ display: 'flex', gap: 10, animation: 'fadeUp .28s ease' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                             <div style={{
                               width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -5602,10 +5255,10 @@ export default function DiscernApp({
                           </div>
                           <div style={{ paddingBottom: isLast ? 0 : 10, minWidth: 0 }}>
                             <div style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 500, lineHeight: '16px', color: state === 'active' ? INK : INK3 }}>{phase.main}</div>
-                            {lines.length > 0 && (
+                            {phase.trace.length > 0 && (
                               <div style={{ marginTop: 3 }}>
-                                {lines.map((line, li) => (
-                                  <div key={`${li}-${state === 'active' ? stylistTraceLoop : 'done'}`} style={{ fontFamily: "'SF Mono',ui-monospace,Menlo,Consolas,monospace", fontSize: 10, lineHeight: '15px', color: 'rgba(0,0,0,.42)' }}>
+                                {phase.trace.map((line, li) => (
+                                  <div key={li} style={{ fontFamily: "'SF Mono',ui-monospace,Menlo,Consolas,monospace", fontSize: 10, lineHeight: '15px', color: 'rgba(0,0,0,.42)' }}>
                                     {line}
                                   </div>
                                 ))}
