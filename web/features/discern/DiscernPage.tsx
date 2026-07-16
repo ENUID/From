@@ -3356,6 +3356,19 @@ export default function DiscernApp({
       vendor: p.vendor,
       signal: 'bad_match',
     }).catch(() => { /* never block on feedback */ })
+    // Immediate, visible effect: pull the flagged product out of the results
+    // right now, from both the flat list and every category strip. The daily
+    // quality-feedback cron is what teaches future searches (cross-session);
+    // this is what makes "not what I searched for" feel like it did something
+    // this second, instead of leaving the wrong item sitting in the results.
+    setStylistMsgs(prev => prev.map(m => {
+      if (m.role !== 'assistant') return m
+      const foundProducts = m.foundProducts?.filter(x => x.id !== p.id)
+      const foundProductGroups = m.foundProductGroups?.map(g => ({
+        ...g, products: g.products.filter(x => x.id !== p.id),
+      }))
+      return { ...m, foundProducts, foundProductGroups }
+    }))
   }
 
   // Restore/persist unit preference across products
