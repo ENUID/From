@@ -123,6 +123,15 @@ export const GARMENT_VOCAB: Record<string, GarmentEntry> = {
     product: ['bodysuit', 'bodysuits'],
   },
   // ── Footwear ──────────────────────────────────────────────────────────────
+  // Generic footwear catch-all: a bare "shoes" (no specific style) must still
+  // register as a distinct category so "shirts, trousers and shoes" splits into
+  // three groups, not two. Specific styles below still win their own product
+  // matching; they all share the 'shoes' SlotCategory so they never double-count
+  // into two footwear strips.
+  shoe: {
+    query:   ['shoe', 'shoes', 'footwear'],
+    product: ['shoe', 'shoes', 'footwear'],
+  },
   sneaker: {
     query:   ['sneaker', 'sneakers', 'trainer', 'trainers', 'running shoe', 'running shoes', 'athletic shoe', 'court shoe'],
     product: ['sneaker', 'sneakers', 'trainer', 'trainers', 'running shoe', 'athletic'],
@@ -476,6 +485,7 @@ export const GARMENT_CATEGORY: Record<string, SlotCategory> = {
   skirt: 'bottom', legging: 'bottom',
   jacket: 'outer', blazer: 'outer', coat: 'outer', vest: 'outer',
   dress: 'dress', jumpsuit: 'dress', bodysuit: 'dress',
+  shoe: 'shoes',
   sneaker: 'shoes', boot: 'shoes', loafer: 'shoes', sandal: 'shoes',
   heel: 'shoes', derby: 'shoes', espadrille: 'shoes', clog: 'shoes',
   bag: 'accessory', tote: 'accessory', backpack: 'accessory', hat: 'accessory',

@@ -58,6 +58,17 @@ export type CatalogSearchDebug = {
   loadMoreQuery?: string
 }
 
+// Real-work progress the search emits at its genuine internal boundaries — the
+// slow parallel catalog fetch, an optional broadening pass, and the LLM
+// relevance judge. The route turns each into a live status line, so the search
+// animation is paced by actual backend work (a phase stays on screen exactly as
+// long as its step is running), never a client-side simulation.
+export type CatalogProgress = (e: (
+  | { kind: 'fetch'; brandCount: number; sampleBrands: string[] }
+  | { kind: 'broaden'; queries: string[] }
+  | { kind: 'judge'; candidates: number }
+) & { label?: string }) => void
+
 type ProductSort = 'price_asc' | 'price_desc' | 'relevance' | 'trust_desc'
 
 // ─── Config ────────────────────────────────────────────────────────────────────
@@ -195,6 +206,20 @@ function matchedCategories(query: string): Set<string> {
 function preferredMarket(cc: string | null | undefined): 'US' | 'IN' | null {
   if (!cc) return null
   return GEO_REGIONS[cc] === 'SA' ? 'IN' : 'US'
+}
+
+// Human brand names for the first few domains about to be queried — used only
+// to make the "searching N catalogs" status line concrete ("Rare Rabbit, Taka,
+// Kardo…") rather than a bare number.
+function sampleBrandNames(domains: string[], n: number): string[] {
+  const out: string[] = []
+  for (const d of domains) {
+    const dom = d.toLowerCase().replace(/^www\./, '').trim()
+    const name = BRAND_NAMES[dom] || UCP_REGISTRY.find(s => s.domain.toLowerCase() === dom)?.name
+    if (name) out.push(name)
+    if (out.length >= n) break
+  }
+  return out
 }
 
 /** Returns registry domains matching the query's categories, sorted by relevance to the query. */
@@ -806,6 +831,7 @@ export class GlobalCatalogService {
       fastFirstPage?: boolean
       refreshReserve?: boolean
       debug?: CatalogSearchDebug
+      onProgress?: CatalogProgress
     } = {},
     brandDomains: string[] = [],
     _tasteProfile?: string,
@@ -909,6 +935,13 @@ export class GlobalCatalogService {
     }
 
     // Fetch in batches until we have enough to serve this page or run out of stores.
+    // The parallel store fetch is the slowest phase of a search, so announce it
+    // (with a real brand count + sample names) right before it runs — the status
+    // line then stays on screen for exactly as long as the fetch actually takes.
+    if (options.onProgress && !enough() && entry.pending.length > 0) {
+      const aboutToQuery = Math.min(entry.pending.length, BATCH_SIZE * MAX_ROUNDS_PER_CALL)
+      options.onProgress({ kind: 'fetch', brandCount: aboutToQuery, sampleBrands: sampleBrandNames(entry.pending, 3) })
+    }
     let rounds = 0
     while (!enough() && entry.pending.length > 0 && rounds < MAX_ROUNDS_PER_CALL) {
       rounds++
@@ -951,6 +984,10 @@ export class GlobalCatalogService {
 
         const queries = recallQueries.slice(0, 3)   // bound fan-out cost
         if (queries.length > 0) {
+          // A genuine second fetch pass — the first query came back thin, so
+          // we're widening with broader signals. Real, conditional work worth
+          // its own status line.
+          options.onProgress?.({ kind: 'broaden', queries })
           // Keep total fetches bounded: full store breadth for a single recall
           // query, tighter when style signals multiply the fan-out.
           const domainCap = queries.length <= 1 ? 20 : 16
@@ -987,6 +1024,10 @@ export class GlobalCatalogService {
     // Optional LLM rerank for nuanced relevance queries (first page only).
     if (sort === 'relevance' && result.length >= 4 && !isLoadMore) {
       try {
+        // A real LLM call weighing each candidate against the request — the
+        // second genuinely slow phase, so it gets its own status line and
+        // stays up while the judge is actually thinking.
+        options.onProgress?.({ kind: 'judge', candidates: result.length })
         const judgeQuery = (rerankQuery && rerankQuery.trim()) ? rerankQuery.trim() : rawQuery
         result = await rerankByRelevance(judgeQuery, result, _tasteProfile)
       } catch (err) {

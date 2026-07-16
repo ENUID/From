@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, wardrobeVisionChat, stripThinkTags, stripAiDashes, looksLikeLeakedReasoning, CHAT_MODEL, FAST_MODEL } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
-import { GlobalCatalogService } from '@/lib/services/GlobalCatalogService'
+import { GlobalCatalogService, type CatalogProgress } from '@/lib/services/GlobalCatalogService'
 import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor, decomposeQuery, GARMENT_VOCAB, GARMENT_CATEGORY } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
@@ -94,6 +94,12 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 // first — stripping a same-category sibling term loses a real part of what
 // the shopper asked for just as surely as stripping a different category's
 // term would.
+// Conversational filler that carries no search signal — stripped from a
+// category subquery so a store gets "men trousers", not "men i need some
+// trousers" (which can dilute Shopify's keyword match). Only whole-word,
+// leading/trailing-safe removals; garment/color/material words are never here.
+const SUBQUERY_FILLER = /\b(?:i|need|want|some|any|a|an|the|please|show|find|get|me|looking|for|would|like|could|you|help|hey|hi|hello|can|could|pls|plz|and|also|maybe|something|to|wear|buy|shop|shopping)\b/gi
+
 function stripOtherCategoryTerms(query: string, keepKeys: string[], allKeys: string[]): string {
   let q = query
   for (const key of allKeys) {
@@ -106,6 +112,14 @@ function stripOtherCategoryTerms(query: string, keepKeys: string[], allKeys: str
   return q.replace(/\band\b/gi, ' ').replace(/\s+/g, ' ').trim()
 }
 
+// Clean a per-category subquery down to real search signal (gender, color,
+// material, occasion, the garment) by dropping conversational filler. Falls
+// back to the raw stripped query if filler removal would empty it.
+function cleanSubQuery(q: string): string {
+  const cleaned = q.replace(SUBQUERY_FILLER, ' ').replace(/\s+/g, ' ').trim()
+  return cleaned.length >= 2 ? cleaned : q.trim()
+}
+
 async function multiCategorySearch(
   fullQuery: string,
   budgetMax: number | null | undefined,
@@ -113,6 +127,7 @@ async function multiCategorySearch(
   buyerCurrency: string,
   memorySummary: string | undefined,
   preferredSize: string | null | undefined,
+  onProgress?: CatalogProgress,
 ): Promise<{ label: string; products: any[]; query: string }[] | null> {
   const { garmentKeys } = decomposeQuery(fullQuery)
   // Group by SlotCategory (not by individual garment key) — "shirts and
@@ -132,7 +147,7 @@ async function multiCategorySearch(
 
   const groups = await Promise.all(
     categories.map(async ({ cat, keys }) => {
-      const subQuery = stripOtherCategoryTerms(fullQuery, keys, garmentKeys) || GARMENT_VOCAB[keys[0]]?.query[0] || fullQuery
+      const subQuery = cleanSubQuery(stripOtherCategoryTerms(fullQuery, keys, garmentKeys)) || GARMENT_VOCAB[keys[0]]?.query[0] || fullQuery
       const concepts = buildMandatoryConcepts(subQuery)
       try {
         // rerankQuery (last-but-one arg) is subQuery here, NOT the full
@@ -146,10 +161,16 @@ async function multiCategorySearch(
         // same category), so relevance_adjustments demotion was being
         // looked up under the wrong concept for every category but the
         // first one.
+        // Each category's real fetch/judge boundaries stream up labeled with
+        // its garment ("…for tops", "…for bottoms"), so two categories running
+        // in parallel read as one coherent live activity log rather than two
+        // anonymous searches racing each other.
+        const catLabel = slotLabelFor(cat as any)
         const found = await GlobalCatalogService.search(
           subQuery, budgetMax, [], countryCode, true, concepts,
-          'relevance', buyerCurrency, { fastFirstPage: true }, [],
-          memorySummary, subQuery, preferredSize,
+          'relevance', buyerCurrency,
+          { fastFirstPage: true, onProgress: onProgress ? (e => onProgress({ ...e, label: catLabel })) : undefined },
+          [], memorySummary, subQuery, preferredSize,
         )
         const filtered = found.filter(p => productMatchesSlot(p, cat as any))
         const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, MULTI_CATEGORY_PER_GROUP_CAP)
@@ -165,6 +186,18 @@ async function multiCategorySearch(
   )
   const nonEmpty = groups.filter(g => g.products.length > 0)
   return nonEmpty.length >= 2 ? nonEmpty : null
+}
+
+// Reply line for a multi-category result — names every category shown ("tops,
+// bottoms and shoes") so the prose matches the separate labeled strips below it,
+// instead of the old single-garment template that said only "trousers" even
+// when two strips were on screen.
+function multiCategoryReplyText(labels: string[]): string {
+  const parts = labels.map(l => l.toLowerCase())
+  const list = parts.length <= 1
+    ? parts.join('')
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+  return `Here's a curated mix of ${list} from independent brands.`
 }
 
 // Resolve a registry domain to its display name for brand-fallback messaging.
@@ -1138,6 +1171,27 @@ async function runStylistRequest(
       return null
     }
 
+    // Maps the catalog search's real internal boundaries (the parallel store
+    // fetch, an optional broaden pass, the LLM relevance judge) into live status
+    // lines. Because each phase's line stays on screen until the NEXT real event
+    // fires, the animation is paced entirely by genuine backend work — the slow
+    // fetch keeps "Searching…" up, the slow judge keeps "Judging…" up — instead
+    // of a fixed set of steps flashing past. `label` (set only on multi-category
+    // sub-searches) scopes a line to its garment ("…for tops").
+    const onSearchProgress: CatalogProgress = (e) => {
+      const forCat = 'label' in e && e.label ? ` ${e.label.toLowerCase()}` : ''
+      if (e.kind === 'fetch') {
+        const detail = e.sampleBrands.length > 0
+          ? e.sampleBrands.join(', ') + (e.brandCount > e.sampleBrands.length ? ` +${e.brandCount - e.sampleBrands.length} more` : '')
+          : `${e.brandCount} stores`
+        send('search', `Searching ${e.brandCount} brand ${e.brandCount === 1 ? 'catalog' : 'catalogs'}${forCat ? ` for${forCat}` : ''}`, detail)
+      } else if (e.kind === 'broaden') {
+        send('filter', `Widening the${forCat} search`, `recall(${e.queries.map(q => `"${q}"`).join(', ')})`)
+      } else if (e.kind === 'judge') {
+        send('curate', `Judging${forCat} relevance with AI`, `rank.relevance(${e.candidates} candidates)`)
+      }
+    }
+
     // ── Gender default ────────────────────────────────────────────────────
     // A plain query like "linen shirt for a beach party" carries no gender
     // word of its own — without this, it searches ungendered even when the
@@ -1277,17 +1331,26 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         send('read', 'Reading your request', `parse("${genderedQuestion.length > 60 ? genderedQuestion.slice(0, 57) + '…' : genderedQuestion}") → ${compiled.summary}`)
         try {
           const preferredSize = sizeForQuery(compiled.args.searchQuery)
-          send('search', 'Searching the catalog', `catalog.search("${compiled.args.searchQuery}")`)
+          // No generic "Searching the catalog" line here — the real fetch/judge
+          // boundaries stream up from inside the search via onSearchProgress, so
+          // each status line reflects genuine work (real brand count, real
+          // candidate count) instead of a placeholder that flashes past.
+          // Decompose the shopper's ORIGINAL words, not compiled.args.searchQuery
+          // — compileIntent keeps only ONE garment (it picks the single most
+          // specific hit), so "shirts and trousers" reached here as just
+          // "trousers" and could never split. The full sentence still carries
+          // both garments, so multiCategorySearch can give each its own group.
           const multiGroups = await multiCategorySearch(
-            compiled.args.searchQuery, compiled.args.budgetMax, countryCode,
+            genderedQuestion, compiled.args.budgetMax, countryCode,
             compiled.args.budgetCurrency || buyerCurrency, memorySummary, preferredSize,
+            onSearchProgress,
           )
           if (multiGroups) {
             const totalCount = multiGroups.reduce((sum, g) => sum + g.products.length, 0)
-            send('curate', 'Ranking the best picks', `rank.relevance(${totalCount} across ${multiGroups.length} categories)`)
+            send('curate', 'Assembling the picks', `merge(${multiGroups.length} categories) → ${totalCount} pieces`)
             logAiUsage({ path: 'fast', provider: 'none', estPromptTokens: 0, estCompletionTokensCap: 0, ok: true })
             return finish({
-              reply: compiledReplyText(compiled, totalCount),
+              reply: multiCategoryReplyText(multiGroups.map(g => g.label)),
               comparison: null,
               // Flat mirror of the groups above, each already capped at
               // MULTI_CATEGORY_PER_GROUP_CAP — the frontend renders
@@ -1303,7 +1366,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           let results = await GlobalCatalogService.search(
             compiled.args.searchQuery, compiled.args.budgetMax, [], countryCode, true,
             compiled.args.mandatoryConcepts || [], compiled.args.sort || 'relevance',
-            compiled.args.budgetCurrency || buyerCurrency, { fastFirstPage: true }, [],
+            compiled.args.budgetCurrency || buyerCurrency, { fastFirstPage: true, onProgress: onSearchProgress }, [],
             memorySummary, question, preferredSize,
           )
           // Agentic refine, bounded to exactly one extra round: a budget cap
@@ -1327,7 +1390,10 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           // not budget consumption (compileIntent is the whole point of the
           // fast path: it costs nothing from the shared free-tier pool).
           logAiUsage({ path: 'fast', provider: 'none', estPromptTokens: 0, estCompletionTokensCap: 0, ok: true })
-          send('curate', 'Ranking the best picks', `rank.relevance(${results.length} candidates) → page.slice(${INITIAL_RESULT_CAP})`)
+          // Only announce a final ranking step if the search didn't already
+          // stream a "Judging relevance" event (rerank runs only at ≥4 results)
+          // — otherwise it double-reports the same work.
+          if (results.length < 4) send('curate', 'Ranking the best picks', `rank.relevance(${results.length} candidates) → page.slice(${INITIAL_RESULT_CAP})`)
           return finish({
             reply: compiledReplyText(compiled, results.length) + refineNote,
             comparison: null,
@@ -1559,7 +1625,8 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     let foundProductGroups: { label: string; products: any[]; query: string }[] | null = null
     let reply2 = reply
     if (searchQuery) {
-      send('search', 'Searching the catalog', `catalog.search("${searchQuery}")`)
+      // Real fetch/judge boundaries stream up from inside the search itself, so
+      // no generic placeholder line here (see the fast-path call site).
       try {
         const concepts = buildMandatoryConcepts(searchQuery)
         // The shopper's actual stated budget — this path never parsed or
@@ -1571,14 +1638,14 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
 
         const multiGroups = await multiCategorySearch(
           searchQuery, llmBudget.budgetMax, countryCode, buyerCurrency,
-          memorySummary, preferredSize,
+          memorySummary, preferredSize, onSearchProgress,
         )
         if (multiGroups) {
           foundProductGroups = multiGroups
           // Each group is already capped at MULTI_CATEGORY_PER_GROUP_CAP; see
           // the matching comment at the fast-path call site above.
           foundProducts = dedupeById(multiGroups.flatMap(g => g.products))
-          send('curate', 'Ranking the best picks', `rank.relevance(${foundProducts.length} across ${multiGroups.length} categories)`)
+          send('curate', 'Assembling the picks', `merge(${multiGroups.length} categories) → ${foundProducts.length} pieces`)
         } else {
         // 'relevance' engages the BM25 + LLM reranker; the shopper's actual
         // question is the judge query so occasion/aesthetic context ranks too.
@@ -1588,7 +1655,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           searchQuery,
           llmBudget.budgetMax, [], countryCode, true, concepts,
           'relevance', buyerCurrency,
-          { fastFirstPage: true }, [],
+          { fastFirstPage: true, onProgress: onSearchProgress }, [],
           memorySummary,
           question, preferredSize,
         )
@@ -1665,7 +1732,9 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           foundProducts = dedupeById(results).slice(0, INITIAL_RESULT_CAP)
           reply2 = `${reply2}${refineNote}`.trim()
         }
-        send('curate', 'Ranking the best picks', `rank.relevance(${results.length} candidates) → page.slice(${INITIAL_RESULT_CAP})`)
+        // Skip when the search already streamed a "Judging relevance" event
+        // (rerank runs only at ≥4 results) to avoid double-reporting the rank.
+        if (results.length < 4) send('curate', 'Ranking the best picks', `rank.relevance(${results.length} candidates) → page.slice(${INITIAL_RESULT_CAP})`)
         }
       } catch (e) {
         console.error('[stylist] search error:', e)
