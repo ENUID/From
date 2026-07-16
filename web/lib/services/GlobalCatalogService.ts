@@ -187,6 +187,16 @@ function matchedCategories(query: string): Set<string> {
   return cats
 }
 
+// The roster is US + India only now, so geo-boost reduces to a clean binary:
+// shoppers in South Asia get an Indian-brand lift, everyone else (North
+// America, Europe, and every other region) gets a US-brand lift — matching
+// the explicit "show India Indian brands, show US and Europe US brands"
+// requirement now that there are exactly two markets to choose between.
+function preferredMarket(cc: string | null | undefined): 'US' | 'IN' | null {
+  if (!cc) return null
+  return GEO_REGIONS[cc] === 'SA' ? 'IN' : 'US'
+}
+
 /** Returns registry domains matching the query's categories, sorted by relevance to the query. */
 function getCategoryDomains(query: string, cc?: string | null): string[] {
   const cats = matchedCategories(query)
@@ -237,14 +247,13 @@ function getCategoryDomains(query: string, cc?: string | null): string[] {
       if (cc) {
         const dom = s.domain.toLowerCase().replace(/^www\./, '')
         const storeCc = getStoreCountry(dom)
-        const userRegion = GEO_REGIONS[cc] ?? ''
         // Moderate boost only: local stores go EARLY in the fetch order but must
         // not wall it off. (+50 made round 1 all-local for Indian shoppers; the
         // pool became whichever local brand had the most matches, and the page
         // filled with one brand.) Local-first RANKING of results is enforced
         // downstream by the strict geo sort — the fetch pool must stay diverse.
         if (storeCc === cc) score += 18
-        else if (userRegion && GEO_REGIONS[storeCc] === userRegion) score += 8
+        else if (storeCc === preferredMarket(cc)) score += 8
       }
       return { domain: s.domain.toLowerCase().trim(), score }
     })
@@ -992,12 +1001,12 @@ export class GlobalCatalogService {
     // still beats a weakly relevant one of the same composite tier. Brand searches
     // are skipped (the user already chose the brand explicitly).
     if (!isBrandSearch && sort === 'relevance') {
-      const userRegion = cc ? (GEO_REGIONS[cc] ?? '') : ''
+      const market = preferredMarket(cc)
       const domainOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' } }
       const composite = (url: string) => {
         const dom = domainOf(url)
         const ctry = getStoreCountry(dom)
-        const geo = cc ? (ctry === cc ? 2 : GEO_REGIONS[ctry] === userRegion ? 1 : 0) : 0
+        const geo = cc ? (ctry === cc ? 2 : ctry === market ? 1 : 0) : 0
         // Geo STRICTLY dominates: a same-country brand always outranks any
         // foreign one regardless of brand quality. Quality only breaks ties
         // within the same geo tier. (×100 ≫ any brandQualityScore range.)

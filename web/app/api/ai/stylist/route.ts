@@ -1500,7 +1500,14 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // has to produce one. Light path is unaffected (no reasoning effort
       // there, CHAT_SYSTEM is small, 1100 was never the constraint).
       const replyMaxTokens = heavy ? 2000 : 1100
-      send(heavy ? 'fabric' : 'read', heavy ? 'Thinking through the styling' : 'Reading your message', heavy ? 'reasoning.compose(style + fit + occasion)' : `parse("${question.length > 60 ? question.slice(0, 57) + '…' : question}")`)
+      // Small talk and casual chitchat (the light path) resolve in one quick
+      // model call with no catalog work at all — a step tracker implying
+      // real search/reasoning work is happening reads as theater for "hey"
+      // or "thanks". Only the heavy path (real styling questions, product
+      // search, outfit building) emits a progress event; the frontend's
+      // default empty state is a plain, minimal typing indicator, which is
+      // all a light reply ever shows since no event escalates it further.
+      if (heavy) send('fabric', 'Thinking through the styling', 'reasoning.compose(style + fit + occasion)')
       try {
         const msg = await stylistChat(messages, combinedSystem, { max_tokens: replyMaxTokens, temperature: 0.4 }, heavy)
         raw = (msg?.content ?? '').trim()

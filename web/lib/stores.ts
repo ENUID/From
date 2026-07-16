@@ -12,7 +12,11 @@ export type StoreProfile = {
   about?: string;       // one-line brand identity for AI
 };
 
-export const UCP_REGISTRY: StoreProfile[] = [
+// Raw roster before the US/India market filter below — kept as an internal
+// name so every existing consumer of UCP_REGISTRY (search, brand-health
+// cron, featured feed, brand detection) picks up the filtered set for free
+// without needing to change a single call site.
+const UCP_REGISTRY_ALL: StoreProfile[] = [
   {
     "domain": "gymsharkusa.myshopify.com",
     "categories": [
@@ -5680,6 +5684,18 @@ export function getStoreCountry(domain: string): string {
   if (d.endsWith('.zid.store')) return 'AE'  // Zid is a Saudi/Gulf e-commerce platform
   return 'US'  // default for .com / .myshopify.com
 }
+
+// Discern is US + India only — every other market's brands are dropped from
+// the live roster entirely, using the SAME getStoreCountry signal the app's
+// own geo-boost scoring already relies on elsewhere (not a fresh guess at
+// each brand's origin), so this is exactly as reliable as that existing,
+// already-audited classification. Every consumer imports UCP_REGISTRY (this
+// filtered constant), never UCP_REGISTRY_ALL, so search results, the
+// featured feed, brand detection, and the brand-health cron all
+// automatically stay within the two markets with no other call site change.
+export const UCP_REGISTRY: StoreProfile[] = UCP_REGISTRY_ALL.filter(
+  s => getStoreCountry(s.domain) === 'US' || getStoreCountry(s.domain) === 'IN',
+)
 
 // ── Best / featured brands ──────────────────────────────────────────────────────
 // Hand-picked icons: the most respected, design-forward names in the roster. These

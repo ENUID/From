@@ -5231,11 +5231,15 @@ export default function DiscernApp({
                         one active until the next real event or the final reply
                         arrives. Nothing is ever padded or replayed. */}
                     {stylistLoadingPhases.length === 0 ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
-                        <div style={{ width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.06)', color: INK }}>
-                          <StylistStepIcon icon="read" size={9} />
-                        </div>
-                        <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>Reading your message</span>
+                      // No real progress event has arrived yet — for small talk and
+                      // casual chitchat, NONE ever will (the backend only emits them
+                      // for real search/reasoning work), so this plain typing
+                      // indicator is the entire loading state a light reply shows,
+                      // not a placeholder for a tracker that's about to appear. A
+                      // "Reading your message" / "Searching" claim here would be
+                      // theater for something that needs no real work at all.
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 2px' }}>
+                        <span className="fr-dot" /><span className="fr-dot" /><span className="fr-dot" />
                       </div>
                     ) : stylistLoadingPhases.map((phase, pi) => {
                       const isLast = pi === stylistLoadingPhases.length - 1
