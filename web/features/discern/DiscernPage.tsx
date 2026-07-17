@@ -3905,6 +3905,9 @@ export default function DiscernApp({
         /* Checkmark that draws itself in as a step completes. */
         @keyframes fr-draw{from{stroke-dashoffset:15;}to{stroke-dashoffset:0;}}
         .fr-tick{stroke-dasharray:15;animation:fr-draw .34s ease .04s both;}
+        /* Soft breathing halo behind the active spinner, drawing the eye to it. */
+        @keyframes fr-halo{0%,100%{box-shadow:0 0 0 0 rgba(29,29,31,.13);}50%{box-shadow:0 0 0 5px rgba(29,29,31,0);}}
+        .fr-node-active{width:14px;height:14px;border-radius:50%;display:flex;flex-shrink:0;animation:fr-halo 1.9s ease-in-out infinite;}
         button{cursor:pointer;} a{color:inherit;}
         .fr-msg-edit-btn{opacity:0;transition:opacity .15s ease;}
         .fr-msg-hover:hover .fr-msg-edit-btn,.fr-msg-hover:focus-within .fr-msg-edit-btn{opacity:.55;}
@@ -5354,7 +5357,7 @@ export default function DiscernApp({
                                   the next node so the steps read as one sequence. */}
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 14, flexShrink: 0 }}>
                                 {isLast ? (
-                                  <span className="fr-ring" />
+                                  <span className="fr-node-active"><span className="fr-ring" /></span>
                                 ) : (
                                   <span style={{ width: 14, height: 14, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeScale .28s ease both' }}>
                                     <svg width="9" height="9" viewBox="0 0 11 11">

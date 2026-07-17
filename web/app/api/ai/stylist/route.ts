@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { groqChat, wardrobeVisionChat, stripThinkTags, stripAiDashes, looksLikeLeakedReasoning, CHAT_MODEL, FAST_MODEL } from '@/lib/groq'
 import { geminiChat } from '@/lib/gemini'
 import { GlobalCatalogService, type CatalogProgress } from '@/lib/services/GlobalCatalogService'
-import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor, decomposeQuery, GARMENT_VOCAB, GARMENT_CATEGORY } from '@/lib/queryParser'
+import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabelFor, decomposeQuery, GARMENT_VOCAB, GARMENT_CATEGORY, type SlotCategory } from '@/lib/queryParser'
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
 import { compileIntent, continueIntent, compiledReplyText, parseBudget } from '@/lib/intentCompiler'
@@ -352,6 +352,73 @@ function isProductIntent(question: string): boolean {
   const q = question.toLowerCase()
   if (decomposeQuery(q).garmentKeys.length > 0) return true
   return /\bfind\b|\bshow me\b|\blook(ing)? for\b|\brecommend\b|\bsuggest\b|\bsearch\b|\boutfit\b|\bbuild.{0,12}(look|outfit)\b|\bwhat.{0,12}wear\b|\bwear (to|for|with)\b|\bstyle (me|this|a|an|my|for)\b|\bpair (with|it)\b|\bdress (for|me)\b|\bwardrobe\b/.test(q)
+}
+
+// ── Outfit slot naming + coherence ───────────────────────────────────────────
+// A layering piece worn OVER a base top (overshirt / shacket / shirt-jacket /
+// blazer / jacket / cardigan / coat / gilet). These read as the OUTER layer of
+// an outfit, never a second "Top" — promoting them to the 'outer' slot is how
+// an outfit avoids showing two tops.
+const OUTFIT_LAYER_RE = /\b(over-?shirts?|shackets?|shirt[- ]jackets?|blazers?|bombers?|jackets?|cardigans?|overcoats?|trench(?:es|coats?)?|parkas?|puffers?|coats?|gilets?|waistcoats?|dusters?|nehru jackets?)\b/i
+
+// Human, specific slot labels straight from the query's own words — "Overshirt",
+// "Tee", "Chinos", "Loafers" — instead of the generic Top/Bottom/Shoes. Ordered
+// most-specific first; the first pattern that matches wins.
+const OUTFIT_SLOT_NAMES: [RegExp, string][] = [
+  [/\bover-?shirts?|shackets?|shirt[- ]jackets?\b/i, 'Overshirt'],
+  [/\bblazers?\b/i, 'Blazer'],
+  [/\bbombers?\b/i, 'Bomber'],
+  [/\b(denim|jean|trucker) jackets?\b/i, 'Denim Jacket'],
+  [/\bnehru jackets?\b/i, 'Nehru Jacket'],
+  [/\bjackets?\b/i, 'Jacket'],
+  [/\bcardigans?\b/i, 'Cardigan'],
+  [/\b(overcoats?|trench(?:es|coats?)?|parkas?|puffers?|coats?)\b/i, 'Coat'],
+  [/\b(gilets?|waistcoats?|vests?)\b/i, 'Vest'],
+  [/\bhoodies?|sweatshirts?\b/i, 'Hoodie'],
+  [/\b(sweaters?|jumpers?|pullovers?|knitwear|knit tops?)\b/i, 'Sweater'],
+  [/\bturtlenecks?|roll[- ]?necks?\b/i, 'Turtleneck'],
+  [/\bhenleys?\b/i, 'Henley'],
+  [/\bpolos?\b/i, 'Polo'],
+  [/\bt-?shirts?|tees?\b/i, 'Tee'],
+  [/\bkurtis?\b/i, 'Kurti'],
+  [/\bkurtas?\b/i, 'Kurta'],
+  [/\bblouses?\b/i, 'Blouse'],
+  [/\btanks?|camisoles?\b/i, 'Tank'],
+  [/\bshirts?\b/i, 'Shirt'],
+  [/\bchinos?\b/i, 'Chinos'],
+  [/\b(jeans?|denim)\b/i, 'Jeans'],
+  [/\b(joggers?|sweatpants|track pants)\b/i, 'Joggers'],
+  [/\bcargos?\b/i, 'Cargos'],
+  [/\bshorts?\b/i, 'Shorts'],
+  [/\bskirts?\b/i, 'Skirt'],
+  [/\bpalazzos?\b/i, 'Palazzo'],
+  [/\bchuridars?\b/i, 'Churidar'],
+  [/\b(trousers?|pants|slacks)\b/i, 'Trousers'],
+  [/\bloafers?\b/i, 'Loafers'],
+  [/\b(sneakers?|trainers?)\b/i, 'Sneakers'],
+  [/\bboots?\b/i, 'Boots'],
+  [/\b(sandals?|slides?|floaters?)\b/i, 'Sandals'],
+  [/\b(heels?|pumps?|stilettos?)\b/i, 'Heels'],
+  [/\b(derby|derbies|oxfords?|brogues?|dress shoes?)\b/i, 'Dress Shoes'],
+  [/\b(mules?|flats?|espadrilles?|shoes?|footwear)\b/i, 'Shoes'],
+  [/\bdress(es)?\b/i, 'Dress'],
+  [/\bsarees?|saris?\b/i, 'Saree'],
+  [/\blehengas?\b/i, 'Lehenga'],
+  [/\bjumpsuits?|rompers?\b/i, 'Jumpsuit'],
+  [/\bbelts?\b/i, 'Belt'],
+  [/\b(bags?|totes?|backpacks?|clutch(?:es)?)\b/i, 'Bag'],
+  [/\b(hats?|caps?|beanies?)\b/i, 'Hat'],
+  [/\bscarves?|scarf\b/i, 'Scarf'],
+  [/\bwatch(?:es)?\b/i, 'Watch'],
+  [/\bsunglasses|shades\b/i, 'Sunglasses'],
+]
+function outfitSlotInfo(query: string): { label: string; slotCat: SlotCategory | null } {
+  const isLayer = OUTFIT_LAYER_RE.test(query)
+  let label = 'Piece'
+  for (const [re, name] of OUTFIT_SLOT_NAMES) { if (re.test(query)) { label = name; break } }
+  // A layer always occupies the OUTER slot so it never collides with the base top.
+  const slotCat = isLayer ? 'outer' : classifyQuerySlot(query)
+  return { label, slotCat }
 }
 
 // A short reply ("casual", "neutral", "no", "blue") right after Fabrics asked a
@@ -905,7 +972,8 @@ When the shopper asks for a COMPLETE OUTFIT ("build me a look for X", "what woul
 
 Rules:
 • Use 3–4 slot queries separated by |. Each query is a precise product search for ONE distinct garment category.
-• EVERY slot must be a DIFFERENT garment category — never put two slots that search for the same type (e.g. two shirts, two shoes, two trousers). A full look for a man typically covers: trousers/jeans + shirt/top + shoes + optional outer layer or accessory. A full look for a woman: bottom or dress + top (if not a dress) + shoes + optional outer or accessory.
+• EVERY slot must be a DIFFERENT wardrobe category. NEVER two tops, two bottoms, or two pairs of shoes. Exactly ONE base top (tee, shirt, polo, kurta…) and ONE bottom and ONE pair of shoes. A t-shirt AND a kurta, or two shirts, in one look is a hard failure.
+• LAYERS ARE THE OUTER PIECE, NOT A SECOND TOP. If a look layers (overshirt, shacket, shirt-jacket, blazer, jacket, cardigan, coat), that layer is the ONE outer slot worn OVER the single base top — never count it as a second top. So a valid men's look is: base top + bottom + shoes + (optional) ONE outer layer + (optional) accessory. Do not pair a kurta with a tee, or an overshirt with a shirt — pick one base and, if layering, one outer over it.
 • Each query must name the garment TYPE explicitly: "men navy slim trousers" not "men navy", "men white linen shirt" not "men white top". This is critical — the search engine uses the garment word to filter results.
 • Format: gender + garment type + key descriptors. Example: "men dark navy slim trousers | men white linen shirt | men tan leather loafers | men camel unstructured blazer"
 • If the shopper anchors the look to a brand, you may lead one or more slot queries with that brand name.
@@ -1872,7 +1940,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         // shopper must never see the identical item in two outfit slots.
         const slotCandidates = await Promise.all(
           outfitQueries.map(async (q) => {
-            const slotCat = classifyQuerySlot(q)
+            const { label, slotCat } = outfitSlotInfo(q)
             const concepts = buildMandatoryConcepts(q)
             const results = await GlobalCatalogService.search(
               q, undefined, [], countryCode, true, concepts,
@@ -1880,11 +1948,17 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
               memorySummary, undefined, sizeForQuery(q),
             )
             const filtered = slotCat ? results.filter(p => productMatchesSlot(p, slotCat)) : results
-            return { query: q, slotCategory: slotCat ? slotLabelFor(slotCat) : null, filtered, results }
+            return { query: q, label, slotCat, filtered, results }
           })
         )
         const usedProductIds = new Set<string>()
-        outfitSlots = slotCandidates.map(({ query, slotCategory, filtered, results }) => {
+        const usedSlots = new Set<SlotCategory>()
+        const builtSlots: { query: string; slotCategory: string | null; products: any[] }[] = []
+        for (const { query, label, slotCat, filtered, results } of slotCandidates) {
+          // One piece per wardrobe slot — no two tops, two bottoms, two shoes.
+          // A layer is 'outer', so it happily coexists with a 'top' base.
+          // Accessories may repeat (belt AND bag), and an unknown slot never blocks.
+          if (slotCat && slotCat !== 'accessory' && usedSlots.has(slotCat)) continue
           const unused = <T extends { id: string }>(arr: T[]) => arr.filter(p => !usedProductIds.has(p.id))
           // Tier 1: category-correct AND unused. Tier 2: ANY unused product,
           // even off-category, rather than ever repeating one already placed
@@ -1892,12 +1966,15 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           const deduped = unused(filtered)
           const best = deduped.length > 0 ? deduped : unused(results)
           const chosen = best.slice(0, 6)
+          if (chosen.length === 0) continue
           // Reserve EVERY product shown in this slot, not just the headline
           // pick — otherwise a slot's alternative can reappear as the next
           // slot's primary, the exact duplicate this dedupe is meant to prevent.
           for (const p of chosen) usedProductIds.add(p.id)
-          return { query, slotCategory, products: chosen }
-        })
+          if (slotCat) usedSlots.add(slotCat)
+          builtSlots.push({ query, slotCategory: label, products: chosen })
+        }
+        outfitSlots = builtSlots.length > 0 ? builtSlots : null
       } catch (e) {
         console.error('[stylist] outfit search error:', e)
       }
