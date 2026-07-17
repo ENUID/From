@@ -88,29 +88,11 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 // anything was dropped. Fix: when a query names 2+ distinct garment
 // categories, run one real, separately-ranked search per category instead of
 // one ambiguous combined search.
-// keepKeys (plural): when two garment WORDS map to the same broad slot
-// category (e.g. "shirt" and "tshirt" both → 'top'), that category's
-// subquery must keep BOTH terms, not just whichever one happened to be
-// first — stripping a same-category sibling term loses a real part of what
-// the shopper asked for just as surely as stripping a different category's
-// term would.
 // Conversational filler that carries no search signal — stripped from a
 // category subquery so a store gets "men trousers", not "men i need some
 // trousers" (which can dilute Shopify's keyword match). Only whole-word,
 // leading/trailing-safe removals; garment/color/material words are never here.
 const SUBQUERY_FILLER = /\b(?:i|need|want|some|any|a|an|the|please|show|find|get|me|looking|for|would|like|could|you|help|hey|hi|hello|can|could|pls|plz|and|also|maybe|something|to|wear|buy|shop|shopping)\b/gi
-
-function stripOtherCategoryTerms(query: string, keepKeys: string[], allKeys: string[]): string {
-  let q = query
-  for (const key of allKeys) {
-    if (keepKeys.includes(key)) continue
-    for (const term of GARMENT_VOCAB[key]?.query || []) {
-      const esc = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[-\s]+/g, '[\\s-]+')
-      q = q.replace(new RegExp(`\\b${esc}\\b`, 'gi'), ' ')
-    }
-  }
-  return q.replace(/\band\b/gi, ' ').replace(/\s+/g, ' ').trim()
-}
 
 // Clean a per-category subquery down to real search signal (gender, color,
 // material, occasion, the garment) by dropping conversational filler. Falls
@@ -118,42 +100,6 @@ function stripOtherCategoryTerms(query: string, keepKeys: string[], allKeys: str
 function cleanSubQuery(q: string): string {
   const cleaned = q.replace(SUBQUERY_FILLER, ' ').replace(/\s+/g, ' ').trim()
   return cleaned.length >= 2 ? cleaned : q.trim()
-}
-
-// The set of garment SlotCategories a query names as SEPARATE items, collapsing
-// adjacent compound garments to their head (last) word. "dress shirt" → {top},
-// "shirt dress" → {dress}, "shirts and trousers" → {top, bottom}. Used to gate
-// the multi-category split so a compound garment isn't fanned into two strips.
-function separatedGarmentCategories(query: string): Set<string> {
-  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
-  // Each word → its garment KEY (single-word vocab terms only).
-  const wordKey: (string | null)[] = words.map(w => {
-    for (const [key, entry] of Object.entries(GARMENT_VOCAB)) {
-      if (!GARMENT_CATEGORY[key]) continue
-      if (entry.query.some(t => t === w && !t.includes(' ') && !t.includes('-'))) return key
-    }
-    return null
-  })
-  // Consume the MODIFIER word of a KNOWN compound so only its head contributes a
-  // category. Narrow on purpose: a blanket "adjacent garment words = compound"
-  // rule wrongly merged a bare list ("shirts trousers"). The only real
-  // collisions are the dual-purpose word "dress" (garment AND the "formal"
-  // modifier) and the shirt-jacket → shacket case.
-  const consumed = new Set<number>()
-  for (let i = 0; i + 1 < words.length; i++) {
-    const a = wordKey[i], b = wordKey[i + 1]
-    if (!a || !b) continue
-    if (a === 'dress') consumed.add(i)                        // dress shirt / dress pants / dress shoes → head
-    else if (b === 'dress') consumed.add(i)                   // shirt dress / sweater dress → dress
-    else if (a === 'shirt' && b === 'jacket') consumed.add(i) // shirt jacket → shacket (outer)
-  }
-  const cats = new Set<string>()
-  words.forEach((_, i) => {
-    if (consumed.has(i)) return
-    const k = wordKey[i]
-    if (k) { const c = GARMENT_CATEGORY[k]; if (c) cats.add(c) }
-  })
-  return cats
 }
 
 // Human, plural slot labels per garment key — "Shirts", "T-Shirts", "Trousers",
