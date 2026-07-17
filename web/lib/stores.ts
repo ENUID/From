@@ -5615,7 +5615,7 @@ const STORE_COUNTRIES: Record<string, string> = {
   'freakins.com': 'IN', 'summersomewhere.com': 'IN', 'saltattire.com': 'IN',
   'quaclothing.com': 'IN', 'bombaishirtcompany.com': 'IN',
   'thepantproject.com': 'IN', 'powerplayapparel.com': 'IN',
-  'desiminimals.com': 'IN', 'coverchord.com': 'IN', 'haruhar.com': 'IN',
+  'desiminimals.com': 'IN', 'haruhar.com': 'IN',
   'kissagoi.com': 'IN', 'gangafashions.com': 'IN', 'shopnirvanaa.com': 'IN',
   'biasedblack.com': 'IN', 'chapter2drip.com': 'IN', 'monkstory.com': 'IN',
   'ikaibyraginiahuja.com': 'IN', 'lovepangolin.com': 'IN',
@@ -5633,6 +5633,10 @@ const STORE_COUNTRIES: Record<string, string> = {
   'hommeyusa.myshopify.com': 'AU', 'theruesociety.com': 'AU',
   'myfriendjoni.com': 'AU', 'porterjames.com': 'AU', 'commonleisureweb.com': 'AU',
   'solacetheory.com': 'AU',
+  // ── Japanese brands on .com/.jp (origin Japan — dropped from the roster; a
+  //    US/Canadian brand that merely USES Japanese fabric is NOT tagged here) ──
+  'coverchord.com': 'JP', 'momotaro-jeans.com': 'JP', 'chupsocks.com': 'JP',
+  'purebluejapan.jp': 'JP',
   // ── European brands on .com ──
   'ourlegacy.com': 'SE', 'studionicholson.com': 'GB', 'toa.st': 'GB',
   'and-daughter.com': 'GB', 'pangaia.com': 'GB', 'luroq.com': 'GB',
@@ -5658,6 +5662,7 @@ export function getStoreCountry(domain: string): string {
   if (d.endsWith('.co.uk') || d.endsWith('.org.uk') || d.endsWith('.uk')) return 'GB'
   if (d.endsWith('.com.au') || d.endsWith('.net.au')) return 'AU'
   if (d.endsWith('.ca')) return 'CA'
+  if (d.endsWith('.jp') || d.endsWith('.co.jp')) return 'JP'
   if (d.endsWith('.fr')) return 'FR'
   if (d.endsWith('.it')) return 'IT'
   if (d.endsWith('.de')) return 'DE'
@@ -5675,17 +5680,20 @@ export function getStoreCountry(domain: string): string {
   return 'US'  // default for .com / .myshopify.com
 }
 
-// Discern is US + India only — every other market's brands are dropped from
-// the live roster entirely, using the SAME getStoreCountry signal the app's
-// own geo-boost scoring already relies on elsewhere (not a fresh guess at
-// each brand's origin), so this is exactly as reliable as that existing,
-// already-audited classification. Every consumer imports UCP_REGISTRY (this
-// filtered constant), never UCP_REGISTRY_ALL, so search results, the
-// featured feed, brand detection, and the brand-health cron all
-// automatically stay within the two markets with no other call site change.
-export const UCP_REGISTRY: StoreProfile[] = UCP_REGISTRY_ALL.filter(
-  s => getStoreCountry(s.domain) === 'US' || getStoreCountry(s.domain) === 'IN',
-)
+// Discern's live roster is US + Europe + India + Australia only — every other
+// market (Japan and the rest of East Asia, SE Asia, the Middle East, the rest
+// of South Asia) is dropped entirely. Classification uses the getStoreCountry signal the
+// app's own geo-boost scoring relies on (not a fresh guess at each brand's
+// origin), so it's exactly as reliable as that existing, already-audited
+// mapping; "Europe" is any country whose GEO_REGIONS entry is 'EU'. Every
+// consumer imports UCP_REGISTRY (this filtered constant), never
+// UCP_REGISTRY_ALL, so search, the featured feed, brand detection, and the
+// brand-health cron all stay within these three markets with no other change.
+const KEPT_COUNTRIES = new Set(['US', 'IN', 'AU'])
+export const UCP_REGISTRY: StoreProfile[] = UCP_REGISTRY_ALL.filter(s => {
+  const cc = getStoreCountry(s.domain)
+  return KEPT_COUNTRIES.has(cc) || GEO_REGIONS[cc] === 'EU'
+})
 
 // ── Best / featured brands ──────────────────────────────────────────────────────
 // Hand-picked icons: the most respected, design-forward names in the roster. These
@@ -5694,7 +5702,7 @@ export const ICON_BRANDS = new Set<string>([
   'ourlegacy.com', 'studionicholson.com', 'aimeleondore.com', 'fearofgod.com',
   'elder-statesman.com', 'toteme-studio.com', 'casablancaparis.com', 'norseprojects.com',
   'johnelliott.com', 'ganni.com', 'veja-store.com', 'kith.com', 'taylorstitch.com',
-  'pangaia.com', '3sixteen.com', 'momotaro-jeans.com', 'purebluejapan.jp', 'nudiejeans.com',
+  'pangaia.com', '3sixteen.com', 'nudiejeans.com',
   'citizensofhumanity.com', 'agolde.com', 'thefrankieshop.com', 'mejuri.com',
   'laurenmanoogian.com', 'oscardelarenta.com', 'reigningchamp.com', 'caseycasey.eu',
   'corridornyc.com', 'merzbschwanen.com', 'portugueseflannel.com', 'cdlp.com',
@@ -5712,7 +5720,7 @@ export const VERIFIED_GOOD_BRANDS = new Set<string>([
   'wonderlooper.com', 'kotn.com', 'colorfulstandard.com', 'girlfriend.com',
   'outdoorvoices.com', 'allbirds.com', 'marinelayer.com', 'tentree.com',
   'camper.com', 'rothys.com', 'thursdayboots.com', 'saxxunderwear.com',
-  'michaelstars.com', 'bombas.myshopify.com', 'patta.nl', 'coverchord.com',
+  'michaelstars.com', 'bombas.myshopify.com', 'patta.nl',
   'bather.com', 'outclass.ca', 'assemblylabel.com', 'alphaindustries.com',
   'tenthousand.cc', 'knix.com', 'vessi.com', 'intentionallyblank.us',
   'whimsyandrow.com', 'deadstock.ca',
