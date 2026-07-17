@@ -57,9 +57,13 @@ function cheapHash(s: string): string {
   return h.toString(36)
 }
 
-function cacheKey(query: string, products: UcpProduct[]): string {
+function cacheKey(query: string, products: UcpProduct[], tasteProfile?: string): string {
   const ids = products.map(p => p.id).sort().join(',')
-  return cheapHash(query.toLowerCase().trim() + '|' + ids)
+  // tasteProfile MUST be part of the key — it's injected into the judge prompt
+  // (profileLine) and reorders the result, so a key without it would serve one
+  // shopper's taste-biased ranking to every other shopper with the same
+  // query+products. Shoppers with no memory share the "" bucket (still cached).
+  return cheapHash(query.toLowerCase().trim() + '|' + ids + '|' + (tasteProfile?.toLowerCase().trim() || ''))
 }
 
 // ── Stage 1: BM25-lite ────────────────────────────────────────────────────────
@@ -310,7 +314,7 @@ export async function rerankByRelevance(
   // searches across different shoppers or instances skip the LLM judge
   // entirely). Either hit applies the exact same reorder-and-attach-scores
   // logic.
-  const key = cacheKey(query, topN)
+  const key = cacheKey(query, topN, tasteProfile)
   const applyCachedOrder = (ids: string[], scores: Map<string, number>): UcpProduct[] => {
     const reordered = ids
       .map(id => products.find(p => p.id === id))
@@ -332,7 +336,10 @@ export async function rerankByRelevance(
   const persisted = await readPersistentRerankCache(key)
   if (persisted) {
     // Warm the in-memory cache too, so the next request on this same
-    // instance doesn't pay even the Convex round-trip.
+    // instance doesn't pay even the Convex round-trip. Evict first — on an
+    // instance that mostly hits the persistent cache this write path would
+    // otherwise never prune and the Map would grow for the process lifetime.
+    evictCache()
     cache.set(key, { ts: Date.now(), ids: persisted.ids, scores: persisted.scores })
     return applyCachedOrder(persisted.ids, persisted.scores)
   }

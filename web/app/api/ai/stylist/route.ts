@@ -120,6 +120,42 @@ function cleanSubQuery(q: string): string {
   return cleaned.length >= 2 ? cleaned : q.trim()
 }
 
+// The set of garment SlotCategories a query names as SEPARATE items, collapsing
+// adjacent compound garments to their head (last) word. "dress shirt" → {top},
+// "shirt dress" → {dress}, "shirts and trousers" → {top, bottom}. Used to gate
+// the multi-category split so a compound garment isn't fanned into two strips.
+function separatedGarmentCategories(query: string): Set<string> {
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  // Each word → its garment KEY (single-word vocab terms only).
+  const wordKey: (string | null)[] = words.map(w => {
+    for (const [key, entry] of Object.entries(GARMENT_VOCAB)) {
+      if (!GARMENT_CATEGORY[key]) continue
+      if (entry.query.some(t => t === w && !t.includes(' ') && !t.includes('-'))) return key
+    }
+    return null
+  })
+  // Consume the MODIFIER word of a KNOWN compound so only its head contributes a
+  // category. Narrow on purpose: a blanket "adjacent garment words = compound"
+  // rule wrongly merged a bare list ("shirts trousers"). The only real
+  // collisions are the dual-purpose word "dress" (garment AND the "formal"
+  // modifier) and the shirt-jacket → shacket case.
+  const consumed = new Set<number>()
+  for (let i = 0; i + 1 < words.length; i++) {
+    const a = wordKey[i], b = wordKey[i + 1]
+    if (!a || !b) continue
+    if (a === 'dress') consumed.add(i)                        // dress shirt / dress pants / dress shoes → head
+    else if (b === 'dress') consumed.add(i)                   // shirt dress / sweater dress → dress
+    else if (a === 'shirt' && b === 'jacket') consumed.add(i) // shirt jacket → shacket (outer)
+  }
+  const cats = new Set<string>()
+  words.forEach((_, i) => {
+    if (consumed.has(i)) return
+    const k = wordKey[i]
+    if (k) { const c = GARMENT_CATEGORY[k]; if (c) cats.add(c) }
+  })
+  return cats
+}
+
 async function multiCategorySearch(
   fullQuery: string,
   budgetMax: number | null | undefined,
@@ -142,7 +178,17 @@ async function multiCategorySearch(
     if (keys) keys.push(key)
     else catToKeys.set(cat, [key])
   }
-  const categories = Array.from(catToKeys.entries()).map(([cat, keys]) => ({ cat, keys }))
+  // Only split on GENUINELY SEPARATE categories. A compound garment ("dress
+  // shirt", "shirt dress", "dress shoes") names two garment words ADJACENTLY —
+  // that's ONE item, not two, so it must not fan out into two strips (and it
+  // would double-list, since a dress-shirt product literally matches both the
+  // top and dress slots). English compounds take the LAST word as the head, so
+  // "dress shirt" → top, "shirt dress" → dress. Anything separated by other
+  // words ("shirts AND trousers", "black shirt blue jeans") is a real split.
+  const separate = separatedGarmentCategories(fullQuery)
+  const categories = Array.from(catToKeys.entries())
+    .filter(([cat]) => separate.has(cat))
+    .map(([cat, keys]) => ({ cat, keys }))
   if (categories.length < 2) return null
 
   const groups = await Promise.all(
