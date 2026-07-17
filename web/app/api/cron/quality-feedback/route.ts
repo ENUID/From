@@ -21,9 +21,30 @@ const GOOD_WEIGHT = 0.5
 
 type Agg = { badCount: number; goodCount: number; flaggers: Set<string> }
 
-function conceptKeyFor(query: string): string {
-  const { garmentKeys } = decomposeQuery(query)
-  return garmentKeys[0] || 'general'
+// The concept a flag/save is filed under MUST match the concept the reranker
+// looks it up by (relevanceRerank keys off the SEARCH query's first garment).
+// The product's own garment is the reliable bridge: a trouser resurfaces in
+// trouser-concept searches regardless of what else the original (possibly
+// multi-garment) query said. Keying off the raw query's first garment instead
+// mis-filed a flagged trouser from a "shirts and trousers" search under "shirt"
+// (vocab order), so the demotion never applied. Prefer the product's garment;
+// fall back to the query only when the title names no known garment.
+function conceptKeyFor(query: string, productTitle?: string): string {
+  if (productTitle) {
+    const fromTitle = decomposeQuery(productTitle).garmentKeys[0]
+    if (fromTitle) return fromTitle
+  }
+  return decomposeQuery(query).garmentKeys[0] || 'general'
+}
+
+// The agg keys are `${conceptKey} ${targetId}` where targetId (a vendor name or
+// product id) can itself contain spaces ("Rare Rabbit"). concept keys never do,
+// so split on the FIRST space only — a plain split(' ') truncated multi-word
+// vendors to their first word, and the read side then never matched the full
+// vendor name, so vendor-level demotion silently did nothing.
+function splitAggKey(key: string): [string, string] {
+  const i = key.indexOf(' ')
+  return i < 0 ? [key, ''] : [key.slice(0, i), key.slice(i + 1)]
 }
 
 export async function GET(req: NextRequest) {
@@ -60,14 +81,14 @@ export async function GET(req: NextRequest) {
 
     for (const r of badRows || []) {
       if (!r.query || !r.productId) continue
-      const concept = conceptKeyFor(r.query)
+      const concept = conceptKeyFor(r.query, r.productTitle)
       const flagger = r.userId ? String(r.userId) : undefined
       bump(productAgg, `${concept} ${r.productId}`, 'badCount', flagger)
       if (r.vendor) bump(vendorAgg, `${concept} ${r.vendor.toLowerCase().trim()}`, 'badCount', flagger)
     }
     for (const r of goodRows || []) {
       if (!r.query || !r.productId) continue
-      const concept = conceptKeyFor(r.query)
+      const concept = conceptKeyFor(r.query, r.title)
       bump(productAgg, `${concept} ${r.productId}`, 'goodCount')
       if (r.vendor) bump(vendorAgg, `${concept} ${r.vendor.toLowerCase().trim()}`, 'goodCount')
     }
@@ -79,7 +100,7 @@ export async function GET(req: NextRequest) {
 
     for (const [key, agg] of Array.from(productAgg)) {
       if (agg.badCount < 1) continue // a product needs at least one real flag to be adjustment-eligible
-      const [conceptKey, targetId] = key.split(' ')
+      const [conceptKey, targetId] = splitAggKey(key)
       const score = Math.max(0, agg.badCount - GOOD_WEIGHT * agg.goodCount)
       adjustments.push({ scope: 'product', conceptKey, targetId, score, badCount: agg.badCount, goodCount: agg.goodCount, distinctFlaggers: agg.flaggers.size })
     }
@@ -88,7 +109,7 @@ export async function GET(req: NextRequest) {
       // — requires real corroboration (several distinct shoppers), not one
       // person's bad day with a single item.
       if (agg.badCount < VENDOR_MIN_BAD || agg.flaggers.size < VENDOR_MIN_FLAGGERS) continue
-      const [conceptKey, targetId] = key.split(' ')
+      const [conceptKey, targetId] = splitAggKey(key)
       const score = Math.max(0, agg.badCount - GOOD_WEIGHT * agg.goodCount)
       if (score <= 0) continue
       adjustments.push({ scope: 'vendor', conceptKey, targetId, score, badCount: agg.badCount, goodCount: agg.goodCount, distinctFlaggers: agg.flaggers.size })

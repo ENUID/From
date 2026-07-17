@@ -82,7 +82,7 @@ export const getSavedProductsForAggregation = query({
     const rows = await ctx.db.query("saved_products").order("desc").take(5000);
     return rows
       .filter((r) => r.savedAt >= args.since && !!r.query)
-      .map((r) => ({ query: r.query!, productId: r.product?.id, vendor: r.product?.vendor }));
+      .map((r) => ({ query: r.query!, productId: r.product?.id, vendor: r.product?.vendor, title: r.product?.title }));
   },
 });
 

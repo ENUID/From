@@ -5263,37 +5263,36 @@ export default function DiscernApp({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 2px' }}>
                         <span className="fr-dot" /><span className="fr-dot" /><span className="fr-dot" />
                       </div>
-                    ) : stylistLoadingPhases.map((phase, pi) => {
-                      const isLast = pi === stylistLoadingPhases.length - 1
-                      const state = isLast ? 'active' : 'done'
-                      return (
-                        <div key={pi} style={{ display: 'flex', gap: 10, animation: 'fadeUp .28s ease' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                            <div style={{
-                              width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              background: state === 'active' ? INK : 'rgba(0,0,0,.05)',
-                              color: state === 'active' ? '#fff' : 'rgba(0,0,0,.45)',
-                              transition: 'background .25s ease, color .25s ease',
-                            }}>
-                              <StylistStepIcon icon={phase.icon} size={9} />
+                    ) : (
+                      // Minimal, elegant live tracker: one quiet line per REAL
+                      // step, completed ones softly faded, only the current one
+                      // dark with a gentle pulsing dot. No icons, connecting
+                      // threads, or monospace debug lines — the full technical
+                      // trace still lives in the collapsible "Show reasoning"
+                      // below for anyone who wants the detail after the fact.
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '2px 0' }}>
+                        {stylistLoadingPhases.map((phase, pi) => {
+                          const isLast = pi === stylistLoadingPhases.length - 1
+                          return (
+                            <div key={pi} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .3s ease' }}>
+                              <span style={{
+                                width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                                background: isLast ? INK : 'rgba(0,0,0,.2)',
+                                animation: isLast ? 'fr-step-glow 1.6s ease-in-out infinite' : undefined,
+                                transition: 'background .25s ease',
+                              }} />
+                              <span style={{
+                                fontFamily: SANS, fontSize: 12, lineHeight: '16px',
+                                color: isLast ? INK : INK3, fontWeight: isLast ? 500 : 400,
+                                opacity: isLast ? 1 : 0.55,
+                                transition: 'color .25s ease, opacity .25s ease',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              }}>{phase.main}</span>
                             </div>
-                            {!isLast && <div style={{ width: 1, flex: 1, minHeight: 10, marginTop: 2, marginBottom: 2, background: 'rgba(0,0,0,.1)' }} />}
-                          </div>
-                          <div style={{ paddingBottom: isLast ? 0 : 10, minWidth: 0 }}>
-                            <div style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 500, lineHeight: '16px', color: state === 'active' ? INK : INK3 }}>{phase.main}</div>
-                            {phase.trace.length > 0 && (
-                              <div style={{ marginTop: 3 }}>
-                                {phase.trace.map((line, li) => (
-                                  <div key={li} style={{ fontFamily: "'SF Mono',ui-monospace,Menlo,Consolas,monospace", fontSize: 10, lineHeight: '15px', color: 'rgba(0,0,0,.42)' }}>
-                                    {line}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
