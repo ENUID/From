@@ -3364,9 +3364,12 @@ export default function DiscernApp({
     setStylistMsgs(prev => prev.map(m => {
       if (m.role !== 'assistant') return m
       const foundProducts = m.foundProducts?.filter(x => x.id !== p.id)
-      const foundProductGroups = m.foundProductGroups?.map(g => ({
-        ...g, products: g.products.filter(x => x.id !== p.id),
-      }))
+      // Drop a category strip that just lost its last product, so flagging the
+      // only item in a group doesn't leave an empty labeled strip with a lone
+      // "See more" button behind.
+      const foundProductGroups = m.foundProductGroups
+        ?.map(g => ({ ...g, products: g.products.filter(x => x.id !== p.id) }))
+        .filter(g => g.products.length > 0)
       return { ...m, foundProducts, foundProductGroups }
     }))
   }
