@@ -156,79 +156,108 @@ function separatedGarmentCategories(query: string): Set<string> {
   return cats
 }
 
+// Human, plural slot labels per garment key — "Shirts", "T-Shirts", "Trousers",
+// "Kurtas" — so each strip is named by the actual garment, not a generic
+// Top/Bottom. Falls back to the slot label for anything unmapped.
+const GARMENT_DISPLAY: Record<string, string> = {
+  shirt: 'Shirts', tshirt: 'T-Shirts', blouse: 'Blouses', polo: 'Polos', tank: 'Tanks',
+  sweater: 'Sweaters', hoodie: 'Hoodies', cardigan: 'Cardigans', henley: 'Henleys', turtleneck: 'Turtlenecks',
+  trouser: 'Trousers', jean: 'Jeans', chino: 'Chinos', short: 'Shorts', skirt: 'Skirts', legging: 'Leggings',
+  cargo: 'Cargos', jogger: 'Joggers', sweatpant: 'Sweatpants', culotte: 'Culottes', capri: 'Capris',
+  jacket: 'Jackets', blazer: 'Blazers', coat: 'Coats', vest: 'Vests', bomber: 'Bombers', denimJacket: 'Denim Jackets', windbreaker: 'Windbreakers',
+  dress: 'Dresses', jumpsuit: 'Jumpsuits', bodysuit: 'Bodysuits', gown: 'Gowns',
+  shoe: 'Shoes', sneaker: 'Sneakers', boot: 'Boots', loafer: 'Loafers', sandal: 'Sandals', heel: 'Heels', derby: 'Dress Shoes', espadrille: 'Espadrilles', clog: 'Clogs', mule: 'Mules', flat: 'Flats',
+  kurta: 'Kurtas', kurti: 'Kurtis', saree: 'Sarees', lehenga: 'Lehengas', anarkali: 'Anarkalis', kaftan: 'Kaftans', palazzo: 'Palazzos', churidar: 'Churidars', sharara: 'Shararas', gharara: 'Ghararas', dhoti: 'Dhotis', salwarKameez: 'Salwar Kameez', sherwani: 'Sherwanis', nehruJacket: 'Nehru Jackets', bandhgala: 'Bandhgalas', dupatta: 'Dupattas',
+  bag: 'Bags', tote: 'Totes', backpack: 'Backpacks', hat: 'Hats', scarf: 'Scarves', belt: 'Belts', sock: 'Socks', sunglasses: 'Sunglasses', watch: 'Watches', jewelry: 'Jewelry', wallet: 'Wallets',
+}
+function garmentLabel(key: string): string {
+  if (GARMENT_DISPLAY[key]) return GARMENT_DISPLAY[key]
+  const cat = GARMENT_CATEGORY[key]
+  return cat ? slotLabelFor(cat) : 'Pieces'
+}
+
+// The DISTINCT garments a query names, in order, collapsing compounds to one
+// ("dress shirt" → shirt only) — the split unit for multi-category results, so
+// "shirts, trousers and tshirts" yields three garments (shirt, trouser, tshirt)
+// even though shirt and tshirt share the broad "top" slot.
+function separatedGarmentKeys(query: string): string[] {
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  const wordKey: (string | null)[] = words.map(w => {
+    const ws = w.replace(/s$/, '') // tolerate a plural the vocab lists only in singular ("tshirts" → "tshirt")
+    for (const [key, entry] of Object.entries(GARMENT_VOCAB)) {
+      if (!GARMENT_CATEGORY[key]) continue
+      for (const t of entry.query) {
+        if (t.includes(' ') || t.includes('-')) continue
+        if (t === w || t.replace(/s$/, '') === ws) return key
+      }
+    }
+    return null
+  })
+  const consumed = new Set<number>()
+  for (let i = 0; i + 1 < words.length; i++) {
+    const a = wordKey[i], b = wordKey[i + 1]
+    if (!a || !b) continue
+    if (a === 'dress') consumed.add(i)
+    else if (b === 'dress') consumed.add(i)
+    else if (a === 'shirt' && b === 'jacket') consumed.add(i)
+  }
+  const keys: string[] = []
+  words.forEach((_, i) => {
+    if (consumed.has(i)) return
+    const k = wordKey[i]
+    if (k && !keys.includes(k)) keys.push(k)
+  })
+  return keys
+}
+
 async function multiCategorySearch(
   fullQuery: string,
   budgetMax: number | null | undefined,
   countryCode: string | null,
   buyerCurrency: string,
   memorySummary: string | undefined,
-  // Per-category size, not one shared value — the shopper's TOP size must not
+  // Per-garment size, not one shared value — the shopper's TOP size must not
   // nudge the bottoms strip. Resolved per subQuery from its own garment slot.
   sizeForQuery: (q: string) => string | null,
   onProgress?: CatalogProgress,
 ): Promise<{ label: string; products: any[]; query: string }[] | null> {
-  const { garmentKeys } = decomposeQuery(fullQuery)
-  // Group by SlotCategory (not by individual garment key) — "shirts and
-  // t-shirts" is one "Tops" strip, not two identically-labeled ones. Every
-  // key that shares a category is kept together so stripOtherCategoryTerms
-  // above can preserve all of them in that category's subquery.
-  const catToKeys = new Map<string, string[]>()
-  for (const key of garmentKeys) {
-    const cat = GARMENT_CATEGORY[key]
-    if (!cat) continue
-    const keys = catToKeys.get(cat)
-    if (keys) keys.push(key)
-    else catToKeys.set(cat, [key])
-  }
-  // Only split on GENUINELY SEPARATE categories. A compound garment ("dress
-  // shirt", "shirt dress", "dress shoes") names two garment words ADJACENTLY —
-  // that's ONE item, not two, so it must not fan out into two strips (and it
-  // would double-list, since a dress-shirt product literally matches both the
-  // top and dress slots). English compounds take the LAST word as the head, so
-  // "dress shirt" → top, "shirt dress" → dress. Anything separated by other
-  // words ("shirts AND trousers", "black shirt blue jeans") is a real split.
-  const separate = separatedGarmentCategories(fullQuery)
-  const categories = Array.from(catToKeys.entries())
-    .filter(([cat]) => separate.has(cat))
-    .map(([cat, keys]) => ({ cat, keys }))
-  if (categories.length < 2) return null
+  const decomp = decomposeQuery(fullQuery)
+  // One strip PER DISTINCT GARMENT the shopper named — "shirts, trousers and
+  // tshirts" is three strips (Shirts, Trousers, T-Shirts), not two merged by
+  // broad slot. Compounds still collapse ("dress shirt" is one shirt), so the
+  // strip count genuinely tracks the request. Fewer than two garments → single
+  // search (the caller handles it).
+  const keys = separatedGarmentKeys(fullQuery)
+  if (keys.length < 2) return null
+
+  // Each garment's subquery is the SHARED modifiers (gender, colour, material,
+  // fit) + that garment's own term, built from parts rather than by stripping
+  // the sentence — stripping "shirt" out of "t-shirt" is exactly the substring
+  // collision that would corrupt a per-garment split.
+  const sharedBits = [decomp.gender, ...decomp.colors, ...decomp.materials, ...decomp.fits].filter(Boolean) as string[]
+  const shared = sharedBits.join(' ')
 
   const groups = await Promise.all(
-    categories.map(async ({ cat, keys }) => {
-      const subQuery = cleanSubQuery(stripOtherCategoryTerms(fullQuery, keys, garmentKeys)) || GARMENT_VOCAB[keys[0]]?.query[0] || fullQuery
+    keys.map(async (key) => {
+      const garmentTerm = GARMENT_VOCAB[key]?.query[0] || key
+      const subQuery = cleanSubQuery([shared, garmentTerm].filter(Boolean).join(' ')) || garmentTerm
+      const cat = GARMENT_CATEGORY[key] as SlotCategory | undefined
       const concepts = buildMandatoryConcepts(subQuery)
+      const label = garmentLabel(key)
       try {
-        // rerankQuery (last-but-one arg) is subQuery here, NOT the full
-        // original question — subQuery already keeps every non-garment word
-        // (occasion, material, "beach party", etc.), so the LLM judge loses
-        // no real context, but bm25Scores() internally derives its
-        // quality-feedback concept key from THIS SAME string via
-        // decomposeQuery(...).garmentKeys[0] — passing the full combined
-        // question here made every category branch resolve to whichever
-        // garment word appeared first in the whole sentence (always the
-        // same category), so relevance_adjustments demotion was being
-        // looked up under the wrong concept for every category but the
-        // first one.
-        // Each category's real fetch/judge boundaries stream up labeled with
-        // its garment ("…for tops", "…for bottoms"), so two categories running
-        // in parallel read as one coherent live activity log rather than two
-        // anonymous searches racing each other.
-        const catLabel = slotLabelFor(cat as any)
         const found = await GlobalCatalogService.search(
           subQuery, budgetMax, [], countryCode, true, concepts,
           'relevance', buyerCurrency,
-          { fastFirstPage: true, onProgress: onProgress ? (e => onProgress({ ...e, label: catLabel })) : undefined },
+          { fastFirstPage: true, onProgress: onProgress ? (e => onProgress({ ...e, label })) : undefined },
           [], memorySummary, subQuery, sizeForQuery(subQuery),
         )
-        const filtered = found.filter(p => productMatchesSlot(p, cat as any))
+        const filtered = cat ? found.filter(p => productMatchesSlot(p, cat)) : found
         const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, MULTI_CATEGORY_PER_GROUP_CAP)
-        // subQuery (not fullQuery) is what "See more" on this specific group
-        // re-runs, category-scoped, on the frontend — same reasoning as why
-        // rerankQuery uses it above.
-        return { label: slotLabelFor(cat as any), products: chosen, query: subQuery }
+        // subQuery is what this strip's "See more" re-runs on the frontend.
+        return { label, products: chosen, query: subQuery }
       } catch (e) {
         console.error('[stylist] multi-category search error:', e)
-        return { label: slotLabelFor(cat as any), products: [], query: subQuery }
+        return { label, products: [], query: subQuery }
       }
     })
   )

@@ -5163,7 +5163,11 @@ export default function DiscernApp({
                         {m.foundProductGroups.map((group, gi) => (
                           <div key={gi} style={{ marginTop: gi > 0 ? 14 : 0 }}>
                             <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>{group.label}</div>
-                            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 } as React.CSSProperties}>
+                            {/* Wrap into a visible grid (not a single horizontal
+                                strip) so "See more" products flow onto new rows
+                                in view, instead of being appended off-screen to
+                                the right where they looked like nothing loaded. */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 2 }}>
                               {group.products.map(p => renderFoundProductCard(p, m.searchQuery))}
                             </div>
                             {group.query && !group.hasNoMore && (
