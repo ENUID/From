@@ -342,6 +342,18 @@ function isReactionOnly(question: string): boolean {
   return !wantsChange
 }
 
+// Whether a message genuinely intends to FIND or BUILD products — a garment is
+// named, or a clear find/show/outfit/style verb. Used ONLY to gate the
+// "Thinking through the styling" indicator: a plain conversational turn that
+// merely routed heavy ("also I need your help", "no, a coding project") should
+// not show a styling animation. If a real search does happen, it streams its
+// own progress once it actually starts, so nothing is lost by being strict here.
+function isProductIntent(question: string): boolean {
+  const q = question.toLowerCase()
+  if (decomposeQuery(q).garmentKeys.length > 0) return true
+  return /\bfind\b|\bshow me\b|\blook(ing)? for\b|\brecommend\b|\bsuggest\b|\bsearch\b|\boutfit\b|\bbuild.{0,12}(look|outfit)\b|\bwhat.{0,12}wear\b|\bwear (to|for|with)\b|\bstyle (me|this|a|an|my|for)\b|\bpair (with|it)\b|\bdress (for|me)\b|\bwardrobe\b/.test(q)
+}
+
 // A short reply ("casual", "neutral", "no", "blue") right after Fabrics asked a
 // styling question ("what vibe?", "what colours?"). These carry no garment of
 // their own, so without this they route to the chat path and Fabrics just asks
@@ -1677,7 +1689,11 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // search, outfit building) emits a progress event; the frontend's
       // default empty state is a plain, minimal typing indicator, which is
       // all a light reply ever shows since no event escalates it further.
-      if (heavy) send('fabric', 'Thinking through the styling', 'reasoning.compose(style + fit + occasion)')
+      // Only show the styling-thinking indicator when there's a genuine product
+      // intent. A conversational turn that merely routed heavy ("also I need
+      // your help", a short off-topic aside) shows the plain typing dots
+      // instead — a real search still streams its own progress when it starts.
+      if (heavy && isProductIntent(question)) send('fabric', 'Thinking through the styling', 'reasoning.compose(style + fit + occasion)')
       try {
         const msg = await stylistChat(messages, combinedSystem, { max_tokens: replyMaxTokens, temperature: 0.4 }, heavy)
         raw = (msg?.content ?? '').trim()
