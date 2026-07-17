@@ -3885,6 +3885,8 @@ export default function DiscernApp({
         .fr-type-caret{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:fr-caret-blink 1s step-start infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(0,0,0,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
+        /* Active loading-step label: a soft light sweeps across the ink text. */
+        .fr-shimmer{background:linear-gradient(90deg,#8E8E93 0%,#8E8E93 30%,#1D1D1F 48%,#1D1D1F 52%,#8E8E93 70%,#8E8E93 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.2s linear infinite;}
         button{cursor:pointer;} a{color:inherit;}
         .fr-msg-edit-btn{opacity:0;transition:opacity .15s ease;}
         .fr-msg-hover:hover .fr-msg-edit-btn,.fr-msg-hover:focus-within .fr-msg-edit-btn{opacity:.55;}
@@ -5318,30 +5320,38 @@ export default function DiscernApp({
                         <span className="fr-dot" /><span className="fr-dot" /><span className="fr-dot" />
                       </div>
                     ) : (
-                      // Minimal, elegant live tracker: one quiet line per REAL
-                      // step, completed ones softly faded, only the current one
-                      // dark with a gentle pulsing dot. No icons, connecting
-                      // threads, or monospace debug lines — the full technical
-                      // trace still lives in the collapsible "Show reasoning"
-                      // below for anyone who wants the detail after the fact.
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '2px 0' }}>
+                      // Live tracker: one quiet line per REAL backend step.
+                      // Completed steps settle into a small muted tick; the
+                      // current one gets a spinning ring and a soft shimmer
+                      // sweeping across its label (the sub-animation) so there's
+                      // a genuine sense of live work without any noise. Each line
+                      // rises in with a staggered fade. The full technical trace
+                      // still lives in the collapsible "Show reasoning" below.
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '3px 0' }}>
                         {stylistLoadingPhases.map((phase, pi) => {
                           const isLast = pi === stylistLoadingPhases.length - 1
                           return (
-                            <div key={pi} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .3s ease' }}>
-                              <span style={{
-                                width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-                                background: isLast ? INK : 'rgba(0,0,0,.2)',
-                                animation: isLast ? 'fr-step-glow 1.6s ease-in-out infinite' : undefined,
-                                transition: 'background .25s ease',
-                              }} />
-                              <span style={{
-                                fontFamily: SANS, fontSize: 12, lineHeight: '16px',
-                                color: isLast ? INK : INK3, fontWeight: isLast ? 500 : 400,
-                                opacity: isLast ? 1 : 0.55,
-                                transition: 'color .25s ease, opacity .25s ease',
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                              }}>{phase.main}</span>
+                            <div key={pi} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .34s cubic-bezier(.32,.9,.4,1) both' }}>
+                              <span style={{ width: 12, height: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {isLast ? (
+                                  // Spinning ring — the primary "working" cue.
+                                  <span style={{
+                                    width: 12, height: 12, borderRadius: '50%',
+                                    border: '1.5px solid rgba(0,0,0,.12)', borderTopColor: INK,
+                                    animation: 'spin .7s linear infinite',
+                                  }} />
+                                ) : (
+                                  // Done — a small tick that fades in.
+                                  <svg width="11" height="11" viewBox="0 0 11 11" style={{ animation: 'fadeScale .3s ease both' }}>
+                                    <path d="M2.5 5.8 L4.4 7.7 L8.5 3.3" fill="none" stroke="rgba(0,0,0,.32)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                )}
+                              </span>
+                              {isLast ? (
+                                <span className="fr-shimmer" style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{phase.main}</span>
+                              ) : (
+                                <span style={{ fontFamily: SANS, fontSize: 12, lineHeight: '16px', color: INK3, opacity: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'opacity .3s ease' }}>{phase.main}</span>
+                              )}
                             </div>
                           )
                         })}
