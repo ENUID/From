@@ -310,16 +310,36 @@ async function refineSearchQuery(originalQuery: string, shopperQuestion: string)
 // Conversational messages (greetings, chitchat, emotional support) go straight to Groq.
 function isHeavyQuery(question: string): boolean {
   const q = question.toLowerCase()
+  // Any recognized garment is a shopping intent — use the real vocabulary
+  // (robust plurals / synonyms / Indian wear) so "shirts", "overshirts",
+  // "kurta" route to the path that can actually SEARCH, not the chat path.
+  if (decomposeQuery(q).garmentKeys.length > 0) return true
   return (
-    /\bfind\b|\bshow\b|\blook for\b|\brecommend\b|\bsuggest\b|\bsearch\b|\bwhere can i\b/.test(q) ||
+    /\bfind\b|\bshow\b|\blook for\b|\blooking for\b|\brecommend\b|\bsuggest\b|\bsearch\b|\bwhere can i\b|\bneed\b|\bwant\b|\bget me\b|\bbuy\b|\bshop\b/.test(q) ||
     /\boutfit\b|\bbuild.{0,10}look|\bcomplete.{0,10}look|\bwhat.{0,10}wear\b/.test(q) ||
-    /\bshirt\b|\bjacket\b|\bblazer\b|\bcoat\b|\btrouser|\bpant\b|\bjean|\bdress\b|\bshoe|\bsneaker|\bboot|\bloafer|\bsandal/.test(q) ||
     /\blinen\b|\bcotton\b|\bwool\b|\bcashmere\b|\bsilk\b|\bleather\b|\bsuede\b|\bfabric\b|\bmaterial\b/.test(q) ||
     /\bwedding\b|\bwork\b|\boffice\b|\bdate night\b|\bformal\b|\bdinner\b|\bparty\b|\bevent\b|\boccasion\b/.test(q) ||
     /\bcolou?r\b|\bmatch\b|\bpair\b|\bwear with\b|\bgo with\b/.test(q) ||
     /\bcompar|\bvs\b|\bbetter\b|\bdifference\b|\bprefer\b/.test(q) ||
     /\bprice\b|\bcost\b|\bbudget\b|\bworth\b/.test(q) ||
     /\bstyle\b|\blook\b|\baesthetic\b|\bvibes?\b/.test(q)
+  )
+}
+
+// A short reply ("casual", "neutral", "no", "blue") right after Fabrics asked a
+// styling question ("what vibe?", "what colours?"). These carry no garment of
+// their own, so without this they route to the chat path and Fabrics just asks
+// ANOTHER question instead of searching — the exact "it keeps saying got it and
+// never finds anything" loop. Routing them heavy lets it deliver [SEARCH:].
+function isShoppingContinuation(question: string, lastAssistant: string): boolean {
+  const q = question.trim()
+  if (q.length === 0 || q.length > 40) return false // a real new message, not a terse answer
+  const la = (lastAssistant || '').trim()
+  if (!la.endsWith('?')) return false               // the assistant wasn't asking
+  const laLower = la.toLowerCase()
+  return (
+    /\bvibe\b|\boccasion\b|\bcolou?rs?\b|\baiming for\b|\bwhat are you\b|\bwhat.{0,12}(wear|looking|need|after)\b|\baccessor|\bfit\b|\bbudget\b|\bstyle\b|\bformal or\b|\bcasual or\b/.test(laLower) ||
+    decomposeQuery(laLower).garmentKeys.length > 0
   )
 }
 
@@ -762,6 +782,7 @@ const SYSTEM = `You are Fabrics, a personal stylist inside the Discern shopping 
 • NEVER name specific brands in your text response unless the shopper explicitly asked about that brand. Do not write "pair with a Zara shirt" or "try Gucci loafers" or any brand name. You do not know the Discern catalog by heart. Describe garment types, materials, colours, and silhouettes — the [SEARCH:] and [OUTFIT:] tokens find the real pieces. Off-catalog brand names in your reply is a failure.
 • NEVER describe an outfit in text without emitting [OUTFIT:]. If you are suggesting what to wear, naming components of a look, or building any combination of pieces — you MUST end the reply with [OUTFIT: ...]. Plain-text outfit descriptions with no token are a failure mode. The shopper cannot buy text.
 • BE AGENTIC. NEVER ASK PERMISSION TO ACT. When the shopper asks for an outfit, a recommendation, or to find something, deliver the FINISHED result in THIS reply — emit [OUTFIT:] or [SEARCH:] in the same message as your one-line concept. NEVER propose a look in words and then ask "how does that sound?", "want me to put it together?", "shall I build it?", or reply "on it" / "let me pull that together" and stop. Describing-then-waiting is a failure. The shopper must never have to approve a step, repeat themselves, or ask "where is it". One request → the complete, built result, in one turn. Carry the whole job through yourself without checking in.
+• DON'T INTERROGATE — SEARCH. The moment the shopper has named what they want, even loosely ("some overshirts", "a linen shirt", "something for a wedding"), you SEARCH. Emit [SEARCH:] (or [OUTFIT:]) with sensible defaults, do NOT keep asking. Ask AT MOST ONE short clarifying question in a whole thread, and only if you genuinely cannot search without it — and if you do ask it, the shopper's answer is your cue to DELIVER (emit the token), NEVER to ask a second question. The "Got it, what vibe? … what colour? … any accessories? … anything else to tweak?" pattern is a hard failure — that is interviewing, not styling. When unsure of a detail, pick a tasteful default and search now; the shopper refines from real products, not from your questions. Every shopping reply must end with a [SEARCH:] or [OUTFIT:] token, never with a question mark when you could have searched.
 • When asked to "show", "give", "which one", or "that product," output [PRODUCT:N] (0-indexed: PRODUCT 1 → [PRODUCT:0], PRODUCT 2 → [PRODUCT:1]). The app renders this as a tappable product card.
 • Example: "Go with [PRODUCT:0], the linen weight is perfect for summer." Do not just name the product in text when you can reference it with [PRODUCT:N].
 
@@ -1603,7 +1624,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // material/occasion keyword to match, so without this the shopper's own
       // pinned items were invisible to the model and it would ask them to
       // re-specify what it could already see attached to the message.
-      const heavy = products.length > 0 || isHeavyQuery(question) || isActionFollowThrough(question, lastAssistant)
+      const heavy = products.length > 0 || isHeavyQuery(question) || isActionFollowThrough(question, lastAssistant) || isShoppingContinuation(question, lastAssistant)
       const combinedSystem = heavy
         ? (contextBlock ? `${SYSTEM}\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}` : SYSTEM)
         : CHAT_SYSTEM

@@ -2765,7 +2765,20 @@ export default function DiscernApp({
   // new messages, but every step the tracker advances through and every
   // trace line it reveals, so the growing step list never runs on ahead of
   // what's actually visible on screen.
-  useEffect(() => { if (stylistScrollRef.current) stylistScrollRef.current.scrollTop = stylistScrollRef.current.scrollHeight }, [stylistMsgs, stylistLoading, stylistLoadingPhases])
+  useEffect(() => {
+    const el = stylistScrollRef.current
+    if (!el) return
+    const toBottom = () => { el.scrollTop = el.scrollHeight }
+    toBottom()
+    // Re-run after layout paints — during streaming the content height keeps
+    // growing and the reply→dissolve handoff shifts the layout AFTER the first
+    // scroll fired, which left the newest message stranded under the floating
+    // search bar. A post-paint pass (and one more a beat later, to cover the
+    // ~220ms dissolve) guarantees the latest message settles fully in view.
+    const raf = requestAnimationFrame(toBottom)
+    const t = setTimeout(toBottom, 260)
+    return () => { cancelAnimationFrame(raf); clearTimeout(t) }
+  }, [stylistMsgs, stylistLoading, stylistLoadingPhases, stylistDissolving])
 
   // Restore the session ID that was actually active, matching stylistMsgs'
   // own restore logic above — not just "always the most recent one".
