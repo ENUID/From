@@ -3900,6 +3900,11 @@ export default function DiscernApp({
         .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(0,0,0,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
         /* Active loading-step label: a soft light sweeps across the ink text. */
         .fr-shimmer{background:linear-gradient(90deg,#8E8E93 0%,#8E8E93 30%,#1D1D1F 48%,#1D1D1F 52%,#8E8E93 70%,#8E8E93 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.2s linear infinite;}
+        /* Smooth comet-tail spinner for the active step node (conic + ring mask). */
+        .fr-ring{width:14px;height:14px;border-radius:50%;flex-shrink:0;background:conic-gradient(from 0deg,rgba(29,29,31,0) 0%,rgba(29,29,31,.18) 45%,#1D1D1F 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 2px));animation:spin .8s linear infinite;}
+        /* Checkmark that draws itself in as a step completes. */
+        @keyframes fr-draw{from{stroke-dashoffset:15;}to{stroke-dashoffset:0;}}
+        .fr-tick{stroke-dasharray:15;animation:fr-draw .34s ease .04s both;}
         button{cursor:pointer;} a{color:inherit;}
         .fr-msg-edit-btn{opacity:0;transition:opacity .15s ease;}
         .fr-msg-hover:hover .fr-msg-edit-btn,.fr-msg-hover:focus-within .fr-msg-edit-btn{opacity:.55;}
@@ -5340,31 +5345,32 @@ export default function DiscernApp({
                       // a genuine sense of live work without any noise. Each line
                       // rises in with a staggered fade. The full technical trace
                       // still lives in the collapsible "Show reasoning" below.
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '3px 0' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', padding: '3px 0' }}>
                         {stylistLoadingPhases.map((phase, pi) => {
                           const isLast = pi === stylistLoadingPhases.length - 1
                           return (
-                            <div key={pi} style={{ display: 'flex', alignItems: 'center', gap: 9, animation: 'fadeUp .34s cubic-bezier(.32,.9,.4,1) both' }}>
-                              <span style={{ width: 12, height: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div key={pi} style={{ display: 'flex', gap: 11, animation: 'fadeUp .34s cubic-bezier(.32,.9,.4,1) both' }}>
+                              {/* Rail: the step node, plus a thin connector down to
+                                  the next node so the steps read as one sequence. */}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 14, flexShrink: 0 }}>
                                 {isLast ? (
-                                  // Spinning ring — the primary "working" cue.
-                                  <span style={{
-                                    width: 12, height: 12, borderRadius: '50%',
-                                    border: '1.5px solid rgba(0,0,0,.12)', borderTopColor: INK,
-                                    animation: 'spin .7s linear infinite',
-                                  }} />
+                                  <span className="fr-ring" />
                                 ) : (
-                                  // Done — a small tick that fades in.
-                                  <svg width="11" height="11" viewBox="0 0 11 11" style={{ animation: 'fadeScale .3s ease both' }}>
-                                    <path d="M2.5 5.8 L4.4 7.7 L8.5 3.3" fill="none" stroke="rgba(0,0,0,.32)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
+                                  <span style={{ width: 14, height: 14, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeScale .28s ease both' }}>
+                                    <svg width="9" height="9" viewBox="0 0 11 11">
+                                      <path className="fr-tick" d="M2.4 5.8 L4.5 7.9 L8.6 3.2" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  </span>
                                 )}
-                              </span>
-                              {isLast ? (
-                                <span className="fr-shimmer" style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{phase.main}</span>
-                              ) : (
-                                <span style={{ fontFamily: SANS, fontSize: 12, lineHeight: '16px', color: INK3, opacity: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'opacity .3s ease' }}>{phase.main}</span>
-                              )}
+                                {!isLast && <span style={{ width: 1.5, flex: 1, minHeight: 8, marginTop: 3, marginBottom: 1, borderRadius: 1, background: 'rgba(0,0,0,.13)' }} />}
+                              </div>
+                              <div style={{ paddingBottom: isLast ? 0 : 12, minHeight: 14, display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                                {isLast ? (
+                                  <span className="fr-shimmer" style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{phase.main}</span>
+                                ) : (
+                                  <span style={{ fontFamily: SANS, fontSize: 12, lineHeight: '16px', color: INK3, opacity: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{phase.main}</span>
+                                )}
+                              </div>
                             </div>
                           )
                         })}
