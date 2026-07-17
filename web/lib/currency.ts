@@ -55,10 +55,19 @@ export function formatMoney(
   baseCurrency: string | null | undefined,
   rates?: ExchangeRates,
 ) {
-  const normalizedCurrency = normalizeCurrencyCode(currency) || 'USD'
-  const normalizedBaseCurrency = normalizeCurrencyCode(baseCurrency) || normalizedCurrency
-  
-  const convertedAmount = convertCurrencyAmount(amount, normalizedBaseCurrency, normalizedCurrency, rates)
+  const target = normalizeCurrencyCode(currency) || 'USD'
+  const base = normalizeCurrencyCode(baseCurrency) || target
+
+  // Only relabel with the TARGET currency if we can actually convert into it.
+  // A missing rate makes convertCurrencyAmount return the amount unconverted;
+  // labeling that with the target symbol shows e.g. ₹5,750 as "€5,750" (~90×
+  // wrong). So when conversion isn't possible, display honestly in the SOURCE
+  // currency instead.
+  const canConvert = base === target || !!(rates && rates[base] && rates[target])
+  const normalizedCurrency = canConvert ? target : base
+  const convertedAmount = canConvert
+    ? convertCurrencyAmount(amount, base, target, rates)
+    : (Number.isFinite(Number(amount)) ? Number(amount) : 0)
   const locale = CURRENCY_LOCALES[normalizedCurrency] || 'en-US'
 
   // Currencies that conventionally display without decimal places

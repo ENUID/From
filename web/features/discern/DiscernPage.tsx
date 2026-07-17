@@ -2042,7 +2042,18 @@ export default function DiscernApp({
       const valid = parsed.every((m: any) =>
         m && typeof m === 'object' && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
       )
-      return valid ? (parsed as StylistMsg[]) : []
+      if (!valid) return []
+      // Strip TRANSIENT UI flags before restoring — these describe an in-flight
+      // request, not durable message data. If a search/"See more" was mid-flight
+      // when the session was persisted (refresh or session-switch), a saved
+      // loadingMore/busy would render a spinner that never resolves.
+      return (parsed as StylistMsg[]).map(m => {
+        const { busy, loadingMore, ...rest } = m as any
+        const foundProductGroups = Array.isArray((rest as any).foundProductGroups)
+          ? (rest as any).foundProductGroups.map((g: any) => { const { loadingMore: _lm, ...gr } = g; return gr })
+          : (rest as any).foundProductGroups
+        return { ...rest, foundProductGroups }
+      })
     } catch { return [] }
   }
   const [stylistProducts, setStylistProducts] = useState<Product[]>([])
@@ -2247,6 +2258,11 @@ export default function DiscernApp({
     setStylistLoadingPhases([])
     setStylistLoading(true)
     const requestStartedAt = Date.now()
+    // The session this request belongs to. If the user opens a DIFFERENT
+    // conversation before it returns, the result must be discarded — grafting
+    // it onto the now-open session (by array index) corrupts that conversation
+    // and the persist/sync effects then save the corruption cross-device.
+    const originSession = stylistSessionId.current
     // Local mirror of the phases as they arrive, kept in lockstep with the
     // state setter below — needed so the FINAL list can be persisted onto
     // the message's `trace` field without racing React's state batching.
@@ -2301,6 +2317,8 @@ export default function DiscernApp({
       // well under STYLIST_FLICKER_GUARD_MS).
       const elapsed = Date.now() - requestStartedAt
       if (elapsed < STYLIST_FLICKER_GUARD_MS) await new Promise(r => setTimeout(r, STYLIST_FLICKER_GUARD_MS - elapsed))
+      // Bail if the user navigated to another conversation mid-flight.
+      if (stylistSessionId.current !== originSession) return
       if (data?.reply) {
         // Let the step tracker dissolve out before the reply appears, instead
         // of an instant swap — a clean handoff, not a jump cut.
@@ -2386,6 +2404,10 @@ export default function DiscernApp({
   const loadMoreStylistProducts = async (messageIndex: number) => {
     const msg = stylistMsgs[messageIndex]
     if (!msg || !msg.searchQuery || msg.loadingMore || msg.hasNoMore) return
+    // messageIndex is only meaningful within the session that's open now — bail
+    // on the result if the user switched, or we'd graft the products onto the
+    // message at that index in a DIFFERENT conversation.
+    const originSession = stylistSessionId.current
     setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: true } : m))
     setLoadMorePhases([])
     const startedAt = Date.now()
@@ -2405,6 +2427,7 @@ export default function DiscernApp({
       // the request actually took, just avoid an instant in-and-out flash.
       const elapsed = Date.now() - startedAt
       if (elapsed < STYLIST_FLICKER_GUARD_MS) await new Promise(r => setTimeout(r, STYLIST_FLICKER_GUARD_MS - elapsed))
+      if (stylistSessionId.current !== originSession) return
       const displayCur = shopperContext.currency || 'USD'
       const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
       const fresh: Product[] = Array.isArray(data?.foundProducts) ? dedupeById(data.foundProducts.map(withCur)) : []
@@ -2418,11 +2441,14 @@ export default function DiscernApp({
           foundProductBatches: uniqueNew.length > 0 ? [...(m.foundProductBatches || []), ...chunkIntoRows(uniqueNew.length)] : m.foundProductBatches,
           // A transient backend failure (loadMoreError) is not exhaustion —
           // keep the button so the shopper can simply try again.
-          loadingMore: false, hasNoMore: !data?.loadMoreError && uniqueNew.length === 0,
+          // A null `data` (stream/HTTP error with no result line) is a FAILURE,
+          // not exhaustion — require a real result before hiding "See more", so
+          // a transient 5xx doesn't permanently remove the button.
+          loadingMore: false, hasNoMore: !!data && !data.loadMoreError && uniqueNew.length === 0,
         }
       }))
     } catch {
-      setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: false } : m))
+      if (stylistSessionId.current === originSession) setStylistMsgs(prev => prev.map((m, i) => i === messageIndex ? { ...m, loadingMore: false } : m))
     }
   }
 
@@ -2435,6 +2461,7 @@ export default function DiscernApp({
     const msg = stylistMsgs[messageIndex]
     const group = msg?.foundProductGroups?.[groupIndex]
     if (!group || !group.query || group.loadingMore || group.hasNoMore) return
+    const originSession = stylistSessionId.current
     setStylistMsgs(prev => prev.map((m, i) => {
       if (i !== messageIndex || !m.foundProductGroups) return m
       return { ...m, foundProductGroups: m.foundProductGroups.map((g, gi) => gi === groupIndex ? { ...g, loadingMore: true } : g) }
@@ -2455,6 +2482,7 @@ export default function DiscernApp({
       })
       const elapsed = Date.now() - startedAt
       if (elapsed < STYLIST_FLICKER_GUARD_MS) await new Promise(r => setTimeout(r, STYLIST_FLICKER_GUARD_MS - elapsed))
+      if (stylistSessionId.current !== originSession) return
       const displayCur = shopperContext.currency || 'USD'
       const withCur = (p: any): Product => ({ ...p, base_currency: p.base_currency ?? p.currency ?? 'USD', currency: displayCur })
       const fresh: Product[] = Array.isArray(data?.foundProducts) ? dedupeById(data.foundProducts.map(withCur)) : []
@@ -2467,11 +2495,12 @@ export default function DiscernApp({
             const existingIds = new Set(g.products.map(p => p.id))
             const uniqueNew = fresh.filter(p => !existingIds.has(p.id))
             // Same rule as the flat list: a failed fetch keeps the button.
-            return { ...g, products: [...g.products, ...uniqueNew], loadingMore: false, hasNoMore: !data?.loadMoreError && uniqueNew.length === 0 }
+            return { ...g, products: [...g.products, ...uniqueNew], loadingMore: false, hasNoMore: !!data && !data.loadMoreError && uniqueNew.length === 0 }
           }),
         }
       }))
     } catch {
+      if (stylistSessionId.current !== originSession) return
       setStylistMsgs(prev => prev.map((m, i) => {
         if (i !== messageIndex || !m.foundProductGroups) return m
         return { ...m, foundProductGroups: m.foundProductGroups.map((g, gi) => gi === groupIndex ? { ...g, loadingMore: false } : g) }
@@ -2953,7 +2982,7 @@ export default function DiscernApp({
   const saveName = () => {
     const n = nameInput.trim()
     setUserName(n)
-    localStorage.setItem('discern_user_name', n)
+    try { localStorage.setItem('discern_user_name', n) } catch { /* private mode / quota */ }
     setIsEditing(false)
   }
   // Enter sends (like every chat app); Shift+Enter drops to a new line.
@@ -3398,7 +3427,9 @@ export default function DiscernApp({
   }, [selectedProduct?.id, sheetSizeTable])
 
   useEffect(() => {
-    if (sgDisplayUnit) localStorage.setItem('discern:sg-unit', sgDisplayUnit)
+    // Guarded — a throw here (Safari private mode / quota) would escape the
+    // effect and surface as a render error just from toggling cm/in.
+    try { if (sgDisplayUnit) localStorage.setItem('discern:sg-unit', sgDisplayUnit) } catch { /* ignore */ }
   }, [sgDisplayUnit])
 
   // AI-clean the product description — strips marketing fluff, CTAs, shipping text
