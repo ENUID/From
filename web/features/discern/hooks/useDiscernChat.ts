@@ -56,12 +56,37 @@ export function useDiscernChat(initialShopperContext: ShopperContext, initialRat
     }
   }, [shopperContext.currency])
 
+  // Once we know the account's Convex bag, reconcile the local one into it.
+  const reconciledSavesOnLogin = useRef(false)
   useEffect(() => {
-    if (convexSavedProducts) {
-      const filtered = convexSavedProducts.filter(p => !removedSavedIds.current.has(p.id))
-      setSavedProducts(normalizeProductsForCurrency(filtered, shopperContext.currency))
+    if (!convexSavedProducts) return
+    const convexClean = convexSavedProducts.filter(p => !removedSavedIds.current.has(p.id))
+    if (userEmail && authProof && !reconciledSavesOnLogin.current) {
+      // FIRST authenticated load: items saved on this device while logged out
+      // exist only in localStorage. Upload the ones the account doesn't have yet
+      // (toggle inserts when absent) so they persist to the account and show up
+      // on every other device signed into the same email — then MERGE rather
+      // than replace, so nothing local is dropped on sign-in.
+      reconciledSavesOnLogin.current = true
+      setSavedProducts(prev => {
+        const convexIds = new Set(convexClean.map(p => p.id))
+        const localOnly = prev.filter(p => !convexIds.has(p.id) && !removedSavedIds.current.has(p.id))
+        for (const p of localOnly) toggleConvexSaved({ userEmail, product: p, authProof }).catch(() => {})
+        const seen = new Set<string>()
+        const merged: Product[] = []
+        for (const p of [...localOnly, ...convexClean]) {
+          if (seen.has(p.id)) continue
+          seen.add(p.id)
+          merged.push(normalizeProductForCurrency(p, shopperContext.currency))
+        }
+        return merged
+      })
+    } else {
+      // After the initial reconcile, Convex is the source of truth — a save or
+      // unsave on ANY device flows here through the live query.
+      setSavedProducts(normalizeProductsForCurrency(convexClean, shopperContext.currency))
     }
-  }, [convexSavedProducts, shopperContext.currency])
+  }, [convexSavedProducts, shopperContext.currency, userEmail, authProof])
 
   // Always persist to localStorage regardless of login state — deletions must
   // survive refresh even when the user is signed in and Convex is slow/unavailable.

@@ -2860,6 +2860,26 @@ export default function DiscernApp({
     })
   }, [remoteStylistSessions, stylistHistory])
 
+  // One-time upload of conversations created on THIS device while logged out.
+  // They live only in localStorage until now; push any the account doesn't
+  // already have so history migrates to the account and reaches every other
+  // device on the same email. Only local-only sessions are pushed (never ones
+  // the server already lists), so this can't fight the prune/merge above.
+  const reconciledSessionsOnLogin = useRef(false)
+  useEffect(() => {
+    if (!onboardEmail || !authProof || !remoteStylistSessions || reconciledSessionsOnLogin.current) return
+    reconciledSessionsOnLogin.current = true
+    const remoteIds = new Set(remoteStylistSessions.map(r => r.sessionId))
+    for (const h of stylistHistory) {
+      if (remoteIds.has(h.id) || everSeenRemoteIds.current.has(h.id)) continue
+      let raw: string | null = null
+      try { raw = localStorage.getItem(stylistSessionLS(h.id)) } catch {}
+      if (raw && raw !== '[]') {
+        syncStylistSession({ userEmail: onboardEmail, sessionId: h.id, label: h.label, messages: raw, authProof }).catch(() => {})
+      }
+    }
+  }, [onboardEmail, authProof, remoteStylistSessions])
+
   useEffect(() => { if (selectedProduct) { setSize(null); setColor(null); setActiveImg(0); setSheetY(0); setSheetSnap('full'); setSizeGuideOpen(false); setSgTableIdx(0); setSgGroupIdx(0); setCleanDesc(null); setShippingInfo(null); setFetchedProductImages([]); setFetchedColorImages({}); setFetchedColors([]) } }, [selectedProduct])
   // When the shopper picks a colour in the drawer, jump the gallery back to the
   // first image of that colourway.
