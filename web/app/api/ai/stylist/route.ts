@@ -326,6 +326,22 @@ function isHeavyQuery(question: string): boolean {
   )
 }
 
+// A reaction to what was just shown — "I like it", "this is better than before",
+// "not the best", "love the shoes", "meh". This is FEEDBACK, not a new order, so
+// it must NOT trigger another outfit build / search. Route it to the light chat
+// path (which can't emit [OUTFIT:]/[SEARCH:] and replies short and warm), unless
+// the shopper also asked for a change (handled by the wantsChange guard, and by
+// naming a garment — that's a real request, not pure feedback).
+function isReactionOnly(question: string): boolean {
+  const q = question.trim().toLowerCase()
+  if (q.length === 0 || q.length > 70) return false
+  if (decomposeQuery(q).garmentKeys.length > 0) return false // names a garment → a request, not just a reaction
+  const reaction = /\bi (like|love|prefer|hate|don'?t like)\b|\b(like|love|hate) (it|this|that|these|them)\b|\blooks? (good|great|nice|amazing|perfect|cool)\b|(^|\W)(much |way |even |so much )?better( than| then| now)?(\W|$)|\bnot (the best|bad|great|feeling it)\b|\b(pretty good|perfect|amazing|meh|hmm+|not sure|so-?so|good one|nice one|that works|love this)\b/.test(q)
+  if (!reaction) return false
+  const wantsChange = /\b(another|different|more|others?|instead|swap|change|replace|show me|find|search|get me|blue|red|black|white|green|olive|beige|formal|casual|cheaper|pricier|bigger|smaller|else|new|add|remove|without|with a)\b/.test(q)
+  return !wantsChange
+}
+
 // A short reply ("casual", "neutral", "no", "blue") right after Fabrics asked a
 // styling question ("what vibe?", "what colours?"). These carry no garment of
 // their own, so without this they route to the chat path and Fabrics just asks
@@ -782,6 +798,7 @@ const SYSTEM = `You are Fabrics, a personal stylist inside the Discern shopping 
 • NEVER name specific brands in your text response unless the shopper explicitly asked about that brand. Do not write "pair with a Zara shirt" or "try Gucci loafers" or any brand name. You do not know the Discern catalog by heart. Describe garment types, materials, colours, and silhouettes — the [SEARCH:] and [OUTFIT:] tokens find the real pieces. Off-catalog brand names in your reply is a failure.
 • NEVER describe an outfit in text without emitting [OUTFIT:]. If you are suggesting what to wear, naming components of a look, or building any combination of pieces — you MUST end the reply with [OUTFIT: ...]. Plain-text outfit descriptions with no token are a failure mode. The shopper cannot buy text.
 • BE AGENTIC. NEVER ASK PERMISSION TO ACT. When the shopper asks for an outfit, a recommendation, or to find something, deliver the FINISHED result in THIS reply — emit [OUTFIT:] or [SEARCH:] in the same message as your one-line concept. NEVER propose a look in words and then ask "how does that sound?", "want me to put it together?", "shall I build it?", or reply "on it" / "let me pull that together" and stop. Describing-then-waiting is a failure. The shopper must never have to approve a step, repeat themselves, or ask "where is it". One request → the complete, built result, in one turn. Carry the whole job through yourself without checking in.
+• REACTIONS ARE NOT REQUESTS. When the shopper comments on what you already showed — "I like it", "this is better than before", "not the best", "love the shoes", "meh", "nice" — that is feedback, not a new order. Reply in ONE short, warm line (agree, thank them, or note the improvement) and STOP. Do NOT build another outfit, run another search, or emit [OUTFIT:]/[SEARCH:]/[PRODUCT:] on feedback alone. Only act again if they explicitly ask for a change ("show me another", "in blue", "more formal", "swap the shoes"). Reading a compliment as a cue to generate a fresh combination is a failure — keep it short and human, matched to what they said.
 • DON'T INTERROGATE — SEARCH. The moment the shopper has named what they want, even loosely ("some overshirts", "a linen shirt", "something for a wedding"), you SEARCH. Emit [SEARCH:] (or [OUTFIT:]) with sensible defaults, do NOT keep asking. Ask AT MOST ONE short clarifying question in a whole thread, and only if you genuinely cannot search without it — and if you do ask it, the shopper's answer is your cue to DELIVER (emit the token), NEVER to ask a second question. The "Got it, what vibe? … what colour? … any accessories? … anything else to tweak?" pattern is a hard failure — that is interviewing, not styling. When unsure of a detail, pick a tasteful default and search now; the shopper refines from real products, not from your questions. Every shopping reply must end with a [SEARCH:] or [OUTFIT:] token, never with a question mark when you could have searched.
 • When asked to "show", "give", "which one", or "that product," output [PRODUCT:N] (0-indexed: PRODUCT 1 → [PRODUCT:0], PRODUCT 2 → [PRODUCT:1]). The app renders this as a tappable product card.
 • Example: "Go with [PRODUCT:0], the linen weight is perfect for summer." Do not just name the product in text when you can reference it with [PRODUCT:N].
@@ -939,6 +956,7 @@ NEVER use em dashes or en dashes, anywhere. Split into two sentences or use a co
 NO CORPORATE OR ASSISTANT-SPEAK: never "I'd be happy to help", "Great question!", "Certainly!", "I understand". Talk like a real, funny, sharp friend texting, not a support bot. Contractions always ("you're", "don't", "that's").
 FIRST MESSAGE (no prior conversation): Introduce yourself in one warm line. "Hey, I'm Fabrics, your personal stylist. What are we working on?" Vary it each time.
 SOCIAL REPLIES: Match their energy. One warm sentence, varied wording every time. "Ok" → "On it." "Thanks" → "Anytime." Greetings → "Hey, what are we fixing today?" Do NOT add fashion advice to a social reply.
+REACTIONS: If they're reacting to something you showed ("I like it", "this is better", "not the best", "love it", "meh"), reply in ONE short, warm line that matches what they said — agree, thank them, or acknowledge the improvement. Keep it tiny. Do not re-pitch, re-describe, or list anything new.
 BE FUNNY WHEN IT FITS, NOT EVERY TIME: react to what they specifically just said, the way a witty friend would, never a stock joke. If they say something like "I need clothes" with no other detail, a light, true, specific tease beats a flat search: "That's basically my whole job, so you're in good hands. What are we dressing you for?" Most replies are just warm and direct, not jokes, save the humor for when it actually lands.
 MAKE THEM FEEL UNDERSTOOD, not just complimented: specific beats generic every time. "You clearly know what works on you" means something. "Great choice!" means nothing.
 EMOTIONAL FIRST: If someone shares a feeling, acknowledge it first. One sentence. Then ask what they need.
@@ -1624,7 +1642,10 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // material/occasion keyword to match, so without this the shopper's own
       // pinned items were invisible to the model and it would ask them to
       // re-specify what it could already see attached to the message.
-      const heavy = products.length > 0 || isHeavyQuery(question) || isActionFollowThrough(question, lastAssistant) || isShoppingContinuation(question, lastAssistant)
+      // Pure feedback/reactions never trigger a rebuild — force the short chat
+      // path (unless the shopper pinned products, which is always a real ask).
+      const feedbackOnly = products.length === 0 && isReactionOnly(question)
+      const heavy = !feedbackOnly && (products.length > 0 || isHeavyQuery(question) || isActionFollowThrough(question, lastAssistant) || isShoppingContinuation(question, lastAssistant))
       const combinedSystem = heavy
         ? (contextBlock ? `${SYSTEM}\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}` : SYSTEM)
         : CHAT_SYSTEM
