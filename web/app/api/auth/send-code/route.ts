@@ -101,13 +101,13 @@ export async function POST(req: NextRequest) {
           { status: 429 },
         )
       }
-      // TEMPORARY diagnostic branch — see matching comment in
-      // convex/verificationCodes.ts. Remove once the secret-mismatch issue
-      // is confirmed resolved.
+      // A server-secret mismatch is an infra misconfig, not something the
+      // shopper can act on — log it server-side, show a generic message. Never
+      // echo secret metadata (lengths / configured-state) to the client.
       if (result?.ok === false && result.reason === 'unauthorized') {
-        console.error('[send-code] createCode unauthorized, debug:', result.debug)
+        console.error('[send-code] createCode unauthorized — CONVEX_AUTH_SECRET mismatch between Vercel and Convex')
         return NextResponse.json(
-          { error: `Sign-in secret mismatch — Convex sees ${result.debug?.secretConfigured ? `a ${result.debug.secretLength}-char CONVEX_AUTH_SECRET` : 'no CONVEX_AUTH_SECRET at all'}, Vercel sent a ${result.debug?.providedLength}-char value.` },
+          { error: 'Something went wrong sending your code. Please try again in a moment.' },
           { status: 500 },
         )
       }
@@ -131,11 +131,10 @@ export async function POST(req: NextRequest) {
           detail = `Convex endpoint ${new URL(convexUrl).host} unreachable: ${probeErr?.message || 'network error'}`
         }
       }
+      // Log the full internal detail server-side; return a generic message so
+      // Convex host / HTTP-status / infra details never reach the client.
       console.error('[send-code] createCode failed:', detail)
-      // TEMPORARY: surfacing `detail` to the client while diagnosing a live
-      // sign-in failure — revert to the generic message once resolved, this
-      // could leak internal error text to end users otherwise.
-      return NextResponse.json({ error: `Sign-in failed: ${detail}` }, { status: 500 })
+      return NextResponse.json({ error: 'Something went wrong sending your code. Please try again in a moment.' }, { status: 500 })
     }
 
     const { error } = await resend.emails.send({

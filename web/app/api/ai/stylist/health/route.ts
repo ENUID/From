@@ -16,14 +16,16 @@ import { api } from '@/convex/_generated/api'
 // and reports each result separately.
 //
 // Secret-gated (no API keys are ever returned — only booleans + error text).
-// Open on the live site:
-//   https://discern.enuid.com/api/ai/stylist/health?secret=YOUR_CRON_SECRET
+// Pass the secret in the Authorization header, NOT the query string — query
+// params leak into server/access logs, browser history, and Referer headers,
+// which would expose the shared CRON_SECRET:
+//   curl -H "Authorization: Bearer $CRON_SECRET" https://.../api/ai/stylist/health
 export const maxDuration = 30
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get('secret')
-  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+  const auth = req.headers.get('authorization')
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

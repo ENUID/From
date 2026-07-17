@@ -40,12 +40,19 @@ export async function POST(req: NextRequest) {
     const salt = await bcrypt.genSalt(12)
     const passwordHash = await bcrypt.hash(password, salt)
 
-    // Store user in Convex
+    // Store user in Convex — createUser is server-secret gated (Convex is a
+    // public endpoint), so this route is the only caller that can create rows.
+    const serverSecret = process.env.CONVEX_AUTH_SECRET
+    if (!serverSecret) {
+      console.error('[register] CONVEX_AUTH_SECRET is not configured')
+      return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
+    }
     const convex = getConvex()
     const userId = await convex.mutation(api.users.createUser, {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       passwordHash,
+      serverSecret,
     })
 
     return NextResponse.json(

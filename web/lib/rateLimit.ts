@@ -10,7 +10,14 @@
 export function makeIpRateLimiter(maxRequests: number, windowMs: number) {
   const buckets = new Map<string, { count: number; resetAt: number }>()
   return function isRateLimited(req: { headers: { get(name: string): string | null } }): boolean {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    // Prefer x-vercel-forwarded-for — Vercel sets it from the real edge
+    // connection and a client can't forge it. The leftmost x-forwarded-for is
+    // client-influenceable, so rotating a spoofed value would reset the bucket
+    // and defeat the limiter (e.g. the send-code email-bomb guard).
+    const ip = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim()
+      ?? req.headers.get('x-real-ip')?.trim()
+      ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      ?? 'unknown'
     const now = Date.now()
     // Opportunistic sweep so the map can't grow without bound on a
     // long-lived instance being scanned from many IPs.

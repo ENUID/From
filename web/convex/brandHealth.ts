@@ -24,13 +24,28 @@ export const recordProbe = mutation({
       .withIndex("by_domain", (q) => q.eq("domain", domain))
       .first();
 
-    const consecutiveDown = args.healthy ? 0 : (existing?.consecutiveDown ?? 0) + 1;
+    // consecutiveDown must count DAYS down, not probes — the prune threshold
+    // means "down several days running". Without a per-day guard, a manual
+    // re-run or a retry within the same day would inflate the count and prune a
+    // briefly-down store early. So only increment when the previous probe was on
+    // an earlier UTC day; a same-day re-probe keeps the existing count. A
+    // healthy probe always resets to 0.
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const sameUtcDayAsLast =
+      existing?.lastProbedAt != null &&
+      Math.floor(existing.lastProbedAt / DAY_MS) === Math.floor(now / DAY_MS);
+    const consecutiveDown = args.healthy
+      ? 0
+      : sameUtcDayAsLast
+        ? (existing?.consecutiveDown ?? 1)
+        : (existing?.consecutiveDown ?? 0) + 1;
     const patch = {
       domain,
       healthy: args.healthy,
       lastProductCount: args.productCount,
       consecutiveDown,
-      lastProbedAt: Date.now(),
+      lastProbedAt: now,
     };
     if (existing) await ctx.db.patch(existing._id, patch);
     else await ctx.db.insert("brand_health", patch);

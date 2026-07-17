@@ -121,7 +121,7 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async signIn({ user, account }) {
-      console.log('[auth] signIn provider:', account?.provider, 'email:', user?.email)
+      console.log('[auth] signIn provider:', account?.provider)
       if (user?.email) {
         try {
           const serverSecret = process.env.CONVEX_AUTH_SECRET

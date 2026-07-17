@@ -54,8 +54,13 @@ export const createUser = mutation({
     name: v.string(),
     email: v.string(),
     passwordHash: v.string(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    // Server-only, same gate as ensureUser — Convex is a public endpoint, so
+    // without this anyone could call createUser directly to mass-create user
+    // rows for arbitrary emails (or plant an attacker-chosen passwordHash).
+    if (!verifyServerSecret(args.serverSecret)) throw new Error("Unauthorized");
     const email = args.email.toLowerCase().trim();
     const existing = await ctx.db
       .query("users")
