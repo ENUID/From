@@ -241,7 +241,12 @@ async function multiCategorySearch(
     return { ...g, products }
   })
   const nonEmpty = deduped.filter(g => g.products.length > 0)
-  return nonEmpty.length >= 2 ? nonEmpty : null
+  // Return whatever categories actually produced results — even just one. The
+  // caller's fallback re-searches the compiler's single lead garment, which may
+  // be the EMPTY category ("shirts and boots" where only boots exist → fallback
+  // searches shirts → nothing), throwing away results we already have. One real
+  // strip beats discarding it.
+  return nonEmpty.length >= 1 ? nonEmpty : null
 }
 
 // Reply line for a multi-category result — names every category shown ("tops,

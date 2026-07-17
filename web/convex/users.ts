@@ -225,8 +225,7 @@ export const getAiUsageSummary = query({
     const since = Date.now() - (args.windowMs ?? 24 * 60 * 60 * 1000);
     const events = await ctx.db
       .query("user_events")
-      .withIndex("by_event", (q) => q.eq("event", "ai_usage"))
-      .filter((q) => q.gte(q.field("createdAt"), since))
+      .withIndex("by_event_created", (q) => q.eq("event", "ai_usage").gte("createdAt", since))
       .collect();
 
     const byProvider: Record<string, { requests: number; estPromptTokens: number; estCompletionTokensCap: number; failures: number }> = {};

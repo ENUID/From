@@ -46,7 +46,10 @@ export default defineSchema({
     query: v.string(),
     resultCount: v.number(),
     createdAt: v.number(),
-  }).index("by_user", ["userId"]),
+  }).index("by_user", ["userId"])
+    // Time-window reads (recent-searches / trend cron) range on this instead of
+    // scanning the whole table when a low-traffic window never fills the .take.
+    .index("by_created", ["createdAt"]),
 
   subscriptions: defineTable({
     userId: v.id("users"),
@@ -109,7 +112,10 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_user", ["userId"])
     .index("by_event", ["event"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    // Composite so a per-event time window (e.g. the 24h ai_usage summary) is a
+    // bounded index range, not a full scan of every event of that type ever.
+    .index("by_event_created", ["event", "createdAt"]),
 
   // Admin-managed allowlist: emails granted Community access without a Stripe sub.
   // Managed via the private /api/admin/community-access route (ADMIN_SECRET protected).
