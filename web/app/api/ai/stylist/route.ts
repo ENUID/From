@@ -162,7 +162,9 @@ async function multiCategorySearch(
   countryCode: string | null,
   buyerCurrency: string,
   memorySummary: string | undefined,
-  preferredSize: string | null | undefined,
+  // Per-category size, not one shared value — the shopper's TOP size must not
+  // nudge the bottoms strip. Resolved per subQuery from its own garment slot.
+  sizeForQuery: (q: string) => string | null,
   onProgress?: CatalogProgress,
 ): Promise<{ label: string; products: any[]; query: string }[] | null> {
   const { garmentKeys } = decomposeQuery(fullQuery)
@@ -216,7 +218,7 @@ async function multiCategorySearch(
           subQuery, budgetMax, [], countryCode, true, concepts,
           'relevance', buyerCurrency,
           { fastFirstPage: true, onProgress: onProgress ? (e => onProgress({ ...e, label: catLabel })) : undefined },
-          [], memorySummary, subQuery, preferredSize,
+          [], memorySummary, subQuery, sizeForQuery(subQuery),
         )
         const filtered = found.filter(p => productMatchesSlot(p, cat as any))
         const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, MULTI_CATEGORY_PER_GROUP_CAP)
@@ -230,7 +232,15 @@ async function multiCategorySearch(
       }
     })
   )
-  const nonEmpty = groups.filter(g => g.products.length > 0)
+  // Cross-group dedupe: a product that matches two slots (a shacket reads as
+  // both top and outer) must appear in only ONE strip, not be double-listed.
+  // Walk groups in order, keeping each id in the first group that placed it.
+  const seen = new Set<string>()
+  const deduped = groups.map(g => {
+    const products = g.products.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true })
+    return { ...g, products }
+  })
+  const nonEmpty = deduped.filter(g => g.products.length > 0)
   return nonEmpty.length >= 2 ? nonEmpty : null
 }
 
@@ -1388,7 +1398,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           // both garments, so multiCategorySearch can give each its own group.
           const multiGroups = await multiCategorySearch(
             genderedQuestion, compiled.args.budgetMax, countryCode,
-            compiled.args.budgetCurrency || buyerCurrency, memorySummary, preferredSize,
+            compiled.args.budgetCurrency || buyerCurrency, memorySummary, sizeForQuery,
             onSearchProgress,
           )
           if (multiGroups) {
@@ -1684,7 +1694,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
 
         const multiGroups = await multiCategorySearch(
           searchQuery, llmBudget.budgetMax, countryCode, buyerCurrency,
-          memorySummary, preferredSize, onSearchProgress,
+          memorySummary, sizeForQuery, onSearchProgress,
         )
         if (multiGroups) {
           foundProductGroups = multiGroups
@@ -1818,7 +1828,10 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           const deduped = unused(filtered)
           const best = deduped.length > 0 ? deduped : unused(results)
           const chosen = best.slice(0, 6)
-          if (chosen[0]) usedProductIds.add(chosen[0].id)
+          // Reserve EVERY product shown in this slot, not just the headline
+          // pick — otherwise a slot's alternative can reappear as the next
+          // slot's primary, the exact duplicate this dedupe is meant to prevent.
+          for (const p of chosen) usedProductIds.add(p.id)
           return { query, slotCategory, products: chosen }
         })
       } catch (e) {

@@ -1008,11 +1008,12 @@ export class GlobalCatalogService {
     cacheSet(cacheKey, entry)
 
     // Persist a fresh pool so the next cold start serves it instantly. Skip when
-    // we just seeded from the persistent cache (already stored). Awaited but
-    // failure-silent — on a fetch path that already took seconds, the write is
-    // negligible and never blocks the response on error.
+    // we just seeded from the persistent cache (already stored). Fire-and-forget
+    // (NOT awaited) — the write has no time-box, so awaiting it would stall the
+    // reply before rerank if Convex is slow/degraded; the reply never depends on
+    // this cache landing.
     if (!isLoadMore && !seededFromPersistent && entry.queried.size > 0 && entry.products.length > 0) {
-      await writePersistentCache(cacheKey, entry.products)
+      void writePersistentCache(cacheKey, entry.products).catch(() => {})
     }
 
     console.log(
