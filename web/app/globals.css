@@ -103,13 +103,29 @@ html.dark {
 }
 
 /* ---------- BASE ---------- */
-html { height: 100%; overflow-x: hidden; }
+html {
+  height: 100%;
+  overflow-x: hidden;
+  /* Android Chrome auto-inflates ("boosts") text blocks it guesses are the
+     main content, which throws off every size the UI was tuned for on iOS —
+     the #1 reason the app looks fine on iPhone but messed up on Android.
+     Pin it so text renders at the sizes we actually set, on every platform. */
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Kill the grey/blue tap flash Android draws on every tappable element. */
+  -webkit-tap-highlight-color: transparent;
+  /* Stop Android's native pull-to-refresh / overscroll glow from firing over
+     the app's own scroll surfaces. */
+  overscroll-behavior: none;
+}
 body {
   font-family: var(--body);
   background: var(--bg);
   color: var(--ink);
   height: 100%;
   overflow-x: hidden;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.3s, color 0.3s;
