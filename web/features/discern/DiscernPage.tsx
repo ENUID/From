@@ -2526,9 +2526,10 @@ export default function DiscernApp({
           ctxMenuOpenAt.current = Date.now()
           setProductCtxMenu({ product: p, x: mx, y: my, above })
         })}
+        className="fr-pcard"
         style={{ flexShrink: 0, width: 140, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
-        <div style={{ width: 140, height: 224, borderRadius: 12, overflow: 'hidden', background: BG2, position: 'relative' }}>
-          {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+        <div className="fr-pcard-imgwrap" style={{ width: 140, height: 224, borderRadius: 14, overflow: 'hidden', background: BG2, position: 'relative' }}>
+          {getProductImages(p)[0] && <img className="fr-pcard-img" src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
           <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
             onClick={e => { e.stopPropagation(); toggleSaved(p, saveQuery) }}
             style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
@@ -2545,8 +2546,8 @@ export default function DiscernApp({
             </svg>
           </button>
         </div>
-        <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, color: INK, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-        <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+        <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, letterSpacing: '-0.01em', color: INK, marginTop: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3, marginTop: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.01em' }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
         {pc.length > 0 && (
           <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
             {pc.slice(0, 5).map(c => (
@@ -3657,6 +3658,18 @@ export default function DiscernApp({
         .fr-cell{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;background:#F2F2F2;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
         .fr-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s,opacity .35s;-webkit-touch-callout:none;pointer-events:none;user-select:none;-webkit-user-select:none;}
         .fr-card:hover .fr-cell img{transform:scale(1.03);}
+        /* In-chat product cards: a soft lift + image push on hover, a crisp
+           press on tap, and a hairline that gives the image edge definition on
+           white — the premium "these are considered picks" feel. */
+        .fr-pcard{transition:transform .3s cubic-bezier(.22,.61,.36,1);will-change:transform;}
+        .fr-pcard-imgwrap{box-shadow:inset 0 0 0 1px rgba(0,0,0,.045);transition:box-shadow .3s cubic-bezier(.22,.61,.36,1);}
+        .fr-pcard-img{transition:transform .55s cubic-bezier(.22,.61,.36,1);will-change:transform;}
+        @media(hover:hover){
+          .fr-pcard:hover{transform:translateY(-4px);}
+          .fr-pcard:hover .fr-pcard-imgwrap{box-shadow:inset 0 0 0 1px rgba(0,0,0,.045),0 14px 30px -10px rgba(0,0,0,.20),0 3px 8px rgba(0,0,0,.06);}
+          .fr-pcard:hover .fr-pcard-img{transform:scale(1.05);}
+        }
+        .fr-pcard:active{transform:translateY(-1px) scale(.988);transition-duration:.12s;}
         @keyframes fr-fi{to{opacity:1;}}
 
         /* ── Explore mosaic — Instagram-style feed: a uniform 3-across grid of
