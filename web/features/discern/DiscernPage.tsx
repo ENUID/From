@@ -3661,7 +3661,11 @@ export default function DiscernApp({
         /* In-chat product cards: a soft lift + image push on hover, a crisp
            press on tap, and a hairline that gives the image edge definition on
            white — the premium "these are considered picks" feel. */
-        .fr-pcard{transition:transform .3s cubic-bezier(.22,.61,.36,1);will-change:transform;}
+        .fr-pcard{transition:transform .3s cubic-bezier(.22,.61,.36,1);will-change:transform;opacity:0;animation:fr-fi .42s ease forwards;}
+        .fr-pcard:nth-child(1){animation-delay:.02s}.fr-pcard:nth-child(2){animation-delay:.06s}
+        .fr-pcard:nth-child(3){animation-delay:.10s}.fr-pcard:nth-child(4){animation-delay:.14s}
+        .fr-pcard:nth-child(5){animation-delay:.18s}.fr-pcard:nth-child(6){animation-delay:.22s}
+        .fr-pcard:nth-child(7){animation-delay:.26s}.fr-pcard:nth-child(n+8){animation-delay:.30s}
         .fr-pcard-imgwrap{box-shadow:inset 0 0 0 1px rgba(0,0,0,.045);transition:box-shadow .3s cubic-bezier(.22,.61,.36,1);}
         .fr-pcard-img{transition:transform .55s cubic-bezier(.22,.61,.36,1);will-change:transform;}
         @media(hover:hover){
