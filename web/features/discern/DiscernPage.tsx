@@ -5069,11 +5069,11 @@ export default function DiscernApp({
                           </div>
                         )}
                         <div className={m.role === 'user' ? 'fr-msg-hover' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
-                          <div style={{ fontFamily: SANS, fontSize: 14, lineHeight: 1.55,
-                            padding: m.role === 'user' ? '9px 14px' : 0,
+                          <div style={{ fontFamily: SANS, fontSize: 14, lineHeight: 1.6, letterSpacing: '-0.003em',
+                            padding: m.role === 'user' ? '10px 15px' : 0,
                             background: m.role === 'user' ? INK : 'transparent',
                             color: m.role === 'user' ? '#fff' : INK2,
-                            borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : 0,
+                            borderRadius: m.role === 'user' ? '18px 18px 5px 18px' : 0,
                             whiteSpace: 'pre-wrap', minWidth: 0 }}>
                             {m.role === 'assistant'
                               ? (m.busy
