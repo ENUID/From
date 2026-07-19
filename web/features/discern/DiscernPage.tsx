@@ -1717,6 +1717,7 @@ export default function DiscernApp({
   // trend cron — both read search_history, which had zero live writers before
   // this. Fire-and-forget, matching flagQualitySignal's pattern.
   const saveSearchHistoryMutation = useMutation(api.shop.saveSearchHistory)
+  const trackEventMutation = useMutation(api.users.trackEvent)
   // Cross-device Fabrics history sync — see convex/stylistSessions.ts. Every
   // local session change pushes here (when signed in); on mount, any remote
   // session this device doesn't have gets pulled in to backfill the sidebar.
@@ -2345,6 +2346,17 @@ export default function DiscernApp({
         setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, trace: capturedPhases.length > 0 ? capturedPhases : undefined }])
         if (typeof data.searchQuery === 'string' && data.searchQuery.trim() && onboardEmail && authProof) {
           saveSearchHistoryMutation({ userEmail: onboardEmail, query: data.searchQuery.trim(), resultCount: newProducts.length, authProof }).catch(() => {})
+        }
+        // Analytics: record every search — anonymous ones too — so the admin
+        // dashboard reflects total usage, not just signed-in shoppers. Attributed
+        // to a user only when a verified email+proof is present; otherwise logged
+        // anonymously. Fire-and-forget, never blocks the reply.
+        if (typeof data.searchQuery === 'string' && data.searchQuery.trim()) {
+          trackEventMutation({
+            event: 'search',
+            properties: { query: data.searchQuery.trim().slice(0, 120), resultCount: newProducts.length },
+            ...(onboardEmail && authProof ? { email: onboardEmail, authProof } : {}),
+          }).catch(() => {})
         }
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
