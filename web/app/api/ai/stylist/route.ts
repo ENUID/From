@@ -1625,6 +1625,39 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       const summary = savedProductsCtx.map(p => `${p.title}${p.vendor ? ` by ${p.vendor}` : ''}`).join('; ')
       personalLines.push(`Saved / favorited by the shopper: ${summary}. These reveal the styles, price range and brands they're drawn to.`)
     }
+    // Learned taste — a crisp behavioural read derived from what they've SAVED
+    // (the strongest positive signal we have). Sharpens the raw list above into
+    // an explicit steer: which brands they gravitate to, and the price band
+    // they actually buy in — so Fabrics matches their real budget and labels
+    // instead of re-inferring it from scratch every turn. Needs a few saves to
+    // be meaningful; below that the raw list already says enough.
+    if (savedProductsCtx.length >= 3) {
+      const brandCount = new Map<string, number>()
+      for (const p of savedProductsCtx) {
+        const b = (p.vendor || '').trim()
+        if (b) brandCount.set(b, (brandCount.get(b) ?? 0) + 1)
+      }
+      const topBrands = Array.from(brandCount.entries())
+        .filter(([, n]) => n >= 2)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([b]) => b)
+      const prices = savedProductsCtx
+        .map(p => (typeof p.price === 'number' && p.price > 0 ? p.price : null))
+        .filter((n): n is number => n !== null)
+        .sort((a, b) => a - b)
+      const learned: string[] = []
+      if (topBrands.length > 0) learned.push(`gravitates toward ${topBrands.join(', ')}`)
+      if (prices.length >= 3) {
+        const lo = prices[Math.floor(prices.length * 0.15)]
+        const hi = prices[Math.floor(prices.length * 0.85)]
+        const fmt = (n: number) => `${Math.round(n)} ${buyerCurrency}`
+        learned.push(lo === hi ? `typically spends around ${fmt(lo)}` : `typically spends ${fmt(lo)}–${fmt(hi)}`)
+      }
+      if (learned.length > 0) {
+        personalLines.push(`Learned taste (from their saves): ${learned.join('; ')}. Lean toward this unless the current request clearly says otherwise.`)
+      }
+    }
     if (recentSearches.length > 0) {
       personalLines.push(`Recent searches (most recent first): ${recentSearches.map(q => `"${q}"`).join(', ')}. Infer their evolving taste, but follow the CURRENT request first.`)
     }

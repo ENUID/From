@@ -2358,6 +2358,30 @@ export default function DiscernApp({
             ...(onboardEmail && authProof ? { email: onboardEmail, authProof } : {}),
           }).catch(() => {})
         }
+        // Learning loop — IMPRESSIONS. Every product Fabrics actually put in
+        // front of the shopper is logged (compact id/title/vendor, capped), so
+        // the nightly engagement cron can compare "shown" against "saved /
+        // opened / flagged" and learn which pieces earn attention for a
+        // concept and which are shown-but-ignored. Fire-and-forget.
+        {
+          const shown: { id: string; title: string; vendor?: string }[] = []
+          const seen = new Set<string>()
+          const collect = (p: any) => {
+            if (!p || !p.id || seen.has(p.id) || shown.length >= 24) return
+            seen.add(p.id)
+            shown.push({ id: String(p.id), title: String(p.title ?? '').slice(0, 70), vendor: p.vendor ? String(p.vendor).slice(0, 60) : undefined })
+          }
+          newProducts.forEach(collect)
+          foundProductGroups?.forEach(g => g.products.forEach(collect))
+          outfitSlots?.forEach(s => (s.products || []).forEach(collect))
+          if (shown.length > 0) {
+            trackEventMutation({
+              event: 'impression',
+              properties: { query: typeof data.searchQuery === 'string' ? data.searchQuery.trim().slice(0, 120) : undefined, products: shown },
+              ...(onboardEmail && authProof ? { email: onboardEmail, authProof } : {}),
+            }).catch(() => {})
+          }
+        }
         // Background memory compression — non-blocking, premium users only
         if (isPremium && onboardEmail && updatedMsgs.length >= 4) {
           fetch('/api/ai/stylist-memory', {
@@ -2920,6 +2944,25 @@ export default function DiscernApp({
   // When the shopper picks a colour in the drawer, jump the gallery back to the
   // first image of that colourway.
   useEffect(() => { setActiveImg(0) }, [selectedColor])
+
+  // Learning loop — PRODUCT VIEWS. Opening a product detail is a strong
+  // interest signal (stronger than an impression, weaker than a save). Logged
+  // once per distinct product opened, attributed when signed in. Keyed on the
+  // product id so navigating between products records each as its own view but
+  // a re-render of the same open sheet doesn't double-count. Fire-and-forget.
+  const lastViewLogged = useRef<string | null>(null)
+  useEffect(() => {
+    const p = selectedProduct as any
+    if (!p || !p.id) return
+    const id = String(p.id)
+    if (lastViewLogged.current === id) return
+    lastViewLogged.current = id
+    trackEventMutation({
+      event: 'product_view',
+      properties: { productId: id, title: String(p.title ?? '').slice(0, 70), vendor: p.vendor ? String(p.vendor).slice(0, 60) : undefined },
+      ...(onboardEmail && authProof ? { email: onboardEmail, authProof } : {}),
+    }).catch(() => {})
+  }, [selectedProduct, onboardEmail, authProof, trackEventMutation])
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto"

@@ -150,7 +150,7 @@ export default defineSchema({
     scope: v.union(v.literal("product"), v.literal("vendor")),
     conceptKey: v.string(),   // canonical garment key from lib/queryParser's decomposeQuery, "general" if none
     targetId: v.string(),     // productId (scope=product) or lowercased vendor (scope=vendor)
-    score: v.number(),        // badCount - 0.5 * goodCount, clamped >= 0 — higher = more demoted
+    score: v.number(),        // signed: POSITIVE demotes (flags / shown-but-ignored), NEGATIVE promotes (save/open engagement). Subtracted from the normalized BM25 score.
     badCount: v.number(),
     goodCount: v.number(),
     distinctFlaggers: v.number(), // distinct users behind badCount — gates vendor-level demotion

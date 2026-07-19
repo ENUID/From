@@ -52,9 +52,12 @@ function refresh(): void {
 }
 
 /**
- * Combined product + vendor demotion for a given concept key (e.g. the
- * garment key from lib/queryParser's decomposeQuery, or "general"). Returns
- * 0 when nothing applies — the overwhelmingly common case.
+ * Combined product + vendor relevance adjustment for a given concept key (the
+ * garment key from lib/queryParser's decomposeQuery, or "general"). Returns 0
+ * when nothing applies — the overwhelmingly common case. The value is signed
+ * and subtracted from the normalized BM25 score by the caller: POSITIVE
+ * demotes (flagged / shown-but-ignored), NEGATIVE promotes (high save/open
+ * engagement learned for this concept).
  */
 export function getRelevanceAdjustment(conceptKey: string, productId: string, vendor?: string): number {
   refresh() // opportunistic, throttled, non-blocking
