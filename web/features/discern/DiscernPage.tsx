@@ -1998,7 +1998,7 @@ export default function DiscernApp({
     sendStylist(b.name)
     setSidebar(false)
   }
-  const [isWide, setIsWide]             = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false)
+  const [isWide, setIsWide]             = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : false)
   const [isMedium, setIsMedium]         = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : false)
   // Attach button — opens the device's native picker (Photo Library / Take
   // Photo / Choose Files / Drive) directly onto the wardrobe strip.
@@ -2582,6 +2582,16 @@ export default function DiscernApp({
   const imgStartY = useRef(0)
   const imgActive = useRef(false)
   const imgLockH  = useRef<null | boolean>(null)
+  // Trackpad / mouse-wheel horizontal swipe for the desktop-and-tablet image
+  // carousel. A two-finger horizontal trackpad gesture arrives as a stream of
+  // wheel events with a dominant deltaX; we accumulate it and step the gallery
+  // once per gesture, then lock until the momentum settles so one swipe = one
+  // image (not a runaway scroll through the whole set).
+  const imgWheelRef  = useRef<HTMLDivElement>(null)
+  const wheelAccum   = useRef(0)
+  const wheelLock    = useRef(false)
+  const wheelIdle    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sheetImgCount = useRef(0)
   const dragStartY    = useRef(0)
   const dragStartSnap = useRef<'full'|'half'>('full')
   const dragVel       = useRef(0)
@@ -2674,7 +2684,7 @@ export default function DiscernApp({
   useEffect(() => { setTimeout(() => setLoaded(true), 60) }, [])
   useEffect(() => {
     const check = () => {
-      setIsWide(window.innerWidth >= 1024)
+      setIsWide(window.innerWidth >= 768)
       setIsMedium(window.innerWidth >= 768)
       setWindowWidth(window.innerWidth)
     }
@@ -3302,6 +3312,44 @@ export default function DiscernApp({
   useEffect(() => {
     setActiveImg(i => (i >= sheetImages.length ? Math.max(0, sheetImages.length - 1) : i))
   }, [sheetImages.length])
+  // Keep the ref in sync so the (imperatively-attached) wheel listener always
+  // sees the current gallery length without re-binding on every change.
+  sheetImgCount.current = sheetImages.length
+  // Trackpad horizontal swipe on the wide (desktop/tablet) image pane. Attached
+  // natively with { passive:false } so we can preventDefault the browser's
+  // two-finger back/forward navigation while a gallery gesture is in flight.
+  useEffect(() => {
+    const el = imgWheelRef.current
+    if (!el || !isWide || !selectedProduct) return
+    const onWheel = (e: WheelEvent) => {
+      const count = sheetImgCount.current
+      if (count <= 1) return
+      // Only claim clearly-horizontal gestures; leave vertical scroll alone.
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+      e.preventDefault()
+      if (wheelIdle.current) clearTimeout(wheelIdle.current)
+      // Momentum tail after a committed step — swallow it until the trackpad
+      // goes quiet, so a single flick advances exactly one image.
+      wheelIdle.current = setTimeout(() => { wheelLock.current = false; wheelAccum.current = 0 }, 140)
+      if (wheelLock.current) return
+      wheelAccum.current += e.deltaX
+      const STEP = 40
+      if (wheelAccum.current <= -STEP) {
+        wheelLock.current = true; wheelAccum.current = 0
+        setActiveImg(i => Math.max(0, i - 1))
+      } else if (wheelAccum.current >= STEP) {
+        wheelLock.current = true; wheelAccum.current = 0
+        setActiveImg(i => Math.min(count - 1, i + 1))
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      if (wheelIdle.current) { clearTimeout(wheelIdle.current); wheelIdle.current = null }
+      wheelLock.current = false
+      wheelAccum.current = 0
+    }
+  }, [isWide, selectedProduct])
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
   const sheetDescRaw   = selectedProduct?.description_html
     ? sanitizeHtml(selectedProduct.description_html)
@@ -3788,14 +3836,15 @@ export default function DiscernApp({
             0 -1px 0 rgba(0,0,0,.05),
             0 -24px 64px rgba(0,0,0,.10);
         }
-        /* On laptop/desktop (1024px+) the sheet becomes a centred side-by-side card.
-           iPads in portrait (<1024px) keep the familiar bottom-sheet behaviour. */
-        @media(min-width:1024px){
+        /* On tablet/laptop/desktop (768px+) the sheet becomes a centred
+           side-by-side card — iPad, tablets and laptops all get the two-column
+           product view. Phones in portrait keep the bottom-sheet behaviour. */
+        @media(min-width:768px){
           .fr-sheet{
             top:50%;left:50%;
             right:auto;bottom:auto;
-            width:min(1000px,90vw);
-            height:min(700px,88vh);
+            width:min(1000px,94vw);
+            height:min(680px,88vh);
             min-height:0;
             border-radius:28px;
             border:0.5px solid rgba(0,0,0,.07);
@@ -6234,8 +6283,8 @@ export default function DiscernApp({
                   /* ── Desktop / tablet: image left + details right ── */
                   <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-                    {/* Left — full-height 4:5 image, swipeable carousel */}
-                    <div style={{ height: '100%', aspectRatio: '4 / 5', width: 'auto', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#F2F2F2', touchAction: sheetImages.length > 1 ? 'none' : 'auto' }}
+                    {/* Left — full-height 4:5 image, swipeable carousel (touch + trackpad) */}
+                    <div ref={imgWheelRef} style={{ height: '100%', aspectRatio: '4 / 5', width: 'auto', maxWidth: '52%', flexShrink: 0, position: 'relative', overflow: 'hidden', borderRadius: '28px 0 0 28px', background: '#F2F2F2', touchAction: sheetImages.length > 1 ? 'none' : 'auto' }}
                       onPointerDown={sheetImages.length > 1 ? onImgDown : undefined}
                       onPointerMove={sheetImages.length > 1 ? (e => onImgMove(e, sheetImages.length)) : undefined}
                       onPointerUp={sheetImages.length > 1 ? (() => onImgUp(sheetImages.length)) : undefined}
