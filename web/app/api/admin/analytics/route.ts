@@ -33,7 +33,9 @@ export async function GET(req: NextRequest) {
   const adminSecret = process.env.ADMIN_SECRET!
   const serverSecret = process.env.CONVEX_AUTH_SECRET
   const daysParam = Number(req.nextUrl.searchParams.get('days'))
-  const days = Number.isFinite(daysParam) && daysParam > 0 ? Math.min(daysParam, 365) : 7
+  // Allow multi-year windows (up to ~10y) so the 3y/6y/9y toggles aren't
+  // silently truncated. Scans stay bounded by the query-side caps regardless.
+  const days = Number.isFinite(daysParam) && daysParam > 0 ? Math.min(daysParam, 3650) : 7
   const windowMs = days * DAY
 
   try {

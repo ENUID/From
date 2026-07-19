@@ -36,7 +36,14 @@ function ago(ts: number | null): string {
 function num(n: number): string { return n.toLocaleString() }
 function ktok(n: number): string { return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n) }
 
-const WINDOWS = [{ label: '24h', days: 1 }, { label: '7d', days: 7 }, { label: '30d', days: 30 }]
+const WINDOWS = [
+  { label: '24h', days: 1 },
+  { label: '7d', days: 7 },
+  { label: '30d', days: 30 },
+  { label: '3y', days: 1095 },
+  { label: '6y', days: 2190 },
+  { label: '9y', days: 3285 },
+]
 
 export default function AdminAnalyticsPage() {
   const [view, setView] = useState<'loading' | 'login' | 'admin'>('loading')
