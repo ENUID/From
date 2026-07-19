@@ -37,22 +37,43 @@ export async function GET(req: NextRequest) {
   // silently truncated. Scans stay bounded by the query-side caps regardless.
   const days = Number.isFinite(daysParam) && daysParam > 0 ? Math.min(daysParam, 3650) : 7
   const windowMs = days * DAY
+  const buckets = days <= 1 ? 24 : days <= 30 ? Math.max(7, Math.min(30, Math.round(days))) : 24
 
-  try {
-    const convex = getConvex()
-    const [overview, topSearches, topUsers, recent, aiUsage] = await Promise.all([
-      convex.query(anyApi.analytics.adminOverview, { adminSecret, windowMs }),
-      convex.query(anyApi.analytics.adminTopSearches, { adminSecret, windowMs, limit: 40 }),
-      convex.query(anyApi.analytics.adminTopUsers, { adminSecret, windowMs, limit: 30 }),
-      convex.query(anyApi.analytics.adminRecentSearches, { adminSecret, limit: 60 }),
-      // AI usage is serverSecret-gated (reused as-is). Skip gracefully if the
-      // secret isn't configured rather than failing the whole dashboard.
-      serverSecret
-        ? convex.query(anyApi.users.getAiUsageSummary, { serverSecret, windowMs }).catch(() => null)
-        : Promise.resolve(null),
-    ])
-    return NextResponse.json({ ok: true, days, overview, topSearches, topUsers, recent, aiUsage })
-  } catch (e: any) {
-    return NextResponse.json({ error: 'Convex error', detail: e?.message ?? String(e) }, { status: 500 })
+  // Each query is isolated: a single missing/failing function (e.g. Convex
+  // not yet redeployed with analytics.ts) degrades that one panel instead of
+  // blanking the whole dashboard, and its error is reported in `diag`.
+  const diag: Record<string, string> = {}
+  const run = async (label: string, p: Promise<any>) => {
+    try { return await p } catch (e: any) { diag[label] = e?.message ? String(e.message).slice(0, 200) : 'error'; return null }
   }
+
+  let convex: ReturnType<typeof getConvex>
+  try { convex = getConvex() } catch (e: any) {
+    return NextResponse.json({ error: 'Convex not configured', detail: e?.message ?? String(e) }, { status: 500 })
+  }
+
+  const [overview, timeSeries, topSearches, topUsers, recent, aiUsage] = await Promise.all([
+    run('overview', convex.query(anyApi.analytics.adminOverview, { adminSecret, windowMs })),
+    run('timeSeries', convex.query(anyApi.analytics.adminTimeSeries, { adminSecret, windowMs, buckets })),
+    run('topSearches', convex.query(anyApi.analytics.adminTopSearches, { adminSecret, windowMs, limit: 40 })),
+    run('topUsers', convex.query(anyApi.analytics.adminTopUsers, { adminSecret, windowMs, limit: 30 })),
+    run('recent', convex.query(anyApi.analytics.adminRecentSearches, { adminSecret, limit: 60 })),
+    serverSecret
+      ? run('aiUsage', convex.query(anyApi.users.getAiUsageSummary, { serverSecret, windowMs }))
+      : Promise.resolve(null),
+  ])
+
+  // Distinguish the two "empty" causes so the UI can tell the operator exactly
+  // what to fix rather than showing a blank board:
+  //  • a function-not-found error → Convex hasn't been redeployed with the new
+  //    analytics functions yet.
+  //  • overview === null with no error → the Convex deployment's ADMIN_SECRET
+  //    is unset or doesn't match Vercel's (verifyAdminSecret failed).
+  const anyNotFound = Object.values(diag).some(m => /could not find|not found|no function/i.test(m))
+  let hint: string | null = null
+  if (anyNotFound) hint = 'convex_not_deployed'
+  else if (overview === null) hint = 'convex_admin_secret_mismatch'
+  else if (!serverSecret) hint = 'server_secret_missing'
+
+  return NextResponse.json({ ok: true, days, overview, timeSeries, topSearches, topUsers, recent, aiUsage, diag, hint })
 }

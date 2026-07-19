@@ -2624,7 +2624,6 @@ export default function DiscernApp({
   // once per gesture, then lock until the momentum settles so one swipe = one
   // image (not a runaway scroll through the whole set).
   const imgWheelRef  = useRef<HTMLDivElement>(null)
-  const wheelAccum   = useRef(0)
   const wheelLock    = useRef(false)
   const wheelIdle    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetImgCount = useRef(0)
@@ -3380,29 +3379,24 @@ export default function DiscernApp({
       const count = sheetImgCount.current
       if (count <= 1) return
       // Only claim clearly-horizontal gestures; leave vertical scroll alone.
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
-      e.preventDefault()
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 2) return
+      e.preventDefault() // stop the browser's two-finger back/forward nav
+      // Keep resetting the "gesture ended" timer on every event of the flick,
+      // so one continuous two-finger swipe = one image no matter how long it is.
       if (wheelIdle.current) clearTimeout(wheelIdle.current)
-      // Momentum tail after a committed step — swallow it until the trackpad
-      // goes quiet, so a single flick advances exactly one image.
-      wheelIdle.current = setTimeout(() => { wheelLock.current = false; wheelAccum.current = 0 }, 140)
+      wheelIdle.current = setTimeout(() => { wheelLock.current = false }, 200)
       if (wheelLock.current) return
-      wheelAccum.current += e.deltaX
-      const STEP = 40
-      if (wheelAccum.current <= -STEP) {
-        wheelLock.current = true; wheelAccum.current = 0
-        setActiveImg(i => Math.max(0, i - 1))
-      } else if (wheelAccum.current >= STEP) {
-        wheelLock.current = true; wheelAccum.current = 0
-        setActiveImg(i => Math.min(count - 1, i + 1))
-      }
+      // Leading edge: the FIRST horizontal motion of a gesture steps instantly —
+      // no accumulate-to-threshold lag. Then lock until the trackpad goes quiet.
+      wheelLock.current = true
+      if (e.deltaX > 0) setActiveImg(i => Math.min(count - 1, i + 1))
+      else setActiveImg(i => Math.max(0, i - 1))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       el.removeEventListener('wheel', onWheel)
       if (wheelIdle.current) { clearTimeout(wheelIdle.current); wheelIdle.current = null }
       wheelLock.current = false
-      wheelAccum.current = 0
     }
   }, [isWide, selectedProduct])
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
