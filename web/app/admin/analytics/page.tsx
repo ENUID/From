@@ -194,6 +194,31 @@ export default function AdminAnalyticsPage() {
   function setWindow(d: number) { setDays(d); const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, d) }
   function refresh() { const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, days) }
 
+  // Download a fully-formatted report. Markdown is the best format to feed to an
+  // AI ("analyse this and propose improvements"); PDF opens a print-styled view
+  // that auto-triggers Save-as-PDF. Secret goes in the header, never the URL.
+  const [exporting, setExporting] = useState<'md' | 'pdf' | null>(null)
+  async function exportReport(kind: 'md' | 'pdf') {
+    const s = sessionStorage.getItem(STORAGE_KEY); if (!s || exporting) return
+    setExporting(kind)
+    try {
+      const r = await fetchT(`/api/admin/analytics/report?days=${days}&format=${kind}`, { headers: { 'x-admin-secret': s } }, 30000)
+      if (!r.ok) { setErr(`Export failed (${r.status})`); setExporting(null); return }
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      if (kind === 'md') {
+        const a = document.createElement('a')
+        a.href = url; a.download = `discern-analytics-${new Date().toISOString().slice(0, 10)}.md`
+        document.body.appendChild(a); a.click(); a.remove()
+        setTimeout(() => URL.revokeObjectURL(url), 8000)
+      } else {
+        window.open(url, '_blank') // print-styled HTML auto-opens the print → Save-as-PDF dialog
+        setTimeout(() => URL.revokeObjectURL(url), 60000)
+      }
+    } catch { setErr('Export failed — network error') }
+    setExporting(null)
+  }
+
   const font = 'system-ui, -apple-system, "Segoe UI", sans-serif'
 
   if (view === 'loading') return <div style={{ minHeight: '100svh', background: C.plane, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: font }}><div style={{ color: C.muted }}>Loading…</div></div>
@@ -265,6 +290,8 @@ export default function AdminAnalyticsPage() {
               ))}
             </div>
             <button onClick={refresh} style={{ padding: '7px 11px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.card, color: C.ink2, fontSize: 13, cursor: 'pointer', boxShadow: C.shadow }}>{busy ? '…' : '↻'}</button>
+            <button onClick={() => exportReport('md')} title="Download a formatted report to feed to an AI" style={{ padding: '7px 11px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.card, color: C.ink2, fontSize: 13, cursor: 'pointer', boxShadow: C.shadow }}>{exporting === 'md' ? '…' : '⬇ Markdown'}</button>
+            <button onClick={() => exportReport('pdf')} title="Open a print-ready report → Save as PDF" style={{ padding: '7px 11px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.card, color: C.ink2, fontSize: 13, cursor: 'pointer', boxShadow: C.shadow }}>{exporting === 'pdf' ? '…' : '⬇ PDF'}</button>
             <button onClick={() => { sessionStorage.removeItem(STORAGE_KEY); setSecret(''); setView('login') }} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 13, cursor: 'pointer' }}>Sign out</button>
           </div>
         </div>
