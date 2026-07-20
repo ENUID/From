@@ -5,6 +5,20 @@ import { useState, useEffect, useCallback } from 'react'
 // Shares the community-admin login token so one ADMIN_SECRET unlocks both pages.
 const STORAGE_KEY = 'discern_admin_secret'
 
+// ── Light palette (validated, dataviz reference instance) ──
+const C = {
+  plane: '#f5f5f3', card: '#ffffff', ink: '#1d1d1f', ink2: '#6e6e73', muted: '#a1a1a6',
+  border: 'rgba(0,0,0,0.08)', grid: 'rgba(0,0,0,0.06)', hairline: 'rgba(0,0,0,0.05)',
+  blue: '#2a78d6', blueArea: 'rgba(42,120,214,0.10)', green: '#0a7d33', good: '#0ca30c', red: '#d03b3b',
+  shadow: '0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.05)',
+}
+const KIND: Record<string, { label: string; color: string }> = {
+  search: { label: 'Searched', color: C.blue },
+  open: { label: 'Opened', color: C.green },
+  save: { label: 'Saved', color: C.good },
+  flag: { label: 'Flagged', color: C.red },
+}
+
 interface Overview {
   windowMs: number
   searches: { total: number; signedIn: number; anonymous: number; distinctSearchers: number; capped: boolean }
@@ -19,29 +33,29 @@ interface SeriesPoint { t0: number; searches: number; views: number }
 interface TimeSeries { since: number; now: number; bucketMs: number; points: SeriesPoint[] }
 interface TopSearch { query: string; count: number; searchers: number; avgResults: number | null; zeroResults: number; lastAt: number }
 interface TopUser { email: string; name: string | null; searches: number; saves: number; lastSeenAt: number | null; country: string | null; deviceType: string | null }
-interface Recent { query: string; email: string | null; resultCount: number | null; at: number; country: string | null }
+interface Activity { kind: string; text: string; meta: string | null; at: number; country: string | null; email: string | null }
+interface ProdRow { title: string; vendor: string | null; count: number }
 interface AiUsage { totalRequests: number; totalEstPromptTokens: number; totalEstCompletionTokensCap: number; byProvider: Record<string, { requests: number; estPromptTokens: number; failures: number }>; byPath: Record<string, number> }
 interface Payload {
   ok: boolean; days: number
   overview: Overview | null; timeSeries: TimeSeries | null
-  topSearches: TopSearch[] | null; topUsers: TopUser[] | null; recent: Recent[] | null; aiUsage: AiUsage | null
-  diag?: Record<string, string>; hint?: string | null
+  topSearches: TopSearch[] | null; topUsers: TopUser[] | null
+  activity: Activity[] | null; topProducts: { opened: ProdRow[]; saved: ProdRow[] } | null
+  aiUsage: AiUsage | null; diag?: Record<string, string>; hint?: string | null
 }
 
 async function fetchT(url: string, init: RequestInit = {}, ms = 20000): Promise<Response> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), ms)
-  try { return await fetch(url, { ...init, signal: ctrl.signal }) }
-  finally { clearTimeout(t) }
+  try { return await fetch(url, { ...init, signal: ctrl.signal }) } finally { clearTimeout(t) }
 }
-
 function ago(ts: number | null): string {
   if (!ts) return '—'
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000))
-  if (s < 60) return `${s}s ago`
-  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24); if (d < 30) return `${d}d ago`
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h`
+  const d = Math.floor(h / 24); if (d < 30) return `${d}d`
   return new Date(ts).toLocaleDateString()
 }
 function num(n: number): string { return n.toLocaleString() }
@@ -53,56 +67,82 @@ const WINDOWS = [
   { label: '3y', days: 1095 }, { label: '6y', days: 2190 }, { label: '9y', days: 3285 },
 ]
 
-// ── Inline SVG line chart (no external libs) ──
+// ── Interactive line chart (light, validated palette) ──
 function LineChart({ points, days }: { points: SeriesPoint[]; days: number }) {
-  const W = 720, H = 200, padL = 32, padB = 22, padT = 12, padR = 8
+  const [hover, setHover] = useState<number | null>(null)
+  const W = 760, H = 210, padL = 34, padB = 24, padT = 12, padR = 10
   const n = points.length
   const maxV = Math.max(1, ...points.map(p => Math.max(p.searches, p.views)))
-  const x = (i: number) => padL + (n <= 1 ? 0 : (i / (n - 1)) * (W - padL - padR))
+  const stepX = n <= 1 ? 0 : (W - padL - padR) / (n - 1)
+  const x = (i: number) => padL + i * stepX
   const y = (v: number) => padT + (1 - v / maxV) * (H - padT - padB)
-  const path = (key: 'searches' | 'views') =>
-    points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ')
-  const area = () => `${points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.searches).toFixed(1)}`).join(' ')} L${x(n - 1).toFixed(1)},${y(0).toFixed(1)} L${x(0).toFixed(1)},${y(0).toFixed(1)} Z`
+  const line = (key: 'searches' | 'views') => points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ')
+  const area = `${points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.searches).toFixed(1)}`).join(' ')} L${x(n - 1).toFixed(1)},${y(0).toFixed(1)} L${x(0).toFixed(1)},${y(0).toFixed(1)} Z`
   const fmtT = (t: number) => days <= 1 ? new Date(t).toLocaleTimeString([], { hour: '2-digit' }) : new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' })
-  const totalSearch = points.reduce((s, p) => s + p.searches, 0)
+  const total = points.reduce((s, p) => s + p.searches, 0)
+
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (n <= 1) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const vbx = ((e.clientX - rect.left) / rect.width) * W
+    const i = Math.round((vbx - padL) / (stepX || 1))
+    setHover(Math.max(0, Math.min(n - 1, i)))
+  }
+
   return (
     <div>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 6, fontSize: 12 }}>
-        <span style={{ color: '#4a9eff' }}>● Searches</span>
-        <span style={{ color: '#8a8a8a' }}>● Product opens</span>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: 12, color: C.ink2 }}>
+        <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: C.blue, marginRight: 6 }} />Searches</span>
+        <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: C.green, marginRight: 6 }} />Product opens</span>
       </div>
-      {totalSearch === 0 ? (
-        <div style={{ color: '#555', fontSize: 13, padding: '28px 0', textAlign: 'center' }}>No activity in this window yet</div>
+      {total === 0 ? (
+        <div style={{ color: C.muted, fontSize: 13, padding: '32px 0', textAlign: 'center' }}>No activity in this window yet</div>
       ) : (
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} preserveAspectRatio="none">
-          {[0, 0.5, 1].map((f, i) => {
-            const gy = padT + f * (H - padT - padB)
-            return <g key={i}>
-              <line x1={padL} y1={gy} x2={W - padR} y2={gy} stroke="#222" strokeWidth="1" />
-              <text x={0} y={gy + 3} fill="#555" fontSize="9">{Math.round(maxV * (1 - f))}</text>
-            </g>
-          })}
-          <path d={area()} fill="rgba(74,158,255,0.10)" stroke="none" />
-          <path d={path('views')} fill="none" stroke="#8a8a8a" strokeWidth="1.6" strokeLinejoin="round" />
-          <path d={path('searches')} fill="none" stroke="#4a9eff" strokeWidth="2" strokeLinejoin="round" />
-          {[0, Math.floor((n - 1) / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i && v >= 0).map(i => (
-            <text key={i} x={x(i)} y={H - 6} fill="#666" fontSize="9" textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}>{fmtT(points[i].t0)}</text>
-          ))}
-        </svg>
+        <div style={{ position: 'relative' }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} preserveAspectRatio="none">
+            {[0, 0.5, 1].map((f, i) => {
+              const gy = padT + f * (H - padT - padB)
+              return <g key={i}>
+                <line x1={padL} y1={gy} x2={W - padR} y2={gy} stroke={C.grid} strokeWidth="1" />
+                <text x={0} y={gy + 3} fill={C.muted} fontSize="9">{Math.round(maxV * (1 - f))}</text>
+              </g>
+            })}
+            <path d={area} fill={C.blueArea} stroke="none" />
+            <path d={line('views')} fill="none" stroke={C.green} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={line('searches')} fill="none" stroke={C.blue} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+            {hover != null && (
+              <g>
+                <line x1={x(hover)} y1={padT} x2={x(hover)} y2={H - padB} stroke={C.border} strokeWidth="1" />
+                <circle cx={x(hover)} cy={y(points[hover].searches)} r="3.5" fill={C.blue} stroke="#fff" strokeWidth="1.5" />
+                <circle cx={x(hover)} cy={y(points[hover].views)} r="3.5" fill={C.green} stroke="#fff" strokeWidth="1.5" />
+              </g>
+            )}
+            {[0, Math.floor((n - 1) / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i && v >= 0).map(i => (
+              <text key={i} x={x(i)} y={H - 7} fill={C.muted} fontSize="9" textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}>{fmtT(points[i].t0)}</text>
+            ))}
+          </svg>
+          {hover != null && (
+            <div style={{ position: 'absolute', top: 0, left: `${(x(hover) / W) * 100}%`, transform: `translateX(${hover > n / 2 ? '-105%' : '5%'})`, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: C.shadow, padding: '7px 10px', fontSize: 12, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+              <div style={{ color: C.ink2, fontSize: 11, marginBottom: 3 }}>{fmtT(points[hover].t0)}</div>
+              <div style={{ color: C.blue, fontWeight: 600 }}>{num(points[hover].searches)} searches</div>
+              <div style={{ color: C.green, fontWeight: 600 }}>{num(points[hover].views)} opens</div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-function BarRow({ label, value, max, sub, accent = '#4a9eff' }: { label: string; value: number; max: number; sub?: string; accent?: string }) {
+function BarRow({ label, value, max, sub, accent }: { label: string; value: number; max: number; sub?: string; accent: string }) {
   const w = max > 0 ? Math.max(2, (value / max) * 100) : 0
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
-      <div style={{ width: 92, color: '#bbb', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</div>
-      <div style={{ flex: 1, background: '#191919', borderRadius: 5, height: 16, position: 'relative', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }} title={`${label}: ${value}`}>
+      <div style={{ width: 94, color: C.ink2, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</div>
+      <div style={{ flex: 1, background: '#f0f0ee', borderRadius: 5, height: 14, overflow: 'hidden' }}>
         <div style={{ width: `${w}%`, height: '100%', background: accent, borderRadius: 5, transition: 'width .3s' }} />
       </div>
-      <div style={{ width: 74, textAlign: 'right', color: '#ddd', fontSize: 12, flexShrink: 0 }}>{num(value)}{sub ? <span style={{ color: '#666' }}> {sub}</span> : null}</div>
+      <div style={{ width: 78, textAlign: 'right', color: C.ink, fontSize: 12, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{num(value)}{sub ? <span style={{ color: C.muted }}> {sub}</span> : null}</div>
     </div>
   )
 }
@@ -116,11 +156,11 @@ export default function AdminAnalyticsPage() {
   const [data, setData] = useState<Payload | null>(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [feedFilter, setFeedFilter] = useState<'all' | 'search' | 'open' | 'save' | 'flag'>('all')
 
-  const checkAuth = useCallback(async (s: string): Promise<boolean> => {
+  const checkAuth = useCallback(async (s: string) => {
     try { const r = await fetchT('/api/admin/analytics?check=1', { headers: { 'x-admin-secret': s } }); return r.ok } catch { return false }
   }, [])
-
   const load = useCallback(async (s: string, d: number) => {
     setBusy(true); setErr('')
     try {
@@ -137,55 +177,37 @@ export default function AdminAnalyticsPage() {
   useEffect(() => {
     const stored = sessionStorage.getItem(STORAGE_KEY)
     if (!stored) { setView('login'); return }
-    checkAuth(stored).then(ok => {
-      if (ok) { setView('admin'); load(stored, days) }
-      else { sessionStorage.removeItem(STORAGE_KEY); setView('login') }
-    })
+    checkAuth(stored).then(ok => { if (ok) { setView('admin'); load(stored, days) } else { sessionStorage.removeItem(STORAGE_KEY); setView('login') } })
   }, [checkAuth, load]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function login() {
-    const s = secret.trim()
-    if (!s || working) return
+    const s = secret.trim(); if (!s || working) return
     setWorking(true); setLoginErr('')
     try {
       const r = await fetchT('/api/admin/analytics?check=1', { headers: { 'x-admin-secret': s } })
       if (r.ok) { sessionStorage.setItem(STORAGE_KEY, s); setView('admin'); load(s, days) }
-      else if (r.status === 401) {
-        const d = await r.json().catch(() => ({}))
-        setLoginErr(d.reason === 'not_configured' ? 'ADMIN_SECRET not set in Vercel env' : 'Wrong password')
-      } else setLoginErr(`Error ${r.status}`)
-    } catch (e: any) {
-      setLoginErr(e?.name === 'AbortError' ? 'Timed out — server not responding' : 'Network error: ' + (e?.message ?? 'unknown'))
-    }
+      else if (r.status === 401) { const d = await r.json().catch(() => ({})); setLoginErr(d.reason === 'not_configured' ? 'ADMIN_SECRET not set in Vercel env' : 'Wrong password') }
+      else setLoginErr(`Error ${r.status}`)
+    } catch (e: any) { setLoginErr(e?.name === 'AbortError' ? 'Timed out' : 'Network error') }
     setWorking(false)
   }
-
   function setWindow(d: number) { setDays(d); const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, d) }
+  function refresh() { const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, days) }
 
-  const st: Record<string, any> = {
-    page: { minHeight: '100svh', background: '#0a0a0a', padding: '24px 16px', fontFamily: 'system-ui', color: '#fff' },
-    center: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-    card: { background: '#1a1a1a', borderRadius: '16px', padding: '32px 24px', width: '100%', maxWidth: '360px' },
-    input: { width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #333', background: '#111', color: '#fff', fontSize: '15px', boxSizing: 'border-box', outline: 'none', display: 'block' },
-    btn: (active: boolean) => ({ width: '100%', padding: '13px', borderRadius: '10px', border: 'none', background: active ? '#fff' : '#333', color: active ? '#000' : '#888', fontSize: '15px', fontWeight: 600, cursor: active ? 'pointer' : 'default' }),
-    panel: { background: '#141414', border: '1px solid #222', borderRadius: '14px', padding: '18px', marginBottom: '16px' },
-    h: { color: '#aaa', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '14px' },
-    th: { color: '#666', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', padding: '6px 8px', fontWeight: 600 },
-    td: { color: '#ddd', fontSize: '13px', padding: '8px 8px', borderTop: '1px solid #1e1e1e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  }
+  const font = 'system-ui, -apple-system, "Segoe UI", sans-serif'
 
-  if (view === 'loading') return <div style={{ ...st.page, ...st.center }}><div style={{ color: '#555' }}>Loading…</div></div>
+  if (view === 'loading') return <div style={{ minHeight: '100svh', background: C.plane, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: font }}><div style={{ color: C.muted }}>Loading…</div></div>
 
   if (view === 'login') {
     return (
-      <div style={{ ...st.page, ...st.center }}>
-        <div style={st.card}>
-          <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>Discern Analytics</div>
-          <div style={{ color: '#888', fontSize: '13px', marginBottom: '24px' }}>Usage dashboard</div>
-          <input type="password" placeholder="Admin secret" value={secret} autoFocus
-            onChange={e => setSecret(e.target.value)} onKeyDown={e => e.key === 'Enter' && login()} style={st.input} />
-          {loginErr && <div style={{ color: '#f66', fontSize: '13px', marginTop: '10px' }}>{loginErr}</div>}
-          <button onClick={login} disabled={working} style={{ ...st.btn(!working && !!secret.trim()), marginTop: '16px' }}>
+      <div style={{ minHeight: '100svh', background: C.plane, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: font }}>
+        <div style={{ background: C.card, borderRadius: 16, padding: '32px 26px', width: '100%', maxWidth: 340, boxShadow: C.shadow, border: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 18, fontWeight: 650, color: C.ink }}>Discern Analytics</div>
+          <div style={{ color: C.ink2, fontSize: 13, marginBottom: 22, marginTop: 2 }}>Usage dashboard</div>
+          <input type="password" placeholder="Admin secret" value={secret} autoFocus onChange={e => setSecret(e.target.value)} onKeyDown={e => e.key === 'Enter' && login()}
+            style={{ width: '100%', padding: '11px 13px', borderRadius: 10, border: `1px solid ${C.border}`, background: '#fafafa', color: C.ink, fontSize: 15, boxSizing: 'border-box', outline: 'none' }} />
+          {loginErr && <div style={{ color: C.red, fontSize: 13, marginTop: 10 }}>{loginErr}</div>}
+          <button onClick={login} disabled={working} style={{ width: '100%', marginTop: 16, padding: 12, borderRadius: 10, border: 'none', background: secret.trim() && !working ? C.ink : '#e5e5e3', color: secret.trim() && !working ? '#fff' : C.muted, fontSize: 15, fontWeight: 600, cursor: secret.trim() && !working ? 'pointer' : 'default' }}>
             {working ? 'Checking…' : 'Enter'}
           </button>
         </div>
@@ -193,65 +215,75 @@ export default function AdminAnalyticsPage() {
     )
   }
 
-  const ov = data?.overview
-  const ai = data?.aiUsage
-  const stat = (label: string, value: string, sub?: string) => (
-    <div style={{ background: '#141414', border: '1px solid #222', borderRadius: '12px', padding: '16px 18px', flex: '1 1 150px', minWidth: 150 }}>
-      <div style={{ color: '#777', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-      <div style={{ color: '#fff', fontSize: '26px', fontWeight: 700, marginTop: '6px', lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ color: '#888', fontSize: '12px', marginTop: '6px' }}>{sub}</div>}
-    </div>
-  )
-
-  // Diagnostic banner for the "empty dashboard" cases.
+  const ov = data?.overview, ai = data?.aiUsage
   const hint = data?.hint
   const hintMsg: Record<string, { title: string; body: string }> = {
-    convex_not_deployed: { title: 'Convex needs a redeploy', body: 'The analytics functions aren\'t live on your Convex deployment yet. They deploy automatically on the next production Vercel build (which runs `convex deploy`). If it still fails, run `npx convex deploy` once.' },
-    convex_admin_secret_mismatch: { title: 'Set ADMIN_SECRET in Convex', body: 'Login worked (Vercel has ADMIN_SECRET), but the Convex deployment rejected it. Add ADMIN_SECRET in dashboard.convex.dev → Settings → Environment Variables with the SAME value as Vercel, then refresh.' },
+    convex_not_deployed: { title: 'Convex needs a redeploy', body: 'The analytics functions aren\'t live on Convex yet. They deploy on the next production Vercel build (which runs convex deploy). If it persists, run npx convex deploy once.' },
+    convex_admin_secret_mismatch: { title: 'Set ADMIN_SECRET in Convex', body: 'Login worked (Vercel has ADMIN_SECRET) but Convex rejected it. Add ADMIN_SECRET in dashboard.convex.dev → Settings → Environment Variables (Production) with the same value as Vercel, then refresh.' },
     server_secret_missing: { title: 'CONVEX_AUTH_SECRET not set', body: 'AI-usage figures need CONVEX_AUTH_SECRET in Vercel. Everything else still works.' },
   }
   const funnel = ov?.funnel
   const funnelMax = funnel ? Math.max(funnel.impressions, funnel.views, funnel.saves, funnel.flags, 1) : 1
-  const zeroQueries = (data?.topSearches ?? []).filter(s => s.avgResults === 0 || (s.avgResults != null && s.avgResults < 1))
+  const zeroQueries = (data?.topSearches ?? []).filter(s => s.avgResults != null && s.avgResults < 1)
+  const feed = (data?.activity ?? []).filter(a => feedFilter === 'all' || a.kind === feedFilter)
+
+  const panel: React.CSSProperties = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: C.shadow }
+  const hStyle: React.CSSProperties = { color: C.ink2, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, marginBottom: 14 }
+  const th: React.CSSProperties = { color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'left', padding: '6px 8px', fontWeight: 600 }
+  const td: React.CSSProperties = { color: C.ink, fontSize: 13, padding: '9px 8px', borderTop: `1px solid ${C.hairline}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+
+  const stat = (label: string, value: string, sub?: string) => (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 13, padding: '15px 17px', flex: '1 1 155px', minWidth: 155, boxShadow: C.shadow }}>
+      <div style={{ color: C.ink2, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{label}</div>
+      <div style={{ color: C.ink, fontSize: 27, fontWeight: 700, marginTop: 6, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      {sub && <div style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>{sub}</div>}
+    </div>
+  )
+  const prodList = (rows: ProdRow[], accent: string, emptyMsg: string) => (
+    rows.length > 0 ? rows.map((p, i) => (
+      <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '6px 0', borderTop: i > 0 ? `1px solid ${C.hairline}` : 'none' }}>
+        <div style={{ width: 16, color: C.muted, fontSize: 12, flexShrink: 0 }}>{i + 1}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: C.ink, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title || '—'}</div>
+          {p.vendor && <div style={{ color: C.muted, fontSize: 11 }}>{p.vendor}</div>}
+        </div>
+        <div style={{ color: accent, fontSize: 13, fontWeight: 600, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{num(p.count)}</div>
+      </div>
+    )) : <div style={{ color: C.muted, fontSize: 13, padding: '10px 0' }}>{emptyMsg}</div>
+  )
 
   return (
-    <div style={st.page}>
-      <div style={{ maxWidth: '960px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ fontSize: '20px', fontWeight: 700 }}>Discern · Analytics</div>
+    <div style={{ minHeight: '100svh', background: C.plane, padding: '22px 16px', fontFamily: font, color: C.ink }}>
+      <div style={{ maxWidth: 980, margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.01em' }}>Analytics</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', background: '#161616', border: '1px solid #262626', borderRadius: 9, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden', boxShadow: C.shadow }}>
               {WINDOWS.map(w => (
-                <button key={w.days} onClick={() => setWindow(w.days)}
-                  style={{ padding: '7px 12px', border: 'none', background: days === w.days ? '#fff' : 'transparent', color: days === w.days ? '#000' : '#999', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                  {w.label}
-                </button>
+                <button key={w.days} onClick={() => setWindow(w.days)} style={{ padding: '7px 12px', border: 'none', background: days === w.days ? C.ink : 'transparent', color: days === w.days ? '#fff' : C.ink2, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{w.label}</button>
               ))}
             </div>
-            <button onClick={() => { const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, days) }}
-              style={{ padding: '7px 12px', borderRadius: 9, border: '1px solid #262626', background: 'transparent', color: '#999', fontSize: 13, cursor: 'pointer' }}>{busy ? '…' : '↻'}</button>
-            <button onClick={() => { sessionStorage.removeItem(STORAGE_KEY); setSecret(''); setView('login') }}
-              style={{ background: 'none', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>Sign out</button>
+            <button onClick={refresh} style={{ padding: '7px 11px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.card, color: C.ink2, fontSize: 13, cursor: 'pointer', boxShadow: C.shadow }}>{busy ? '…' : '↻'}</button>
+            <button onClick={() => { sessionStorage.removeItem(STORAGE_KEY); setSecret(''); setView('login') }} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 13, cursor: 'pointer' }}>Sign out</button>
           </div>
         </div>
 
         {hint && hintMsg[hint] && (
-          <div style={{ background: '#241d0e', border: '1px solid #5a4520', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-            <div style={{ color: '#f0c675', fontSize: 14, fontWeight: 600, marginBottom: 4 }}>⚠ {hintMsg[hint].title}</div>
-            <div style={{ color: '#c8b48a', fontSize: 13, lineHeight: 1.5 }}>{hintMsg[hint].body}</div>
+          <div style={{ background: '#fff8e6', border: '1px solid #f0d68a', borderRadius: 12, padding: '13px 15px', marginBottom: 14 }}>
+            <div style={{ color: '#8a6d1a', fontSize: 14, fontWeight: 650, marginBottom: 3 }}>⚠ {hintMsg[hint].title}</div>
+            <div style={{ color: '#9a7d2a', fontSize: 13, lineHeight: 1.5 }}>{hintMsg[hint].body}</div>
           </div>
         )}
-
         {err && (
-          <div style={{ background: '#2a1212', border: '1px solid #5a2020', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-            <div style={{ color: '#f88', fontSize: 13, marginBottom: 8 }}>{err}</div>
-            <button onClick={() => { const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, days) }}
-              style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #5a2020', background: 'transparent', color: '#f88', fontSize: 13, cursor: 'pointer' }}>Retry</button>
+          <div style={{ background: '#fdecec', border: '1px solid #f0b8b8', borderRadius: 12, padding: '13px 15px', marginBottom: 14 }}>
+            <div style={{ color: C.red, fontSize: 13, marginBottom: 8 }}>{err}</div>
+            <button onClick={refresh} style={{ padding: '6px 12px', borderRadius: 7, border: `1px solid #f0b8b8`, background: 'transparent', color: C.red, fontSize: 13, cursor: 'pointer' }}>Retry</button>
           </div>
         )}
 
-        {/* Overview cards */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+        {/* Stat cards */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
           {stat('Searches', ov ? num(ov.searches.total) : '—', ov ? `${num(ov.searches.signedIn)} signed-in · ${num(ov.searches.anonymous)} anon` : undefined)}
           {stat('Searchers', ov ? num(ov.searches.distinctSearchers) : '—', 'signed-in, distinct')}
           {stat('Users', ov ? num(ov.users.total) : '—', ov ? `${num(ov.users.new)} new · ${num(ov.users.active)} active` : undefined)}
@@ -259,145 +291,154 @@ export default function AdminAnalyticsPage() {
         </div>
 
         {/* Activity over time */}
-        <div style={st.panel}>
-          <div style={st.h}>Activity over time</div>
-          {data?.timeSeries ? <LineChart points={data.timeSeries.points} days={data.days} /> : <div style={{ color: '#555', fontSize: 13 }}>—</div>}
+        <div style={panel}>
+          <div style={hStyle}>Activity over time</div>
+          {data?.timeSeries ? <LineChart points={data.timeSeries.points} days={data.days} /> : <div style={{ color: C.muted, fontSize: 13 }}>—</div>}
         </div>
 
-        {/* Engagement funnel + breakdowns */}
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 0 }}>
-          <div style={{ ...st.panel, flex: '1 1 300px' }}>
-            <div style={st.h}>Engagement funnel</div>
+        {/* Funnel + breakdowns */}
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ ...panel, flex: '1 1 320px' }}>
+            <div style={hStyle}>Engagement funnel</div>
             {funnel ? (
               <>
-                <BarRow label="Shown" value={funnel.impressions} max={funnelMax} accent="#3a3a3a" />
-                <BarRow label="Opened" value={funnel.views} max={funnelMax} sub={ov?.rates.viewRate != null ? `· ${pct(ov.rates.viewRate)}` : ''} accent="#4a9eff" />
-                <BarRow label="Saved" value={funnel.saves} max={funnelMax} sub={ov?.rates.saveRate != null ? `· ${pct(ov.rates.saveRate)}` : ''} accent="#38b673" />
-                <BarRow label="Flagged" value={funnel.flags} max={funnelMax} sub={ov?.rates.flagRate != null ? `· ${pct(ov.rates.flagRate)}` : ''} accent="#c0504a" />
-                <div style={{ color: '#666', fontSize: 11, marginTop: 8 }}>Rates are % of products shown. This is the exact behaviour the learning loop trains on.</div>
+                <BarRow label="Shown" value={funnel.impressions} max={funnelMax} accent={C.muted} />
+                <BarRow label="Opened" value={funnel.views} max={funnelMax} sub={ov?.rates.viewRate != null ? `· ${pct(ov.rates.viewRate)}` : ''} accent={C.blue} />
+                <BarRow label="Saved" value={funnel.saves} max={funnelMax} sub={ov?.rates.saveRate != null ? `· ${pct(ov.rates.saveRate)}` : ''} accent={C.good} />
+                <BarRow label="Flagged" value={funnel.flags} max={funnelMax} sub={ov?.rates.flagRate != null ? `· ${pct(ov.rates.flagRate)}` : ''} accent={C.red} />
+                <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>Rates are % of products shown — the exact behaviour the learning loop trains on.</div>
               </>
-            ) : <div style={{ color: '#555', fontSize: 13 }}>—</div>}
+            ) : <div style={{ color: C.muted, fontSize: 13 }}>—</div>}
           </div>
-          <div style={{ ...st.panel, flex: '1 1 240px' }}>
-            <div style={st.h}>Users by device</div>
-            {ov && ov.byDevice.length > 0 ? ov.byDevice.map(d => (
-              <BarRow key={d.label} label={d.label} value={d.count} max={Math.max(...ov.byDevice.map(x => x.count), 1)} accent="#7a6cff" />
-            )) : <div style={{ color: '#555', fontSize: 13 }}>No device data yet</div>}
-            <div style={{ ...st.h, marginTop: 16 }}>Users by country</div>
-            {ov && ov.byCountry.length > 0 ? ov.byCountry.map(c => (
-              <BarRow key={c.label} label={c.label} value={c.count} max={Math.max(...ov.byCountry.map(x => x.count), 1)} accent="#d08a3e" />
-            )) : <div style={{ color: '#555', fontSize: 13 }}>No country data yet</div>}
+          <div style={{ ...panel, flex: '1 1 260px' }}>
+            <div style={hStyle}>Users by device</div>
+            {ov && ov.byDevice.length > 0 ? ov.byDevice.map(d => <BarRow key={d.label} label={d.label} value={d.count} max={Math.max(...ov.byDevice.map(x => x.count), 1)} accent={C.blue} />) : <div style={{ color: C.muted, fontSize: 13 }}>No device data yet</div>}
+            <div style={{ ...hStyle, marginTop: 16 }}>Users by country</div>
+            {ov && ov.byCountry.length > 0 ? ov.byCountry.map(c => <BarRow key={c.label} label={c.label} value={c.count} max={Math.max(...ov.byCountry.map(x => x.count), 1)} accent={C.green} />) : <div style={{ color: C.muted, fontSize: 13 }}>No country data yet</div>}
           </div>
         </div>
 
-        {/* Needs attention — no-result searches */}
+        {/* Top opened / saved products */}
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ ...panel, flex: '1 1 300px' }}>
+            <div style={hStyle}>Most opened products</div>
+            {prodList(data?.topProducts?.opened ?? [], C.blue, 'No opens in this window yet')}
+          </div>
+          <div style={{ ...panel, flex: '1 1 300px' }}>
+            <div style={hStyle}>Most saved products</div>
+            {prodList(data?.topProducts?.saved ?? [], C.good, 'No saves in this window yet')}
+          </div>
+        </div>
+
+        {/* Needs attention */}
         {zeroQueries.length > 0 && (
-          <div style={{ ...st.panel, borderColor: '#5a2f20' }}>
-            <div style={{ ...st.h, color: '#e59', marginBottom: 10 }}>⚠ Searches returning nothing — fix these first</div>
+          <div style={{ ...panel, borderColor: '#f0b8b8' }}>
+            <div style={{ ...hStyle, color: C.red }}>⚠ Searches returning nothing — fix these first</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {zeroQueries.slice(0, 24).map((s, i) => (
-                <span key={i} style={{ background: '#2a1518', border: '1px solid #5a2f2f', borderRadius: 8, padding: '5px 10px', fontSize: 13, color: '#f0b8b8' }}>
-                  {s.query} <span style={{ color: '#a55' }}>×{s.count}</span>
-                </span>
+              {zeroQueries.slice(0, 30).map((s, i) => (
+                <span key={i} style={{ background: '#fdf0f0', border: '1px solid #f2cccc', borderRadius: 8, padding: '5px 10px', fontSize: 13, color: '#a13030' }}>{s.query} <span style={{ color: C.red }}>×{s.count}</span></span>
               ))}
             </div>
           </div>
         )}
 
         {/* Top searches */}
-        <div style={st.panel}>
-          <div style={st.h}>Top searches</div>
+        <div style={panel}>
+          <div style={hStyle}>Top searches</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr>
-                <th style={st.th}>Query</th><th style={{ ...st.th, textAlign: 'right' }}>Count</th>
-                <th style={{ ...st.th, textAlign: 'right' }}>People</th><th style={{ ...st.th, textAlign: 'right' }}>Avg results</th>
-                <th style={{ ...st.th, textAlign: 'right' }}>Last</th>
+                <th style={th}>Query</th><th style={{ ...th, textAlign: 'right' }}>Count</th><th style={{ ...th, textAlign: 'right' }}>People</th><th style={{ ...th, textAlign: 'right' }}>Avg results</th><th style={{ ...th, textAlign: 'right' }}>Last</th>
               </tr></thead>
               <tbody>
                 {(data?.topSearches ?? []).map((s, i) => (
                   <tr key={i}>
-                    <td style={{ ...st.td, maxWidth: 260 }}>{s.query}{(s.avgResults != null && s.avgResults < 1) && <span style={{ color: '#c05', fontSize: 11, marginLeft: 6 }}>no results</span>}</td>
-                    <td style={{ ...st.td, textAlign: 'right', fontWeight: 600 }}>{num(s.count)}</td>
-                    <td style={{ ...st.td, textAlign: 'right', color: '#999' }}>{num(s.searchers)}</td>
-                    <td style={{ ...st.td, textAlign: 'right', color: '#999' }}>{s.avgResults ?? '—'}</td>
-                    <td style={{ ...st.td, textAlign: 'right', color: '#777' }}>{ago(s.lastAt)}</td>
+                    <td style={{ ...td, maxWidth: 280 }}>{s.query}{(s.avgResults != null && s.avgResults < 1) && <span style={{ color: C.red, fontSize: 11, marginLeft: 6 }}>no results</span>}</td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{num(s.count)}</td>
+                    <td style={{ ...td, textAlign: 'right', color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{num(s.searchers)}</td>
+                    <td style={{ ...td, textAlign: 'right', color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{s.avgResults ?? '—'}</td>
+                    <td style={{ ...td, textAlign: 'right', color: C.muted }}>{ago(s.lastAt)}</td>
                   </tr>
                 ))}
-                {(!data?.topSearches || data.topSearches.length === 0) && !busy && (
-                  <tr><td colSpan={5} style={{ ...st.td, color: '#555', textAlign: 'center', padding: '18px' }}>No searches in this window yet</td></tr>
-                )}
+                {(!data?.topSearches || data.topSearches.length === 0) && !busy && <tr><td colSpan={5} style={{ ...td, color: C.muted, textAlign: 'center', padding: 18 }}>No searches in this window yet</td></tr>}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* AI usage by provider */}
+        {/* AI usage */}
         {ai && (
-          <div style={st.panel}>
-            <div style={st.h}>AI usage · {num(ai.totalRequests)} calls · ~{ktok(ai.totalEstPromptTokens)} prompt tokens</div>
+          <div style={panel}>
+            <div style={hStyle}>AI usage · {num(ai.totalRequests)} calls · ~{ktok(ai.totalEstPromptTokens)} prompt tokens</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {Object.entries(ai.byProvider).sort((a, b) => b[1].requests - a[1].requests).map(([prov, v]) => (
-                <div key={prov} style={{ background: '#161616', border: '1px solid #242424', borderRadius: 9, padding: '8px 12px', fontSize: 13 }}>
-                  <span style={{ color: '#ddd', fontWeight: 600 }}>{prov}</span>
-                  <span style={{ color: '#888', marginLeft: 8 }}>{num(v.requests)} calls</span>
-                  <span style={{ color: '#666', marginLeft: 8 }}>~{ktok(v.estPromptTokens)} tok</span>
-                  {v.failures > 0 && <span style={{ color: '#f66', marginLeft: 8 }}>{v.failures} fail</span>}
+                <div key={prov} style={{ background: '#fafafa', border: `1px solid ${C.border}`, borderRadius: 9, padding: '8px 12px', fontSize: 13 }}>
+                  <span style={{ color: C.ink, fontWeight: 600 }}>{prov}</span>
+                  <span style={{ color: C.ink2, marginLeft: 8 }}>{num(v.requests)} calls</span>
+                  <span style={{ color: C.muted, marginLeft: 8 }}>~{ktok(v.estPromptTokens)} tok</span>
+                  {v.failures > 0 && <span style={{ color: C.red, marginLeft: 8 }}>{v.failures} fail</span>}
                 </div>
               ))}
-              {Object.keys(ai.byProvider).length === 0 && <div style={{ color: '#555', fontSize: 13 }}>No AI calls in this window</div>}
+              {Object.keys(ai.byProvider).length === 0 && <div style={{ color: C.muted, fontSize: 13 }}>No AI calls in this window</div>}
             </div>
           </div>
         )}
 
         {/* Top users */}
-        <div style={st.panel}>
-          <div style={st.h}>Most active shoppers</div>
+        <div style={panel}>
+          <div style={hStyle}>Most active shoppers</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr>
-                <th style={st.th}>Email</th><th style={{ ...st.th, textAlign: 'right' }}>Searches</th>
-                <th style={{ ...st.th, textAlign: 'right' }}>Saves</th><th style={{ ...st.th, textAlign: 'right' }}>Where</th>
-                <th style={{ ...st.th, textAlign: 'right' }}>Last seen</th>
+                <th style={th}>Email</th><th style={{ ...th, textAlign: 'right' }}>Searches</th><th style={{ ...th, textAlign: 'right' }}>Saves</th><th style={{ ...th, textAlign: 'right' }}>Where</th><th style={{ ...th, textAlign: 'right' }}>Last seen</th>
               </tr></thead>
               <tbody>
                 {(data?.topUsers ?? []).map((u, i) => (
                   <tr key={i}>
-                    <td style={{ ...st.td, maxWidth: 240 }}>{u.email}</td>
-                    <td style={{ ...st.td, textAlign: 'right', fontWeight: 600 }}>{num(u.searches)}</td>
-                    <td style={{ ...st.td, textAlign: 'right', color: '#999' }}>{num(u.saves)}</td>
-                    <td style={{ ...st.td, textAlign: 'right', color: '#999' }}>{[u.country, u.deviceType].filter(Boolean).join(' · ') || '—'}</td>
-                    <td style={{ ...st.td, textAlign: 'right', color: '#777' }}>{ago(u.lastSeenAt)}</td>
+                    <td style={{ ...td, maxWidth: 240 }}>{u.email}</td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{num(u.searches)}</td>
+                    <td style={{ ...td, textAlign: 'right', color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{num(u.saves)}</td>
+                    <td style={{ ...td, textAlign: 'right', color: C.ink2 }}>{[u.country, u.deviceType].filter(Boolean).join(' · ') || '—'}</td>
+                    <td style={{ ...td, textAlign: 'right', color: C.muted }}>{ago(u.lastSeenAt)}</td>
                   </tr>
                 ))}
-                {(!data?.topUsers || data.topUsers.length === 0) && !busy && (
-                  <tr><td colSpan={5} style={{ ...st.td, color: '#555', textAlign: 'center', padding: '18px' }}>No signed-in activity in this window</td></tr>
-                )}
+                {(!data?.topUsers || data.topUsers.length === 0) && !busy && <tr><td colSpan={5} style={{ ...td, color: C.muted, textAlign: 'center', padding: 18 }}>No signed-in activity in this window</td></tr>}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Recent activity feed */}
-        <div style={st.panel}>
-          <div style={st.h}>Live activity</div>
+        {/* Full activity feed — every action + exact text */}
+        <div style={panel}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            <div style={{ ...hStyle, marginBottom: 0 }}>Activity — everything people did</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['all', 'search', 'open', 'save', 'flag'] as const).map(k => (
+                <button key={k} onClick={() => setFeedFilter(k)} style={{ padding: '4px 10px', borderRadius: 7, border: `1px solid ${feedFilter === k ? C.ink : C.border}`, background: feedFilter === k ? C.ink : C.card, color: feedFilter === k ? '#fff' : C.ink2, fontSize: 12, fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize' }}>{k === 'all' ? 'All' : KIND[k].label}</button>
+              ))}
+            </div>
+          </div>
           <div>
-            {(data?.recent ?? []).map((r, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '7px 0', borderTop: i > 0 ? '1px solid #1c1c1c' : 'none' }}>
-                <div style={{ flex: 1, minWidth: 0, color: '#eee', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>“{r.query}”</div>
-                <div style={{ color: '#777', fontSize: 12, flexShrink: 0 }}>{r.resultCount != null ? `${r.resultCount} results` : ''}</div>
-                <div style={{ color: '#666', fontSize: 12, flexShrink: 0, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email ?? 'anonymous'}</div>
-                <div style={{ color: '#555', fontSize: 12, flexShrink: 0 }}>{ago(r.at)}</div>
-              </div>
-            ))}
-            {(!data?.recent || data.recent.length === 0) && !busy && (
-              <div style={{ color: '#555', fontSize: 13, textAlign: 'center', padding: '18px' }}>No activity recorded yet</div>
-            )}
+            {feed.map((a, i) => {
+              const kk = KIND[a.kind] ?? { label: a.kind, color: C.muted }
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '8px 0', borderTop: i > 0 ? `1px solid ${C.hairline}` : 'none' }}>
+                  <span style={{ flexShrink: 0, width: 64, color: kk.color, fontSize: 11, fontWeight: 600 }}><span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: kk.color, marginRight: 6, verticalAlign: 'middle' }} />{kk.label}</span>
+                  <div style={{ flex: 1, minWidth: 0, color: C.ink, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {a.kind === 'search' ? <span>“{a.text}”</span> : <span>{a.text || '—'}</span>}
+                    {a.meta && <span style={{ color: C.muted, marginLeft: 8, fontSize: 12 }}>{a.meta}</span>}
+                  </div>
+                  <div style={{ color: C.ink2, fontSize: 12, flexShrink: 0, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.email ?? 'anonymous'}</div>
+                  <div style={{ color: C.muted, fontSize: 12, flexShrink: 0, width: 40, textAlign: 'right' }}>{ago(a.at)}</div>
+                </div>
+              )
+            })}
+            {feed.length === 0 && !busy && <div style={{ color: C.muted, fontSize: 13, textAlign: 'center', padding: 18 }}>No activity recorded yet</div>}
           </div>
         </div>
 
-        <div style={{ color: '#444', fontSize: 11, textAlign: 'center', margin: '8px 0 24px' }}>
-          Data lives in Convex. Token counts are estimates. Anonymous searches appear in totals but can’t be attributed to a person.
+        <div style={{ color: C.muted, fontSize: 11, textAlign: 'center', margin: '6px 0 24px' }}>
+          Data lives in Convex. Token counts are estimates. Anonymous actions appear in totals but can’t be attributed to a person.
         </div>
       </div>
     </div>

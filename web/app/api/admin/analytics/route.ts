@@ -52,12 +52,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Convex not configured', detail: e?.message ?? String(e) }, { status: 500 })
   }
 
-  const [overview, timeSeries, topSearches, topUsers, recent, aiUsage] = await Promise.all([
+  const [overview, timeSeries, topSearches, topUsers, activity, topProducts, aiUsage] = await Promise.all([
     run('overview', convex.query(anyApi.analytics.adminOverview, { adminSecret, windowMs })),
     run('timeSeries', convex.query(anyApi.analytics.adminTimeSeries, { adminSecret, windowMs, buckets })),
     run('topSearches', convex.query(anyApi.analytics.adminTopSearches, { adminSecret, windowMs, limit: 40 })),
     run('topUsers', convex.query(anyApi.analytics.adminTopUsers, { adminSecret, windowMs, limit: 30 })),
-    run('recent', convex.query(anyApi.analytics.adminRecentSearches, { adminSecret, limit: 60 })),
+    run('activity', convex.query(anyApi.analytics.adminActivityFeed, { adminSecret, limit: 120 })),
+    run('topProducts', convex.query(anyApi.analytics.adminTopProducts, { adminSecret, windowMs, limit: 10 })),
     serverSecret
       ? run('aiUsage', convex.query(anyApi.users.getAiUsageSummary, { serverSecret, windowMs }))
       : Promise.resolve(null),
@@ -75,5 +76,5 @@ export async function GET(req: NextRequest) {
   else if (overview === null) hint = 'convex_admin_secret_mismatch'
   else if (!serverSecret) hint = 'server_secret_missing'
 
-  return NextResponse.json({ ok: true, days, overview, timeSeries, topSearches, topUsers, recent, aiUsage, diag, hint })
+  return NextResponse.json({ ok: true, days, overview, timeSeries, topSearches, topUsers, activity, topProducts, aiUsage, diag, hint })
 }

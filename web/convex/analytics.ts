@@ -235,6 +235,99 @@ export const adminTopUsers = query({
   },
 });
 
+/** Unified activity timeline — every recent action (search, product open, save,
+ * flag) merged and sorted newest-first, each carrying the EXACT text involved
+ * (the query typed, the product opened/saved/flagged) and the shopper's email
+ * when known. This is the "what did every single person actually do" feed. */
+export const adminActivityFeed = query({
+  args: { adminSecret: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    if (!verifyAdminSecret(args.adminSecret)) return [];
+    const limit = Math.min(Math.max(args.limit ?? 80, 1), 300);
+    const per = Math.min(limit + 20, 150);
+
+    const [searches, opens] = await Promise.all([
+      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "search")).order("desc").take(per),
+      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "product_view")).order("desc").take(per),
+    ]);
+    const saves = await ctx.db.query("saved_products").order("desc").take(per);
+    const flags = await ctx.db.query("quality_signals").order("desc").take(per);
+
+    type Row = { kind: string; text: string; meta: string | null; at: number; country: string | null; userId: string | null; email?: string | null };
+    const rows: Row[] = [];
+    for (const e of searches) {
+      const p = (e.properties ?? {}) as any;
+      const rc = Number(p.resultCount);
+      rows.push({ kind: "search", text: String(p.query ?? "").slice(0, 140), meta: Number.isFinite(rc) ? `${rc} result${rc === 1 ? "" : "s"}` : null, at: e.createdAt, country: e.country ?? null, userId: e.userId ? String(e.userId) : null });
+    }
+    for (const e of opens) {
+      const p = (e.properties ?? {}) as any;
+      rows.push({ kind: "open", text: String(p.title ?? "").slice(0, 140), meta: p.vendor ? String(p.vendor) : null, at: e.createdAt, country: e.country ?? null, userId: e.userId ? String(e.userId) : null });
+    }
+    for (const s of saves) {
+      rows.push({ kind: "save", text: String((s.product as any)?.title ?? "").slice(0, 140), meta: (s.product as any)?.vendor ? String((s.product as any).vendor) : null, at: s.savedAt, country: null, userId: String(s.userId) });
+    }
+    for (const f of flags) {
+      if (f.signal !== "bad_match") continue;
+      rows.push({ kind: "flag", text: String(f.query ?? f.productTitle ?? "").slice(0, 140), meta: f.productTitle ? String(f.productTitle).slice(0, 80) : null, at: f.createdAt, country: null, userId: f.userId ? String(f.userId) : null });
+    }
+
+    rows.sort((a, b) => b.at - a.at);
+    const top = rows.slice(0, limit);
+
+    const cache = new Map<string, string | null>();
+    for (const r of top) {
+      if (!r.userId) { r.email = null; continue; }
+      if (cache.has(r.userId)) { r.email = cache.get(r.userId)!; continue; }
+      const u = await ctx.db.get(r.userId as any);
+      const em = (u as any)?.email ?? null;
+      cache.set(r.userId, em);
+      r.email = em;
+    }
+    return top.map((r) => ({ kind: r.kind, text: r.text, meta: r.meta, at: r.at, country: r.country, email: r.email ?? null }));
+  },
+});
+
+/** The products earning the most attention in the window — most-opened and
+ * most-saved, with real titles/brands. "What are people actually drawn to." */
+export const adminTopProducts = query({
+  args: { adminSecret: v.string(), windowMs: v.optional(v.number()), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    if (!verifyAdminSecret(args.adminSecret)) return { opened: [], saved: [] };
+    const since = Date.now() - (args.windowMs ?? 7 * DAY);
+    const limit = Math.min(Math.max(args.limit ?? 10, 1), 50);
+
+    const opens = await ctx.db
+      .query("user_events")
+      .withIndex("by_event_created", (q) => q.eq("event", "product_view").gte("createdAt", since))
+      .take(EVENT_SCAN_CAP);
+    const openMap = new Map<string, { title: string; vendor: string | null; count: number }>();
+    for (const e of opens) {
+      const p = (e.properties ?? {}) as any;
+      const id = String(p.productId ?? "");
+      if (!id) continue;
+      let r = openMap.get(id);
+      if (!r) { r = { title: String(p.title ?? "").slice(0, 90), vendor: p.vendor ? String(p.vendor) : null, count: 0 }; openMap.set(id, r); }
+      r.count++;
+    }
+
+    const saves = await ctx.db.query("saved_products").order("desc").take(SAVE_SCAN_CAP);
+    const saveMap = new Map<string, { title: string; vendor: string | null; count: number }>();
+    for (const s of saves) {
+      if (typeof s.savedAt === "number" && s.savedAt < since) continue;
+      const id = String((s.product as any)?.id ?? "");
+      if (!id) continue;
+      let r = saveMap.get(id);
+      if (!r) { r = { title: String((s.product as any)?.title ?? "").slice(0, 90), vendor: (s.product as any)?.vendor ? String((s.product as any).vendor) : null, count: 0 }; saveMap.set(id, r); }
+      r.count++;
+    }
+
+    const top = (m: Map<string, { title: string; vendor: string | null; count: number }>) =>
+      Array.from(m.values()).sort((a, b) => b.count - a.count).slice(0, limit);
+    return { opened: top(openMap), saved: top(saveMap) };
+  },
+});
+
 /** The most recent searches, newest first, with the shopper's email when known. */
 export const adminRecentSearches = query({
   args: { adminSecret: v.string(), limit: v.optional(v.number()) },
