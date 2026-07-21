@@ -17,9 +17,9 @@ export const metadata: Metadata = {
     siteName: 'Discern',
     images: [
       {
-        url: '/og.jpg',
-        width: 1100,
-        height: 880,
+        url: '/favicon.png',
+        width: 512,
+        height: 512,
         alt: 'Discern',
       },
     ],
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Discern — AI Shopping Agent',
     description: 'Describe what you want to wear. Discern\'s AI searches 450+ curated independent brands to find it — then Fabrics, your personal AI stylist, builds the complete outfit, compares options, and remembers your style.',
-    images: ['/og.jpg'],
+    images: ['/favicon.png'],
   },
 }
 
