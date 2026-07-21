@@ -3804,10 +3804,12 @@ export default function DiscernApp({
           font-family:${SANS};font-size:10px;font-weight:500;color:#fff;letter-spacing:.01em;opacity:.92;
           text-shadow:0 1px 3px rgba(0,0,0,.45);pointer-events:none;}
         .fr-mtile-views svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));flex-shrink:0;opacity:.95;}
-        .fr-dot{width:5.5px;height:5.5px;border-radius:50%;background:${INK3};display:inline-block;animation:fr-breathe 1.5s infinite ease-in-out both;}
-        .fr-dot:nth-child(1){animation-delay:-.3s}.fr-dot:nth-child(2){animation-delay:-.15s}
-        /* Calm, considered "thinking" — a soft breath rather than a hard bounce. */
-        @keyframes fr-breathe{0%,100%{opacity:.2;transform:translateY(1px) scale(.78);}50%{opacity:.95;transform:translateY(-2px) scale(1);}}
+        /* "Thinking" indicator: three short stitches laid in sequence — a tiny
+           running seam, not generic loading dots. Cohesive with the stitched
+           step connector. */
+        .fr-dot{width:7px;height:2.5px;border-radius:2px;background:${INK3};display:inline-block;transform-origin:center;animation:fr-breathe 1.4s infinite ease-in-out both;}
+        .fr-dot:nth-child(1){animation-delay:-.28s}.fr-dot:nth-child(2){animation-delay:-.14s}
+        @keyframes fr-breathe{0%,100%{opacity:.18;transform:scaleX(.55);}50%{opacity:.95;transform:scaleX(1);}}
         @keyframes fr-bounce{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
 
         .fr-card:nth-child(1){animation-delay:.00s}.fr-card:nth-child(2){animation-delay:.05s}
@@ -4046,10 +4048,12 @@ export default function DiscernApp({
         /* Soft breathing halo behind the active spinner, drawing the eye to it. */
         @keyframes fr-halo{0%,100%{box-shadow:0 0 0 0 rgba(29,29,31,.11);}50%{box-shadow:0 0 0 6px rgba(29,29,31,0);}}
         .fr-node-active{width:14px;height:14px;border-radius:50%;display:flex;flex-shrink:0;animation:fr-halo 2.2s ease-in-out infinite;}
-        /* Connector thread that draws itself DOWN to the next step as it appears,
-           so the sequence reads as one continuous, considered progression. */
+        /* Connector = a RUNNING STITCH between steps: it first draws itself down
+           (scaleY), then the stitches march gently downward, like a seam being
+           sewn — Discern's atelier signature, not a generic progress line. */
         @keyframes fr-thread{from{transform:scaleY(0);}to{transform:scaleY(1);}}
-        .fr-thread{transform-origin:top center;animation:fr-thread .45s cubic-bezier(.32,.9,.4,1) both;}
+        @keyframes fr-stitch{from{background-position-y:0;}to{background-position-y:6px;}}
+        .fr-thread{transform-origin:top center;background:repeating-linear-gradient(to bottom,rgba(29,29,31,.32) 0 3px,transparent 3px 6px);animation:fr-thread .45s cubic-bezier(.32,.9,.4,1) both, fr-stitch 1.15s linear .35s infinite;}
         button{cursor:pointer;} a{color:inherit;}
         .fr-msg-edit-btn{opacity:0;transition:opacity .15s ease;}
         .fr-msg-hover:hover .fr-msg-edit-btn,.fr-msg-hover:focus-within .fr-msg-edit-btn{opacity:.55;}
@@ -5325,9 +5329,10 @@ export default function DiscernApp({
                             {group.query && !group.hasNoMore && (
                               group.loadingMore ? (
                                 <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 2px' }}>
-                                  <div className="fr-step-active" style={{ position: 'relative', width: 20, height: 20, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
-                                    <StylistStepIcon icon={(loadMorePhases[loadMorePhases.length - 1]?.icon) ?? 'search'} size={11} />
-                                  </div>
+                                  <span className="fr-node-active" style={{ position: 'relative', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: INK }}>
+                                    <span className="fr-ring2" style={{ position: 'absolute', inset: 0, width: 20, height: 20 }} />
+                                    <StylistStepIcon icon={(loadMorePhases[loadMorePhases.length - 1]?.icon) ?? 'search'} size={10} />
+                                  </span>
                                   <span style={{ fontFamily: SANS, fontSize: 12, color: INK2 }}>{loadMorePhases[loadMorePhases.length - 1]?.main ?? 'Searching for more'}</span>
                                 </div>
                               ) : (
@@ -5367,9 +5372,10 @@ export default function DiscernApp({
                         {m.searchQuery && !m.hasNoMore && (
                           m.loadingMore ? (
                             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '11px 2px' }}>
-                              <div className="fr-step-active" style={{ position: 'relative', width: 22, height: 22, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
-                                <StylistStepIcon icon={(loadMorePhases[loadMorePhases.length - 1]?.icon) ?? 'search'} size={12} />
-                              </div>
+                              <span className="fr-node-active" style={{ position: 'relative', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: INK }}>
+                                <span className="fr-ring2" style={{ position: 'absolute', inset: 0 }} />
+                                <StylistStepIcon icon={(loadMorePhases[loadMorePhases.length - 1]?.icon) ?? 'search'} size={11} />
+                              </span>
                               <span style={{ fontFamily: SANS, fontSize: 12.5, color: INK2 }}>{loadMorePhases[loadMorePhases.length - 1]?.main ?? 'Searching for more'}</span>
                             </div>
                           ) : (
@@ -5528,7 +5534,7 @@ export default function DiscernApp({
                                     </svg>
                                   </span>
                                 )}
-                                {!isLast && <span className="fr-thread" style={{ width: 1.5, flex: 1, minHeight: 8, marginTop: 3, marginBottom: 1, borderRadius: 1, background: 'linear-gradient(to bottom, rgba(0,0,0,.16), rgba(0,0,0,.08))' }} />}
+                                {!isLast && <span className="fr-thread" style={{ width: 2, flex: 1, minHeight: 9, marginTop: 3, marginBottom: 1 }} />}
                               </div>
                               <div style={{ paddingBottom: isLast ? 0 : 12, minHeight: 14, display: 'flex', alignItems: 'center', minWidth: 0 }}>
                                 {isLast ? (
