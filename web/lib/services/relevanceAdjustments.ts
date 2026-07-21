@@ -44,7 +44,12 @@ function refresh(): void {
         }
         byKey = next
       })
-      .catch(() => { /* leave the map as-is */ })
+      .catch(() => {
+        // A failed load must not lock out retries for the full refresh window —
+        // reset lastLoad so the next call tries again promptly (the map simply
+        // stays as-is meanwhile, i.e. zero adjustments, never worse).
+        lastLoad = 0
+      })
       .finally(() => { loading = false })
   } catch {
     loading = false

@@ -50,10 +50,10 @@ export const adminOverview = query({
     const since = Date.now() - (args.windowMs ?? 7 * DAY);
 
     const [searchEvents, aiEvents, impressionEvents, viewEvents] = await Promise.all([
-      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "search").gte("createdAt", since)).take(EVENT_SCAN_CAP),
-      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "ai_usage").gte("createdAt", since)).take(EVENT_SCAN_CAP),
-      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "impression").gte("createdAt", since)).take(EVENT_SCAN_CAP),
-      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "product_view").gte("createdAt", since)).take(EVENT_SCAN_CAP),
+      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "search").gte("createdAt", since)).order("desc").take(EVENT_SCAN_CAP),
+      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "ai_usage").gte("createdAt", since)).order("desc").take(EVENT_SCAN_CAP),
+      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "impression").gte("createdAt", since)).order("desc").take(EVENT_SCAN_CAP),
+      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "product_view").gte("createdAt", since)).order("desc").take(EVENT_SCAN_CAP),
     ]);
 
     let anonSearches = 0;
@@ -128,8 +128,8 @@ export const adminTimeSeries = query({
     const bucketMs = windowMs / buckets;
 
     const [searchEvents, viewEvents] = await Promise.all([
-      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "search").gte("createdAt", since)).take(EVENT_SCAN_CAP),
-      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "product_view").gte("createdAt", since)).take(EVENT_SCAN_CAP),
+      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "search").gte("createdAt", since)).order("desc").take(EVENT_SCAN_CAP),
+      ctx.db.query("user_events").withIndex("by_event_created", (q) => q.eq("event", "product_view").gte("createdAt", since)).order("desc").take(EVENT_SCAN_CAP),
     ]);
 
     const searches = new Array(buckets).fill(0);
@@ -142,7 +142,8 @@ export const adminTimeSeries = query({
     for (let i = 0; i < buckets; i++) {
       points.push({ t0: Math.round(since + i * bucketMs), searches: searches[i], views: views[i] });
     }
-    return { since, now, bucketMs, points };
+    const capped = searchEvents.length >= EVENT_SCAN_CAP || viewEvents.length >= EVENT_SCAN_CAP;
+    return { since, now, bucketMs, points, capped };
   },
 });
 

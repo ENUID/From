@@ -12,9 +12,11 @@ function getConvex(): ConvexHttpClient {
 function authorized(req: NextRequest): boolean {
   const secret = process.env.ADMIN_SECRET
   if (!secret) return false
-  // Header for programmatic use; ?key= for opening the print view in a new tab
-  // (where custom headers can't be set). Same secret either way.
-  return req.headers.get('x-admin-secret') === secret || req.nextUrl.searchParams.get('key') === secret
+  // Header only — never accept the secret in the URL query string, which would
+  // leak it into browser history, access logs, and Referer headers. The
+  // dashboard fetches with this header and opens the result as a blob URL, so
+  // the print/PDF view never needs the secret in the URL.
+  return req.headers.get('x-admin-secret') === secret
 }
 
 // Minimal, controlled Markdown → HTML (only the constructs reportToMarkdown emits).

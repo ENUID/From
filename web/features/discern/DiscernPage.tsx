@@ -2029,7 +2029,7 @@ export default function DiscernApp({
   // being produced (the same phases the live step tracker showed) — kept on
   // the message so "what did it think about" survives past the loading
   // animation, behind a collapsed "Show reasoning" toggle.
-  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductGroups?: FoundProductGroup[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean; trace?: StylistLoadingPhase[] }
+  type StylistMsg = { role: 'user' | 'assistant'; content: string; comparison?: StylistComparison; comparisonProducts?: Product[]; images?: string[]; pinnedProducts?: Product[]; id?: string; foundProducts?: Product[]; foundProductGroups?: FoundProductGroup[]; foundProductBatches?: number[]; outfitSlots?: OutfitSlot[]; busy?: boolean; searchQuery?: string; loadingMore?: boolean; hasNoMore?: boolean; trace?: StylistLoadingPhase[] }
   type StylistHistoryEntry = { id: string; label: string; createdAt: number }
   // Guards against a shape mismatch from a pre-migration localStorage payload
   // (this app went through a chat-format architecture change) crashing the
@@ -2343,9 +2343,21 @@ export default function DiscernApp({
         // message (foundProducts / outfitSlots below). The pinned strip at the
         // top is reserved exclusively for pieces the user attached themselves.
         const updatedMsgs = [...history, { role: 'user' as const, content: question }, { role: 'assistant' as const, content: data.reply }]
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, trace: capturedPhases.length > 0 ? capturedPhases : undefined }])
+        // Snapshot the products this comparison was built from onto the message,
+        // so an old comparison never re-renders against a later pinned set (the
+        // ★ pick / pick card would otherwise point at the wrong product).
+        const comparisonProducts = data.comparison ? products.slice() : undefined
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, comparisonProducts, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, trace: capturedPhases.length > 0 ? capturedPhases : undefined }])
+        // Total products actually surfaced — across the single strip, per-category
+        // GROUPS (multi-garment searches), and outfit slots. Counting only
+        // newProducts logged grouped/outfit searches as 0 results, which then
+        // mis-flagged successful searches as "returned nothing" and poisoned the
+        // learning loop.
+        const surfacedCount = newProducts.length
+          + (foundProductGroups?.reduce((n, g) => n + g.products.length, 0) ?? 0)
+          + (outfitSlots?.reduce((n, s) => n + (s.products?.length ?? 0), 0) ?? 0)
         if (typeof data.searchQuery === 'string' && data.searchQuery.trim() && onboardEmail && authProof) {
-          saveSearchHistoryMutation({ userEmail: onboardEmail, query: data.searchQuery.trim(), resultCount: newProducts.length, authProof }).catch(() => {})
+          saveSearchHistoryMutation({ userEmail: onboardEmail, query: data.searchQuery.trim(), resultCount: surfacedCount, authProof }).catch(() => {})
         }
         // Analytics: record every search — anonymous ones too — so the admin
         // dashboard reflects total usage, not just signed-in shoppers. Attributed
@@ -2357,7 +2369,7 @@ export default function DiscernApp({
             // `query` = the concept the AI searched on (for grouping top searches);
             // `raw` = the shopper's message VERBATIM, word for word, so the activity
             // feed shows exactly what they typed, not just "shirt".
-            properties: { query: data.searchQuery.trim().slice(0, 120), raw: question.slice(0, 200), resultCount: newProducts.length },
+            properties: { query: data.searchQuery.trim().slice(0, 120), raw: question.slice(0, 200), resultCount: surfacedCount },
             ...(onboardEmail && authProof ? { email: onboardEmail, authProof } : {}),
           }).catch(() => {})
         }
@@ -2955,7 +2967,9 @@ export default function DiscernApp({
   const lastViewLogged = useRef<string | null>(null)
   useEffect(() => {
     const p = selectedProduct as any
-    if (!p || !p.id) return
+    // Reset on close so a genuine re-open of the SAME product later still logs
+    // a fresh view (we only dedupe re-renders while the sheet stays open).
+    if (!p || !p.id) { lastViewLogged.current = null; return }
     const id = String(p.id)
     if (lastViewLogged.current === id) return
     lastViewLogged.current = id
@@ -5255,7 +5269,7 @@ export default function DiscernApp({
                       <div style={{ marginTop: 10, width: '100%', maxWidth: 480, border: `1px solid ${BRD}`, borderRadius: 12, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', borderBottom: `1px solid ${BRD}` }}>
                           <div style={{ width: 88, flexShrink: 0 }} />
-                          {stylistProducts.map((p, ci) => (
+                          {(m.comparisonProducts ?? stylistProducts).map((p, ci) => (
                             <div key={p.id} style={{ flex: 1, padding: '8px 4px', textAlign: 'center', borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(0,0,0,0.05)' : 'transparent' }}>
                               <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 500, color: INK2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 3px', lineHeight: 1.3 }}>
                                 {p.title.replace(/^\d[\d\s\-–—]*/, '').trim().split(' ').slice(0, 3).join(' ') || `${ci + 1}`}
@@ -5269,27 +5283,27 @@ export default function DiscernApp({
                         {m.comparison.rows.map((row, ri) => (
                           <div key={ri} style={{ display: 'flex', borderBottom: ri < m.comparison!.rows.length - 1 ? `1px solid ${BRD}` : 'none' }}>
                             <div style={{ width: 88, flexShrink: 0, padding: '9px 10px', fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.03em', textTransform: 'uppercase', color: INK3 }}>{row.label}</div>
-                            {stylistProducts.map((p, ci) => (
+                            {(m.comparisonProducts ?? stylistProducts).map((p, ci) => (
                               <div key={ci} style={{ flex: 1, padding: '9px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 12, color: INK2, borderLeft: `1px solid ${BRD}`, background: m.comparison!.pick?.index === ci ? 'rgba(0,0,0,0.05)' : 'transparent' }}>
                                 {row.values[ci] ?? '—'}
                               </div>
                             ))}
                           </div>
                         ))}
-                        {m.comparison.pick?.reason && stylistProducts[m.comparison.pick.index] && (
+                        {m.comparison.pick?.reason && (m.comparisonProducts ?? stylistProducts)[m.comparison.pick.index] && (
                           <div style={{ padding: '10px 12px', fontFamily: SANS, fontSize: 12, color: INK2, lineHeight: 1.5, background: 'rgba(0,0,0,0.03)', borderTop: `1px solid ${BRD}` }}>
-                            <strong style={{ fontWeight: 600 }}>{stylistProducts[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
+                            <strong style={{ fontWeight: 600 }}>{(m.comparisonProducts ?? stylistProducts)[m.comparison.pick.index].title}:</strong> {m.comparison.pick.reason}
                           </div>
                         )}
                       </div>
                     )}
                     {/* The picked product itself — tappable, so the shopper can open,
                         save, or buy the one Fabrics chose, not just read its name. */}
-                    {m.comparison && m.comparison.pick && stylistProducts[m.comparison.pick.index] && (
+                    {m.comparison && m.comparison.pick && (m.comparisonProducts ?? stylistProducts)[m.comparison.pick.index] && (
                       <div style={{ marginTop: 10, width: '100%', maxWidth: 480 }}>
                         <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Fabrics&rsquo; pick</div>
                         <div style={{ display: 'flex' }}>
-                          {renderFoundProductCard(stylistProducts[m.comparison.pick.index])}
+                          {renderFoundProductCard((m.comparisonProducts ?? stylistProducts)[m.comparison.pick.index])}
                         </div>
                       </div>
                     )}

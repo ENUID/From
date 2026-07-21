@@ -121,19 +121,28 @@ export async function GET(req: NextRequest) {
     // IMPRESSIONS — one event carries the whole shown set. Key each product by
     // its OWN garment (same bridge as flags/saves), not the search query, so a
     // trouser shown in a mixed "shirt and trousers" search files under trouser.
+    // Key impressions AND views identically — by the PRODUCT's own garment
+    // (from its title), skipping products whose title names no known garment.
+    // Views carry no query, so if impressions fell back to the query's garment
+    // while views fell back to "general", the same product's shown-count and
+    // open-count landed in DIFFERENT concept buckets — which could mild-demote a
+    // product the shopper actually opened. Title-only keying keeps them aligned.
+    const productGarment = (title: unknown): string | undefined =>
+      decomposeQuery(String(title || '')).garmentKeys[0]
     for (const ev of impressionEvents) {
-      const q = typeof ev?.query === 'string' ? ev.query : ''
       const arr = Array.isArray(ev?.products) ? ev.products : []
       for (const p of arr) {
         if (!p?.id) continue
-        const concept = conceptKeyFor(q, p.title)
+        const concept = productGarment(p.title)
+        if (!concept) continue
         at(productAgg, `${concept} ${p.id}`).impressions++
       }
     }
     // PRODUCT VIEWS — a single opened product per event.
     for (const ev of viewEvents) {
       if (!ev?.productId) continue
-      const concept = conceptKeyFor('', ev.title)
+      const concept = productGarment(ev.title)
+      if (!concept) continue
       at(productAgg, `${concept} ${ev.productId}`).views++
     }
 

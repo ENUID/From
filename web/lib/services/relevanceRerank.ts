@@ -137,7 +137,9 @@ export function bm25Scores(query: string, products: UcpProduct[]): Map<string, n
   const result = new Map<string, number>()
   raw.forEach(({ id, score }, i) => {
     const adjustment = getRelevanceAdjustment(conceptKey, id, products[i]?.vendor)
-    result.set(id, Math.max(0, score / max - adjustment))
+    // Clamp to [0,1]: a demotion floors at 0 (dropped), a promotion can't push a
+    // product above the normalized max (keeps the blended score well-defined).
+    result.set(id, Math.max(0, Math.min(1, score / max - adjustment)))
   })
   return result
 }

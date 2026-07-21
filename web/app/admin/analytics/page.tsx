@@ -97,7 +97,7 @@ function LineChart({ points, days }: { points: SeriesPoint[]; days: number }) {
   const line = (key: 'searches' | 'views') => points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ')
   const area = `${points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.searches).toFixed(1)}`).join(' ')} L${x(n - 1).toFixed(1)},${y(0).toFixed(1)} L${x(0).toFixed(1)},${y(0).toFixed(1)} Z`
   const fmtT = (t: number) => days <= 1 ? new Date(t).toLocaleTimeString([], { hour: '2-digit' }) : new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' })
-  const total = points.reduce((s, p) => s + p.searches, 0)
+  const total = points.reduce((s, p) => s + p.searches + p.views, 0)
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (n <= 1) return
@@ -128,7 +128,7 @@ function LineChart({ points, days }: { points: SeriesPoint[]; days: number }) {
             <path d={area} fill={C.blueArea} stroke="none" />
             <path d={line('views')} fill="none" stroke={C.green} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
             <path d={line('searches')} fill="none" stroke={C.blue} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
-            {hover != null && (
+            {hover != null && points[hover] && (
               <g>
                 <line x1={x(hover)} y1={padT} x2={x(hover)} y2={H - padB} stroke={C.border} strokeWidth="1" />
                 <circle cx={x(hover)} cy={y(points[hover].searches)} r="3.5" fill={C.blue} stroke="#fff" strokeWidth="1.5" />
@@ -139,7 +139,7 @@ function LineChart({ points, days }: { points: SeriesPoint[]; days: number }) {
               <text key={i} x={x(i)} y={H - 7} fill={C.muted} fontSize="9" textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}>{fmtT(points[i].t0)}</text>
             ))}
           </svg>
-          {hover != null && (
+          {hover != null && points[hover] && (
             <div style={{ position: 'absolute', top: 0, left: `${(x(hover) / W) * 100}%`, transform: `translateX(${hover > n / 2 ? '-105%' : '5%'})`, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: C.shadow, padding: '7px 10px', fontSize: 12, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
               <div style={{ color: C.ink2, fontSize: 11, marginBottom: 3 }}>{fmtT(points[hover].t0)}</div>
               <div style={{ color: C.blue, fontWeight: 600 }}>{num(points[hover].searches)} searches</div>
@@ -209,7 +209,7 @@ export default function AdminAnalyticsPage() {
     } catch (e: any) { setLoginErr(e?.name === 'AbortError' ? 'Timed out' : 'Network error') }
     setWorking(false)
   }
-  function setWindow(d: number) { setDays(d); const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, d) }
+  function setWindow(d: number) { setDays(d); setInsight(null); const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, d) }
   function refresh() { const s = sessionStorage.getItem(STORAGE_KEY); if (s) load(s, days) }
 
   // Download a fully-formatted report. Markdown is the best format to feed to an
