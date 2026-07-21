@@ -1065,6 +1065,7 @@ After analyzing, give the shopper one of:
 • No bullet points. No headers. Natural flowing sentences only.
 • One **bolded** key term per reply maximum.
 • When recommending a product from the pinned items, use [PRODUCT:N] (0-indexed).
+• SHOP INTENT OVERRIDES STYLING. If the shopper wants to FIND, BUY, or see SIMILAR / other options / other brands / a different type or colour of the item shown — anything like "find similar", "show me similar", "something like this", "where can I get this", "find this", "more like this", "other brands", "cheaper", "other options" — do NOT just give styling advice. Identify the piece precisely and end with [SEARCH: garment type + colour + material + key details]. Do NOT put the shown brand's name in the query, so the search returns the exact piece or close matches from OTHER brands. Use [OUTFIT: ...] instead when they want several pieces or a different type per category. Give pure styling advice (no token) ONLY when they ask how to wear it or what goes with it.
 • If ONE new item would complete the look, end with [SEARCH: precise query].
 
 ━━━ BUILDING A COMPLETE OUTFIT FROM WHAT THEY OWN ━━━
@@ -1579,11 +1580,11 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         : 'FIRST MESSAGE no products pinned and no conversation history yet. Introduce yourself as Fabrics, their personal stylist. Keep it to one warm sentence, then ask what they need. Vary your phrasing each time.'
 
     const imageNote = hasImages
-      ? `The shopper has shared ${images.length} photo${images.length > 1 ? 's' : ''}. ` +
-        `Determine intent from their message: ` +
-        `(A) If they want to FIND or BUY the item shown catalog product shot, or asking "where can I get this", "find me this", "something like this" describe it precisely and emit [SEARCH: garment type + colour + material + key details]. ` +
-        `(B) If they're asking for STYLING ADVICE about what they own or are wearing treat it as a wardrobe item and advise accordingly. ` +
-        `(C) If they want a COMPLETE OUTFIT built around the item shown use [OUTFIT: ...] for the missing pieces. ` +
+      ? `The shopper has shared ${images.length} photo${images.length > 1 ? 's' : ''}. READ their message and honour its intent — do NOT default to styling when they asked to shop: ` +
+        `(A) SHOP THE ITEM — if they say anything like "find similar", "show me similar", "something like this", "where can I get this", "find this", "more like this", "other options", "other brands", "cheaper", or name a different type/colour they want instead, identify the garment precisely and emit [SEARCH: garment type + colour + material + key details]. Do NOT include the shown brand's name in the query — the goal is to find the exact piece or close matches across OTHER brands. If they want several categories or a different type per category, use [OUTFIT: ...] instead. ` +
+        `(B) STYLING ADVICE — only when they ask how to wear it or what goes with it: advise, no token. ` +
+        `(C) COMPLETE OUTFIT — build the missing pieces with [OUTFIT: ...]. ` +
+        `If they attached a garment photo and the intent is ambiguous, lean towards (A) find similar rather than styling. ` +
         `Always read every visual detail: exact colour (not just "blue" "mid-wash indigo"), material cues, cut/silhouette, collar/hem details, any brand identifiers.`
       : ''
 

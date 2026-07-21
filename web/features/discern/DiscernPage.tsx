@@ -2354,7 +2354,10 @@ export default function DiscernApp({
         if (typeof data.searchQuery === 'string' && data.searchQuery.trim()) {
           trackEventMutation({
             event: 'search',
-            properties: { query: data.searchQuery.trim().slice(0, 120), resultCount: newProducts.length },
+            // `query` = the concept the AI searched on (for grouping top searches);
+            // `raw` = the shopper's message VERBATIM, word for word, so the activity
+            // feed shows exactly what they typed, not just "shirt".
+            properties: { query: data.searchQuery.trim().slice(0, 120), raw: question.slice(0, 200), resultCount: newProducts.length },
             ...(onboardEmail && authProof ? { email: onboardEmail, authProof } : {}),
           }).catch(() => {})
         }

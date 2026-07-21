@@ -258,7 +258,16 @@ export const adminActivityFeed = query({
     for (const e of searches) {
       const p = (e.properties ?? {}) as any;
       const rc = Number(p.resultCount);
-      rows.push({ kind: "search", text: String(p.query ?? "").slice(0, 140), meta: Number.isFinite(rc) ? `${rc} result${rc === 1 ? "" : "s"}` : null, at: e.createdAt, country: e.country ?? null, userId: e.userId ? String(e.userId) : null });
+      // Prefer the verbatim message (`raw`) — the exact words the shopper typed —
+      // falling back to the AI's search concept for older rows without it.
+      const verbatim = String(p.raw ?? p.query ?? "").slice(0, 200);
+      const concept = String(p.query ?? "");
+      // If the concept differs from what they typed, show it as context.
+      const meta = [
+        Number.isFinite(rc) ? `${rc} result${rc === 1 ? "" : "s"}` : null,
+        concept && concept.toLowerCase() !== verbatim.toLowerCase() ? `→ ${concept}` : null,
+      ].filter(Boolean).join("  ") || null;
+      rows.push({ kind: "search", text: verbatim, meta, at: e.createdAt, country: e.country ?? null, userId: e.userId ? String(e.userId) : null });
     }
     for (const e of opens) {
       const p = (e.properties ?? {}) as any;
