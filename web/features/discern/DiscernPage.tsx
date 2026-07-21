@@ -3790,8 +3790,10 @@ export default function DiscernApp({
           font-family:${SANS};font-size:10px;font-weight:500;color:#fff;letter-spacing:.01em;opacity:.92;
           text-shadow:0 1px 3px rgba(0,0,0,.45);pointer-events:none;}
         .fr-mtile-views svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));flex-shrink:0;opacity:.95;}
-        .fr-dot{width:6px;height:6px;border-radius:50%;background:${INK3};display:inline-block;animation:fr-bounce 1.2s infinite ease-in-out both;}
-        .fr-dot:nth-child(1){animation-delay:-.24s}.fr-dot:nth-child(2){animation-delay:-.12s}
+        .fr-dot{width:5.5px;height:5.5px;border-radius:50%;background:${INK3};display:inline-block;animation:fr-breathe 1.5s infinite ease-in-out both;}
+        .fr-dot:nth-child(1){animation-delay:-.3s}.fr-dot:nth-child(2){animation-delay:-.15s}
+        /* Calm, considered "thinking" — a soft breath rather than a hard bounce. */
+        @keyframes fr-breathe{0%,100%{opacity:.2;transform:translateY(1px) scale(.78);}50%{opacity:.95;transform:translateY(-2px) scale(1);}}
         @keyframes fr-bounce{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
 
         .fr-card:nth-child(1){animation-delay:.00s}.fr-card:nth-child(2){animation-delay:.05s}
@@ -4015,17 +4017,23 @@ export default function DiscernApp({
         .fr-step-pop{animation:fr-step-in .22s cubic-bezier(.32,.9,.4,1);}
         .fr-type-caret{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:fr-caret-blink 1s step-start infinite;}
         @keyframes fr-shine{0%{background-position:200% center;}100%{background-position:-200% center;}}
-        .fr-shine{background:linear-gradient(90deg,rgba(120,90,70,0.35) 0%,rgba(120,90,70,0.35) 35%,rgba(0,0,0,0.95) 50%,rgba(120,90,70,0.35) 65%,rgba(120,90,70,0.35) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.4s linear infinite;}
-        /* Active loading-step label: a soft light sweeps across the ink text. */
-        .fr-shimmer{background:linear-gradient(90deg,#8E8E93 0%,#8E8E93 30%,#1D1D1F 48%,#1D1D1F 52%,#8E8E93 70%,#8E8E93 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.2s linear infinite;}
+        .fr-shine{background:linear-gradient(90deg,#9a9a9f 0%,#9a9a9f 35%,#1D1D1F 50%,#9a9a9f 65%,#9a9a9f 100%);background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.7s cubic-bezier(.4,0,.2,1) infinite;}
+        /* Active loading-step label: a soft light glides across the ink text —
+           slower and gentler than a spinner blink, so it reads as "considering"
+           rather than "loading". */
+        .fr-shimmer{background:linear-gradient(90deg,#9a9a9f 0%,#9a9a9f 32%,#1D1D1F 48%,#1D1D1F 52%,#9a9a9f 68%,#9a9a9f 100%);background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.7s cubic-bezier(.4,0,.2,1) infinite;}
         /* Smooth comet-tail spinner for the active step node (conic + ring mask). */
-        .fr-ring{width:14px;height:14px;border-radius:50%;flex-shrink:0;background:conic-gradient(from 0deg,rgba(29,29,31,0) 0%,rgba(29,29,31,.18) 45%,#1D1D1F 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 2px));animation:spin .8s linear infinite;}
+        .fr-ring{width:14px;height:14px;border-radius:50%;flex-shrink:0;background:conic-gradient(from 0deg,rgba(29,29,31,0) 0%,rgba(29,29,31,.16) 42%,#1D1D1F 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1.7px),#000 calc(100% - 1.7px));mask:radial-gradient(farthest-side,transparent calc(100% - 1.7px),#000 calc(100% - 1.7px));animation:spin .95s linear infinite;}
         /* Checkmark that draws itself in as a step completes. */
         @keyframes fr-draw{from{stroke-dashoffset:15;}to{stroke-dashoffset:0;}}
         .fr-tick{stroke-dasharray:15;animation:fr-draw .34s ease .04s both;}
         /* Soft breathing halo behind the active spinner, drawing the eye to it. */
-        @keyframes fr-halo{0%,100%{box-shadow:0 0 0 0 rgba(29,29,31,.13);}50%{box-shadow:0 0 0 5px rgba(29,29,31,0);}}
-        .fr-node-active{width:14px;height:14px;border-radius:50%;display:flex;flex-shrink:0;animation:fr-halo 1.9s ease-in-out infinite;}
+        @keyframes fr-halo{0%,100%{box-shadow:0 0 0 0 rgba(29,29,31,.11);}50%{box-shadow:0 0 0 6px rgba(29,29,31,0);}}
+        .fr-node-active{width:14px;height:14px;border-radius:50%;display:flex;flex-shrink:0;animation:fr-halo 2.2s ease-in-out infinite;}
+        /* Connector thread that draws itself DOWN to the next step as it appears,
+           so the sequence reads as one continuous, considered progression. */
+        @keyframes fr-thread{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+        .fr-thread{transform-origin:top center;animation:fr-thread .45s cubic-bezier(.32,.9,.4,1) both;}
         button{cursor:pointer;} a{color:inherit;}
         .fr-msg-edit-btn{opacity:0;transition:opacity .15s ease;}
         .fr-msg-hover:hover .fr-msg-edit-btn,.fr-msg-hover:focus-within .fr-msg-edit-btn{opacity:.55;}
@@ -5487,7 +5495,7 @@ export default function DiscernApp({
                                     </svg>
                                   </span>
                                 )}
-                                {!isLast && <span style={{ width: 1.5, flex: 1, minHeight: 8, marginTop: 3, marginBottom: 1, borderRadius: 1, background: 'rgba(0,0,0,.13)' }} />}
+                                {!isLast && <span className="fr-thread" style={{ width: 1.5, flex: 1, minHeight: 8, marginTop: 3, marginBottom: 1, borderRadius: 1, background: 'linear-gradient(to bottom, rgba(0,0,0,.16), rgba(0,0,0,.08))' }} />}
                               </div>
                               <div style={{ paddingBottom: isLast ? 0 : 12, minHeight: 14, display: 'flex', alignItems: 'center', minWidth: 0 }}>
                                 {isLast ? (
