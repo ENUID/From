@@ -36,12 +36,30 @@ interface TopUser { email: string; name: string | null; searches: number; saves:
 interface Activity { kind: string; text: string; meta: string | null; at: number; country: string | null; email: string | null }
 interface ProdRow { title: string; vendor: string | null; count: number }
 interface AiUsage { totalRequests: number; totalEstPromptTokens: number; totalEstCompletionTokensCap: number; byProvider: Record<string, { requests: number; estPromptTokens: number; failures: number }>; byPath: Record<string, number> }
+interface Insight { content: string; model?: string; createdAt: number; windowDays?: number }
 interface Payload {
   ok: boolean; days: number
   overview: Overview | null; timeSeries: TimeSeries | null
   topSearches: TopSearch[] | null; topUsers: TopUser[] | null
   activity: Activity[] | null; topProducts: { opened: ProdRow[]; saved: ProdRow[] } | null
-  aiUsage: AiUsage | null; diag?: Record<string, string>; hint?: string | null
+  insight: Insight | null; aiUsage: AiUsage | null; diag?: Record<string, string>; hint?: string | null
+}
+
+// Light Markdown → React (headings, bullets, bold) for the AI recommendations.
+function MiniMarkdown({ text }: { text: string }) {
+  const lines = text.split('\n')
+  const nodes: React.ReactNode[] = []
+  let list: React.ReactNode[] = []
+  const flush = () => { if (list.length) { nodes.push(<ul key={'u' + nodes.length} style={{ margin: '4px 0 10px', paddingLeft: 18 }}>{list}</ul>); list = [] } }
+  const bold = (s: string) => s.split(/(\*\*[^*]+\*\*)/g).map((p, i) => p.startsWith('**') && p.endsWith('**') ? <strong key={i}>{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>)
+  lines.forEach((ln, i) => {
+    if (/^#{1,3}\s/.test(ln)) { flush(); nodes.push(<div key={i} style={{ fontWeight: 650, fontSize: 13.5, color: '#1d1d1f', margin: '14px 0 6px' }}>{ln.replace(/^#{1,3}\s/, '')}</div>) }
+    else if (/^[-*]\s/.test(ln)) { list.push(<li key={i} style={{ fontSize: 13, color: '#3a3a3c', margin: '3px 0', lineHeight: 1.5 }}>{bold(ln.replace(/^[-*]\s/, ''))}</li>) }
+    else if (ln.trim() === '') { flush() }
+    else { flush(); nodes.push(<div key={i} style={{ fontSize: 13, color: '#3a3a3c', margin: '4px 0', lineHeight: 1.5 }}>{bold(ln)}</div>) }
+  })
+  flush()
+  return <>{nodes}</>
 }
 
 async function fetchT(url: string, init: RequestInit = {}, ms = 20000): Promise<Response> {
@@ -219,6 +237,22 @@ export default function AdminAnalyticsPage() {
     setExporting(null)
   }
 
+  // On-demand AI analysis: the app reads its own data and writes concrete
+  // improvement recommendations. Same engine the weekly cron runs.
+  const [analyzing, setAnalyzing] = useState(false)
+  const [insight, setInsight] = useState<Insight | null>(null)
+  async function generateInsight() {
+    const s = sessionStorage.getItem(STORAGE_KEY); if (!s || analyzing) return
+    setAnalyzing(true); setErr('')
+    try {
+      const r = await fetchT('/api/admin/analytics/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-secret': s }, body: JSON.stringify({ days }) }, 60000)
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setErr(j.error ?? `Analysis failed (${r.status})`); setAnalyzing(false); return }
+      if (j.insight) setInsight(j.insight)
+    } catch (e: any) { setErr(e?.name === 'AbortError' ? 'Analysis timed out' : 'Analysis failed') }
+    setAnalyzing(false)
+  }
+
   const font = 'system-ui, -apple-system, "Segoe UI", sans-serif'
 
   if (view === 'loading') return <div style={{ minHeight: '100svh', background: C.plane, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: font }}><div style={{ color: C.muted }}>Loading…</div></div>
@@ -250,6 +284,7 @@ export default function AdminAnalyticsPage() {
   const funnel = ov?.funnel
   const funnelMax = funnel ? Math.max(funnel.impressions, funnel.views, funnel.saves, funnel.flags, 1) : 1
   const zeroQueries = (data?.topSearches ?? []).filter(s => s.avgResults != null && s.avgResults < 1)
+  const shownInsight: Insight | null = insight ?? data?.insight ?? null
   const feed = (data?.activity ?? []).filter(a => feedFilter === 'all' || a.kind === feedFilter)
 
   const panel: React.CSSProperties = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: C.shadow }
@@ -315,6 +350,24 @@ export default function AdminAnalyticsPage() {
           {stat('Searchers', ov ? num(ov.searches.distinctSearchers) : '—', 'signed-in, distinct')}
           {stat('Users', ov ? num(ov.users.total) : '—', ov ? `${num(ov.users.new)} new · ${num(ov.users.active)} active` : undefined)}
           {stat('AI calls', ov ? num(ov.ai.requests) : '—', ai ? `~${ktok(ai.totalEstPromptTokens)} prompt tok` : undefined)}
+        </div>
+
+        {/* AI recommendations — the self-improving loop's brain */}
+        <div style={{ ...panel, borderColor: shownInsight ? '#cfe0f5' : C.border }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: shownInsight ? 10 : 0 }}>
+            <div style={{ ...hStyle, marginBottom: 0, color: C.blue }}>✦ AI recommendations</div>
+            <button onClick={generateInsight} disabled={analyzing} style={{ padding: '7px 13px', borderRadius: 9, border: 'none', background: analyzing ? '#e5e5e3' : C.blue, color: analyzing ? C.muted : '#fff', fontSize: 13, fontWeight: 600, cursor: analyzing ? 'default' : 'pointer' }}>{analyzing ? 'Analysing…' : 'Generate now'}</button>
+          </div>
+          {shownInsight ? (
+            <>
+              <div style={{ color: C.muted, fontSize: 11, marginBottom: 4 }}>Generated {ago(shownInsight.createdAt)} ago{shownInsight.model ? ` · ${shownInsight.model}` : ''}{shownInsight.windowDays ? ` · ${shownInsight.windowDays}d window` : ''}</div>
+              <MiniMarkdown text={shownInsight.content} />
+            </>
+          ) : (
+            <div style={{ color: C.muted, fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>
+              {analyzing ? 'Reading your data and writing specific improvements… (~10s)' : 'No analysis yet. Click Generate and Fabrics will read this data and propose concrete improvements to search, vocabulary, and merchandising — the same pass also runs automatically every week.'}
+            </div>
+          )}
         </div>
 
         {/* Activity over time */}

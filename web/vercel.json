@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/quality-feedback",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/learning-analyst",
+      "schedule": "0 8 * * 1"
     }
   ]
 }

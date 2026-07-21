@@ -170,6 +170,17 @@ export default defineSchema({
     lastSeenAt: v.number(),
   }).index("by_concept", ["concept"]),
 
+  // AI-analyst output — the self-improving loop's "brain". A weekly cron (and
+  // an on-demand admin action) feeds the aggregated analytics report to the LLM
+  // and stores its concrete improvement recommendations here. Read by the
+  // dashboard + folded into the downloadable report. Pruned to the last ~20.
+  learning_insights: defineTable({
+    createdAt: v.number(),
+    windowDays: v.number(),
+    content: v.string(),          // Markdown recommendations
+    model: v.optional(v.string()),
+  }).index("by_created", ["createdAt"]),
+
   // Persisted brand health from the daily probe. consecutiveDown drives
   // auto-pruning: a store down for several days running is skipped in search
   // until it recovers (a healthy probe resets the counter).

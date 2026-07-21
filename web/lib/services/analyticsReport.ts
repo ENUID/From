@@ -53,7 +53,8 @@ function windowLabel(days: number): string {
   return `last ${y} year${y === 1 ? '' : 's'}`
 }
 
-export function reportToMarkdown(r: ReportData): string {
+export function reportToMarkdown(r: ReportData, opts?: { includeActivity?: boolean }): string {
+  const includeActivity = opts?.includeActivity !== false
   const ov = r.overview
   const dt = new Date(r.generatedAt)
   const L: string[] = []
@@ -149,7 +150,7 @@ export function reportToMarkdown(r: ReportData): string {
   }
 
   // 9. Activity log
-  if (r.activity?.length) {
+  if (includeActivity && r.activity?.length) {
     L.push(`## 9. Activity log (every action, exact text)`)
     L.push(`Newest first. This is the raw behaviour — what each person actually searched, opened, saved, or flagged.`)
     L.push('')
