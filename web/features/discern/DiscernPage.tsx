@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -1428,13 +1428,14 @@ function renderStylistText(
 // appearing all at once. Reveals whole words (and whole [PRODUCT:N] tokens,
 // atomically, so a card never flickers through as raw bracket text) rather
 // than characters, which reads more natural at conversational speed. ────────
-function TypewriterText({ text, products, liveRates, onProductClick, animate, onDone }: {
+function TypewriterText({ text, products, liveRates, onProductClick, animate, onDone, onReveal }: {
   text: string
   products: Product[]
   liveRates: ExchangeRates
   onProductClick: (p: Product) => void
   animate: boolean
   onDone?: () => void
+  onReveal?: () => void
 }): React.ReactNode {
   const tokens = useMemo(() => text.match(/\[PRODUCT:\d+\]|\S+|\s+/g) || [], [text])
   const [count, setCount] = useState(animate ? 0 : tokens.length)
@@ -1452,6 +1453,9 @@ function TypewriterText({ text, products, liveRates, onProductClick, animate, on
         if (!done) { done = true; onDone?.() }
       }
       setCount(i)
+      // Keep the growing reply pinned in view as it types, so it never slides
+      // down behind / below the floating search bar mid-reveal.
+      onReveal?.()
     }, 16)
     return () => clearInterval(id)
     // Deliberately keyed on the text itself, not `animate`/`onDone` — a reply
@@ -1554,7 +1558,7 @@ function chunkIntoRows(count: number): number[] {
 // replaying the same lines 6-8 times while waiting (there was nothing real
 // left to show), no correlation between backend completion and when the
 // animation actually stopped, and the same staleness on "See more."
-const STYLIST_FLICKER_GUARD_MS = 500
+const STYLIST_FLICKER_GUARD_MS = 320
 
 // ── Step icons ───────────────────────────────────────────────────────────────
 // A single bespoke visual language, not a generic icon-font set — every glyph
@@ -2324,7 +2328,7 @@ export default function DiscernApp({
         // Let the step tracker dissolve out before the reply appears, instead
         // of an instant swap — a clean handoff, not a jump cut.
         setStylistDissolving(true)
-        await new Promise(r => setTimeout(r, 220))
+        await new Promise(r => setTimeout(r, 130))
         // Normalize currency the same way the search path does: the product's
         // own `currency` (from the store feed) is its NATIVE/base currency, and
         // we display in the buyer's currency. Without this, stylist products
@@ -2822,6 +2826,14 @@ export default function DiscernApp({
 
   useEffect(() => { if (isEditingName && nameRef.current) { nameRef.current.focus(); nameRef.current.select() } }, [isEditingName])
   useEffect(() => { if (stylistRenameId && stylistRenameRef.current) { stylistRenameRef.current.focus(); stylistRenameRef.current.select() } }, [stylistRenameId])
+  // Follow the growing reply/steps to the bottom — but only when the user is
+  // already near the bottom, so we never yank them away mid-scroll while they
+  // read earlier messages.
+  const stickStylistToBottom = useCallback(() => {
+    const el = stylistScrollRef.current
+    if (!el) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 240) el.scrollTop = el.scrollHeight
+  }, [])
   // Keep the stylist conversation scrolled to the latest activity — not just
   // new messages, but every step the tracker advances through and every
   // trace line it reveals, so the growing step list never runs on ahead of
@@ -3739,7 +3751,7 @@ export default function DiscernApp({
         .fr-content{flex:1;min-height:0;position:relative;overflow:hidden;}
 
         /* ── Body ── */
-        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-top:28px;padding-bottom:calc(max(140px, env(safe-area-inset-bottom, 0px) + 130px));overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
+        .fr-body{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:flex;flex-direction:column;padding-top:28px;padding-bottom:calc(max(156px, env(safe-area-inset-bottom, 0px) + 144px));overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
         .fr-body.home{justify-content:flex-start;padding-top:clamp(48px,10vh,80px);overflow:hidden;padding-bottom:0;}
 
         /* ── Search bar wrap ── */
@@ -5210,6 +5222,7 @@ export default function DiscernApp({
                                   : <TypewriterText text={m.content} products={stylistProducts} liveRates={liveRates}
                                       onProductClick={(p) => setSelected(p)}
                                       animate={i >= initialStylistMsgCount.current && !typedStylistIndices.current.has(i)}
+                                      onReveal={stickStylistToBottom}
                                       onDone={() => { typedStylistIndices.current.add(i) }} />)
                               : m.content}
                           </div>
