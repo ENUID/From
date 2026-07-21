@@ -4024,6 +4024,8 @@ export default function DiscernApp({
         .fr-shimmer{background:linear-gradient(90deg,#9a9a9f 0%,#9a9a9f 32%,#1D1D1F 48%,#1D1D1F 52%,#9a9a9f 68%,#9a9a9f 100%);background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fr-shine 2.7s cubic-bezier(.4,0,.2,1) infinite;}
         /* Smooth comet-tail spinner for the active step node (conic + ring mask). */
         .fr-ring{width:14px;height:14px;border-radius:50%;flex-shrink:0;background:conic-gradient(from 0deg,rgba(29,29,31,0) 0%,rgba(29,29,31,.16) 42%,#1D1D1F 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1.7px),#000 calc(100% - 1.7px));mask:radial-gradient(farthest-side,transparent calc(100% - 1.7px),#000 calc(100% - 1.7px));animation:spin .95s linear infinite;}
+        /* Larger ring for the active step node — a semantic step icon sits inside it. */
+        .fr-ring2{width:22px;height:22px;border-radius:50%;background:conic-gradient(from 0deg,rgba(29,29,31,0) 0%,rgba(29,29,31,.15) 42%,#1D1D1F 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1.7px),#000 calc(100% - 1.7px));mask:radial-gradient(farthest-side,transparent calc(100% - 1.7px),#000 calc(100% - 1.7px));animation:spin 1s linear infinite;}
         /* Checkmark that draws itself in as a step completes. */
         @keyframes fr-draw{from{stroke-dashoffset:15;}to{stroke-dashoffset:0;}}
         .fr-tick{stroke-dasharray:15;animation:fr-draw .34s ease .04s both;}
@@ -5495,12 +5497,19 @@ export default function DiscernApp({
                             <div key={pi} style={{ display: 'flex', gap: 11, animation: 'fadeUp .34s cubic-bezier(.32,.9,.4,1) both' }}>
                               {/* Rail: the step node, plus a thin connector down to
                                   the next node so the steps read as one sequence. */}
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 14, flexShrink: 0 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 22, flexShrink: 0 }}>
                                 {isLast ? (
-                                  <span className="fr-node-active"><span className="fr-ring" /></span>
+                                  // Active step: its own semantic icon (search, filter,
+                                  // palette, compare…) sitting inside a live spinner ring,
+                                  // so you can see exactly WHICH step is working.
+                                  <span className="fr-node-active" style={{ position: 'relative', width: 22, height: 22, alignItems: 'center', justifyContent: 'center', color: INK }}>
+                                    <span className="fr-ring2" style={{ position: 'absolute', inset: 0 }} />
+                                    <StylistStepIcon icon={phase.icon} size={11} />
+                                  </span>
                                 ) : (
-                                  <span style={{ width: 14, height: 14, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeScale .28s ease both' }}>
-                                    <svg width="9" height="9" viewBox="0 0 11 11">
+                                  // Completed step: settles into a filled tick.
+                                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeScale .28s ease both' }}>
+                                    <svg width="10" height="10" viewBox="0 0 11 11">
                                       <path className="fr-tick" d="M2.4 5.8 L4.5 7.9 L8.6 3.2" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
                                   </span>
