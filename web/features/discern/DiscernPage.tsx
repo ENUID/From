@@ -5281,6 +5281,16 @@ export default function DiscernApp({
                         )}
                       </div>
                     )}
+                    {/* The picked product itself — tappable, so the shopper can open,
+                        save, or buy the one Fabrics chose, not just read its name. */}
+                    {m.comparison && m.comparison.pick && stylistProducts[m.comparison.pick.index] && (
+                      <div style={{ marginTop: 10, width: '100%', maxWidth: 480 }}>
+                        <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>Fabrics&rsquo; pick</div>
+                        <div style={{ display: 'flex' }}>
+                          {renderFoundProductCard(stylistProducts[m.comparison.pick.index])}
+                        </div>
+                      </div>
+                    )}
                     {m.role === 'assistant' && m.foundProductGroups && m.foundProductGroups.length > 0 && (
                       <div style={{ marginTop: 10, width: '100%' }}>
                         {/* One labeled strip per requested category (e.g. "shirts and
