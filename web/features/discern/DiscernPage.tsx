@@ -2569,6 +2569,11 @@ export default function DiscernApp({
   function renderFoundProductCard(p: Product, saveQuery?: string) {
     const { colors: pc } = displaySwatches(p)
     const isSaved = savedIds.has(p.id)
+    // Brand identity for the little corner badge — so shoppers can see which
+    // brand each piece is from at a glance. Domain from the store URL (for the
+    // Clearbit logo), name from the vendor (drives the monogram fallback).
+    const brandDomain = (() => { try { return new URL(p.store_url).hostname.replace(/^www\./, '') } catch { return '' } })()
+    const brandName = (p.vendor || brandDomain || '').trim()
     return (
       <div key={p.id} onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
         {...makePressHandlers((x, y) => {
@@ -2584,6 +2589,12 @@ export default function DiscernApp({
         style={{ flexShrink: 0, width: 140, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
         <div className="fr-pcard-imgwrap" style={{ width: 140, height: 224, borderRadius: 14, overflow: 'hidden', background: BG2, position: 'relative' }}>
           {getProductImages(p)[0] && <img className="fr-pcard-img" src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+          {/* Brand badge — top-left, so the shopper knows the label at a glance. */}
+          {brandName && (
+            <div title={brandName} style={{ position: 'absolute', top: 6, left: 6, borderRadius: '50%', boxShadow: '0 1px 4px rgba(0,0,0,.22)', lineHeight: 0 }}>
+              <BrandLogo domain={brandDomain} name={brandName} size={24} />
+            </div>
+          )}
           <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
             onClick={e => { e.stopPropagation(); toggleSaved(p, saveQuery) }}
             style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
