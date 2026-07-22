@@ -2253,11 +2253,10 @@ export default function DiscernApp({
         ...prev,
       ].slice(0, 30))
     }
-    // pinnedProducts only when THIS call explicitly attached one (productsArg,
-    // via "Ask Fabrics" or an edit-resend) — not the stylistProducts fallback,
-    // which persists across the whole session and would otherwise re-show a
-    // stale pin on every later, unrelated message too.
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined, pinnedProducts: productsArg && productsArg.length > 0 ? productsArg : undefined }])
+    // Attach the pieces this query is actually about (whether pinned via the
+    // staging strip or "Ask Fabrics") to the user message, so they render right
+    // beside the question in the thread instead of only in the staging strip.
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined, pinnedProducts: products.length > 0 ? products.slice(0, 4) : undefined }])
     // Starts empty — every step shown from here on is a genuine backend
     // event (see readStylistStream), not a pre-built simulated schedule.
     setStylistLoadingPhases([])
@@ -3759,8 +3758,12 @@ export default function DiscernApp({
           position:absolute;bottom:0;left:0;right:0;
           z-index:10;
           padding:12px clamp(12px,4vw,18px) max(28px,env(safe-area-inset-bottom,0px));
-          background:transparent;
+          /* Scrim: content fades into the page before it reaches the floating
+             bar, instead of bleeding through the transparent gap around it. */
+          background:linear-gradient(to top, #ffffff 58%, rgba(255,255,255,0.88) 80%, rgba(255,255,255,0) 100%);
+          pointer-events:none;
         }
+        .fr-bar-wrap > *{pointer-events:auto;}
         @media(min-width:768px){
           .fr-bar-wrap{
             padding-bottom:max(16px,env(safe-area-inset-bottom,0px));
@@ -5138,26 +5141,10 @@ export default function DiscernApp({
             {/* Fabrics conversation — the one shopping surface, no separate grid search */}
             {hasConversation && !showExplore && (
               <div style={{ padding: '4px 20px 0' }}>
-                {/* Pinned products — pieces the shopper attached to ask about */}
-                {stylistProducts.length > 0 && (
-                  <div style={{ display: 'flex', gap: 8, padding: '0 0 16px', overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-                    {stylistProducts.map(p => (
-                      <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: 80 }}>
-                        <div onClick={() => setSelected(p)} style={{ width: 80, height: 100, borderRadius: 8, overflow: 'hidden', background: BG2, cursor: 'pointer' }}>
-                          {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                        </div>
-                        <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 500, color: INK, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                        <div style={{ fontFamily: SANS, fontSize: 9, color: INK3 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
-                        {stylistProducts.length > 1 && (
-                          <button onClick={() => removeStylistProduct(p.id)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
+                {/* Pinned products now render just above the input bar (a compose
+                    staging strip), and inline with the user message that asked
+                    about them — never as a floating banner at the top of the
+                    thread, which read as disconnected from the query. */}
 
                 {/* Conversation thread */}
                 {stylistMsgs.map((m, i) => (
@@ -5200,6 +5187,15 @@ export default function DiscernApp({
                       </div>
                     ) : (
                       <>
+                        {m.role === 'user' && m.pinnedProducts && m.pinnedProducts.length > 0 && (
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
+                            {m.pinnedProducts.map(p => (
+                              <div key={p.id} onClick={() => setSelected(p)} style={{ width: 46, height: 58, borderRadius: 8, overflow: 'hidden', background: BG2, border: `1px solid ${BRD}`, cursor: 'pointer', flexShrink: 0 }}>
+                                {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {m.role === 'user' && m.images && m.images.length > 0 && (
                           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: 6, maxWidth: '88%' }}>
                             {m.images.map((url, ii) => (
@@ -5602,6 +5598,25 @@ export default function DiscernApp({
                             {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
                           </div>
                           <button type="button" onClick={() => removeBarProduct(p.id)}
+                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: '#1E1A16', border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.6" strokeLinecap="round"/></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Pinned products — the pieces the shopper is asking about,
+                      staged right above the input so they read as attached to
+                      the query being composed (not a floating top banner). */}
+                  {stylistProducts.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 12px 0', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                      {stylistProducts.map(p => (
+                        <div key={p.id} style={{ position: 'relative', flexShrink: 0 }}>
+                          <div onClick={() => setSelected(p)} style={{ width: 44, height: 56, borderRadius: 8, overflow: 'hidden', background: BG2, border: '1px solid rgba(0,0,0,0.08)', cursor: 'pointer' }}>
+                            {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                          </div>
+                          <button type="button" onClick={() => removeStylistProduct(p.id)}
                             style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: '#1E1A16', border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
                             <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.6" strokeLinecap="round"/></svg>
                           </button>
