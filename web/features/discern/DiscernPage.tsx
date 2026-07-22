@@ -2147,9 +2147,6 @@ export default function DiscernApp({
     if (next.length === 0) setInputHint(null)
     return next
   })
-  const removeStylistProduct = (id: string) => {
-    setStylistProducts(prev => prev.filter(p => p.id !== id))
-  }
   function deleteStylistEntry(id: string) {
     setStylistHistory(prev => prev.filter(e => e.id !== id))
     try { localStorage.removeItem(stylistSessionLS(id)) } catch {}
@@ -2425,7 +2422,9 @@ export default function DiscernApp({
   // Pin products and ask about them — continues the one ongoing conversation
   // (or starts it, if this is the first message of the session).
   const openStylistWith = (products: Product[], query: string) => {
-    setStylistProducts(products)
+    // Don't persist into a lingering pinned strip — the products attach to THIS
+    // query's message (see sendStylist) and show inline with it. Persisting made
+    // them hang around "still pinned" after the answer, which read as a bug.
     sendStylist(query, products)
   }
 
@@ -2444,10 +2443,13 @@ export default function DiscernApp({
   function saveEditMsg(i: number) {
     const text = editText.trim()
     if (!text && editImages.length === 0) return
+    // Carry the message's own pinned products through the edit-resend, not a
+    // persistent global pin (which no longer exists).
+    const origPins = stylistMsgs[i]?.pinnedProducts
     const truncated = stylistMsgs.slice(0, i)
     setStylistMsgs(truncated)
     setEditingMsgIndex(null)
-    sendStylist(text, stylistProducts, truncated, editImages.map(url => ({ url })))
+    sendStylist(text, origPins, truncated, editImages.map(url => ({ url })))
   }
 
   // "See more" re-runs the same reasoned search (BM25 + LLM judge, mode:
@@ -2569,11 +2571,6 @@ export default function DiscernApp({
   function renderFoundProductCard(p: Product, saveQuery?: string) {
     const { colors: pc } = displaySwatches(p)
     const isSaved = savedIds.has(p.id)
-    // Brand identity for the little corner badge — so shoppers can see which
-    // brand each piece is from at a glance. Domain from the store URL (for the
-    // Clearbit logo), name from the vendor (drives the monogram fallback).
-    const brandDomain = (() => { try { return new URL(p.store_url).hostname.replace(/^www\./, '') } catch { return '' } })()
-    const brandName = (p.vendor || brandDomain || '').trim()
     return (
       <div key={p.id} onClick={() => { if (productWasLong.current) { productWasLong.current = false; return }; setSelected(p) }}
         {...makePressHandlers((x, y) => {
@@ -2586,15 +2583,9 @@ export default function DiscernApp({
           setProductCtxMenu({ product: p, x: mx, y: my, above })
         })}
         className="fr-pcard"
-        style={{ flexShrink: 0, width: 140, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
-        <div className="fr-pcard-imgwrap" style={{ width: 140, height: 224, borderRadius: 14, overflow: 'hidden', background: BG2, position: 'relative' }}>
+        style={{ flexShrink: 0, width: 118, cursor: 'pointer', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}>
+        <div className="fr-pcard-imgwrap" style={{ width: 118, height: 189, borderRadius: 13, overflow: 'hidden', background: BG2, position: 'relative' }}>
           {getProductImages(p)[0] && <img className="fr-pcard-img" src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-          {/* Brand badge — top-left, so the shopper knows the label at a glance. */}
-          {brandName && (
-            <div title={brandName} style={{ position: 'absolute', top: 6, left: 6, borderRadius: '50%', boxShadow: '0 1px 4px rgba(0,0,0,.22)', lineHeight: 0 }}>
-              <BrandLogo domain={brandDomain} name={brandName} size={24} />
-            </div>
-          )}
           <button type="button" aria-label={isSaved ? 'In your bag' : 'Add to bag'}
             onClick={e => { e.stopPropagation(); toggleSaved(p, saveQuery) }}
             style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none',
@@ -5339,11 +5330,10 @@ export default function DiscernApp({
                         {m.foundProductGroups.map((group, gi) => (
                           <div key={gi} style={{ marginTop: gi > 0 ? 14 : 0 }}>
                             <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>{group.label}</div>
-                            {/* Wrap into a visible grid (not a single horizontal
-                                strip) so "See more" products flow onto new rows
-                                in view, instead of being appended off-screen to
-                                the right where they looked like nothing loaded. */}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 2 }}>
+                            {/* Horizontal slide per category — one swipeable row,
+                                not a two-column grid. "See more" appends to the
+                                right; the row scrolls. Consistent on every device. */}
+                            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2, WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
                               {group.products.map(p => renderFoundProductCard(p, m.searchQuery))}
                             </div>
                             {group.query && !group.hasNoMore && (
@@ -5609,25 +5599,6 @@ export default function DiscernApp({
                             {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
                           </div>
                           <button type="button" onClick={() => removeBarProduct(p.id)}
-                            style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: '#1E1A16', border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
-                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.6" strokeLinecap="round"/></svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Pinned products — the pieces the shopper is asking about,
-                      staged right above the input so they read as attached to
-                      the query being composed (not a floating top banner). */}
-                  {stylistProducts.length > 0 && (
-                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 12px 0', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-                      {stylistProducts.map(p => (
-                        <div key={p.id} style={{ position: 'relative', flexShrink: 0 }}>
-                          <div onClick={() => setSelected(p)} style={{ width: 44, height: 56, borderRadius: 8, overflow: 'hidden', background: BG2, border: '1px solid rgba(0,0,0,0.08)', cursor: 'pointer' }}>
-                            {getProductImages(p)[0] && <img src={getProductImages(p)[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
-                          </div>
-                          <button type="button" onClick={() => removeStylistProduct(p.id)}
                             style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: '#1E1A16', border: '1.5px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
                             <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="white" strokeWidth="1.6" strokeLinecap="round"/></svg>
                           </button>
