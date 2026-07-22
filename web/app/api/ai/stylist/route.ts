@@ -1803,7 +1803,15 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // giving up and showing bare text with no product cards.
       const hasToken = /\[(SEARCH|OUTFIT|COMPARE|WARDROBE):/i.test(raw)
       const describesProducts = /\b(shirt|jacket|blazer|coat|trouser|pant|jean|dress|shoe|sneaker|boot|loafer|sandal|skirt|sweater|knit|linen|cotton|wool|silk|leather|denim)\b/i.test(raw)
-      if (heavy && raw && !hasToken && describesProducts) {
+      // Also self-heal when the SHOPPER explicitly asked to SEE the pieces
+      // ("show me them", "show those", "let me see the combos") but the reply
+      // came back token-less — e.g. a bare "Here they are:" with nothing to
+      // show. Without this the shopper is promised products and gets an empty
+      // reply. The retry has the full conversation, so the model knows what
+      // "them" refers to (the pieces it just described).
+      const userWantsToSee = /\b(show|see|view|display|pull\s?up|find|link)\b/i.test(question)
+        && /\b(them|these|those|it|me|combo|combination|combos|look|looks|outfit|option|options|product|products|piece|pieces|one|ones)\b/i.test(question)
+      if (heavy && raw && !hasToken && (describesProducts || userWantsToSee)) {
         try {
           const retryNudge = combinedSystem + `\n\n━━━ CORRECTION ━━━ Your last reply described clothing but did not include the required token. This time keep the lead-in to ONE short sentence and end the reply with either [SEARCH: precise query] for a single item or [OUTFIT: query1 | query2 | query3] for a full look — the token MUST be present, it is how the shopper actually sees and buys the pieces.`
           const retryMsg = await stylistChat(messages, retryNudge, { max_tokens: replyMaxTokens, temperature: 0.3 }, heavy)
@@ -1996,6 +2004,31 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         outfitSlots = builtSlots.length > 0 ? builtSlots : null
       } catch (e) {
         console.error('[stylist] outfit search error:', e)
+      }
+    }
+
+    // GUARANTEE: a shopping reply must never promise products and show none.
+    // If a search/outfit intent produced zero products (an outfit whose slots
+    // all came back empty, or a search the broaden pass couldn't rescue), cast
+    // one broad net; if that still finds nothing, be honest instead of leaving a
+    // dangling "here they are" with an empty space beneath it.
+    const nothingShown = (!foundProducts || foundProducts.length === 0) && !outfitSlots && (!foundProductGroups || foundProductGroups.length === 0)
+    if ((searchQuery || (outfitQueries && outfitQueries.length > 0)) && nothingShown) {
+      try {
+        const fallbackQ = searchQuery || (outfitQueries && outfitQueries[0]) || question
+        send('search', 'Casting a wider net', `catalog.search("${fallbackQ}")`)
+        const broad = await GlobalCatalogService.search(
+          fallbackQ, undefined, [], countryCode, true, buildMandatoryConcepts(fallbackQ),
+          'relevance', buyerCurrency, { fastFirstPage: true }, [],
+          memorySummary, question, sizeForQuery(fallbackQ),
+        )
+        if (broad.length > 0) foundProducts = dedupeById(broad).slice(0, INITIAL_RESULT_CAP)
+      } catch (e) { console.error('[stylist] fallback broad search failed:', e) }
+      const stillNothing = (!foundProducts || foundProducts.length === 0) && !outfitSlots
+      if (stillNothing) {
+        reply2 = reply2.replace(/\bhere they are\b\s*:?/i, '').replace(/\s{2,}/g, ' ').trim()
+        const honest = "I'm not pulling those up right now. Want me to try a different colour, brand, or price?"
+        reply2 = reply2 ? `${reply2} ${honest}` : honest
       }
     }
 
