@@ -479,9 +479,9 @@ async function stylistChat(
   // Its one hard constraint is an 8K TOKEN CONTEXT cap covering prompt +
   // completion together; see cerebrasFits below for how that's actually
   // accounted for per-request rather than assumed.
-  // reasoning_effort is 'medium' on the heavy path, not 'high': the base
-  // heavy SYSTEM prompt alone runs ~5,500 tokens before contextBlock is even
-  // added, which leaves comparatively little of the 8K window for BOTH the
+  // reasoning_effort is 'medium' on the heavy path, not 'high': the base heavy
+  // prompt (slimmed SYSTEM ~3.5K + FASHION CORE ~1.4K = ~4.9K, plus any injected
+  // knowledge modules) still leaves a bounded slice of the 8K window for BOTH the
   // model's internal chain-of-thought AND its final answer — 'high' effort
   // asks for more reasoning than that headroom reliably supports, and a
   // request that runs out of completion budget mid-thought returns its raw,
