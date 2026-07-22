@@ -6,6 +6,7 @@ import { buildMandatoryConcepts, classifyQuerySlot, productMatchesSlot, slotLabe
 import { matchStyles, vocabPromptBlock } from '@/lib/styleVocabulary'
 import { detectBrandsInQuery, brandDisplayName, UCP_REGISTRY } from '@/lib/stores'
 import { compileIntent, continueIntent, compiledReplyText, parseBudget } from '@/lib/intentCompiler'
+import { selectKnowledgeModules } from '@/lib/knowledgeModules'
 import { cerebrasChat } from '@/lib/cerebras'
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '@/convex/_generated/api'
@@ -1686,15 +1687,18 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // or erroring) fell all the way through to the outer catch-all and
       // showed the shopper a generic "something went wrong on my end" with no
       // indication it was a busy/rate-limit condition, and no retry framing.
+      // Give the vision path the same on-demand expertise as the text path
+      // (Gemini/Groq vision have ample context; unlike the 8K light path).
+      const visionSystemFull = VISION_SYSTEM + selectKnowledgeModules(question, { hasPinned: products.length > 0, countryCode })
       try {
         send('read', 'Reading your photos', `vision.analyze(${images.length} photo${images.length > 1 ? 's' : ''})`)
-        raw = await wardrobeVisionChat(VISION_SYSTEM, visionPrompt, images, { max_tokens: 1100, temperature: 0.3 })
+        raw = await wardrobeVisionChat(visionSystemFull, visionPrompt, images, { max_tokens: 1100, temperature: 0.3 })
         // Provider tag is approximate — wardrobeVisionChat doesn't report back
         // which of Gemini/Groq actually served the request without changing its
         // return contract, so this is logged against the whole vision chain.
-        logAiUsage({ path: 'vision', provider: 'gemini-openrouter-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: !!raw })
+        logAiUsage({ path: 'vision', provider: 'gemini-openrouter-or-groq-vision', estPromptTokens: estimateTokens(visionSystemFull + visionPrompt), estCompletionTokensCap: 1100, ok: !!raw })
       } catch (err) {
-        logAiUsage({ path: 'vision', provider: 'gemini-openrouter-or-groq-vision', estPromptTokens: estimateTokens(VISION_SYSTEM + visionPrompt), estCompletionTokensCap: 1100, ok: false })
+        logAiUsage({ path: 'vision', provider: 'gemini-openrouter-or-groq-vision', estPromptTokens: estimateTokens(visionSystemFull + visionPrompt), estCompletionTokensCap: 1100, ok: false })
         console.error('[stylist] vision model call failed:', err)
         if (isRateLimited(err)) {
           return finish({ reply: BUSY_REPLY, busy: true, comparison: null })
@@ -1735,8 +1739,14 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // path (unless the shopper pinned products, which is always a real ask).
       const feedbackOnly = products.length === 0 && isReactionOnly(question)
       const heavy = !feedbackOnly && (products.length > 0 || isHeavyQuery(question) || isActionFollowThrough(question, lastAssistant) || isShoppingContinuation(question, lastAssistant))
+      // Deep expert knowledge, injected on-demand: the heavy path pulls in only
+      // the modules this query actually needs (decision, color, fit, fabric,
+      // occasion, agentic) plus the shopper's regional style intelligence, so
+      // Fabrics reasons like a specialist for THIS request instead of running on
+      // one generic block. Never on the light path (Cerebras 8K window).
+      const knowledgeBlock = heavy ? selectKnowledgeModules(question, { hasPinned: products.length > 0, countryCode }) : ''
       const combinedSystem = heavy
-        ? (contextBlock ? `${SYSTEM}\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}` : SYSTEM)
+        ? `${SYSTEM}${knowledgeBlock}${contextBlock ? `\n\n━━━ SHOPPER CONTEXT FOR THIS SESSION ━━━\n${contextBlock}` : ''}`
         : CHAT_SYSTEM
       const messages = [
         ...history,
