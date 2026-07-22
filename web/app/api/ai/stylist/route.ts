@@ -199,7 +199,11 @@ async function multiCategorySearch(
           [], memorySummary, subQuery, sizeForQuery(subQuery),
         )
         const filtered = cat ? found.filter(p => productMatchesSlot(p, cat)) : found
-        const chosen = dedupeById(filtered.length > 0 ? filtered : found).slice(0, MULTI_CATEGORY_PER_GROUP_CAP)
+        // Category purity: when the slot is known, keep ONLY matching products,
+        // even if that leaves the group empty (an empty group is dropped below).
+        // Falling back to the unfiltered results was the exact bug that put a
+        // shirt into the "Shorts" strip.
+        const chosen = dedupeById(cat ? filtered : found).slice(0, MULTI_CATEGORY_PER_GROUP_CAP)
         // subQuery is what this strip's "See more" re-runs on the frontend.
         return { label, products: chosen, query: subQuery }
       } catch (e) {
@@ -1200,7 +1204,15 @@ async function runStylistRequest(
           memorySummary, undefined, sizeForQuery(loadMoreQuery),
         )
         send('curate', 'Ranking the next best picks', `rank.relevance(${results.length} candidates)`)
-        return finish({ reply: '', comparison: null, foundProducts: dedupeById(results).slice(0, INITIAL_RESULT_CAP), outfitSlots: null })
+        // A category "See more" (single-garment query, e.g. the Shorts strip's
+        // "men shorts") must return ONLY that garment — the unfiltered load-more
+        // was appending shirts into the Shorts strip. Apply the same slot filter
+        // the initial grouped search uses; a mixed multi-garment query is left
+        // unfiltered.
+        const lmKeys = decomposeQuery(loadMoreQuery).garmentKeys
+        const lmCat = lmKeys.length === 1 ? (GARMENT_CATEGORY[lmKeys[0]] as SlotCategory | undefined) : undefined
+        const lmResults = lmCat ? results.filter(p => productMatchesSlot(p, lmCat)) : results
+        return finish({ reply: '', comparison: null, foundProducts: dedupeById(lmResults).slice(0, INITIAL_RESULT_CAP), outfitSlots: null })
       } catch (e) {
         console.error('[stylist] load-more error:', e)
         // loadMoreError distinguishes "the fetch broke" from "genuinely no
