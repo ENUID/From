@@ -797,6 +797,22 @@ The shopper often shares pieces they already own (their wardrobe) and asks you t
 4. In the sentences before the token, name WHY each piece works colour temperature, formality match, proportion. The pieces must combine into ONE cohesive look, not a random list.
 Use [OUTFIT: ...] (not [SEARCH: ...]) whenever they want a complete outfit or multiple complementary pieces; use [SEARCH: ...] only for a single item. Never output both tokens.`
 
+// Models routinely name a pinned pick in prose ("buy the navy shirt (product
+// 6)") instead of emitting the [PRODUCT:N] token that renders its card, so the
+// very piece they're recommending never shows — the reported "it shows just
+// one product" when a combination was asked for. Deterministically convert any
+// in-range "product N" mention (1-indexed, matching the PRODUCT N labels the
+// prompt shows the model) into the real 0-indexed [PRODUCT:N-1] token so every
+// numbered pick gets carded. Only runs when products are actually pinned;
+// real [PRODUCT:N] tokens (colon after PRODUCT) never match and are untouched.
+function linkPinnedProductMentions(text: string, pinnedCount: number): string {
+  if (!text || pinnedCount <= 0) return text
+  return text.replace(/\(?\bproducts?\s*#?\s*(\d{1,2})\b\)?/gi, (whole, numStr) => {
+    const n = parseInt(numStr, 10)
+    return (n >= 1 && n <= pinnedCount) ? `[PRODUCT:${n - 1}]` : whole
+  })
+}
+
 // ── Parse reply ─────────────────────────────────────────────────────────────
 function parseReply(raw: string): { reply: string; comparison?: Comparison } {
   const compareStart = raw.indexOf('[COMPARE:')
@@ -1612,7 +1628,13 @@ Use concrete garment, colour, and material words only, never a brand or product 
 
     const { reply: replyWithSearch, comparison } = parseReply(raw)
     const { reply: replyWithOutfit, searchQuery: rawSearchQuery } = parseSearchToken(replyWithSearch)
-    const { reply, outfitQueries: rawOutfitQueries } = parseOutfitToken(replyWithOutfit)
+    const { reply: parsedReply, outfitQueries: rawOutfitQueries } = parseOutfitToken(replyWithOutfit)
+    // Now that SEARCH/OUTFIT/COMPARE tokens are stripped out, turn any leftover
+    // "(product N)" prose references in the visible reply into real
+    // [PRODUCT:N-1] cards, so every pinned piece the model recommends renders,
+    // not just the ones it happened to token correctly. Safe here (a search
+    // query that mentioned "product" was already extracted above).
+    const reply = products.length > 0 ? linkPinnedProductMentions(parsedReply, products.length) : parsedReply
     // Deterministic safety net: if the model forgot to gender the query
     // itself, the shopper's profile still wins rather than searching blind.
     const searchQuery = rawSearchQuery ? applyGenderDefault(rawSearchQuery) : rawSearchQuery
