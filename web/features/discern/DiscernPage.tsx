@@ -2292,36 +2292,56 @@ export default function DiscernApp({
         tags: (p.tags || []).filter(t => !isInternalTag(t)).slice(0, 20),
         options: p.options,
       }))
-      const res = await fetch('/api/ai/stylist', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          products: payloadProducts,
-          messages: history.map(m => ({
-            role: m.role,
-            content: m.content,
-            foundProducts: m.foundProducts?.map(p => ({
-              title: p.title, vendor: p.vendor,
-              price: p.price, currency: p.currency,
-            })),
+      const requestBody = JSON.stringify({
+        products: payloadProducts,
+        messages: history.map(m => ({
+          role: m.role,
+          content: m.content,
+          foundProducts: m.foundProducts?.map(p => ({
+            title: p.title, vendor: p.vendor,
+            price: p.price, currency: p.currency,
           })),
-          question,
-          images: capturedImages,
-          buyerCurrency: shopperContext.currency,
-          buyerCountry: shopperContext.country,
-          memorySummary: stylistMemorySummary,
-          shopperGender: shopperGenderFromProfile,
-          shopperProfile: shopperProfileForStylist,
-          shopperSizes: shopperSizesForStylist,
-          shopperWardrobe: shopperWardrobeForStylist,
-          // Free-tier personalization — available to every shopper, not just
-          // premium (memorySummary is premium-only).
-          savedProducts: savedProducts.slice(0, 12).map(p => ({
-            title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
-          })),
-          recentSearches: stylistHistory.slice(0, 8).map(h => h.label),
-        }),
+        })),
+        question,
+        images: capturedImages,
+        buyerCurrency: shopperContext?.currency,
+        buyerCountry: shopperContext?.country,
+        memorySummary: stylistMemorySummary,
+        shopperGender: shopperGenderFromProfile,
+        shopperProfile: shopperProfileForStylist,
+        shopperSizes: shopperSizesForStylist,
+        shopperWardrobe: shopperWardrobeForStylist,
+        // Free-tier personalization — available to every shopper, not just
+        // premium (memorySummary is premium-only).
+        savedProducts: savedProducts.slice(0, 12).map(p => ({
+          title: p.title, vendor: p.vendor, price: p.price, currency: p.currency,
+        })),
+        recentSearches: stylistHistory.slice(0, 8).map(h => h.label),
       })
-      const data = await readStylistStream(res, onProgress)
+      // One automatic retry on a TRANSIENT failure (a network blip, a cold
+      // start, or hitting the app mid-deploy) — the exact "Something went wrong
+      // reaching Fabrics" case. Only retries when the first attempt threw or
+      // produced no result at all, so a real reply never re-sends (no double
+      // AI cost); the progress tracker resets so it doesn't show stale steps.
+      let data: any = null
+      for (let attempt = 0; attempt < 2 && !data; attempt++) {
+        if (attempt > 0) {
+          await new Promise(r => setTimeout(r, 700))
+          if (stylistSessionId.current !== originSession) return
+          capturedPhases.length = 0
+          setStylistLoadingPhases([])
+        }
+        try {
+          const res = await fetch('/api/ai/stylist', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: requestBody,
+          })
+          data = await readStylistStream(res, onProgress)
+        } catch (e) {
+          if (attempt === 1) throw e // final attempt failed → outer catch shows the error
+          console.warn('[stylist] transient request failure, retrying once:', e)
+        }
+      }
       // Show the reply the moment it's actually ready — reasoning time
       // genuinely varies by query and provider, so there's no fixed budget
       // to wait out anymore. Only guard against an instant flash for a
