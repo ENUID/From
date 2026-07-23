@@ -1406,7 +1406,7 @@ function renderStylistText(
                 {imgUrl && <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{p.title}</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: INK, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', whiteSpace: 'normal' } as React.CSSProperties}>{p.title}</div>
                 <div style={{ fontFamily: SANS, fontSize: 11, color: INK3, marginTop: 2 }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
                 <div style={{ fontFamily: SANS, fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', color: INK3, marginTop: 3, opacity: 0.7 }}>Tap to view →</div>
               </div>
@@ -2624,8 +2624,8 @@ export default function DiscernApp({
             </svg>
           </button>
         </div>
-        <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, letterSpacing: '-0.01em', color: INK, marginTop: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-        <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3, marginTop: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.01em' }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
+        <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 500, letterSpacing: '-0.01em', color: INK, marginTop: 8, lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', whiteSpace: 'normal' } as React.CSSProperties}>{p.title}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11.5, color: INK3, marginTop: 2, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.01em' }}>{formatMoney(p.price, p.currency, p.base_currency, liveRates)}</div>
         {pc.length > 0 && (
           <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
             {pc.slice(0, 5).map(c => (
@@ -5167,7 +5167,11 @@ export default function DiscernApp({
 
             {/* Fabrics conversation — the one shopping surface, no separate grid search */}
             {hasConversation && !showExplore && (
-              <div style={{ padding: '4px 20px 0' }}>
+              // Centered reading column: on a wide laptop/Mac screen the thread
+              // was stretching edge-to-edge, so the long styling paragraphs ran
+              // in unreadably wide lines. Cap it and center it (full-width on
+              // mobile, where maxWidth exceeds the screen).
+              <div style={{ padding: '4px 20px 0', maxWidth: 760, margin: '0 auto' }}>
                 {/* Pinned products now render just above the input bar (a compose
                     staging strip), and inline with the user message that asked
                     about them — never as a floating banner at the top of the

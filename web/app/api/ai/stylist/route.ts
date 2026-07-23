@@ -714,7 +714,8 @@ Examples: "something for a summer wedding" → "Linen is the move, breathable an
 [COMPARE: {"rows":[{"label":"Price","values":["£40","£95"]},{"label":"Material","values":["Cotton","Linen"]}],"pick":{"index":1,"reason":"Better quality for the price"}}]
 STRICT: use it only when every column is the SAME garment type. The columns ARE those pinned/shown products, in the SAME order given to you; every "values" array has EXACTLY one entry per product in that order; compare ONLY those products. Use each product's ACTUAL data (its real price with its currency symbol, its real material/fit), never invent a value; unknown is "—". 2-6 rows from Price, Material, Construction, Fit/Silhouette, Style, Versatility, Care, Longevity, Occasion fit, only where they genuinely differ, ≤5 words each. "pick".index is the 0-based winner and the piece your prose praises MUST be that same one. Output once, last line; never for a single product, a general question, a combination, or a mix of categories.
 
-━━━ OUTFIT BUILDER: when they want a COMPLETE outfit ("build a look for X", "what would I wear to Y", "outfit for Z", "complete the look", "show me outfits", "give me outfits") use [OUTFIT: q1 | q2 | q3 | q4], not [SEARCH:] ━━━
+━━━ OUTFIT BUILDER: when they want a COMPLETE outfit or a COMBINATION ("build a look for X", "what would I wear to Y", "outfit for Z", "complete the look", "show me outfits", "give me outfits", "create the best combination", "put together a fit", "make it a full look", "combine these") use [OUTFIT: q1 | q2 | q3 | q4], not [SEARCH:] ━━━
+• CRITICAL when nothing is pinned: to SHOW a specific combination you MUST use [OUTFIT:], because [PRODUCT:N] only works on pinned items and would card a random result you never chose. "create the best combination and show me" (no pinned pieces) → lead with the concept, then [OUTFIT: men white linen shirt | men beige linen shorts | men tan leather sandal]. Describe each piece and how they work together in the lead-in; the engine fills each slot with the best real match and shows them as the look.
 • 3-4 slot queries split by |, each a precise search for ONE distinct wardrobe category. EVERY slot a DIFFERENT category, never two tops, two bottoms, or two pairs of shoes: exactly one base top + one bottom + one pair of shoes + (optional) ONE outer layer + (optional) accessory. A layer (overshirt, shacket, shirt-jacket, blazer, cardigan, coat) is the ONE outer slot worn OVER the base top, never a second top, no kurta with a tee, no overshirt with a shirt.
 • Each query names the garment TYPE explicitly (the engine filters on that word): gender + garment + descriptors, e.g. "men dark navy slim trousers | men white linen shirt | men tan leather loafers | men camel unstructured blazer". You may lead a slot with a brand if they anchored the look to one.
 • Never [OUTFIT:] and [SEARCH:] in one reply; never [OUTFIT:] for a single item (use [SEARCH:]). Lead with a one-sentence outfit concept, then the token in the SAME message, never concept-then-"how does that sound?". Approval or a nudge after you proposed or promised a look ("ok", "yes", "go", "do it", "sounds good", "where is the outfit", "you didn't") is a GO signal, emit [OUTFIT:] immediately, never "on it" with no token.
@@ -1716,7 +1717,11 @@ Use concrete garment, colour, and material words only, never a brand or product 
     // query that mentioned "product" was already extracted above).
     const reply = products.length > 0
       ? placePinnedCards(linkPinnedProductMentions(parsedReply, products.length), products)
-      : parsedReply
+      // Nothing pinned: any [PRODUCT:N] the model wrote points at products it
+      // never saw (the reply is composed BEFORE the search runs), so it cards a
+      // random found item that mismatches the prose. Strip them; the real pieces
+      // show in the result strips / outfit slots below.
+      : parsedReply.replace(/\s*\[PRODUCT:\d{1,2}\]\s*/g, ' ').replace(/[ \t]{2,}/g, ' ').trim()
     // Deterministic safety net: if the model forgot to gender the query
     // itself, the shopper's profile still wins rather than searching blind.
     const searchQuery = rawSearchQuery ? applyGenderDefault(rawSearchQuery) : rawSearchQuery
