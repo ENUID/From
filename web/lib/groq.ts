@@ -117,6 +117,22 @@ export function stripThinkTags(text: string): string {
     .trim()
 }
 
+// Some free-tier / guarded models (Llama Guard-style wrappers, gpt-oss safety
+// channels, and whatever openrouter/free's auto-router lands on) append an
+// internal safety-classifier verdict to their output — e.g. a trailing
+// "User Safety: safe\nResponse Safety: safe". It is scaffolding, never part of
+// the stylist's answer, but it leaks straight into the shopper-facing reply
+// (reported live as "usersafe" and similar). Strip any standalone line of that
+// "<X> Safety: <verdict>" shape wherever it appears. Applied at the same shared
+// choke points as stripThinkTags so it holds no matter which provider answered.
+export function stripSafetyLabels(text: string): string {
+  if (!text) return text
+  return text
+    .replace(/^[ \t>*_-]*(?:user|response|prompt|content|assistant|output|input|message|conversation|overall|final)\s+safety\s*[:=]\s*\S.*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 // Em/en dashes as clause separators are the single most recognizable
 // "AI-generated" tell, and the system prompt already forbids them (see WRITE
 // LIKE AN ACTUAL PERSON in stylist/route.ts) — but that instruction is only
@@ -621,7 +637,7 @@ export async function wardrobeVisionChat(
   const errors: { name: string; err: any }[] = []
 
   try {
-    const content = stripAiDashes(stripThinkTags((await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)).trim()))
+    const content = stripSafetyLabels(stripAiDashes(stripThinkTags((await geminiVisionChat(systemPrompt, question, imageDataUrls, opts)).trim())))
     if (!content) throw new Error('empty content')
     if (looksLikeLeakedReasoning(content)) throw new Error('leaked reasoning')
     return content
@@ -637,7 +653,7 @@ export async function wardrobeVisionChat(
 
   try {
     const msg = await groqVisionChat(visionMessages, systemPrompt, opts)
-    const content = stripAiDashes(stripThinkTags((msg?.content ?? '').trim()))
+    const content = stripSafetyLabels(stripAiDashes(stripThinkTags((msg?.content ?? '').trim())))
     if (!content) throw new Error('empty content')
     if (looksLikeLeakedReasoning(content)) throw new Error('leaked reasoning')
     return content
@@ -647,7 +663,7 @@ export async function wardrobeVisionChat(
 
   try {
     const msg = await groqDirectVisionChat(visionMessages, systemPrompt, opts)
-    const content = stripAiDashes(stripThinkTags((msg?.content ?? '').trim()))
+    const content = stripSafetyLabels(stripAiDashes(stripThinkTags((msg?.content ?? '').trim())))
     if (!content) throw new Error('empty content')
     if (looksLikeLeakedReasoning(content)) throw new Error('leaked reasoning')
     return content
