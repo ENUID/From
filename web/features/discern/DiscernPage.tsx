@@ -2662,12 +2662,16 @@ export default function DiscernApp({
   const imgLockH  = useRef<null | boolean>(null)
   // Trackpad / mouse-wheel horizontal swipe for the desktop-and-tablet image
   // carousel. A two-finger horizontal trackpad gesture arrives as a stream of
-  // wheel events with a dominant deltaX; we accumulate it and step the gallery
-  // once per gesture, then lock until the momentum settles so one swipe = one
-  // image (not a runaway scroll through the whole set).
+  // wheel events with a dominant deltaX; we ACCUMULATE distance and step once
+  // per ~threshold of travel, with a short cooldown between steps and an
+  // idle-reset for a fresh gesture. This replaces the old "lock until idle"
+  // model, whose idle timer was reset by every event — trackpad momentum kept
+  // firing events after the fingers lifted, so the lock never released between
+  // quick swipes and rapid/continuous swiping felt stuck.
   const imgWheelRef  = useRef<HTMLDivElement>(null)
-  const wheelLock    = useRef(false)
-  const wheelIdle    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wheelAccum   = useRef(0)     // accumulated horizontal delta this gesture
+  const wheelLastEv  = useRef(0)     // timestamp of the previous wheel event
+  const wheelLastStep = useRef(0)    // timestamp of the previous image step
   const sheetImgCount = useRef(0)
   const dragStartY    = useRef(0)
   const dragStartSnap = useRef<'full'|'half'>('full')
@@ -3427,28 +3431,36 @@ export default function DiscernApp({
   useEffect(() => {
     const el = imgWheelRef.current
     if (!el || !isWide || !selectedProduct) return
+    const STEP_THRESHOLD = 36   // px of accumulated horizontal travel per image
+    const STEP_COOLDOWN  = 45   // ms min between steps (kills a single burst double-firing)
+    const GESTURE_GAP    = 130  // ms of quiet that starts a fresh gesture (resets accum)
     const onWheel = (e: WheelEvent) => {
       const count = sheetImgCount.current
       if (count <= 1) return
       // Only claim clearly-horizontal gestures; leave vertical scroll alone.
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 2) return
       e.preventDefault() // stop the browser's two-finger back/forward nav
-      // Keep resetting the "gesture ended" timer on every event of the flick,
-      // so one continuous two-finger swipe = one image no matter how long it is.
-      if (wheelIdle.current) clearTimeout(wheelIdle.current)
-      wheelIdle.current = setTimeout(() => { wheelLock.current = false }, 200)
-      if (wheelLock.current) return
-      // Leading edge: the FIRST horizontal motion of a gesture steps instantly —
-      // no accumulate-to-threshold lag. Then lock until the trackpad goes quiet.
-      wheelLock.current = true
-      if (e.deltaX > 0) setActiveImg(i => Math.min(count - 1, i + 1))
-      else setActiveImg(i => Math.max(0, i - 1))
+      const now = e.timeStamp
+      // A pause since the last event means a new, separate swipe — start clean
+      // so momentum tails from the previous flick can't bleed into this one.
+      if (now - wheelLastEv.current > GESTURE_GAP) wheelAccum.current = 0
+      wheelLastEv.current = now
+      wheelAccum.current += e.deltaX
+      // Step as soon as enough horizontal travel has built up AND the brief
+      // cooldown has passed — responsive to fast, repeated, and continuous
+      // swipes alike, with no lock to wait out.
+      if (Math.abs(wheelAccum.current) >= STEP_THRESHOLD && now - wheelLastStep.current >= STEP_COOLDOWN) {
+        const dir = wheelAccum.current > 0 ? 1 : -1
+        wheelAccum.current = 0
+        wheelLastStep.current = now
+        if (dir > 0) setActiveImg(i => Math.min(count - 1, i + 1))
+        else setActiveImg(i => Math.max(0, i - 1))
+      }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       el.removeEventListener('wheel', onWheel)
-      if (wheelIdle.current) { clearTimeout(wheelIdle.current); wheelIdle.current = null }
-      wheelLock.current = false
+      wheelAccum.current = 0
     }
   }, [isWide, selectedProduct])
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
