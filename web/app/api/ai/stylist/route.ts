@@ -963,11 +963,37 @@ export async function POST(req: NextRequest) {
   })
 }
 
+// Wall-clock budget for one request. The Vercel function is killed at
+// maxDuration (60s) with NO final result line written, which the client can
+// only render as a blank "something went wrong" — the worst possible outcome
+// when we very likely already have the reply in hand and are only waiting on a
+// slow catalog fetch or a free-tier provider hanging to its own 25-30s abort.
+// This deadline sits comfortably under 60s so we always finish() ourselves,
+// returning the best-effort reply (and whatever products we gathered) instead
+// of getting force-killed mid-stream.
+const REQUEST_BUDGET_MS = 52_000
+// Race any awaited work against the remaining budget. On timeout it resolves to
+// `fallback` (never rejects) and the outer flow proceeds to finish() with what
+// it has; the orphaned promise settles harmlessly after the stream is closed.
+function withDeadline<T>(work: Promise<T>, deadlineAt: number, fallback: T): Promise<T> {
+  const remaining = deadlineAt - Date.now()
+  if (remaining <= 400) return Promise.resolve(fallback)
+  return new Promise<T>((resolve) => {
+    let settled = false
+    const timer = setTimeout(() => { if (!settled) { settled = true; resolve(fallback) } }, remaining)
+    work.then(
+      (v) => { if (!settled) { settled = true; clearTimeout(timer); resolve(v) } },
+      () => { if (!settled) { settled = true; clearTimeout(timer); resolve(fallback) } },
+    )
+  })
+}
+
 async function runStylistRequest(
   req: NextRequest,
   send: (icon: string, main: string, detail?: string) => void,
   finish: (result: Record<string, unknown>) => void,
 ): Promise<void> {
+  const requestDeadline = Date.now() + REQUEST_BUDGET_MS
   try {
     const body = await req.json()
     const mode: string = typeof body?.mode === 'string' ? body.mode : 'default'
@@ -1490,7 +1516,17 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // instead — a real search still streams its own progress when it starts.
       if (heavy && isProductIntent(question)) send('fabric', 'Thinking through the styling', 'reasoning.compose(style + fit + occasion)')
       try {
-        const msg = await stylistChat(messages, combinedSystem, { max_tokens: replyMaxTokens, temperature: 0.4 }, heavy)
+        // Bound the reply generation so a run of hung free-tier providers (each
+        // can hang to its own 25-30s abort) can never eat the whole function
+        // budget before search + finish. Reserve ~14s of the budget for the
+        // catalog work that follows; if the model can't answer in what's left,
+        // fail over to a graceful retry line rather than a mid-stream kill.
+        const chatDeadline = Math.min(requestDeadline - 14_000, Date.now() + 34_000)
+        const msg = await withDeadline(stylistChat(messages, combinedSystem, { max_tokens: replyMaxTokens, temperature: 0.4 }, heavy), chatDeadline, null)
+        if (!msg) {
+          console.error('[stylist] model call timed out within budget')
+          return finish({ reply: "That one took me too long to think through. Give it another go?", comparison: null })
+        }
         raw = (msg?.content ?? '').trim()
         logAiUsage({ path: heavy ? 'llm-heavy' : 'llm-light', provider: msg.provider, estPromptTokens: estimateTokens(promptTextForEstimate), estCompletionTokensCap: replyMaxTokens, ok: !!raw })
       } catch (err) {
@@ -1519,7 +1555,10 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
       // "them" refers to (the pieces it just described).
       const userWantsToSee = /\b(show|see|view|display|pull\s?up|find|link)\b/i.test(question)
         && /\b(them|these|those|it|me|combo|combination|combos|look|looks|outfit|option|options|product|products|piece|pieces|one|ones)\b/i.test(question)
-      if (heavy && raw && !hasToken && (describesProducts || userWantsToSee)) {
+      // Only worth a whole second LLM call if there's real time left for it AND
+      // the search it feeds — skip when late so we never blow the function budget
+      // chasing a token and get force-killed with nothing to show.
+      if (heavy && raw && !hasToken && (describesProducts || userWantsToSee) && requestDeadline - Date.now() > 22_000) {
         try {
           const retryNudge = combinedSystem + `\n\n━━━ CORRECTION ━━━ Your last reply described clothing but did not include the required token. This time keep the lead-in to ONE short sentence and end the reply with either [SEARCH: precise query] for a single item or [OUTFIT: query1 | query2 | query3] for a full look — the token MUST be present, it is how the shopper actually sees and buys the pieces.`
           const retryMsg = await stylistChat(messages, retryNudge, { max_tokens: replyMaxTokens, temperature: 0.3 }, heavy)
@@ -1559,10 +1598,10 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         const llmBudget = parseBudget(question, buyerCurrency)
         const preferredSize = sizeForQuery(searchQuery)
 
-        const multiGroups = await multiCategorySearch(
+        const multiGroups = await withDeadline(multiCategorySearch(
           searchQuery, llmBudget.budgetMax, countryCode, buyerCurrency,
           memorySummary, sizeForQuery, onSearchProgress,
-        )
+        ), requestDeadline, null)
         if (multiGroups) {
           foundProductGroups = multiGroups
           // Each group is already capped at MULTI_CATEGORY_PER_GROUP_CAP; see
@@ -1574,16 +1613,19 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         // question is the judge query so occasion/aesthetic context ranks too.
         // Memory summary biases ranking toward their known taste. Falls back
         // to catalog order silently if the reranker errs never blocks.
-        let results = await GlobalCatalogService.search(
+        let results = await withDeadline(GlobalCatalogService.search(
           searchQuery,
           llmBudget.budgetMax, [], countryCode, true, concepts,
           'relevance', buyerCurrency,
           { fastFirstPage: true, onProgress: onSearchProgress }, [],
           memorySummary,
           question, preferredSize,
-        )
+        ), requestDeadline, [] as any[])
         let refineNote = ''
-        let skipFurtherRefine = false
+        // When we're already low on budget, don't chase extra refine/broaden
+        // searches — return what we have (or an honest note) rather than risk
+        // the function being killed before finish().
+        let skipFurtherRefine = requestDeadline - Date.now() < 10_000
 
         if (results.length === 0) {
           // The query named a brand we can't reach (no UCP / not in roster) or
@@ -1594,11 +1636,11 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
           const brands = detectBrandsInQuery(searchQuery)
           if (brands.length > 0) {
             const debranded = stripBrandNames(searchQuery, brands) || searchQuery
-            const broad = await GlobalCatalogService.search(
+            const broad = await withDeadline(GlobalCatalogService.search(
               debranded, llmBudget.budgetMax, [], countryCode, true, buildMandatoryConcepts(debranded),
               'relevance', buyerCurrency, { fastFirstPage: true }, [],
               memorySummary, question, preferredSize,
-            )
+            ), requestDeadline, [] as any[])
             const names = brands.map(brandNameOf).filter(Boolean).join(' & ')
             if (broad.length > 0) {
               results = broad
@@ -1615,11 +1657,11 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         // loop, never stacked on top of the brand-fallback above.
         if (!skipFurtherRefine && results.length < 4) {
           if (llmBudget.budgetMax) {
-            const widened = await GlobalCatalogService.search(
+            const widened = await withDeadline(GlobalCatalogService.search(
               searchQuery, undefined, [], countryCode, true, concepts,
               'relevance', buyerCurrency, { fastFirstPage: true }, [],
               memorySummary, question, preferredSize,
-            )
+            ), requestDeadline, [] as any[])
             if (widened.length > results.length) {
               results = widened
               refineNote = ` Nothing under ${llmBudget.budgetCurrency || buyerCurrency} ${llmBudget.budgetMax}, so here’s the closest without that cap.`
@@ -1638,11 +1680,11 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
               ? (originalGenderWord && !GENDER_TERM_RE.test(rawBroadened) ? `${originalGenderWord} ${rawBroadened}` : rawBroadened)
               : null
             if (broadened) {
-              const retry = await GlobalCatalogService.search(
+              const retry = await withDeadline(GlobalCatalogService.search(
                 broadened, undefined, [], countryCode, true, buildMandatoryConcepts(broadened),
                 'relevance', buyerCurrency, { fastFirstPage: true }, [],
                 memorySummary, question, preferredSize,
-              )
+              ), requestDeadline, [] as any[])
               if (retry.length > results.length) {
                 results = retry
                 refineNote = ' Nothing matched exactly, so I broadened the search a touch.'
@@ -1673,7 +1715,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         // on usedProductIds, so two slots could both see it empty and both
         // grab the same top product before either had marked it used. A
         // shopper must never see the identical item in two outfit slots.
-        const slotCandidates = await Promise.all(
+        const slotCandidates = await withDeadline(Promise.all(
           outfitQueries.map(async (q) => {
             const { label, slotCat } = outfitSlotInfo(q)
             const concepts = buildMandatoryConcepts(q)
@@ -1685,7 +1727,7 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
             const filtered = slotCat ? results.filter(p => productMatchesSlot(p, slotCat)) : results
             return { query: q, label, slotCat, filtered, results }
           })
-        )
+        ), requestDeadline, [] as { query: string; label: string; slotCat: SlotCategory | null; filtered: any[]; results: any[] }[])
         const usedProductIds = new Set<string>()
         const usedSlots = new Set<SlotCategory>()
         const builtSlots: { query: string; slotCategory: string | null; products: any[] }[] = []
@@ -1721,15 +1763,17 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
     // one broad net; if that still finds nothing, be honest instead of leaving a
     // dangling "here they are" with an empty space beneath it.
     const nothingShown = (!foundProducts || foundProducts.length === 0) && !outfitSlots && (!foundProductGroups || foundProductGroups.length === 0)
-    if ((searchQuery || (outfitQueries && outfitQueries.length > 0)) && nothingShown) {
+    // Only worth one more search if there's genuine budget left — otherwise fall
+    // straight to the honest note below rather than risk a mid-stream kill.
+    if ((searchQuery || (outfitQueries && outfitQueries.length > 0)) && nothingShown && requestDeadline - Date.now() > 6_000) {
       try {
         const fallbackQ = searchQuery || (outfitQueries && outfitQueries[0]) || question
         send('search', 'Casting a wider net', `catalog.search("${fallbackQ}")`)
-        const broad = await GlobalCatalogService.search(
+        const broad = await withDeadline(GlobalCatalogService.search(
           fallbackQ, undefined, [], countryCode, true, buildMandatoryConcepts(fallbackQ),
           'relevance', buyerCurrency, { fastFirstPage: true }, [],
           memorySummary, question, sizeForQuery(fallbackQ),
-        )
+        ), requestDeadline, [] as any[])
         if (broad.length > 0) foundProducts = dedupeById(broad).slice(0, INITIAL_RESULT_CAP)
       } catch (e) { console.error('[stylist] fallback broad search failed:', e) }
       const stillNothing = (!foundProducts || foundProducts.length === 0) && !outfitSlots

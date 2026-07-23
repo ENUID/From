@@ -5186,7 +5186,12 @@ export default function DiscernApp({
                         <textarea value={editText} onChange={e => setEditText(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditMsg(i) } if (e.key === 'Escape') cancelEditMsg() }}
                           autoFocus rows={2}
-                          style={{ width: '100%', fontFamily: SANS, fontSize: 14, lineHeight: 1.55, color: INK,
+                          // 16px, not 14 — iOS Safari force-zooms the viewport
+                          // when a focused field is under 16px, and there's no
+                          // clean way to zoom back out. 16px keeps focus put on
+                          // every device (the main composer already uses 16 for
+                          // the same reason).
+                          style={{ width: '100%', fontFamily: SANS, fontSize: 16, lineHeight: 1.5, color: INK,
                             background: BG2, border: `1px solid ${BRD}`, borderRadius: 12, padding: '9px 14px',
                             resize: 'none', outline: 'none' }} />
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
