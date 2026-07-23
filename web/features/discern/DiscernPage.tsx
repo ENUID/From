@@ -2669,9 +2669,7 @@ export default function DiscernApp({
   // firing events after the fingers lifted, so the lock never released between
   // quick swipes and rapid/continuous swiping felt stuck.
   const imgWheelRef  = useRef<HTMLDivElement>(null)
-  const wheelAccum   = useRef(0)     // accumulated horizontal delta this gesture
-  const wheelLastEv  = useRef(0)     // timestamp of the previous wheel event
-  const wheelLastStep = useRef(0)    // timestamp of the previous image step
+  const wheelLastEv  = useRef(0)     // timestamp of the previous horizontal wheel event
   const sheetImgCount = useRef(0)
   const dragStartY    = useRef(0)
   const dragStartSnap = useRef<'full'|'half'>('full')
@@ -3431,37 +3429,30 @@ export default function DiscernApp({
   useEffect(() => {
     const el = imgWheelRef.current
     if (!el || !isWide || !selectedProduct) return
-    const STEP_THRESHOLD = 36   // px of accumulated horizontal travel per image
-    const STEP_COOLDOWN  = 45   // ms min between steps (kills a single burst double-firing)
-    const GESTURE_GAP    = 130  // ms of quiet that starts a fresh gesture (resets accum)
+    // A trackpad flick arrives as a dense burst of wheel events (~16-30ms apart)
+    // followed by a decaying momentum tail. A NEW, separate swipe only starts
+    // after a quiet gap. So: step ONE image on the leading edge of a gesture,
+    // then ignore every following event until a gap this long proves the finger
+    // lifted and a fresh swipe began. One deliberate swipe = one image, momentum
+    // never runs through the gallery, and a second swipe still lands as long as
+    // there's a natural pause between them.
+    const NEW_GESTURE_GAP = 120 // ms of quiet since the last horizontal event = new swipe
     const onWheel = (e: WheelEvent) => {
       const count = sheetImgCount.current
       if (count <= 1) return
       // Only claim clearly-horizontal gestures; leave vertical scroll alone.
+      // The < 2 floor also drops the tiny tail-end momentum events outright.
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 2) return
       e.preventDefault() // stop the browser's two-finger back/forward nav
       const now = e.timeStamp
-      // A pause since the last event means a new, separate swipe — start clean
-      // so momentum tails from the previous flick can't bleed into this one.
-      if (now - wheelLastEv.current > GESTURE_GAP) wheelAccum.current = 0
+      const gap = now - wheelLastEv.current
       wheelLastEv.current = now
-      wheelAccum.current += e.deltaX
-      // Step as soon as enough horizontal travel has built up AND the brief
-      // cooldown has passed — responsive to fast, repeated, and continuous
-      // swipes alike, with no lock to wait out.
-      if (Math.abs(wheelAccum.current) >= STEP_THRESHOLD && now - wheelLastStep.current >= STEP_COOLDOWN) {
-        const dir = wheelAccum.current > 0 ? 1 : -1
-        wheelAccum.current = 0
-        wheelLastStep.current = now
-        if (dir > 0) setActiveImg(i => Math.min(count - 1, i + 1))
-        else setActiveImg(i => Math.max(0, i - 1))
-      }
+      if (gap <= NEW_GESTURE_GAP) return // same gesture (incl. momentum tail) — ignore
+      if (e.deltaX > 0) setActiveImg(i => Math.min(count - 1, i + 1))
+      else setActiveImg(i => Math.max(0, i - 1))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => {
-      el.removeEventListener('wheel', onWheel)
-      wheelAccum.current = 0
-    }
+    return () => { el.removeEventListener('wheel', onWheel) }
   }, [isWide, selectedProduct])
   const sheetDesc      = selectedProduct ? getDescriptionText(selectedProduct) : ''
   const sheetDescRaw   = selectedProduct?.description_html
