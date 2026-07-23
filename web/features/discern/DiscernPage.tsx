@@ -2024,7 +2024,10 @@ export default function DiscernApp({
   // separately-ranked group per category instead of one ambiguous combined
   // search. When present, render each group as its own labeled strip instead
   // of the flat foundProducts list.
-  type FoundProductGroup = { label: string; products: Product[]; query?: string; loadingMore?: boolean; hasNoMore?: boolean }
+  // `batches` sizes each slide within a category: the initial fetch is the
+  // first slide, and every "See more <category>" appends its result count as a
+  // NEW slide/row in that same category (never extending one endless strip).
+  type FoundProductGroup = { label: string; products: Product[]; query?: string; loadingMore?: boolean; hasNoMore?: boolean; batches?: number[] }
   // foundProductBatches sizes each row — chunked into groups of PRODUCTS_PER_ROW
   // (13) via chunkIntoRows, e.g. a 52-result fetch becomes [13, 13, 13, 13] — so
   // the flat foundProducts list renders as several short rows instead of one
@@ -2138,7 +2141,7 @@ export default function DiscernApp({
   const [barProducts, setBarProducts]       = useState<Product[]>([])
 
   const addBarProduct = (p: Product) => {
-    setBarProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 4) ? prev : [...prev, p])
+    setBarProducts(prev => (prev.some(x => x.id === p.id) || prev.length >= 8) ? prev : [...prev, p])
     setInputHint('Ask about your selection…')
     setTimeout(() => taRef.current?.focus(), 80)
   }
@@ -2253,7 +2256,7 @@ export default function DiscernApp({
     // Attach the pieces this query is actually about (whether pinned via the
     // staging strip or "Ask Fabrics") to the user message, so they render right
     // beside the question in the thread instead of only in the staging strip.
-    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined, pinnedProducts: products.length > 0 ? products.slice(0, 4) : undefined }])
+    setStylistMsgs(prev => [...prev, { role: 'user', content: question, images: capturedImages.length > 0 ? capturedImages : undefined, pinnedProducts: products.length > 0 ? products.slice(0, 8) : undefined }])
     // Starts empty — every step shown from here on is a genuine backend
     // event (see readStylistStream), not a pre-built simulated schedule.
     setStylistLoadingPhases([])
@@ -2347,7 +2350,12 @@ export default function DiscernApp({
         // so an old comparison never re-renders against a later pinned set (the
         // ★ pick / pick card would otherwise point at the wrong product).
         const comparisonProducts = data.comparison ? products.slice() : undefined
-        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, comparisonProducts, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, trace: capturedPhases.length > 0 ? capturedPhases : undefined }])
+        setStylistMsgs(prev => [...prev, { role: 'assistant', content: data.reply, comparison: data.comparison || undefined, comparisonProducts, foundProducts: newProducts.length > 0 ? newProducts : undefined, foundProductGroups, foundProductBatches: (!foundProductGroups && newProducts.length > 0) ? chunkIntoRows(newProducts.length) : undefined, outfitSlots, busy: data.busy === true, searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : undefined, trace: capturedPhases.length > 0 ? capturedPhases : undefined,
+          // The pieces this reply is ABOUT — the products the shopper pinned for
+          // this turn. [PRODUCT:N] in the reply text is 0-indexed into exactly
+          // this set (the server's "STORE PRODUCTS"), so the tappable card must
+          // resolve against it, never the live global result strip.
+          pinnedProducts: products.length > 0 ? products.slice(0, 8) : undefined }])
         // Total products actually surfaced — across the single strip, per-category
         // GROUPS (multi-garment searches), and outfit slots. Counting only
         // newProducts logged grouped/outfit searches as 0 results, which then
@@ -2550,8 +2558,14 @@ export default function DiscernApp({
             if (gi !== groupIndex) return g
             const existingIds = new Set(g.products.map(p => p.id))
             const uniqueNew = fresh.filter(p => !existingIds.has(p.id))
+            // Each "See more" lands as its own NEW slide/row in this category —
+            // append the fresh batch's size to `batches` (seeding it from the
+            // initial fetch first), never fold it back into the first row.
+            const batches = uniqueNew.length > 0
+              ? [...(g.batches && g.batches.length > 0 ? g.batches : [g.products.length]), uniqueNew.length]
+              : g.batches
             // Same rule as the flat list: a failed fetch keeps the button.
-            return { ...g, products: [...g.products, ...uniqueNew], loadingMore: false, hasNoMore: !!data && !data.loadMoreError && uniqueNew.length === 0 }
+            return { ...g, products: [...g.products, ...uniqueNew], batches, loadingMore: false, hasNoMore: !!data && !data.loadMoreError && uniqueNew.length === 0 }
           }),
         }
       }))
@@ -5217,7 +5231,7 @@ export default function DiscernApp({
                             {m.role === 'assistant'
                               ? (m.busy
                                   ? <span className="fr-shine">{m.content}</span>
-                                  : <TypewriterText text={m.content} products={stylistProducts} liveRates={liveRates}
+                                  : <TypewriterText text={m.content} products={(m.pinnedProducts && m.pinnedProducts.length > 0) ? m.pinnedProducts : (m.foundProducts && m.foundProducts.length > 0) ? m.foundProducts : stylistProducts} liveRates={liveRates}
                                       onProductClick={(p) => setSelected(p)}
                                       animate={i >= initialStylistMsgCount.current && !typedStylistIndices.current.has(i)}
                                       onReveal={stickStylistToBottom}
@@ -5331,11 +5345,21 @@ export default function DiscernApp({
                           <div key={gi} style={{ marginTop: gi > 0 ? 14 : 0 }}>
                             <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: INK3, marginBottom: 8 }}>{group.label}</div>
                             {/* Horizontal slide per category — one swipeable row,
-                                not a two-column grid. "See more" appends to the
-                                right; the row scrolls. Consistent on every device. */}
-                            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2, WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-                              {group.products.map(p => renderFoundProductCard(p, m.searchQuery))}
-                            </div>
+                                not a two-column grid. Each "See more" lands as a
+                                NEW slide/row below (see `batches`), so the same
+                                category stacks fresh rows instead of endlessly
+                                extending one strip. Consistent on every device. */}
+                            {(() => {
+                              const gb = group.batches && group.batches.length > 0 ? group.batches : [group.products.length]
+                              const rows: Product[][] = []
+                              let off = 0
+                              for (const size of gb) { rows.push(group.products.slice(off, off + size)); off += size }
+                              return rows.map((row, ri) => (
+                                <div key={ri} style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2, marginTop: ri > 0 ? 10 : 0, WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                                  {row.map(p => renderFoundProductCard(p, m.searchQuery))}
+                                </div>
+                              ))
+                            })()}
                             {group.query && !group.hasNoMore && (
                               group.loadingMore ? (
                                 <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 2px' }}>
