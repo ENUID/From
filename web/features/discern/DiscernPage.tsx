@@ -5167,11 +5167,7 @@ export default function DiscernApp({
 
             {/* Fabrics conversation — the one shopping surface, no separate grid search */}
             {hasConversation && !showExplore && (
-              // Centered reading column: on a wide laptop/Mac screen the thread
-              // was stretching edge-to-edge, so the long styling paragraphs ran
-              // in unreadably wide lines. Cap it and center it (full-width on
-              // mobile, where maxWidth exceeds the screen).
-              <div style={{ padding: '4px 20px 0', maxWidth: 760, margin: '0 auto' }}>
+              <div style={{ padding: '4px 20px 0' }}>
                 {/* Pinned products now render just above the input bar (a compose
                     staging strip), and inline with the user message that asked
                     about them — never as a floating banner at the top of the
@@ -5241,7 +5237,7 @@ export default function DiscernApp({
                             ))}
                           </div>
                         )}
-                        <div className={m.role === 'user' ? 'fr-msg-hover' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
+                        <div className={m.role === 'user' ? 'fr-msg-hover' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: m.role === 'assistant' ? 'min(88%, 680px)' : '88%' }}>
                           <div style={{ fontFamily: SANS, fontSize: 14, lineHeight: 1.6, letterSpacing: '-0.003em',
                             padding: m.role === 'user' ? '10px 15px' : 0,
                             background: m.role === 'user' ? INK : 'transparent',
