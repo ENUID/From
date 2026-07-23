@@ -823,51 +823,71 @@ function pinnedProductCategory(p: StylistProduct): SlotCategory | null {
   return null
 }
 
-// HARD GUARANTEE that every piece the reply recommends actually shows as a card,
-// no matter whether the model emitted its [PRODUCT:N] token or just named it in
-// prose ("pick the navy half-sleeve shirt"). For each garment category the reply
-// talks about that has a pinned product but no card yet, inject the best-matching
-// pinned product's token. One card per category (never a duplicate of a category
-// already carded), only for categories the reply actually mentions, capped so a
-// stray word can't flood the reply. This is what makes a pinned combination
-// ("which is best + right combination") reliably show BOTH the shirt and the
-// shorts, since prompt instructions alone don't force the model to token both.
-function guaranteePinnedCards(text: string, products: StylistProduct[]): string {
+// HARD GUARANTEE that every piece the reply recommends shows as a card, placed
+// RIGHT AFTER the sentence that describes it — no matter whether the model
+// emitted a [PRODUCT:N] token, mis-placed it, or just named the piece in prose
+// ("pick the navy half-sleeve shirt"). We re-derive card placement from scratch:
+// pick ONE pinned product per garment category the reply recommends (the model's
+// own carded pick for that category if it made one, else the best title match),
+// strip every existing token, then re-insert each card immediately after the
+// first sentence that mentions its category. This is what makes a pinned
+// combination read cleanly: shirt sentence -> shirt card, shorts sentence ->
+// shorts card, instead of the model's scrambled order.
+function placePinnedCards(text: string, products: StylistProduct[]): string {
   if (!text || products.length === 0) return text
-  const carded = new Set<number>()
+  const catOf = products.map(pinnedProductCategory)
+  // Indices the model already carded, in the order it wrote them.
+  const modelCarded: number[] = []
   const cardRe = /\[PRODUCT:(\d{1,2})\]/g
   let cm: RegExpExecArray | null
-  while ((cm = cardRe.exec(text)) !== null) carded.add(Number(cm[1]))
-  const catOf = products.map(pinnedProductCategory)
-  const used = new Set<string>()
-  Array.from(carded).forEach(i => { const c = catOf[i]; if (c) used.add(c) })
+  while ((cm = cardRe.exec(text)) !== null) {
+    const i = Number(cm[1])
+    if (i >= 0 && i < products.length && modelCarded.indexOf(i) === -1) modelCarded.push(i)
+  }
+  // Prose with every token stripped out — the clean text we re-position around.
+  const clean = text.replace(/\s*\[PRODUCT:\d{1,2}\]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim()
   // Categories the reply actually recommends (garment words present in prose).
-  const replyCats: SlotCategory[] = []
-  decomposeQuery(text).garmentKeys.forEach(k => {
+  const recCats: SlotCategory[] = []
+  decomposeQuery(clean).garmentKeys.forEach(k => {
     const c = GARMENT_CATEGORY[k] as SlotCategory | undefined
-    if (c && replyCats.indexOf(c) === -1) replyCats.push(c)
+    if (c && recCats.indexOf(c) === -1) recCats.push(c)
   })
-  const lower = text.toLowerCase()
-  const additions: number[] = []
-  replyCats.forEach(cat => {
-    if (used.has(cat) || additions.length >= 3) return
-    const cands = products
-      .map((p, i) => ({ p, i }))
-      .filter(({ i }) => catOf[i] === cat && !carded.has(i))
+  if (recCats.length === 0) return text
+  // One product per recommended category: the model's pick for that category if
+  // it carded one, otherwise the pinned piece whose title the reply mentions most.
+  const lower = clean.toLowerCase()
+  const chosen = new Map<SlotCategory, number>()
+  recCats.forEach(cat => {
+    const modelPick = modelCarded.filter(i => catOf[i] === cat)[0]
+    if (modelPick !== undefined) { chosen.set(cat, modelPick); return }
+    const cands = products.map((p, i) => ({ p, i })).filter(({ i }) => catOf[i] === cat)
     if (cands.length === 0) return
-    // Best match = the pinned piece of this category whose title words the reply
-    // mentions most (so "navy half-sleeve shirt" picks the navy one), first as tiebreak.
     let best = cands[0], bestScore = -1
     cands.forEach(c => {
       const toks = String(c.p.title || '').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 3)
       const score = toks.reduce((n, t) => n + (lower.includes(t) ? 1 : 0), 0)
       if (score > bestScore) { bestScore = score; best = c }
     })
-    additions.push(best.i)
-    used.add(cat)
+    chosen.set(cat, best.i)
   })
-  if (additions.length === 0) return text
-  return `${text.trimEnd()} ${additions.map(i => `[PRODUCT:${i}]`).join(' ')}`
+  if (chosen.size === 0) return text
+  // Re-insert each card right after the first sentence that names its category.
+  const sentences = clean.match(/[^.!?]+[.!?]*/g) || [clean]
+  const placed = new Set<SlotCategory>()
+  const out: string[] = []
+  sentences.forEach(s => {
+    const sentence = s.trim()
+    if (sentence) out.push(sentence)
+    decomposeQuery(sentence).garmentKeys.forEach(k => {
+      const c = GARMENT_CATEGORY[k] as SlotCategory | undefined
+      if (c && chosen.has(c) && !placed.has(c)) { out.push(`[PRODUCT:${chosen.get(c)}]`); placed.add(c) }
+    })
+  })
+  // Any recommended category we never matched to a sentence still gets its card.
+  Array.from(chosen.keys()).forEach(cat => {
+    if (!placed.has(cat)) out.push(`[PRODUCT:${chosen.get(cat)}]`)
+  })
+  return out.join(' ')
 }
 
 // ── Parse reply ─────────────────────────────────────────────────────────────
@@ -1692,7 +1712,7 @@ Use concrete garment, colour, and material words only, never a brand or product 
     // not just the ones it happened to token correctly. Safe here (a search
     // query that mentioned "product" was already extracted above).
     const reply = products.length > 0
-      ? guaranteePinnedCards(linkPinnedProductMentions(parsedReply, products.length), products)
+      ? placePinnedCards(linkPinnedProductMentions(parsedReply, products.length), products)
       : parsedReply
     // Deterministic safety net: if the model forgot to gender the query
     // itself, the shopper's profile still wins rather than searching blind.
