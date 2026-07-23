@@ -602,23 +602,35 @@ async function geminiVisionChat(
     if (m) parts.push({ inline_data: { mime_type: m[1], data: m[2] } })
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        generationConfig: { maxOutputTokens: opts?.max_tokens ?? 900, temperature: opts?.temperature ?? 0.3 },
-      }),
-      signal: AbortSignal.timeout(30_000),
+  const body = JSON.stringify({
+    contents: [{ role: 'user', parts }],
+    generationConfig: { maxOutputTokens: opts?.max_tokens ?? 900, temperature: opts?.temperature ?? 0.3 },
+  })
+  // Gemini 2.0 Flash is the best vision model in the chain, but its free tier
+  // has a per-minute request cap. A single burst used to 429 and immediately
+  // trip the whole "we're busy" fallback (the exact "anything she can improve"
+  // failure). Retry a 429 (and a transient 5xx) with backoff before giving up,
+  // so a momentary spike doesn't kill an otherwise-working photo analysis.
+  let last429 = false
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2_500))
+    let res: Response
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: AbortSignal.timeout(30_000) }
+      )
+    } catch (e) {
+      if (attempt < 2) continue // network/timeout — try again
+      throw e
     }
-  )
-
-  if (res.status === 429) { const e: any = new Error('Gemini rate limit'); e.status = 429; throw e }
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}: ${await res.text()}`)
-  const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+    if (res.status === 429) { last429 = true; if (attempt < 2) continue; const e: any = new Error('Gemini rate limit'); e.status = 429; throw e }
+    if (res.status >= 500 && attempt < 2) continue // transient server error — retry
+    if (!res.ok) throw new Error(`Gemini HTTP ${res.status}: ${await res.text()}`)
+    const data = await res.json()
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  }
+  const e: any = new Error(last429 ? 'Gemini rate limit' : 'Gemini failed'); if (last429) e.status = 429; throw e
 }
 
 // ── Wardrobe vision — Gemini → OpenRouter → Groq direct ─────────────────────
