@@ -813,6 +813,63 @@ function linkPinnedProductMentions(text: string, pinnedCount: number): string {
   })
 }
 
+// Coarse garment category of a pinned product, from its title (same vocab the
+// search path uses). Null when the title carries no recognizable garment word.
+function pinnedProductCategory(p: StylistProduct): SlotCategory | null {
+  for (const k of decomposeQuery(String(p?.title || '')).garmentKeys) {
+    const c = GARMENT_CATEGORY[k] as SlotCategory | undefined
+    if (c) return c
+  }
+  return null
+}
+
+// HARD GUARANTEE that every piece the reply recommends actually shows as a card,
+// no matter whether the model emitted its [PRODUCT:N] token or just named it in
+// prose ("pick the navy half-sleeve shirt"). For each garment category the reply
+// talks about that has a pinned product but no card yet, inject the best-matching
+// pinned product's token. One card per category (never a duplicate of a category
+// already carded), only for categories the reply actually mentions, capped so a
+// stray word can't flood the reply. This is what makes a pinned combination
+// ("which is best + right combination") reliably show BOTH the shirt and the
+// shorts, since prompt instructions alone don't force the model to token both.
+function guaranteePinnedCards(text: string, products: StylistProduct[]): string {
+  if (!text || products.length === 0) return text
+  const carded = new Set<number>()
+  const cardRe = /\[PRODUCT:(\d{1,2})\]/g
+  let cm: RegExpExecArray | null
+  while ((cm = cardRe.exec(text)) !== null) carded.add(Number(cm[1]))
+  const catOf = products.map(pinnedProductCategory)
+  const used = new Set<string>()
+  Array.from(carded).forEach(i => { const c = catOf[i]; if (c) used.add(c) })
+  // Categories the reply actually recommends (garment words present in prose).
+  const replyCats: SlotCategory[] = []
+  decomposeQuery(text).garmentKeys.forEach(k => {
+    const c = GARMENT_CATEGORY[k] as SlotCategory | undefined
+    if (c && replyCats.indexOf(c) === -1) replyCats.push(c)
+  })
+  const lower = text.toLowerCase()
+  const additions: number[] = []
+  replyCats.forEach(cat => {
+    if (used.has(cat) || additions.length >= 3) return
+    const cands = products
+      .map((p, i) => ({ p, i }))
+      .filter(({ i }) => catOf[i] === cat && !carded.has(i))
+    if (cands.length === 0) return
+    // Best match = the pinned piece of this category whose title words the reply
+    // mentions most (so "navy half-sleeve shirt" picks the navy one), first as tiebreak.
+    let best = cands[0], bestScore = -1
+    cands.forEach(c => {
+      const toks = String(c.p.title || '').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 3)
+      const score = toks.reduce((n, t) => n + (lower.includes(t) ? 1 : 0), 0)
+      if (score > bestScore) { bestScore = score; best = c }
+    })
+    additions.push(best.i)
+    used.add(cat)
+  })
+  if (additions.length === 0) return text
+  return `${text.trimEnd()} ${additions.map(i => `[PRODUCT:${i}]`).join(' ')}`
+}
+
 // ── Parse reply ─────────────────────────────────────────────────────────────
 function parseReply(raw: string): { reply: string; comparison?: Comparison } {
   const compareStart = raw.indexOf('[COMPARE:')
@@ -1634,7 +1691,9 @@ Use concrete garment, colour, and material words only, never a brand or product 
     // [PRODUCT:N-1] cards, so every pinned piece the model recommends renders,
     // not just the ones it happened to token correctly. Safe here (a search
     // query that mentioned "product" was already extracted above).
-    const reply = products.length > 0 ? linkPinnedProductMentions(parsedReply, products.length) : parsedReply
+    const reply = products.length > 0
+      ? guaranteePinnedCards(linkPinnedProductMentions(parsedReply, products.length), products)
+      : parsedReply
     // Deterministic safety net: if the model forgot to gender the query
     // itself, the shopper's profile still wins rather than searching blind.
     const searchQuery = rawSearchQuery ? applyGenderDefault(rawSearchQuery) : rawSearchQuery
