@@ -848,15 +848,20 @@ function placePinnedCards(text: string, products: StylistProduct[]): string {
     const i = Number(cm[1])
     if (i >= 0 && i < products.length && modelCarded.indexOf(i) === -1) modelCarded.push(i)
   }
-  // Prose with every token stripped out — the clean text we re-position around.
-  const clean = text.replace(/\s*\[PRODUCT:\d{1,2}\]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  // Prose with tokens stripped — but PRESERVE the model's paragraph breaks (only
+  // collapse runs of spaces/tabs), so a rich multi-paragraph explanation keeps
+  // its structure instead of flattening into one block.
+  const clean = text
+    .replace(/[ \t]*\[PRODUCT:\d{1,2}\][ \t]*/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]*\n[ \t]*/g, '\n')
+    .trim()
   // Categories the reply actually recommends (garment words present in prose).
   const recCats: SlotCategory[] = []
   decomposeQuery(clean).garmentKeys.forEach(k => {
     const c = GARMENT_CATEGORY[k] as SlotCategory | undefined
     if (c && recCats.indexOf(c) === -1) recCats.push(c)
   })
-  if (recCats.length === 0) return text
   // One product per recommended category: the model's pick for that category if
   // it carded one, otherwise the pinned piece whose title the reply mentions most.
   const lower = clean.toLowerCase()
@@ -874,24 +879,35 @@ function placePinnedCards(text: string, products: StylistProduct[]): string {
     })
     chosen.set(cat, best.i)
   })
-  if (chosen.size === 0) return text
-  // Re-insert each card right after the first sentence that names its category.
-  const sentences = clean.match(/[^.!?]+[.!?]*/g) || [clean]
+  // NEVER drop a card the model chose: any model-carded product we couldn't map
+  // to a recommended category (e.g. a title with no garment word) is preserved
+  // and appended, rather than silently removed by the re-placement.
+  const chosenIdx = new Set<number>(Array.from(chosen.values()))
+  const leftover = modelCarded.filter(i => !chosenIdx.has(i) && !(catOf[i] && recCats.indexOf(catOf[i] as SlotCategory) !== -1))
+  if (chosen.size === 0 && leftover.length === 0) return text
+  // Re-insert each card right after the first sentence that names its category,
+  // walking paragraph by paragraph so the model's paragraph breaks survive.
   const placed = new Set<SlotCategory>()
-  const out: string[] = []
-  sentences.forEach(s => {
-    const sentence = s.trim()
-    if (sentence) out.push(sentence)
-    decomposeQuery(sentence).garmentKeys.forEach(k => {
-      const c = GARMENT_CATEGORY[k] as SlotCategory | undefined
-      if (c && chosen.has(c) && !placed.has(c)) { out.push(`[PRODUCT:${chosen.get(c)}]`); placed.add(c) }
+  const paragraphs = clean.split(/\n+/).map(para => {
+    const sentences = para.match(/[^.!?]+[.!?]*/g) || [para]
+    const parts: string[] = []
+    sentences.forEach(s => {
+      const sentence = s.trim()
+      if (sentence) parts.push(sentence)
+      decomposeQuery(sentence).garmentKeys.forEach(k => {
+        const c = GARMENT_CATEGORY[k] as SlotCategory | undefined
+        if (c && chosen.has(c) && !placed.has(c)) { parts.push(`[PRODUCT:${chosen.get(c)}]`); placed.add(c) }
+      })
     })
+    return parts.join(' ')
   })
-  // Any recommended category we never matched to a sentence still gets its card.
-  Array.from(chosen.keys()).forEach(cat => {
-    if (!placed.has(cat)) out.push(`[PRODUCT:${chosen.get(cat)}]`)
-  })
-  return out.join(' ')
+  // Any chosen card never matched to a sentence, plus preserved leftovers, go last.
+  const tail: string[] = []
+  Array.from(chosen.keys()).forEach(cat => { if (!placed.has(cat)) tail.push(`[PRODUCT:${chosen.get(cat)}]`) })
+  leftover.forEach(i => tail.push(`[PRODUCT:${i}]`))
+  let result = paragraphs.join('\n\n')
+  if (tail.length > 0) result += `\n\n${tail.join(' ')}`
+  return result
 }
 
 // ── Parse reply ─────────────────────────────────────────────────────────────
