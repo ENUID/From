@@ -2398,7 +2398,7 @@ export default function DiscernApp({
           const shown: { id: string; title: string; vendor?: string }[] = []
           const seen = new Set<string>()
           const collect = (p: any) => {
-            if (!p || !p.id || seen.has(p.id) || shown.length >= 24) return
+            if (!p || !p.id || seen.has(p.id) || shown.length >= 8) return
             seen.add(p.id)
             shown.push({ id: String(p.id), title: String(p.title ?? '').slice(0, 70), vendor: p.vendor ? String(p.vendor).slice(0, 60) : undefined })
           }

@@ -26,10 +26,18 @@ import { verifyAdminSecret } from "./lib/adminAuth";
 // ────────────────────────────────────────────────────────────────────────────
 
 const DAY = 24 * 60 * 60 * 1000;
-const EVENT_SCAN_CAP = 20000;
-const USER_SCAN_CAP = 20000;
-const SAVE_SCAN_CAP = 20000;
-const FLAG_SCAN_CAP = 20000;
+// Per-query row-read caps. Kept deliberately modest: this dashboard has ~7
+// queries and reloads all of them on every window toggle, so a 20k cap could
+// read hundreds of thousands of (large, impression) rows per load — the single
+// biggest Database-I/O consumer on the Convex free tier, which is what pushes
+// the project toward a paid upgrade. 3k most-recent rows keep every aggregate
+// (funnel, top searches/products/users, charts, activity feed) representative
+// for an early-access catalog while cutting read I/O by ~85%. Raise these once
+// on a plan that can afford the bandwidth.
+const EVENT_SCAN_CAP = 3000;
+const USER_SCAN_CAP = 3000;
+const SAVE_SCAN_CAP = 3000;
+const FLAG_SCAN_CAP = 3000;
 
 function normQuery(s: string): string {
   return String(s || "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 80);
