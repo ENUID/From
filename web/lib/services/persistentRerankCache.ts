@@ -10,8 +10,14 @@ import { anyApi } from 'convex/server'
 
 const READ_TIMEOUT_MS = 1500
 
+// Default OFF: a Convex read on every rerank + a write on every miss, to cache
+// only the FREE LLM judge across cold starts. On the Convex free tier those
+// per-search ops add up toward a paid upgrade the shopper can't afford; the
+// in-memory rerank cache still de-dupes within a warm instance, so disabling
+// the Convex layer degrades nothing Fabrics decides. Set
+// RERANK_PERSISTENT_CACHE=on to re-enable on a paid plan.
 function enabled(): boolean {
-  return (process.env.RERANK_PERSISTENT_CACHE ?? 'on').toLowerCase() === 'on'
+  return (process.env.RERANK_PERSISTENT_CACHE ?? 'off').toLowerCase() === 'on'
 }
 function client(): ConvexHttpClient | null {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL

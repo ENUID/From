@@ -30,6 +30,17 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
 }
 
+// Pure diagnostics — powers the admin dashboard's provider breakdown, nothing
+// the shopper or Fabrics depends on. It used to fire a Convex write on EVERY
+// LLM call, and a single request now makes several (reply + self-heal +
+// tokenizer + retries), so it was one of the heaviest Convex-function-call
+// drivers in the app. Sample it: a failure is ALWAYS written (that's the
+// signal worth catching), successes are written ~1 in AI_USAGE_SAMPLE_N. The
+// breakdown stays directionally correct at a fraction of the write volume, so
+// this never pushes the free tier toward a paid upgrade. Set AI_USAGE_SAMPLE_N=1
+// to log every call again.
+const AI_USAGE_SAMPLE_N = Math.max(1, Number(process.env.AI_USAGE_SAMPLE_N ?? 5))
+let aiUsageCounter = 0
 function logAiUsage(info: {
   path: 'fast' | 'llm-light' | 'llm-heavy' | 'vision' | 'refine' | 'load-more'
   provider: string
@@ -38,6 +49,11 @@ function logAiUsage(info: {
   ok: boolean
 }) {
   if (!convexUsageClient) return
+  // Always keep failures; sample the (far more common) successes.
+  if (info.ok) {
+    aiUsageCounter = (aiUsageCounter + 1) % AI_USAGE_SAMPLE_N
+    if (aiUsageCounter !== 0) return
+  }
   convexUsageClient.mutation(api.users.trackEvent, {
     event: 'ai_usage',
     properties: info,

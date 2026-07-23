@@ -14,8 +14,15 @@ import type { UcpProduct } from './GlobalCatalogService'
 const MAX_CACHED = 60
 const READ_TIMEOUT_MS = 1500
 
+// Default OFF: this cache serializes whole product-array JSON blobs to Convex
+// on every search (read + write), which is the single largest Convex-bandwidth
+// consumer in the app, and on the free tier that pushes toward a paid upgrade.
+// It only ever cached FREE work (the live catalog fetch), and the in-memory
+// pool in GlobalCatalogService still absorbs repeat searches within a warm
+// instance, so turning off the Convex layer costs nothing but a re-fetch on a
+// cold start. Set SEARCH_CACHE=on to re-enable once on a plan that can afford it.
 function enabled(): boolean {
-  return (process.env.SEARCH_CACHE ?? 'on').toLowerCase() === 'on'
+  return (process.env.SEARCH_CACHE ?? 'off').toLowerCase() === 'on'
 }
 function client(): ConvexHttpClient | null {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
