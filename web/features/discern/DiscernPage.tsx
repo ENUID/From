@@ -1371,6 +1371,12 @@ function renderStylistText(
   const cleaned = text
     .replace(/^\s*\d+\.\s+/gm, '')
     .replace(/^\s*[-•]\s+/gm, '')
+    // The model sometimes bolds a product token (**[PRODUCT:0]**); since we
+    // split on the token first, those ** would be orphaned into literal "**"
+    // around the card. Unwrap any markup hugging a product token up front.
+    .replace(/\*{1,3}\s*(\[PRODUCT:\d+\])\s*\*{1,3}/g, '$1')
+    .replace(/\*{1,3}\s*(\[PRODUCT:\d+\])/g, '$1')
+    .replace(/(\[PRODUCT:\d+\])\s*\*{1,3}/g, '$1')
     .trim()
 
   // Split on [PRODUCT:N] tokens
@@ -1409,7 +1415,9 @@ function renderStylistText(
         }
         // Regular text — apply **bold** parsing
         const boldParts = seg.split(/\*\*([^*\n]+)\*\*/g)
-        if (boldParts.length === 1) return seg || null
+        // No complete **pair** in this segment: strip any leftover unpaired **
+        // so a stray marker never shows as literal asterisks.
+        if (boldParts.length === 1) { const t = seg.replace(/\*\*/g, ''); return t || null }
         return (
           <span key={si}>
             {boldParts.map((bp, bi) =>
