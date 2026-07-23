@@ -1443,19 +1443,35 @@ Never expose raw JSON outside the [WARDROBE: {...}] token. Keep the reply natura
         return finish({ reply: "I couldn't read that photo just now. Give it another go in a moment?", comparison: null })
       }
 
-      // Same self-heal the text path has below — it existed there but not
-      // here, so a photo of an item to find/buy could describe it in prose
-      // and never emit [SEARCH:]/[OUTFIT:], silently dead-ending "find this
-      // exact item" requests with no product cards and no recovery.
+      // Self-heal: a photo of an item to find/buy (or "what do I wear with
+      // this") routinely comes back as good prose that NAMES the garments but
+      // carries no [SEARCH:]/[OUTFIT:] token, so nothing renders and the
+      // shopper gets advice with no products to tap or buy — exactly the
+      // reported failure. The vision models (Gemini/Groq-vision) are weak at
+      // emitting the token grammar reliably, so instead of re-asking them, hand
+      // the analysis to the TEXT model, which is far more consistent at it:
+      // keep the vision reply's prose, and append the token it derives so the
+      // shared search pipeline below surfaces the actual pieces.
       const hasVisionToken = /\[(SEARCH|OUTFIT|COMPARE|WARDROBE):/i.test(raw)
-      const describesVisionProduct = /\b(shirt|jacket|blazer|coat|trouser|pant|jean|dress|shoe|sneaker|boot|loafer|sandal|skirt|sweater|knit|linen|cotton|wool|silk|leather|denim)\b/i.test(raw)
-      if (raw && !hasVisionToken && describesVisionProduct) {
+      const describesVisionProduct = /\b(shirt|t-?shirt|top|kurta|jacket|blazer|coat|trouser|pant|chino|short|jean|dress|shoe|sneaker|boot|loafer|sandal|skirt|sweater|knit|linen|cotton|wool|silk|leather|denim)\b/i.test(raw)
+      if (raw && !hasVisionToken && describesVisionProduct && requestDeadline - Date.now() > 16_000) {
         try {
-          const retryNudge = VISION_SYSTEM + `\n\n━━━ CORRECTION ━━━ Your last reply described clothing but did not include the required token. This time keep the lead-in to ONE short sentence and end the reply with [SEARCH: precise query] to find the exact item or closest match, or [OUTFIT: query1 | query2 | query3] for a full look — the token MUST be present, it is how the shopper actually sees and buys the pieces.`
-          const retryRaw = await wardrobeVisionChat(retryNudge, visionPrompt, images, { max_tokens: 1100, temperature: 0.2 })
-          if (retryRaw && /\[(SEARCH|OUTFIT|COMPARE|WARDROBE):/i.test(retryRaw)) raw = retryRaw
+          const tokenizerSystem = `You turn a stylist's photo analysis into ONE product token so the shopper can actually see and buy the pieces. Read the analysis and the shopper's request, then output ONLY the token, nothing else, no other words.
+• One single item they want to find or buy → [SEARCH: gender garment material colour] (e.g. [SEARCH: men navy linen shirt]).
+• A pairing or a full look (the analysis pairs the item with other pieces, or they ask "what do I wear with it") → [OUTFIT: q1 | q2 | q3], one precise query per DISTINCT category, each naming gender + garment + colour/material (e.g. [OUTFIT: men navy linen shirt | men beige linen shorts | men tan leather sandal]).
+Use concrete garment, colour, and material words only, never a brand or product name. Output the token and nothing else.`
+          const tokenMsg = await withDeadline(
+            stylistChat(
+              [{ role: 'user' as const, content: `Analysis: ${raw}\n\nShopper asked: ${question || 'find this and what to wear with it'}` }],
+              tokenizerSystem, { max_tokens: 140, temperature: 0.2 }, false,
+            ),
+            Math.min(requestDeadline - 12_000, Date.now() + 12_000),
+            null,
+          )
+          const tok = (tokenMsg?.content || '').match(/\[(?:SEARCH|OUTFIT):[^\]]+\]/i)
+          if (tok) raw = `${raw.trim()}\n${tok[0]}`
         } catch (e) {
-          console.error('[stylist] vision token self-heal retry failed:', e)
+          console.error('[stylist] vision token self-heal failed:', e)
           // Keep the original text-only reply — never block the response over this.
         }
       }
