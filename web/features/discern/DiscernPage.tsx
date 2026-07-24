@@ -2244,17 +2244,26 @@ export default function DiscernApp({
     )
     let products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
-    // "Tell me about these" with nothing newly pinned refers to the pieces
-    // pinned a turn or two ago — the pins get cleared after each send, so this
-    // follow-up would otherwise arrive with NO product data and the model would
-    // hallucinate names, brands, and colours (the reported lies). Carry the most
-    // recent turn's pinned products forward, with their REAL data, so it
-    // describes the actual pieces. Only when the caller didn't attach products
-    // for this turn AND the message clearly points back at pinned items.
-    if (productsArg === undefined && /\b(these|those|them)\b/i.test(question)) {
-      for (let k = history.length - 1; k >= 0; k--) {
-        const pp = history[k]?.pinnedProducts
-        if (pp && pp.length > 0) { products = pp; break }
+    // A follow-up about the pieces pinned a turn or two ago ("tell me about
+    // these", "the selected ones", "details of the ones I picked", "what about
+    // them") — the pins get cleared after each send, so without this the message
+    // arrives with NO product data and the model hallucinates names, brands, and
+    // colours (the reported lies). When the caller attached nothing for this
+    // turn, carry the most recent turn's pinned products forward WITH their real
+    // data, so it describes the actual pieces. Triggers on any back-reference to
+    // the pinned items, OR on a short follow-up (<= 6 words) right after a turn
+    // that had pins — both mean "keep talking about what I just pinned".
+    if (productsArg === undefined) {
+      // Clear back-references to previously-selected pieces. Kept low-false-
+      // positive on purpose: a short NEW search ("black shoes") must NOT drag
+      // the old pins in, so this matches referring phrases only, never bare
+      // garment words.
+      const refersToPinned = /\b(these|those|them|they|selected|picked|chosen)\b|\bthe (ones?|selection|products?|pieces?|items?)\b/i.test(question)
+      if (refersToPinned) {
+        for (let k = history.length - 1; k >= 0; k--) {
+          const pp = history[k]?.pinnedProducts
+          if (pp && pp.length > 0) { products = pp; break }
+        }
       }
     }
     if (!question || stylistLoading) return
