@@ -2242,8 +2242,21 @@ export default function DiscernApp({
       images.length > 0 ? 'Build me a complete outfit around these pieces.'
       : ''
     )
-    const products = productsArg ?? stylistProducts
+    let products = productsArg ?? stylistProducts
     const history  = historyArg ?? stylistMsgs
+    // "Tell me about these" with nothing newly pinned refers to the pieces
+    // pinned a turn or two ago — the pins get cleared after each send, so this
+    // follow-up would otherwise arrive with NO product data and the model would
+    // hallucinate names, brands, and colours (the reported lies). Carry the most
+    // recent turn's pinned products forward, with their REAL data, so it
+    // describes the actual pieces. Only when the caller didn't attach products
+    // for this turn AND the message clearly points back at pinned items.
+    if (productsArg === undefined && /\b(these|those|them)\b/i.test(question)) {
+      for (let k = history.length - 1; k >= 0; k--) {
+        const pp = history[k]?.pinnedProducts
+        if (pp && pp.length > 0) { products = pp; break }
+      }
+    }
     if (!question || stylistLoading) return
     setStylistInput('')
     // A one-shot attach (wardrobe photo or any other image) — shown in the
